@@ -1,0 +1,19 @@
+.top-header{
+  height:70px;
+  background:#557F87;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+  box-sizing:border-box;
+}
+.header-left{ display:flex; align-items:center; gap:12px; }
+.menu-btn{ background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; }
+.logo{ width:48px; height:48px; border-radius:6px; object-fit:cover; }
+.page-title{ margin:0; font-size:20px; font-weight:600; }
+.header-right{ display:flex; align-items:center; gap:14px; }
+.search{ display:flex; align-items:center; background:#fff; border-radius:6px; overflow:hidden; }
+.search input{ border:none; padding:8px 10px; width:200px; outline:none; }
+.search-btn{ background:#F29D52; border:none; padding:8px 10px; cursor:pointer; }
+.icons .icon{ margin-left:10px; cursor:pointer; font-size:18px; }

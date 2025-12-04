@@ -1,0 +1,50 @@
+/* Sidebar full container */
+.sidebar {
+    width: 250px;
+    height: calc(100vh - 70px); /* subtract header height */
+    background: #557F87;       /* teal background */
+    color: #fff;
+    padding: 25px 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Heading */
+.sidebar h3 {
+    margin: 0 0 25px 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+/* Remove list styling */
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Sidebar menu items */
+.sidebar ul li {
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: 0.2s ease;
+    opacity: 0.95;
+}
+
+/* Hover Effect */
+.sidebar ul li:hover {
+    background: #46696F;   /* lighter shade on hover */
+    opacity: 1;
+}
+
+/* Active Menu Style */
+.sidebar ul li.active {
+    background: #F29D52;     /* orange highlight (same in UI) */
+    color: #fff;
+    font-weight: 600;
+    opacity: 1;
+}

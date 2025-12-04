@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html ng-app="campusApp">
+
+<head>
+    <title>Campus Project</title>
+
+    <!-- AngularJS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+
+  
+    <!-- Global CSS -->
+    <!-- <link rel="stylesheet" href="app/components/login-landing-page/login-landing-page.css"> -->
+    <link rel="stylesheet" href="app/components/login/login.css">
+    <link rel="stylesheet" href="app/components/register/register.css">
+    <link rel="stylesheet" href="app/components/register-options/register-options.css">
+    <link rel="stylesheet" href="app/views/courseOffer/course-offer-form.css">
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="app/components/dashboard/dashboard.css">
+    <link rel="stylesheet" href="app/components/admin-campus/admin-campus.css">
+    <link rel="stylesheet" href="app/views/campus-registration-form/campus-registration-form.css">
+    <link rel="stylesheet" href="app/views/view-campus-profile/view-campus-profile.css">
+    <link rel="stylesheet" href="app/layout/layout.css">
+
+
+    <!-- ---------------- Font family ------------- -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- --------------------- Icons ------------------- -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+
+</head>
+
+<body>
+
+    <div ng-view></div>
+
+    <!-- App Files -->
+    <script src="app/app.module.js"></script>
+    <script src="app/app.routes.js"></script>
+
+    <!-- Components -->
+    <!-- <script src="app/components/login-landing-page/login-landing-page.controller.js"></script> -->
+    <script src="app/components/login/login.controller.js"></script>
+    <script src="app/components/register/register.controller.js"></script>
+    <script src="app/components/register-options/register-options.controller.js"></script>
+    <script src="app/components/admin-campus/admin-campus.controller.js"></script>
+   
+
+    <!-- ------------------- SIDEBAR AND HEADER ---------- -->
+    <script src="app/layout/layout.controller.js"></script>
+    <script src="app/layout/header/header.controller.js"></script>
+    <script src="app/layout/sidebar/sidebar.controller.js"></script>
+
+    <!-- ------------------------------ VIEWS -------------------- -->
+     <script src="app/views/courseOffer/course-offer-form.controller.js"></script>
+     <script src="app/views/campus-registration-form/campus-registration-form.controller.js"></script>
+     <script src="app/views/view-campus-profile/view-campus-profile.controller.js"></script>
+
+
+    <!-- --------------------- DASHBOARD  -->
+    <script src="app/components/dashboard/dashboard.controller.js"></script>
+</body>
+
+</html>
