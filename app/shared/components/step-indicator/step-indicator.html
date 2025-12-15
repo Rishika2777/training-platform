@@ -1,0 +1,18 @@
+<div class="app-step-indicator">
+    <div
+        class="app-step-item"
+        ng-repeat="step in steps track by $index"
+        ng-class="{
+            'app-step-active': isActive($index),
+            'app-step-completed': isCompleted($index),
+            'app-step-disabled': disabled && !isActive($index) && !isCompleted($index)
+        }"
+        ng-click="goToStep($index)"
+    >
+        <div class="app-step-icon">
+            <i ng-if="isCompleted($index)" class="fa fa-check"></i>
+            <span ng-if="!isCompleted($index)">{{$index + 1}}</span>
+        </div>
+        <div class="app-step-label">{{step.label}}</div>
+    </div>
+</div>

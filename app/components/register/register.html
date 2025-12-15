@@ -1,0 +1,39 @@
+<div class="register-page">
+
+    <div class="header-btn">
+        <button class="login-btn" ng-click="goLogin()">Sign In</button>
+    </div>
+
+    <div class="container">
+
+        <!-- Left Welcome Box -->
+        <div class="left-box">
+            <h2>Create Your<br>Professional Account</h2>
+            <p>
+                Join our platform and connect with your professional community.
+                Grow your network and explore new opportunities.
+            </p>
+        </div>
+
+        <!-- Register Box -->
+        <div class="right-box">
+            <h3>Register</h3>
+
+            <input type="email" ng-model="register.email" placeholder="Email" />
+            <input type="password" ng-model="register.password" placeholder="Password" />
+            <input type="password" ng-model="register.confirmPassword" placeholder="Confirm Password" />
+
+            <button class="signin-btn" ng-click="createAccount()">Register Now</button>
+
+            <div class="links">
+                <p>Already Have Account? <span ng-click="goLogin()">Sign In</span></p>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        © 2025 Clavrit Digital Solutions. All rights reserved.
+    </footer>
+
+</div>

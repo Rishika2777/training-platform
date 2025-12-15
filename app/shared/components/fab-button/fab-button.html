@@ -1,0 +1,12 @@
+<button
+    type="{{type}}"
+    class="app-fab app-fab-{{size}} app-fab-{{variant}}"
+    ng-class="{'app-fab-disabled': disabled}"
+    ng-disabled="disabled"
+    ng-click="handleClick()"
+    title="{{title}}"
+    aria-label="{{title || icon}}"
+>
+    <i ng-if="iconClass === 'fa'" class="fa fa-{{icon}}"></i>
+    <span ng-if="!iconClass || iconClass !== 'fa'">{{icon}}</span>
+</button>

@@ -1,0 +1,277 @@
+<!-- Vacancy Form Modal -->
+<app-modal visible="showVacancyModal" title="vacancy-form" size="xl" on-close="closeVacancyModal()">
+    <modal-body>
+        <div class="vacancy-form-modal-content">
+            <h3 class="modal-main-heading">Available opportunity</h3>
+
+            <!-- Job Details Section -->
+            <div class="form-section">
+                <h4 class="section-heading">Job Details</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="job-title">Job Title</label>
+                        <select
+                            id="job-title"
+                            name="job-title"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.jobTitle"
+                        >
+                            <option value="">Select Job Title</option>
+                            <option value="Software Engineer">Software Engineer</option>
+                            <option value="Frontend Developer">Frontend Developer</option>
+                            <option value="Backend Developer">Backend Developer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="job-location">Job Location</label>
+                        <select
+                            id="job-location"
+                            name="job-location"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.jobLocation"
+                        >
+                            <option value="">Select Location</option>
+                            <option value="Bangalore">Bangalore</option>
+                            <option value="Mumbai">Mumbai</option>
+                            <option value="Delhi">Delhi</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="department">Department</label>
+                        <select
+                            id="department"
+                            name="department"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.department"
+                        >
+                            <option value="">Select Department</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Marketing">Marketing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="job-type">Job Type</label>
+                        <select
+                            id="job-type"
+                            name="job-type"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.jobType"
+                        >
+                            <option value="">Select Job Type</option>
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Contract">Contract</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="salary">Salary</label>
+                        <input
+                            type="text"
+                            id="salary"
+                            name="salary"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.salary"
+                            placeholder="Enter salary"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="openings">No. of Openings</label>
+                        <select
+                            id="openings"
+                            name="openings"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.openings"
+                        >
+                            <option value="">Select Number</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="contract-duration">Contract Duration</label>
+                        <select
+                            id="contract-duration"
+                            name="contract-duration"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.contractDuration"
+                        >
+                            <option value="">Select Duration</option>
+                            <option value="6 months">6 months</option>
+                            <option value="1 year">1 year</option>
+                            <option value="2 years">2 years</option>
+                            <option value="Permanent">Permanent</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label class="form-label" for="job-description">Job Description</label>
+                        <textarea
+                            id="job-description"
+                            name="job-description"
+                            class="vacancy-textarea"
+                            rows="4"
+                            ng-model="vacancyForm.jobDescription"
+                            placeholder="Enter job description"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Eligibility Criteria Section -->
+            <div class="form-section">
+                <h4 class="section-heading">Eligibility Criteria</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="qualifications"
+                            >Required Qualifications</label
+                        >
+                        <select
+                            id="qualifications"
+                            name="qualifications"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.qualifications"
+                        >
+                            <option value="">Select Qualification</option>
+                            <option value="B.Tech">B.Tech</option>
+                            <option value="M.Tech">M.Tech</option>
+                            <option value="B.Sc">B.Sc</option>
+                            <option value="M.Sc">M.Sc</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="streams">Streams Eligible</label>
+                        <select
+                            id="streams"
+                            name="streams"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.streams"
+                        >
+                            <option value="">Select Stream</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Mechanical">Mechanical</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="min-cgpa">Minimum CGPA/percentage</label>
+                        <input
+                            type="text"
+                            id="min-cgpa"
+                            name="min-cgpa"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.minCGPA"
+                            placeholder="Enter CGPA/percentage"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="year-of-passing">Year of Passing</label>
+                        <select
+                            id="year-of-passing"
+                            name="year-of-passing"
+                            class="vacancy-input"
+                            ng-model="vacancyForm.yearOfPassing"
+                        >
+                            <option value="">Select Year</option>
+                            <option value="2023">2023</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selection Process Details Section -->
+            <div class="form-section">
+                <h4 class="section-heading">Selection Process Details</h4>
+                <div class="selection-details">
+                    <div class="selection-group">
+                        <label class="form-label">Selection Rounds</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="selection-aptitude"
+                                    name="selection-aptitude"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.selectionRounds.aptitude"
+                                />
+                                <span>Aptitude Test</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="selection-gd"
+                                    name="selection-gd"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.selectionRounds.groupDiscussion"
+                                />
+                                <span>Group Discussion</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="selection-ftf"
+                                    name="selection-ftf"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.selectionRounds.faceToFace"
+                                />
+                                <span>Face To Face</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="selection-all"
+                                    name="selection-all"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.selectionRounds.all"
+                                />
+                                <span>All</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="selection-group">
+                        <label class="form-label">Mode of Selection</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="mode-online"
+                                    name="mode-online"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.modeOfSelection.online"
+                                />
+                                <span>Online</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="mode-offline"
+                                    name="mode-offline"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.modeOfSelection.offline"
+                                />
+                                <span>Offline</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="mode-both"
+                                    name="mode-both"
+                                    class="vacancy-checkbox"
+                                    ng-model="vacancyForm.modeOfSelection.both"
+                                />
+                                <span>Both</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="btn-submit" ng-click="submitVacancyForm()">Submit</button>
+    </modal-footer>
+</app-modal>

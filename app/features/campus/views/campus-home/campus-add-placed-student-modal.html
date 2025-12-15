@@ -1,0 +1,79 @@
+<!-- Placed Students - Add Placed Student Modal -->
+<app-modal
+    visible="showAddPlacedStudentModal"
+    size="md"
+    modal-class="campus-add-placed-student-modal"
+    on-close="closeAddPlacedStudentModal()"
+>
+    <modal-header>
+        <div class="campus-modal-header-title">Placed Students</div>
+    </modal-header>
+    <modal-body>
+        <div class="campus-modal-body campus-modal-body--placed">
+            <form class="campus-modal-form campus-modal-grid" novalidate>
+                <app-input
+                    label="Student Name"
+                    type="text"
+                    ng-model="addPlacedStudentForm.studentName"
+                    placeholder=" "
+                ></app-input>
+
+                <app-input
+                    label="Student Photo"
+                    type="file"
+                    ng-model="addPlacedStudentForm.studentPhoto"
+                    accept="image/*"
+                    placeholder=" "
+                    icon="fa-paperclip"
+                    on-file-select="onStudentPhotoSelected(files)"
+                ></app-input>
+
+                <app-dropdown
+                    label="Course"
+                    ng-model="addPlacedStudentForm.course"
+                    options="placedStudentCourseOptions"
+                    placeholder=" "
+                ></app-dropdown>
+
+                <app-dropdown
+                    label="Batch"
+                    ng-model="addPlacedStudentForm.batch"
+                    options="placedStudentBatchOptions"
+                    placeholder=" "
+                ></app-dropdown>
+
+                <app-input
+                    label="Placement Company"
+                    type="text"
+                    ng-model="addPlacedStudentForm.placementCompany"
+                    placeholder=" "
+                ></app-input>
+
+                <app-dropdown
+                    label="Designation"
+                    ng-model="addPlacedStudentForm.designation"
+                    options="placedStudentDesignationOptions"
+                    placeholder=" "
+                ></app-dropdown>
+
+                <div class="campus-modal-grid-span-1">
+                    <app-dropdown
+                        label="Sector"
+                        ng-model="addPlacedStudentForm.sector"
+                        options="placedStudentSectorOptions"
+                        placeholder=" "
+                    ></app-dropdown>
+                </div>
+                <div
+                    class="campus-modal-grid-span-1 campus-modal-grid-spacer"
+                    aria-hidden="true"
+                ></div>
+            </form>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="campus-modal-submit" type="button" ng-click="submitAddPlacedStudent()">
+            Submit
+        </button>
+    </modal-footer>
+</app-modal>

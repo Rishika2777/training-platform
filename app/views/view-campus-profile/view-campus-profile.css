@@ -1,0 +1,86 @@
+
+
+/* White form box */
+.profile-container {
+    width: 70%;
+    background: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    position: relative;
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Close button */
+.close-btn {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    border: none;
+    background: transparent;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+/* Image */
+.image-wrapper {
+    display: flex;
+    justify-content: center;
+}
+.campus-photo {
+    width: 200px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+/* Approve Reject Buttons */
+.status-btns {
+    text-align: center;
+    margin-top: 10px;
+}
+.approve-btn, .reject-btn {
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    margin: 0 5px;
+}
+.approve-btn { background: #b8f5c2; }
+.reject-btn { background: #f5b8b8; }
+
+/* Form fields */
+.profile-grid {
+    margin-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 15px 25px;
+}
+.form-group label {
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1.5px solid #ff7b00;
+    border-radius: 6px;
+}
+.full {
+    grid-column: span 3;
+}
+
+/* Footer buttons */
+.action-btns {
+    margin-top: 20px;
+    text-align: center;
+}
+.edit-btn, .save-btn {
+    padding: 8px 25px;
+    border-radius: 20px;
+    border: none;
+    margin: 0 8px;
+    cursor: pointer;
+}
+.edit-btn { background: #d2f2ff; }
+.save-btn { background: #bdfccc; }

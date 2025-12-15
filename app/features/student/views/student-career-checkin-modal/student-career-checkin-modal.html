@@ -1,0 +1,75 @@
+<!-- Career Check-In Modal -->
+<app-modal
+    visible="showCareerCheckinModal"
+    title="Career check-in"
+    size="md"
+    on-close="closeCareerCheckinModal()"
+>
+    <modal-body>
+        <div class="career-checkin-modal-content">
+            <div class="form-row">
+                <div class="form-group">
+                    <app-input
+                        label="Company Name"
+                        type="text"
+                        ng-model="careerForm.companyName"
+                        placeholder="Enter company name"
+                    ></app-input>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <app-dropdown
+                        label="Job Title"
+                        ng-model="careerForm.jobTitle"
+                        options="jobTitleOptions"
+                        option-value="value"
+                        option-label="label"
+                        placeholder="Select job title"
+                    ></app-dropdown>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <app-input
+                        label="Start Date"
+                        type="date"
+                        ng-model="careerForm.startDate"
+                    ></app-input>
+                </div>
+                <div class="form-group">
+                    <app-input
+                        label="End Date"
+                        type="date"
+                        ng-model="careerForm.endDate"
+                    ></app-input>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            id="currently-working"
+                            class="career-checkbox"
+                            ng-model="careerForm.currentlyWorking"
+                        />
+                        <span>I am currently working here</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input
+                            type="checkbox"
+                            id="recn-helped"
+                            class="career-checkbox"
+                            ng-model="careerForm.recnHelped"
+                        />
+                        <span>RecN helped me to get this job</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="btn-submit" ng-click="updateCareerCheckin()">Update</button>
+    </modal-footer>
+</app-modal>

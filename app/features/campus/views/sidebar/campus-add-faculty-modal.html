@@ -1,0 +1,167 @@
+<!-- Add Faculty Modal -->
+<app-modal
+    visible="showAddFacultyModal"
+    title="Add Faculty Form"
+    size="xl"
+    modal-class="add-faculty-modal"
+    on-close="closeAddFacultyModal()"
+>
+    <modal-body>
+        <div class="add-faculty-modal-content">
+            <div class="add-faculty-section">
+                <div class="add-faculty-section-title">Basic Information</div>
+
+                <div class="add-faculty-grid add-faculty-grid-3">
+                    <div class="add-faculty-field">
+                        <app-input
+                            label="Full Name"
+                            placeholder=""
+                            type="text"
+                            required="true"
+                            ng-model="facultyForm.fullName"
+                        ></app-input>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-input
+                            label="Upload Photo"
+                            placeholder="Choose file"
+                            type="file"
+                            accept="image/*"
+                            icon="none"
+                            ng-model="facultyForm.photoFile"
+                            on-file-select="onFacultyPhotoSelected(files)"
+                        ></app-input>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-input
+                            label="Email"
+                            placeholder=""
+                            type="email"
+                            required="true"
+                            ng-model="facultyForm.email"
+                        ></app-input>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-input
+                            label="Date of Birth"
+                            placeholder=""
+                            type="date"
+                            required="true"
+                            ng-model="facultyForm.dob"
+                        ></app-input>
+                    </div>
+                </div>
+            </div>
+
+            <div class="add-faculty-section">
+                <div class="add-faculty-section-title">Professional Information</div>
+
+                <div class="add-faculty-grid add-faculty-grid-3">
+                    <div class="add-faculty-field">
+                        <app-dropdown
+                            label="Designation"
+                            ng-model="facultyForm.designation"
+                            options="facultyDesignationOptions"
+                            placeholder=""
+                        ></app-dropdown>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-dropdown
+                            label="Department"
+                            ng-model="facultyForm.department"
+                            options="facultyDepartmentOptions"
+                            placeholder=""
+                        ></app-dropdown>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-dropdown
+                            label="Specialization"
+                            ng-model="facultyForm.specialization"
+                            options="facultySpecializationOptions"
+                            placeholder=""
+                        ></app-dropdown>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-dropdown
+                            label="Years Of Experience"
+                            ng-model="facultyForm.experienceYears"
+                            options="facultyExperienceOptions"
+                            placeholder=""
+                        ></app-dropdown>
+                    </div>
+
+                    <div class="add-faculty-field">
+                        <app-input
+                            label="Qualifications"
+                            placeholder=""
+                            type="text"
+                            ng-model="facultyForm.qualifications"
+                        ></app-input>
+                    </div>
+
+                    <div class="add-faculty-field add-faculty-certificates">
+                        <div class="add-faculty-certificates-header">
+                            <div class="add-faculty-certificates-label">Certificates</div>
+                            <button
+                                type="button"
+                                class="add-faculty-add-btn"
+                                ng-click="addFacultyCertificate()"
+                                aria-label="Add certificate"
+                            >
+                                <i class="fa fa-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="add-faculty-certificates-list">
+                            <div
+                                class="add-faculty-certificate-row"
+                                ng-repeat="cert in facultyForm.certificates track by $index"
+                            >
+                                <app-input
+                                    label=""
+                                    placeholder=""
+                                    type="text"
+                                    ng-model="facultyForm.certificates[$index]"
+                                ></app-input>
+                                <button
+                                    type="button"
+                                    class="add-faculty-remove-btn"
+                                    ng-if="facultyForm.certificates.length > 1"
+                                    ng-click="removeFacultyCertificate($index)"
+                                    aria-label="Remove certificate"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </modal-body>
+
+    <modal-footer>
+        <div class="add-faculty-actions">
+            <button
+                type="button"
+                class="add-faculty-btn add-faculty-btn-cancel"
+                ng-click="closeAddFacultyModal()"
+            >
+                Cancel
+            </button>
+            <button
+                type="button"
+                class="add-faculty-btn add-faculty-btn-submit"
+                ng-click="submitAddFaculty()"
+            >
+                Submit
+            </button>
+        </div>
+    </modal-footer>
+</app-modal>

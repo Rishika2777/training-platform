@@ -1,0 +1,96 @@
+<!-- PROFILE VIEW MODAL -->
+
+    <div class="profile-container">
+
+        <!-- CLOSE BUTTON -->
+        <button class="close-btn" ng-click="closeCampusProfile()">×</button>
+
+        <!-- IMAGE -->
+        <div class="image-wrapper">
+            <img ng-src="{{selectedCampus.image}}" class="campus-photo">
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="status-btns">
+            <button class="approve-btn">Approve</button>
+            <button class="reject-btn">Reject</button>
+        </div>
+
+        <!-- FORM FIELDS -->
+        <div class="profile-grid">
+
+            <div class="form-group">
+                <label>Campus Name</label>
+                <input type="text" ng-model="selectedCampus.campusName">
+            </div>
+
+            <div class="form-group">
+                <label>Campus Rank</label>
+                <input type="text" ng-model="selectedCampus.rank">
+            </div>
+
+            <div class="form-group">
+                <label>Admin Name</label>
+                <input type="text" ng-model="selectedCampus.adminName">
+            </div>
+
+            <div class="form-group">
+                <label>Admin Email</label>
+                <input type="email" ng-model="selectedCampus.email">
+            </div>
+
+            <div class="form-group">
+                <label>Admin Phone No.</label>
+                <input type="text" ng-model="selectedCampus.phone">
+            </div>
+
+            <div class="form-group">
+                <label>Admin Dept</label>
+                <input type="text" ng-model="selectedCampus.department">
+            </div>
+
+            <div class="form-group">
+                <label>Admin Designation</label>
+                <input type="text" ng-model="selectedCampus.designation">
+            </div>
+
+            <div class="form-group">
+                <label>Campus Website URL</label>
+                <input type="text" ng-model="selectedCampus.website">
+            </div>
+
+            <div class="form-group">
+                <label>Other Website URL</label>
+                <input type="text" ng-model="selectedCampus.otherWebsite">
+            </div>
+
+            <div class="form-group full">
+                <label>About Campus</label>
+                <textarea ng-model="selectedCampus.about"></textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>Campus Address</label>
+                <textarea ng-model="selectedCampus.address"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Campus Tagline</label>
+                <input type="text" ng-model="selectedCampus.tagline">
+            </div>
+
+            <div class="form-group">
+                <label>Research</label>
+                <input type="text" ng-model="selectedCampus.research">
+            </div>
+
+        </div>
+
+        <div class="action-btns">
+            <button class="edit-btn">Edit</button>
+            <button class="save-btn">Save</button>
+        </div>
+
+    </div>
+
+ 

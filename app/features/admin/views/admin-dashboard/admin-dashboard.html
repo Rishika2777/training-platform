@@ -1,0 +1,190 @@
+<div class="admin-dashboard-page">
+    <!-- Announcement Banner -->
+    <div class="announcement-wrapper">
+        <app-announcement-card
+            date="Januray 7th, 2025"
+            title="Synkup Annoucement"
+        ></app-announcement-card>
+        <div class="announcement-actions">
+            <app-button
+                variant="announcement-add"
+                label="Add New ReN Announcement"
+                icon="fa-plus"
+                onClick="openAddAnnouncementModal()"
+            >
+            </app-button>
+            <app-button
+                variant="announcement-remove"
+                label="Remove"
+                icon="fa-minus"
+                onClick="removeAnnouncement()"
+            >
+            </app-button>
+        </div>
+    </div>
+
+    <!-- Post input -->
+    <div class="post-input-wrapper post-input-wrapper--figma">
+        <div class="composer">
+            <input
+                class="composer-input"
+                type="text"
+                placeholder="what's on your mind?"
+                ng-model="postContent"
+            />
+            <div class="composer-actions">
+                <i
+                    class="fa fa-image post-icon"
+                    role="button"
+                    tabindex="0"
+                    ng-click="attachImage()"
+                ></i>
+                <i
+                    class="fa fa-map-marker-alt post-icon"
+                    role="button"
+                    tabindex="0"
+                    ng-click="attachLocation()"
+                ></i>
+                <button class="post-submit-btn post-submit-btn--square" ng-click="submitPost()">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+                <i class="fa fa-filter filter-icon" role="button" tabindex="0"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-content-wrapper">
+        <div class="dashboard-row">
+            <!-- Post card -->
+            <div class="post-card">
+                <div class="post-header">
+                    <img src="user.jpg" class="user-pic" />
+                    <div>
+                        <strong>Ankitha Wilson</strong>
+                        <p>1d</p>
+                    </div>
+                </div>
+
+                <img src="campus.jpg" class="post-image" />
+
+                <p class="post-text">
+                    Campus life isn't just about lectures and exams—it's about growth, friendships,
+                    and unforgettable experiences! From engaging classroom discussions to late-night
+                    study sessions, from club activities to spontaneous hangouts…
+                </p>
+
+                <div class="post-footer">
+                    <span>👍</span>
+                    <span>⚠️</span>
+                </div>
+            </div>
+
+            <!-- Right section -->
+            <div class="right-sidebar">
+                <div class="sidebar-section">
+                    <div class="sidebar-header">
+                        <h4>Courses We Offer</h4>
+                        <app-fab-button
+                            size="sm"
+                            variant="primary"
+                            icon="plus"
+                            title="Add"
+                            on-click="openCourseForm()"
+                        ></app-fab-button>
+                    </div>
+                    <app-carousel
+                        type="pagination"
+                        current-page="coursesCarousel.currentPage"
+                        total-pages="coursesCarousel.totalPages"
+                        max-visible="6"
+                        on-page-change="onCoursesPageChange(page)"
+                    >
+                        <div class="companies-grid">
+                            <div class="company-box add-company" ng-click="openCourseForm()">
+                                <i class="fa fa-plus"></i>
+                            </div>
+                            <div class="company-box"></div>
+                            <div class="company-box"></div>
+                        </div>
+                    </app-carousel>
+                </div>
+
+                <div class="sidebar-section">
+                    <h4>News and Updates</h4>
+                    <div class="notice-card">
+                        <h5 class="notice-subtitle">Upcoming Placements</h5>
+                        <p>Sorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <p>Sorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <a href="#" class="see-more-link">See more</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Form Modal -->
+    <app-modal
+        visible="showCourseFormModal"
+        title="Enter Course Details"
+        size="md"
+        modal-class="admin-course-form-modal"
+        on-close="closeCourseForm()"
+    >
+        <modal-body>
+            <div class="admin-course-form">
+                <div class="admin-course-form-grid">
+                    <div class="admin-course-form-field">
+                        <app-input
+                            label="Course Name"
+                            type="text"
+                            placeholder=""
+                            ng-model="courseForm.name"
+                        ></app-input>
+                    </div>
+
+                    <div class="admin-course-form-field">
+                        <app-input
+                            label="Category"
+                            type="text"
+                            placeholder=""
+                            ng-model="courseForm.category"
+                        ></app-input>
+                    </div>
+
+                    <div class="admin-course-form-field">
+                        <app-input
+                            label="Upload Photo"
+                            type="file"
+                            placeholder=" "
+                            accept="image/*"
+                            icon="fa-paperclip"
+                            ng-model="courseForm.photo"
+                            on-file-select="onCoursePhotoSelected(files)"
+                        ></app-input>
+                    </div>
+
+                    <div class="admin-course-form-field">
+                        <app-input
+                            label="Course Duration"
+                            type="text"
+                            placeholder=""
+                            ng-model="courseForm.duration"
+                        ></app-input>
+                    </div>
+
+                    <div class="admin-course-form-field admin-course-form-field-full">
+                        <app-textarea
+                            label="Description"
+                            placeholder=""
+                            rows="4"
+                            ng-model="courseForm.description"
+                        ></app-textarea>
+                    </div>
+                </div>
+            </div>
+        </modal-body>
+        <modal-footer>
+            <button class="admin-course-form-submit" ng-click="submitCourseForm()">Submit</button>
+        </modal-footer>
+    </app-modal>
+</div>

@@ -1,0 +1,103 @@
+.app-announcement-card {
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    margin: 0;
+    box-shadow: var(--shadow-md);
+    display: block;
+}
+
+.app-announcement-primary {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.app-announcement-secondary {
+    background-color: var(--color-secondary);
+    color: var(--color-white);
+}
+
+.app-announcement-content {
+    text-align: center;
+}
+
+.app-announcement-date {
+    margin: 0 0 var(--spacing-sm) 0;
+    padding: 0;
+    font-size: var(--font-sm);
+    opacity: 0.9;
+    text-align: left;
+}
+
+.app-announcement-title {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-xxl);
+    font-weight: var(--font-bold);
+    color: inherit;
+}
+
+.app-announcement-description {
+    margin: 0;
+    font-size: var(--font-md);
+    opacity: 0.9;
+    line-height: 1.6;
+}
+
+.app-announcement-indicators {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-md);
+}
+
+.app-announcement-indicators span {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background-color: var(--color-secondary);
+    opacity: 0.7;
+}
+
+.app-announcement-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+    justify-content: center;
+    padding-top: var(--spacing-lg);
+}
+
+.app-announcement-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--font-md);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    outline: none;
+}
+
+.app-announcement-btn:focus {
+    outline: 2px solid var(--color-white);
+    outline-offset: 2px;
+}
+
+.app-announcement-btn-add {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.app-announcement-btn-add:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.app-announcement-btn-remove {
+    background-color: var(--color-secondary);
+    color: var(--color-white);
+}
+
+.app-announcement-btn-remove:hover {
+    background-color: var(--color-secondary-dark);
+}

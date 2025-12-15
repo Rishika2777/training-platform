@@ -1,0 +1,55 @@
+/* Dream Job Toolkit Modal Styles */
+.dream-job-toolkit-modal .app-modal-close {
+    background: #ff6b35 !important;
+    border: none;
+}
+
+.dream-job-toolkit-modal .app-modal-close:hover {
+    background: #e55a2b !important;
+}
+
+.dream-job-toolkit-modal-content {
+    padding: 0;
+    margin-top: var(--spacing-sm);
+}
+
+.toolkit-title {
+    font-size: var(--font-xl);
+    font-weight: var(--font-semibold);
+    color: #557f87;
+    margin: 0 0 var(--spacing-lg) 0;
+}
+
+.toolkit-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.toolkit-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) 0;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    background: transparent;
+    border: none;
+}
+
+.toolkit-item:hover {
+    opacity: 0.8;
+}
+
+.toolkit-item-label {
+    font-size: var(--font-md);
+    color: #ff6b35;
+    font-weight: var(--font-medium);
+    flex: 1;
+}
+
+.toolkit-arrow {
+    color: #666;
+    font-size: var(--font-sm);
+    margin-left: var(--spacing-sm);
+}

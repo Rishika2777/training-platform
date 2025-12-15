@@ -1,0 +1,31 @@
+<div class="settings-page">
+    <div class="settings-page-sidebar">
+        <div class="settings-page-title">Settings</div>
+
+        <button
+            type="button"
+            class="settings-page-nav-item"
+            ng-repeat="s in sections"
+            ng-class="{ 'is-active': activeSection === s.id, 'is-danger': s.tone === 'danger' }"
+            ng-click="goToSection(s)"
+        >
+            <span>{{ s.label }}</span>
+            <span class="settings-page-nav-chevron">&raquo;</span>
+        </button>
+    </div>
+
+    <div class="settings-page-content">
+        <div class="settings-section">
+            <h2 class="settings-section-title">
+                {{ (activeSectionConfig && activeSectionConfig.label) || 'Settings' }}
+            </h2>
+            <p class="settings-section-text" ng-if="activeSectionConfig">
+                {{ (activeSectionConfig && activeSectionConfig.label) }} screen (API integration
+                pending).
+            </p>
+            <p class="settings-section-text" ng-if="!activeSectionConfig">
+                Select an option from the left.
+            </p>
+        </div>
+    </div>
+</div>

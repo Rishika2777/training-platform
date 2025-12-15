@@ -1,0 +1,62 @@
+<!-- Benefits Offer Modal -->
+<app-modal
+    visible="showBenefitsModal"
+    title="Benefits Offer"
+    size="xl"
+    on-close="closeBenefitsModal()"
+>
+    <modal-body>
+        <div class="benefits-modal-content">
+            <div class="benefits-input-row">
+                <div class="benefit-input-group">
+                    <label class="benefit-label" for="intern-to-job-rate">Intern-to-Job Rate</label>
+                    <select
+                        id="intern-to-job-rate"
+                        name="intern-to-job-rate"
+                        class="benefit-input"
+                        ng-model="modalBenefitsData.internToJobRate"
+                    >
+                        <option value="">Select Rate</option>
+                        <option value="85%">85%</option>
+                        <option value="90%">90%</option>
+                        <option value="95%">95%</option>
+                    </select>
+                </div>
+                <div class="benefit-input-group">
+                    <label class="benefit-label" for="starting-salary">Starting Salary Range</label>
+                    <select
+                        id="starting-salary"
+                        name="starting-salary"
+                        class="benefit-input"
+                        ng-model="modalBenefitsData.startingSalary"
+                    >
+                        <option value="">Select Range</option>
+                        <option value="5,00,000">5,00,000</option>
+                        <option value="6,00,000">6,00,000</option>
+                        <option value="7,00,000">7,00,000</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="benefits-descriptions">
+                <div
+                    class="benefit-description-item"
+                    ng-repeat="benefit in modalBenefitsData.benefits track by $index"
+                >
+                    <h4 class="benefit-title">{{ benefit.title }}</h4>
+                    <textarea
+                        id="benefit-desc-{{$index}}"
+                        name="benefit-desc-{{$index}}"
+                        class="benefit-description-box"
+                        rows="3"
+                        ng-model="benefit.description"
+                        placeholder="Enter description..."
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="btn-submit" ng-click="submitBenefits()">Submit</button>
+    </modal-footer>
+</app-modal>

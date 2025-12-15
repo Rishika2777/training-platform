@@ -1,0 +1,244 @@
+<div class="company-home-page">
+    <!-- Announcement Banner -->
+    <div class="announcement-wrapper">
+        <app-announcement-card
+            date="January 7th, 2025"
+            title="Synkup Announcement"
+        ></app-announcement-card>
+    </div>
+
+    <div class="company-home-grid">
+        <!-- Left section -->
+        <div class="company-home-left">
+            <!-- Key People -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <h3>Key people</h3>
+                    <i class="fa fa-filter"></i>
+                </div>
+                <app-carousel
+                    type="pagination"
+                    current-page="keyPeopleCarousel.currentPage"
+                    total-pages="keyPeopleCarousel.totalPages"
+                    max-visible="6"
+                    on-page-change="onKeyPeoplePageChange(page)"
+                >
+                    <div class="avatar-row">
+                        <div class="avatar-item" ng-repeat="person in keyPeople">
+                            <div class="avatar-ring">
+                                <div class="avatar-initial">{{ person.name.charAt(0) }}</div>
+                            </div>
+                            <div class="avatar-label">{{ person.name }}</div>
+                            <div class="avatar-sub">{{ person.designation }}</div>
+                        </div>
+                    </div>
+                </app-carousel>
+            </div>
+
+            <!-- Post Input -->
+            <div class="post-input-wrapper post-input-wrapper--figma">
+                <div class="composer">
+                    <input
+                        class="composer-input"
+                        type="text"
+                        placeholder="what's on your mind?"
+                        ng-model="postContent"
+                    />
+                    <div class="composer-actions">
+                        <i class="fa fa-image post-icon" role="button" tabindex="0"></i>
+                        <i class="fa fa-map-marker-alt post-icon" role="button" tabindex="0"></i>
+                        <button
+                            class="post-submit-btn post-submit-btn--square"
+                            ng-click="submitPost()"
+                        >
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                        <i class="fa fa-filter filter-icon" role="button" tabindex="0"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Posts Section -->
+            <div class="posts-section">
+                <div class="post-card" ng-repeat="post in posts">
+                    <div class="post-header">
+                        <div class="user-avatar">{{ post.author.charAt(0) }}</div>
+                        <div class="user-info">
+                            <strong>{{ post.author }}</strong>
+                            <p>{{ post.timeAgo }}</p>
+                        </div>
+                    </div>
+                    <div class="post-body">
+                        <div class="post-thumb">
+                            <i class="fa fa-image"></i>
+                        </div>
+                        <p class="post-text">{{ post.text }}</p>
+                    </div>
+                    <div class="post-footer">
+                        <span><i class="fa fa-thumbs-up"></i></span>
+                        <span><i class="fa fa-exclamation-circle"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right section -->
+        <div class="company-home-right">
+            <div class="right-sidebar">
+                <!-- Clients -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header">
+                        <h4>Clients of our company</h4>
+                        <i class="fa fa-filter"></i>
+                    </div>
+                    <app-carousel
+                        type="pagination"
+                        current-page="clientsCarousel.currentPage"
+                        total-pages="clientsCarousel.totalPages"
+                        max-visible="6"
+                        on-page-change="onClientsPageChange(page)"
+                    >
+                        <div class="companies-grid companies-grid--2">
+                            <div class="company-box add-company" ng-click="addClient()">
+                                <i class="fa fa-plus"></i>
+                            </div>
+                            <div
+                                class="company-box"
+                                ng-repeat="client in clients track by client.id"
+                            ></div>
+                        </div>
+                    </app-carousel>
+                </div>
+
+                <!-- News and Updates -->
+                <div class="sidebar-section">
+                    <h4>News and Updates</h4>
+                    <div class="news-card" ng-repeat="news in newsUpdates">
+                        <h5 class="news-subtitle">{{ news.title }}</h5>
+                        <p>{{ news.content }}</p>
+                        <a href="#" class="see-more-link">See more</a>
+                    </div>
+                </div>
+
+                <!-- Preferred Campus -->
+                <div class="sidebar-section">
+                    <div class="sidebar-header">
+                        <h4>Preferred Campus</h4>
+                        <i class="fa fa-filter"></i>
+                    </div>
+                    <app-carousel
+                        type="pagination"
+                        current-page="preferredCampusesCarousel.currentPage"
+                        total-pages="preferredCampusesCarousel.totalPages"
+                        max-visible="6"
+                        on-page-change="onPreferredCampusesPageChange(page)"
+                    >
+                        <div class="companies-grid">
+                            <div class="company-box add-company" ng-click="addPreferredCampus()">
+                                <i class="fa fa-plus"></i>
+                            </div>
+                            <div
+                                class="company-box"
+                                ng-repeat="campus in preferredCampuses track by campus.id"
+                            ></div>
+                        </div>
+                    </app-carousel>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals - Included from separate files -->
+    <div
+        ng-include="'app/features/company/views/company-specialization/company-specialization-modal.html'"
+    ></div>
+    <div
+        ng-include="'app/features/company/views/company-vision-performance/company-vision-performance-modal.html'"
+    ></div>
+    <div
+        ng-include="'app/features/company/views/company-benefits/company-benefits-modal.html'"
+    ></div>
+    <div
+        ng-include="'app/features/company/views/company-current-vacancy/company-current-vacancy-modal.html'"
+    ></div>
+
+    <!-- Add Client Modal -->
+    <app-modal
+        visible="showAddClientModal"
+        title="Clients Of Our Company"
+        size="md"
+        modal-class="company-add-client-modal"
+        on-close="closeAddClientModal()"
+    >
+        <modal-body>
+            <div class="company-simple-modal-content">
+                <div class="company-simple-modal-field">
+                    <app-input
+                        label="Logo"
+                        type="file"
+                        placeholder=" "
+                        accept="image/*"
+                        icon="fa-paperclip"
+                        ng-model="clientForm.logoFile"
+                        on-file-select="onClientLogoSelected(files)"
+                    ></app-input>
+                </div>
+                <div class="company-simple-modal-field">
+                    <app-input
+                        label="Client Name"
+                        type="text"
+                        placeholder=""
+                        ng-model="clientForm.clientName"
+                    ></app-input>
+                </div>
+            </div>
+        </modal-body>
+        <modal-footer>
+            <button type="button" class="company-simple-modal-submit" ng-click="submitClient()">
+                Submit
+            </button>
+        </modal-footer>
+    </app-modal>
+
+    <!-- Add Preferred Campus Modal -->
+    <app-modal
+        visible="showAddPreferredCampusModal"
+        title="Preferred Campus"
+        size="md"
+        modal-class="company-add-campus-modal"
+        on-close="closeAddPreferredCampusModal()"
+    >
+        <modal-body>
+            <div class="company-simple-modal-content">
+                <div class="company-simple-modal-field">
+                    <app-input
+                        label="Upload photo"
+                        type="file"
+                        placeholder=" "
+                        accept="image/*"
+                        icon="fa-paperclip"
+                        ng-model="preferredCampusForm.photoFile"
+                        on-file-select="onPreferredCampusPhotoSelected(files)"
+                    ></app-input>
+                </div>
+                <div class="company-simple-modal-field">
+                    <app-input
+                        label="Campus Name"
+                        type="text"
+                        placeholder=""
+                        ng-model="preferredCampusForm.campusName"
+                    ></app-input>
+                </div>
+            </div>
+        </modal-body>
+        <modal-footer>
+            <button
+                type="button"
+                class="company-simple-modal-submit"
+                ng-click="submitPreferredCampus()"
+            >
+                Submit
+            </button>
+        </modal-footer>
+    </app-modal>
+</div>

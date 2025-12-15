@@ -1,0 +1,55 @@
+<div class="admin-page">
+    <!-- Announcement Banner -->
+    <div class="announcement-wrapper">
+        <app-announcement-card date="January 7th, 2025" title="Synkup Announcement">
+        </app-announcement-card>
+    </div>
+
+    <div class="admin-page-header">
+        <h1 class="admin-page-title">Registered Companies</h1>
+        <app-fab-button
+            icon="plus"
+            size="md"
+            onClick="openAddCompanyModal()"
+            title="Add New Company"
+        >
+        </app-fab-button>
+    </div>
+
+    <div class="admin-cards-grid" ng-if="!loading && companies.length > 0">
+        <app-card
+            ng-repeat="company in companies"
+            image-src="{{company.image || 'assets/images/company-placeholder.jpg'}}"
+            image-shape="rectangle"
+            title="{{company.name || 'Company Name'}}"
+        >
+            <div card-actions>
+                <app-card-action
+                    label="View"
+                    variant="view"
+                    onClick="viewCompany(company)"
+                ></app-card-action>
+                <app-card-action
+                    label="Delete"
+                    variant="delete"
+                    onClick="deleteCompany(company)"
+                ></app-card-action>
+            </div>
+        </app-card>
+    </div>
+
+    <div class="admin-empty-state" ng-if="!loading && companies.length === 0">
+        <p>No companies registered yet.</p>
+    </div>
+
+    <div class="admin-loading" ng-if="loading">
+        <p>Loading companies...</p>
+    </div>
+
+    <app-pagination
+        ng-if="totalPages > 1"
+        current-page="currentPage"
+        total-pages="totalPages"
+        on-page-change="onPageChange(page)"
+    ></app-pagination>
+</div>

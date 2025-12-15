@@ -1,0 +1,87 @@
+<!-- Student Sidebar Bottom -->
+<div class="sidebar-after-menu">
+    <div class="sidebar-section sidebar-section--student">
+        <button type="button" class="sidebar-cta" ng-click="handleQuizHub()">
+            <span>QuizHub</span>
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+
+        <div class="sidebar-ideas">
+            <div class="sidebar-ideas-title">
+                <i class="fa fa-lightbulb"></i>
+                <span>Your Ideas Matter!</span>
+            </div>
+            <button
+                type="button"
+                class="sidebar-cta sidebar-cta--secondary"
+                ng-click="handleSubmitIdea()"
+            >
+                <span>Submit Now</span>
+                <i class="fa fa-angle-double-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Submit Idea Modal -->
+    <app-modal
+        visible="showSubmitIdeaModal"
+        title=""
+        size="lg"
+        modal-class="student-submit-idea-modal"
+        on-close="closeSubmitIdeaModal()"
+    >
+        <modal-body>
+            <div class="student-submit-idea-content">
+                <h3 class="student-submit-idea-headline">Your Ideas Shape the Future</h3>
+                <p class="student-submit-idea-subheadline">Share Them with Us!</p>
+
+                <p class="student-submit-idea-helper">
+                    Download the template and update each section based on your ideas.
+                </p>
+
+                <button
+                    type="button"
+                    class="student-submit-idea-download"
+                    ng-click="downloadIdeaTemplate()"
+                >
+                    Download Now
+                </button>
+
+                <p class="student-submit-idea-upload-instruction">
+                    Upload the document, and let’s turn your vision into reality!
+                </p>
+
+                <div class="student-submit-idea-upload-area">
+                    <app-input
+                        type="file"
+                        ng-model="ideaForm.documentFile"
+                        accept=".pdf,.doc,.docx"
+                        placeholder="Drop the document here"
+                        icon="fa-plus"
+                        on-file-select="onIdeaDocumentSelected(files)"
+                    ></app-input>
+                </div>
+
+                <div class="student-submit-idea-description">
+                    <div class="student-submit-idea-description-label">
+                        <span>Describe Your Idea</span>
+                        <span class="student-submit-idea-description-limit">
+                            (Not more than 100 words)
+                        </span>
+                    </div>
+                    <textarea
+                        class="student-submit-idea-textarea"
+                        rows="4"
+                        ng-model="ideaForm.description"
+                        placeholder=""
+                    ></textarea>
+                </div>
+            </div>
+        </modal-body>
+        <modal-footer>
+            <button type="button" class="student-submit-idea-submit" ng-click="submitIdea()">
+                Submit
+            </button>
+        </modal-footer>
+    </app-modal>
+</div>

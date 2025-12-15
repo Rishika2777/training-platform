@@ -1,0 +1,494 @@
+<div class="campus-about-page">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-background">
+            <img src="assets/images/campus-hero.jpg" alt="Campus Building" />
+        </div>
+        <div class="hero-content">
+            <h1 class="hero-headline">Shaping the Future Through Education and Innovation</h1>
+            <div class="hero-buttons">
+                <button class="btn-hero">Visit Campus <i class="fa fa-chevron-right"></i></button>
+                <button class="btn-hero">Read More <i class="fa fa-chevron-right"></i></button>
+            </div>
+        </div>
+        <div class="hero-stats-bar">
+            <span>25 Promotions, <strong>100 Followers</strong>—The Journey Thrives!</span>
+        </div>
+    </div>
+
+    <!-- Campus Insights Section -->
+    <div class="section-container">
+        <h2 class="section-title">Campus Insights</h2>
+        <div class="insights-content">
+            <div class="insights-left">
+                <div class="insights-image">
+                    <img src="assets/images/campus-building.jpg" alt="Campus Building" />
+                </div>
+                <button class="btn-download-prospectus">
+                    <i class="fa fa-plus"></i> Download Prospectus
+                </button>
+            </div>
+            <div class="insights-text">
+                <p>
+                    Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
+                    Ipsum has been the industry's standard dummy text ever since the 1500s, when an
+                    unknown printer took a galley of type and scrambled it to make a type specimen
+                    book.
+                </p>
+                <p>
+                    It has survived not only five centuries, but also the leap into electronic
+                    typesetting, remaining essentially unchanged. It was popularised in the 1960s
+                    with the release of Letraset sheets containing Lorem Ipsum passages, and more
+                    recently with desktop publishing software like Aldus PageMaker including
+                    versions of Lorem Ipsum.
+                </p>
+                <p>
+                    Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots
+                    in a piece of classical Latin literature from 45 BC, making it over 2000 years
+                    old.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Our Rising Stars Section -->
+    <div class="section-container">
+        <h2 class="section-title">Our Rising Stars</h2>
+        <app-carousel
+            type="pagination"
+            current-page="risingStarsPage"
+            total-pages="risingStarsTotalPages"
+            on-page-change="onRisingStarsPageChange(page)"
+        >
+            <div class="stars-list">
+                <div
+                    class="star-item"
+                    ng-repeat="star in risingStars | limitTo: risingStarsPageSize : (risingStarsPage - 1) * risingStarsPageSize"
+                >
+                    <div class="star-avatar">
+                        <img ng-if="star.image" ng-src="{{ star.image }}" alt="{{ star.name }}" />
+                        <div ng-if="!star.image" class="star-avatar-placeholder">
+                            {{ star.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="star-name">{{ star.name }} ({{ star.id }})</p>
+                    <p class="star-location">{{ star.location }}</p>
+                </div>
+            </div>
+        </app-carousel>
+    </div>
+
+    <!-- Research Section -->
+    <div class="research-section">
+        <h2 class="section-title">Research</h2>
+        <div class="research-content">
+            <p>
+                Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
+                Ipsum has been the industry's standard dummy text ever since the 1500s, when an
+                unknown printer took a galley of type and scrambled it to make a type specimen book.
+            </p>
+            <p>
+                It has survived not only five centuries, but also the leap into electronic
+                typesetting, remaining essentially unchanged. It was popularised in the 1960s with
+                the release of Letraset sheets containing Lorem Ipsum passages.
+            </p>
+        </div>
+    </div>
+
+    <!-- Success Stories Section -->
+    <div class="section-container">
+        <h2 class="section-title">Success Stories</h2>
+        <app-carousel
+            type="arrows"
+            arrow-src="assets/images/carousel-arrow.png"
+            current-page="successStoriesPage"
+            total-pages="successStoriesTotalPages"
+            on-page-change="onSuccessStoriesPageChange(page)"
+        >
+            <div class="stories-list">
+                <div
+                    class="story-item"
+                    ng-repeat="story in successStories | limitTo: successStoriesPageSize : (successStoriesPage - 1) * successStoriesPageSize"
+                >
+                    <div class="story-avatar">
+                        <img
+                            ng-if="story.image"
+                            ng-src="{{ story.image }}"
+                            alt="{{ story.name }}"
+                        />
+                        <div ng-if="!story.image" class="story-avatar-placeholder">
+                            {{ story.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="story-name">{{ story.name }}</p>
+                    <p class="story-batch">{{ story.batch }}</p>
+                    <p class="story-company">{{ story.company }}</p>
+                </div>
+            </div>
+        </app-carousel>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="section-container">
+        <h2 class="section-title">Overview</h2>
+        <div class="overview-grid">
+            <!-- Total Count Card -->
+            <div class="overview-card">
+                <h3 class="card-title">Total</h3>
+                <div class="total-chart">
+                    <div class="semi-circle-chart">
+                        <div class="chart-value">1,375</div>
+                        <div class="chart-label">Total Count</div>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <span class="legend-dot students"></span>
+                            <span>Students</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot faculties"></span>
+                            <span>Faculties</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot courses"></span>
+                            <span>Courses</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enrolled Students Card -->
+            <div class="overview-card">
+                <div class="card-header">
+                    <h3 class="card-title">Enrolled Students</h3>
+                    <select class="year-dropdown">
+                        <option>2023</option>
+                    </select>
+                </div>
+                <div class="enrolled-chart">
+                    <div class="bar-chart-container">
+                        <div class="bar-chart-y-axis">
+                            <span>3k</span>
+                            <span>2k</span>
+                            <span>1k</span>
+                            <span>0</span>
+                        </div>
+                        <div class="bar-chart-area">
+                            <div class="bar-group" ng-repeat="dept in enrolledData">
+                                <div class="bar-pair">
+                                    <div
+                                        class="bar day"
+                                        ng-style="{'height': dept.dayPercentage + '%'}"
+                                    ></div>
+                                    <div
+                                        class="bar month"
+                                        ng-style="{'height': dept.monthPercentage + '%'}"
+                                    ></div>
+                                </div>
+                                <div class="bar-labels">
+                                    <span class="dept-name">{{ dept.name }}</span>
+                                    <span class="bar-type">Day's</span>
+                                    <span class="bar-type">Month</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Card -->
+            <div class="overview-card">
+                <h3 class="card-title">Projects Developed by our Students</h3>
+                <div class="projects-chart">
+                    <div class="pie-chart-container">
+                        <div class="pie-chart">
+                            <!-- Pie chart will be rendered here -->
+                        </div>
+                        <div class="projects-legend">
+                            <div class="legend-item" ng-repeat="project in projectCategories">
+                                <span
+                                    class="legend-dot"
+                                    ng-style="{'background-color': project.color}"
+                                ></span>
+                                <span>{{ project.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Skills Card -->
+            <div class="overview-card">
+                <h3 class="card-title">Skills of Students</h3>
+                <div class="skills-chart">
+                    <div class="donut-chart-container">
+                        <div class="donut-chart-large">
+                            <div class="donut-center">75%</div>
+                        </div>
+                        <div class="skills-legend">
+                            <div class="legend-item" ng-repeat="skill in skillsList">
+                                <span
+                                    class="legend-dot"
+                                    ng-style="{'background-color': skill.color}"
+                                ></span>
+                                <span>{{ skill.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Courses we Provide Section -->
+    <div class="section-container">
+        <h2 class="section-title">Courses we Provide</h2>
+        <div class="courses-carousel">
+            <button class="carousel-arrow left"><i class="fa fa-chevron-left"></i></button>
+            <div class="courses-list">
+                <div class="course-card" ng-repeat="course in courses">
+                    <div class="course-header">
+                        <h3 class="course-code">{{ course.code }}</h3>
+                    </div>
+                    <div class="course-details">
+                        <p class="course-seats">seats: {{ course.seats }}</p>
+                        <p class="course-duration">Duration: {{ course.duration }}</p>
+                    </div>
+                    <div class="course-footer">
+                        <p class="course-name">{{ course.fullName }}</p>
+                    </div>
+                </div>
+            </div>
+            <button class="carousel-arrow right"><i class="fa fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- Placement Highlights Section -->
+    <div class="section-container">
+        <h2 class="section-title">Placement Highlights</h2>
+        <div class="placement-content">
+            <!-- Bar Chart -->
+            <div class="placement-chart-card">
+                <h3 class="chart-subtitle">No. of Companies Visited</h3>
+                <div class="companies-chart">
+                    <div class="chart-y-axis">
+                        <span>900</span>
+                        <span>800</span>
+                        <span>700</span>
+                        <span>600</span>
+                        <span>500</span>
+                        <span>400</span>
+                        <span>300</span>
+                        <span>200</span>
+                        <span>100</span>
+                        <span>0</span>
+                    </div>
+                    <div class="chart-bars-area">
+                        <div class="year-bars" ng-repeat="year in companiesVisited">
+                            <div class="bar-pair">
+                                <div
+                                    class="bar pink"
+                                    ng-style="{'height': year.pinkPercentage + '%'}"
+                                ></div>
+                                <div
+                                    class="bar blue"
+                                    ng-style="{'height': year.bluePercentage + '%'}"
+                                ></div>
+                            </div>
+                            <span class="year-label">{{ year.year }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Donut Chart and Top Companies -->
+            <div class="placement-bottom">
+                <div class="placement-donut-card">
+                    <h3 class="chart-subtitle">Placement on different sectors</h3>
+                    <div class="placement-donut-container">
+                        <div class="placement-donut">
+                            <div class="donut-center-small">Total</div>
+                        </div>
+                        <div class="sectors-legend">
+                            <div class="legend-item" ng-repeat="sector in placementSectors">
+                                <span
+                                    class="legend-dot"
+                                    ng-style="{'background-color': sector.color}"
+                                ></span>
+                                <span>{{ sector.name }}</span>
+                                <span class="percentage" ng-if="sector.percentage"
+                                    >{{ sector.percentage }}%</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="top-companies-card">
+                    <h3 class="chart-subtitle">Top companies Visited for Campus</h3>
+                    <div class="companies-grid">
+                        <div class="company-logo" ng-repeat="company in topCompanies">
+                            <img
+                                ng-if="company.logo"
+                                ng-src="{{ company.logo }}"
+                                alt="{{ company.name }}"
+                            />
+                            <div ng-if="!company.logo" class="company-placeholder">
+                                {{ company.name }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meet Our Faculties Section -->
+    <div class="section-container">
+        <h2 class="section-title">Meet Our Faculties</h2>
+        <div class="faculties-carousel">
+            <div class="faculties-list">
+                <div class="faculty-item" ng-repeat="faculty in faculties">
+                    <div class="faculty-avatar">
+                        <img
+                            ng-if="faculty.image"
+                            ng-src="{{ faculty.image }}"
+                            alt="{{ faculty.name }}"
+                        />
+                        <div ng-if="!faculty.image" class="faculty-avatar-placeholder">
+                            {{ faculty.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="faculty-name">{{ faculty.name }}</p>
+                    <p class="faculty-dept">{{ faculty.dept }}</p>
+                    <p class="faculty-designation">{{ faculty.designation }}</p>
+                </div>
+            </div>
+            <div class="faculties-pagination">
+                <button class="pagination-arrow"><i class="fa fa-chevron-left"></i></button>
+                <span class="page-dot active"></span>
+                <span class="page-dot"></span>
+                <span class="page-dot"></span>
+                <button class="pagination-arrow"><i class="fa fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Our Alumni Community Section -->
+    <div class="section-container">
+        <div class="alumni-header">
+            <h2 class="section-title">Our Alumni Community</h2>
+            <button class="btn-view-all">View All</button>
+        </div>
+        <app-carousel
+            type="arrows"
+            arrow-src="assets/images/carousel-arrow.png"
+            current-page="alumniPage"
+            total-pages="alumniTotalPages"
+            on-page-change="onAlumniPageChange(page)"
+        >
+            <div class="alumni-list">
+                <div
+                    class="alumni-item"
+                    ng-repeat="alum in alumni | limitTo: alumniPageSize : (alumniPage - 1) * alumniPageSize"
+                >
+                    <div class="alumni-avatar">
+                        <img ng-if="alum.image" ng-src="{{ alum.image }}" alt="{{ alum.name }}" />
+                        <div ng-if="!alum.image" class="alumni-avatar-placeholder">
+                            {{ alum.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="alumni-name">{{ alum.name }}</p>
+                    <p class="alumni-designation">{{ alum.designation }}</p>
+                    <p class="alumni-company">{{ alum.company }}</p>
+                </div>
+            </div>
+        </app-carousel>
+    </div>
+
+    <!-- Testimonials Section -->
+    <div class="testimonials-section">
+        <h2 class="testimonials-title">Your Voice, Our Strength</h2>
+        <div class="testimonial-content">
+            <button class="testimonial-arrow left"><i class="fa fa-chevron-left"></i></button>
+            <div class="testimonial-quote">
+                <p>
+                    "I'm grateful for the opportunities and resources provided by the campus. It's
+                    made a huge difference in my academic journey."
+                </p>
+            </div>
+            <button class="testimonial-arrow right"><i class="fa fa-chevron-right"></i></button>
+        </div>
+        <div class="testimonial-author">
+            <div class="testimonial-avatar">
+                <img
+                    ng-if="currentTestimonial.image"
+                    ng-src="{{ currentTestimonial.image }}"
+                    alt="{{ currentTestimonial.name }}"
+                />
+                <div ng-if="!currentTestimonial.image" class="testimonial-avatar-placeholder">
+                    {{ currentTestimonial.name.charAt(0) }}
+                </div>
+            </div>
+            <span class="testimonial-name">-{{ currentTestimonial.name }}</span>
+        </div>
+    </div>
+
+    <!-- Get In Touch Section -->
+    <div class="contact-section">
+        <div class="contact-header">
+            <h2 class="contact-title">Get In Touch</h2>
+            <div class="contact-info">
+                <div class="contact-info-item">
+                    <i class="fa fa-envelope"></i>
+                    <span>{{ contactInfo.email }}</span>
+                </div>
+                <div class="contact-info-item">
+                    <i class="fa fa-phone"></i>
+                    <span>{{ contactInfo.phone }}</span>
+                </div>
+                <div class="contact-info-item">
+                    <i class="fa fa-map-marker-alt"></i>
+                    <span>{{ contactInfo.address }}</span>
+                </div>
+            </div>
+        </div>
+        <p class="contact-intro">
+            Your input is valuable in recognizing accomplishments and guiding improvement. Let us
+            know your insights on this campus's progress, abilities, and highlights using the form
+            below!
+        </p>
+        <div class="contact-content">
+            <div class="recommendation-section">
+                <p class="recommendation-question">
+                    Would you recommend promoting this campus based on their performance and
+                    potential?
+                </p>
+                <div class="recommendation-buttons">
+                    <button class="btn-recommend yes"><i class="fa fa-thumbs-up"></i> Yes</button>
+                    <button class="btn-recommend no"><i class="fa fa-thumbs-down"></i> No</button>
+                </div>
+                <div class="social-media">
+                    <a href="#" class="social-icon"><i class="fa fa-facebook"></i></a>
+                    <a href="#" class="social-icon"><i class="fa fa-instagram"></i></a>
+                    <a href="#" class="social-icon"><i class="fa fa-twitter"></i></a>
+                </div>
+            </div>
+            <div class="feedback-form">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" ng-model="feedbackForm.name" placeholder="Enter your name" />
+                </div>
+                <div class="form-group">
+                    <label>Speak your mind about {{ campusData.name }}!</label>
+                    <textarea
+                        ng-model="feedbackForm.message"
+                        placeholder="Write your feedback here..."
+                        rows="5"
+                    ></textarea>
+                </div>
+                <button class="btn-send" ng-click="submitFeedback()">send</button>
+            </div>
+        </div>
+    </div>
+</div>

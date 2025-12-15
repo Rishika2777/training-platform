@@ -1,0 +1,38 @@
+<!-- Companies Visited - Add Company Modal -->
+<app-modal
+    visible="showAddCompanyModal"
+    size="sm"
+    modal-class="campus-add-company-modal"
+    on-close="closeAddCompanyModal()"
+>
+    <modal-header>
+        <div class="campus-modal-header-title">Companies Visited</div>
+    </modal-header>
+    <modal-body>
+        <div class="campus-modal-body campus-modal-body--company">
+            <form class="campus-modal-form" novalidate>
+                <app-input
+                    label="Company Logo"
+                    type="file"
+                    ng-model="addCompanyForm.logoFile"
+                    accept="image/*"
+                    placeholder=" "
+                    icon="fa-paperclip"
+                    on-file-select="onCompanyLogoSelected(files)"
+                ></app-input>
+
+                <app-input
+                    label="Company Name"
+                    type="text"
+                    ng-model="addCompanyForm.name"
+                    placeholder=" "
+                ></app-input>
+            </form>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="campus-modal-submit" type="button" ng-click="submitAddCompany()">
+            Submit
+        </button>
+    </modal-footer>
+</app-modal>

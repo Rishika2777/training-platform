@@ -1,0 +1,180 @@
+<div class="app-form-container">
+    <h2 class="app-form-title">{{formTitle}}</h2>
+
+    <form ng-submit="handleSubmit()" name="companyForm" novalidate>
+        <div class="app-form-row">
+            <app-input
+                label="Company Name"
+                type="text"
+                ng-model="companyData.name"
+                required="true"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Upload Photo"
+                type="file"
+                ng-model="companyData.photo"
+                accept="image/*"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Admin Name"
+                type="text"
+                ng-model="companyData.adminName"
+                disabled="isReviewMode"
+            ></app-input>
+        </div>
+
+        <div class="app-form-row">
+            <app-input
+                label="Admin Designation"
+                type="text"
+                ng-model="companyData.adminDesignation"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Admin Email"
+                type="email"
+                ng-model="companyData.adminEmail"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Admin Phone No."
+                type="tel"
+                ng-model="companyData.adminPhone"
+                disabled="isReviewMode"
+            ></app-input>
+        </div>
+
+        <div class="app-form-row">
+            <app-input
+                label="Company Website URL"
+                type="url"
+                ng-model="companyData.website"
+                placeholder="https://example.com"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Other Website URL"
+                type="url"
+                ng-model="companyData.otherWebsite"
+                placeholder="https://example.com"
+                disabled="isReviewMode"
+            ></app-input>
+
+            <app-input
+                label="Register Number"
+                type="text"
+                ng-model="companyData.registerNumber"
+                disabled="isReviewMode"
+            ></app-input>
+        </div>
+
+        <div
+            class="app-form-section"
+            ng-if="companyData.keyPeople && companyData.keyPeople.length > 0"
+        >
+            <h3 class="app-form-section-title">Add Key People</h3>
+            <div
+                class="app-form-key-people"
+                ng-repeat="person in companyData.keyPeople track by $index"
+            >
+                <div class="app-form-row">
+                    <app-input
+                        label="Name"
+                        type="text"
+                        ng-model="person.name"
+                        disabled="isReviewMode"
+                    ></app-input>
+
+                    <app-input
+                        label="Upload Photo"
+                        type="file"
+                        ng-model="person.photo"
+                        accept="image/*"
+                        disabled="isReviewMode"
+                    ></app-input>
+
+                    <app-input
+                        label="Designation"
+                        type="text"
+                        ng-model="person.designation"
+                        disabled="isReviewMode"
+                    ></app-input>
+
+                    <div class="app-form-action-col" ng-if="!isReviewMode">
+                        <app-button
+                            type="button"
+                            variant="add"
+                            label="Add"
+                            icon="fa-plus"
+                            onClick="addKeyPerson()"
+                            ng-if="$last"
+                            title="Add Key Person"
+                        ></app-button>
+                        <app-button
+                            type="button"
+                            variant="delete"
+                            label="Remove"
+                            icon="fa-trash"
+                            onClick="removeKeyPersonAtIndex($index)"
+                            ng-if="companyData.keyPeople.length > 1"
+                        ></app-button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="app-form-row app-form-row-textarea">
+            <div class="app-form-col-textarea">
+                <app-textarea
+                    label="About Company"
+                    ng-model="companyData.about"
+                    rows="4"
+                    disabled="isReviewMode"
+                ></app-textarea>
+            </div>
+
+            <div class="app-form-col-textarea">
+                <app-textarea
+                    label="Company Address"
+                    ng-model="companyData.address"
+                    rows="4"
+                    disabled="isReviewMode"
+                ></app-textarea>
+            </div>
+        </div>
+
+        <div class="app-form-actions" ng-if="!isReviewMode">
+            <app-button
+                type="button"
+                variant="secondary"
+                label="Cancel"
+                onClick="handleCancel()"
+                ng-if="onCancel"
+            ></app-button>
+            <app-button type="submit" variant="submit" label="Submit"></app-button>
+        </div>
+
+        <div class="app-form-actions" ng-if="isReviewMode">
+            <app-button
+                type="button"
+                variant="delete"
+                label="Reject"
+                onClick="handleCancel()"
+                ng-if="onCancel"
+            ></app-button>
+            <app-button
+                type="button"
+                variant="view"
+                label="Approve"
+                onClick="handleSubmit()"
+            ></app-button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,95 @@
+.app-input-wrapper {
+    margin-bottom: var(--spacing-md);
+}
+
+.app-input-label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-text-primary);
+}
+
+.required {
+    color: var(--color-error);
+}
+
+.input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--color-secondary) !important;
+    border-radius: 15px;
+    font-size: var(--font-md);
+    outline: none;
+    transition: var(--transition-normal);
+    box-sizing: border-box;
+}
+
+.input:focus {
+    border-color: var(--color-secondary) !important;
+}
+
+.input-error {
+    border-color: var(--color-error) !important;
+}
+
+.app-input-error {
+    display: block;
+    color: var(--color-error);
+    font-size: var(--font-xs);
+    margin-top: var(--spacing-xs);
+}
+
+/* File Input Styles */
+.app-file-input-wrapper {
+    position: relative;
+}
+
+.app-file-input-label {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 2px solid var(--color-secondary-light);
+    border-radius: 15px;
+    font-size: var(--font-md);
+    outline: none;
+    transition: var(--transition-normal);
+    background-color: var(--color-white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    box-sizing: border-box;
+}
+
+.app-file-input-label:hover {
+    border-color: var(--color-secondary);
+}
+
+.app-file-input-label:focus-within {
+    border-color: var(--color-secondary);
+    outline: 2px solid var(--color-secondary-light);
+    outline-offset: 2px;
+}
+
+.app-file-input-text {
+    flex: 1;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-file-input-label i {
+    color: var(--color-secondary-light);
+    font-size: var(--font-lg);
+    flex-shrink: 0;
+}
+
+.app-file-input-wrapper .input-error {
+    border-color: var(--color-error) !important;
+}
+
+.app-file-input-wrapper .input-error + .app-file-input-label {
+    border-color: var(--color-error) !important;
+}

@@ -1,0 +1,35 @@
+<!-- Upload Prospectus Modal -->
+<app-modal
+    visible="showProspectusModal"
+    title="Upload Prospectus"
+    size="lg"
+    on-close="closeProspectusModal()"
+>
+    <modal-body>
+        <div class="prospectus-modal-content">
+            <div class="form-row">
+                <div class="form-group">
+                    <app-input
+                        label="Campus"
+                        type="file"
+                        ng-model="prospectusForm.campus"
+                        placeholder="Select campus"
+                    ></app-input>
+                </div>
+                <div class="form-group">
+                    <app-dropdown
+                        label="Course"
+                        ng-model="prospectusForm.course"
+                        options="courses"
+                        option-value="id"
+                        option-label="name"
+                        placeholder="Select course"
+                    ></app-dropdown>
+                </div>
+            </div>
+        </div>
+    </modal-body>
+    <modal-footer>
+        <button class="btn-submit" ng-click="submitProspectus()">Submit</button>
+    </modal-footer>
+</app-modal>

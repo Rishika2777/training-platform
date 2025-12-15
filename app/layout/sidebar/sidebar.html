@@ -1,0 +1,36 @@
+<div class="sidebar">
+    <!-- Profile slot (provided by feature via $scope.sidebarSlots.profileTemplateUrl) -->
+    <div
+        ng-if="sidebarSlots && sidebarSlots.profileTemplateUrl"
+        ng-include="sidebarSlots.profileTemplateUrl"
+    ></div>
+
+    <!-- Fallback title if no profile template is provided -->
+    <h3 ng-if="!sidebarSlots || !sidebarSlots.profileTemplateUrl">{{ sidebarTitle }}</h3>
+
+    <div class="sidebar-main">
+        <ul class="sidebar-menu">
+            <li
+                class="sidebar-menu-item"
+                ng-repeat="item in menuItems"
+                ng-click="handleMenuClick(item)"
+                ng-class="{'active': isActive(item)}"
+            >
+                <i class="fa {{item.icon}} sidebar-menu-icon" ng-if="item.icon"></i>
+                <span class="sidebar-menu-label">{{item.label}}</span>
+            </li>
+        </ul>
+
+        <!-- After-menu slot (provided by feature via $scope.sidebarSlots.afterMenuTemplateUrl) -->
+        <div
+            ng-if="sidebarSlots && sidebarSlots.afterMenuTemplateUrl"
+            ng-include="sidebarSlots.afterMenuTemplateUrl"
+        ></div>
+    </div>
+
+    <!-- Sidebar-owned modals (available on all pages) -->
+    <div
+        ng-if="userRole === 'CAMPUS_USER'"
+        ng-include="'app/features/campus/views/sidebar/campus-add-faculty-modal.html'"
+    ></div>
+</div>

@@ -1,0 +1,27 @@
+<div
+    class="app-card"
+    ng-class="{'app-card-clickable': onClick, cardClass: cardClass}"
+    ng-click="handleCardClick()"
+>
+    <div class="app-card-content">
+        <!-- Image Section -->
+        <div class="app-card-image-wrapper" ng-if="imageSrc">
+            <img
+                ng-src="{{imageSrc}}"
+                alt="{{imageAlt || title || 'Card image'}}"
+                class="app-card-image"
+                ng-class="{'app-card-image-circle': imageShape === 'circle', 'app-card-image-rectangle': imageShape === 'rectangle'}"
+            />
+        </div>
+
+        <!-- Text Content Section -->
+        <div class="app-card-body">
+            <h3 class="app-card-title" ng-if="title">{{title}}</h3>
+            <p class="app-card-subtitle" ng-if="subtitle">{{subtitle}}</p>
+            <p class="app-card-description" ng-if="description">{{description}}</p>
+        </div>
+    </div>
+
+    <!-- Action Buttons Section -->
+    <div class="app-card-actions" ng-transclude></div>
+</div>

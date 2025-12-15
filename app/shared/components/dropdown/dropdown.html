@@ -1,0 +1,20 @@
+<div class="app-dropdown-wrapper">
+    <label ng-if="label" for="{{dropdownId}}" class="app-dropdown-label">
+        {{label}}
+        <span ng-if="required" class="required">*</span>
+    </label>
+    <select
+        id="{{dropdownId}}"
+        class="app-dropdown"
+        ng-class="{'dropdown-error': error}"
+        ng-model="model"
+        ng-required="required"
+        ng-disabled="disabled"
+    >
+        <option value="" ng-if="placeholder">{{placeholder}}</option>
+        <option ng-repeat="option in options" value="{{getOptionValue(option)}}">
+            {{getOptionLabel(option)}}
+        </option>
+    </select>
+    <span ng-if="error" class="app-dropdown-error">{{error}}</span>
+</div>

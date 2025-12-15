@@ -1,0 +1,73 @@
+/* Resume Upload Modal Styles */
+.resume-upload-modal-content {
+    padding: var(--spacing-md);
+}
+
+.modal-headline {
+    font-size: var(--font-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-xs) 0;
+}
+
+.modal-subheadline {
+    font-size: var(--font-md);
+    color: var(--color-secondary);
+    margin: 0 0 var(--spacing-lg) 0;
+}
+
+.ai-resume-section {
+    background: var(--color-background-light);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.ai-resume-section p {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-sm);
+}
+
+.btn-download {
+    background: var(--color-primary);
+    color: var(--color-white);
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-download:hover {
+    background: var(--color-primary-dark);
+}
+
+.upload-instruction {
+    font-size: var(--font-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+}
+
+.upload-area {
+    margin: var(--spacing-lg) 0;
+}
+
+.btn-submit {
+    background: #557f87;
+    color: var(--color-white);
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-xl);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-submit:hover {
+    background: #46696f;
+}

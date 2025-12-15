@@ -1,0 +1,286 @@
+<!doctype html>
+<html ng-app="campusApp">
+    <head>
+        <title>Synkup CRM</title>
+
+        <!-- AngularJS -->
+        <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+
+        <!-- Font family -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <!-- Icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <!-- ==================== CSS FILES ==================== -->
+        <!-- Theme & Global Styles -->
+        <link rel="stylesheet" href="app/shared/css/theme.css" />
+        <link rel="stylesheet" href="css/global.css" />
+
+        <!-- Layout Styles -->
+        <link rel="stylesheet" href="app/layout/layout.css" />
+        <link rel="stylesheet" href="app/layout/header/header.css" />
+        <link rel="stylesheet" href="app/layout/sidebar/sidebar.css" />
+
+        <!-- Shared Component Styles -->
+        <link rel="stylesheet" href="app/shared/components/footer/footer.css" />
+        <link rel="stylesheet" href="app/shared/components/input/input.css" />
+        <link rel="stylesheet" href="app/shared/components/dropdown/dropdown.css" />
+        <link rel="stylesheet" href="app/shared/components/modal/modal.css" />
+        <link rel="stylesheet" href="app/shared/components/fab-button/fab-button.css" />
+        <link rel="stylesheet" href="app/shared/components/card/card.css" />
+        <link rel="stylesheet" href="app/shared/components/textarea/textarea.css" />
+        <link rel="stylesheet" href="app/shared/components/step-indicator/step-indicator.css" />
+        <link rel="stylesheet" href="app/shared/components/forms/campus-form/campus-form.css" />
+        <link rel="stylesheet" href="app/shared/components/forms/company-form/company-form.css" />
+        <link rel="stylesheet" href="app/shared/components/forms/student-form/student-form.css" />
+        <link rel="stylesheet" href="app/shared/components/pagination/pagination.css" />
+        <link rel="stylesheet" href="app/shared/components/carousel/carousel.css" />
+        <link rel="stylesheet" href="app/shared/components/post-footer/post-footer.css" />
+        <link
+            rel="stylesheet"
+            href="app/shared/components/announcement-card/announcement-card.css"
+        />
+        <link rel="stylesheet" href="app/shared/components/search/search.css" />
+        <link
+            rel="stylesheet"
+            href="app/shared/components/notifications/notifications-dropdown.css"
+        />
+        <link rel="stylesheet" href="app/shared/components/settings-menu/settings-menu.css" />
+        <link rel="stylesheet" href="app/features/registration/registration.css" />
+        <link rel="stylesheet" href="app/features/admin/admin.css" />
+        <link rel="stylesheet" href="app/features/settings/settings.css" />
+
+        <!-- Campus Feature Styles -->
+        <link rel="stylesheet" href="app/features/campus/views/campus-home/campus-home.css" />
+        <link rel="stylesheet" href="app/features/campus/views/campus-about/campus-about.css" />
+        <link rel="stylesheet" href="app/features/campus/views/campus-courses/campus-courses.css" />
+        <link
+            rel="stylesheet"
+            href="app/features/campus/views/campus-courses/campus-courses-modal.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/campus/views/campus-courses/campus-course-details-modal.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/campus/views/campus-prospectus/campus-prospectus.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/campus/views/campus-prospectus/campus-prospectus-modal.css"
+        />
+
+        <!-- Student Feature Styles -->
+        <link rel="stylesheet" href="app/features/student/views/student-home/student-home.css" />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-profile/student-profile.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-learning-pathway/student-learning-pathway.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-resume/student-resume.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-dream-job-toolkit/student-dream-job-toolkit.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-career-checkin/student-career-checkin.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-career-checkin-modal/student-career-checkin-modal.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-resume-upload-modal/student-resume-upload-modal.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/student/views/student-certifications-modal/student-certifications-modal.css"
+        />
+
+        <!-- Company Feature Styles -->
+        <link rel="stylesheet" href="app/features/company/views/company-home/company-home.css" />
+        <link rel="stylesheet" href="app/features/company/views/company-about/company-about.css" />
+        <link
+            rel="stylesheet"
+            href="app/features/company/views/company-specialization/company-specialization.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/company/views/company-vision-performance/company-vision-performance.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/company/views/company-current-vacancy/company-current-vacancy.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/company/views/company-benefits/company-benefits.css"
+        />
+        <link
+            rel="stylesheet"
+            href="app/features/admin/views/admin-dashboard/admin-dashboard.css"
+        />
+
+        <!-- Feature Module Styles (Keep existing for backward compatibility) -->
+        <link rel="stylesheet" href="app/components/login-landing-page/login-landing-page.css" />
+        <link rel="stylesheet" href="app/components/login/login.css" />
+        <link rel="stylesheet" href="app/components/register/register.css" />
+        <link rel="stylesheet" href="app/components/register-options/register-options.css" />
+        <link rel="stylesheet" href="app/components/dashboard/dashboard.css" />
+        <link rel="stylesheet" href="app/components/admin-campus/admin-campus.css" />
+        <link rel="stylesheet" href="app/views/courseOffer/course-offer-form.css" />
+        <link
+            rel="stylesheet"
+            href="app/views/campus-registration-form/campus-registration-form.css"
+        />
+        <link rel="stylesheet" href="app/views/view-campus-profile/view-campus-profile.css" />
+    </head>
+
+    <body>
+        <div ng-view></div>
+
+        <!-- ==================== JAVASCRIPT FILES ==================== -->
+        <!-- Main App Module -->
+        <script src="app/app.module.js"></script>
+
+        <!-- Core - Constants -->
+        <script src="app/core/constants/app.constants.js"></script>
+
+        <!-- Core - Services -->
+        <script src="app/core/services/storage.service.js"></script>
+        <script src="app/core/services/api.service.js"></script>
+        <script src="app/core/services/notification.service.js"></script>
+        <script src="app/core/services/error-handler.service.js"></script>
+        <script src="app/core/services/role.service.js"></script>
+        <script src="app/core/services/menu.service.js"></script>
+
+        <!-- Core - Interceptors -->
+        <script src="app/core/interceptors/http.interceptor.js"></script>
+
+        <!-- Core - Filters -->
+        <script src="app/core/filters/capitalize.filter.js"></script>
+
+        <!-- Shared Components -->
+        <script src="app/shared/components/footer/footer.directive.js"></script>
+        <script src="app/shared/components/button/button.directive.js"></script>
+        <script src="app/shared/components/input/input.directive.js"></script>
+        <script src="app/shared/components/dropdown/dropdown.directive.js"></script>
+        <script src="app/shared/components/modal/modal.directive.js"></script>
+        <script src="app/shared/components/fab-button/fab-button.directive.js"></script>
+        <script src="app/shared/components/card/card.directive.js"></script>
+        <script src="app/shared/components/card/card-action.directive.js"></script>
+        <script src="app/shared/components/textarea/textarea.directive.js"></script>
+        <script src="app/shared/components/step-indicator/step-indicator.directive.js"></script>
+        <script src="app/shared/components/forms/campus-form/campus-form.directive.js"></script>
+        <script src="app/shared/components/forms/company-form/company-form.directive.js"></script>
+        <script src="app/shared/components/forms/student-form/student-form.directive.js"></script>
+        <script src="app/shared/components/pagination/pagination.directive.js"></script>
+        <script src="app/shared/components/carousel/carousel.directive.js"></script>
+        <script src="app/shared/components/post-footer/post-footer.directive.js"></script>
+        <script src="app/shared/components/announcement-card/announcement-card.directive.js"></script>
+        <script src="app/shared/components/search/search.directive.js"></script>
+        <script src="app/shared/components/notifications/notifications-dropdown.directive.js"></script>
+        <script src="app/shared/components/settings-menu/settings-menu.directive.js"></script>
+
+        <!-- Layout Components -->
+        <script src="app/layout/sidebar/sidebar.directive.js"></script>
+        <script src="app/layout/layout.controller.js"></script>
+        <script src="app/layout/admin-layout.controller.js"></script>
+        <script src="app/layout/header/header.controller.js"></script>
+
+        <!-- Feature Modules -->
+        <!-- Auth Module -->
+        <script src="app/features/auth/auth.module.js"></script>
+        <script src="app/features/auth/data/mock-users.data.js"></script>
+        <script src="app/features/auth/data/role-menu-config.data.js"></script>
+        <script src="app/features/auth/services/auth.service.js"></script>
+
+        <!-- Dashboard Module -->
+        <script src="app/features/dashboard/dashboard.module.js"></script>
+        <script src="app/features/dashboard/services/dashboard.service.js"></script>
+
+        <!-- Campus Module -->
+        <script src="app/features/campus/campus.module.js"></script>
+        <script src="app/features/campus/services/campus.service.js"></script>
+        <script src="app/features/campus/views/campus-home/campus-home.controller.js"></script>
+        <script src="app/features/campus/views/campus-about/campus-about.controller.js"></script>
+        <script src="app/features/campus/views/campus-courses/campus-courses.controller.js"></script>
+        <script src="app/features/campus/views/campus-prospectus/campus-prospectus.controller.js"></script>
+
+        <!-- Courses Module -->
+        <script src="app/features/courses/courses.module.js"></script>
+        <script src="app/features/courses/services/courses.service.js"></script>
+
+        <!-- Admin Module -->
+        <script src="app/features/admin/admin.module.js"></script>
+        <script src="app/features/admin/data/mock-admin.data.js"></script>
+        <script src="app/features/admin/services/admin.service.js"></script>
+
+        <!-- Student Module -->
+        <script src="app/features/student/student.module.js"></script>
+        <script src="app/features/student/views/student-home/student-home.controller.js"></script>
+        <script src="app/features/student/views/student-profile/student-profile.controller.js"></script>
+        <script src="app/features/student/views/student-learning-pathway/student-learning-pathway.controller.js"></script>
+        <script src="app/features/student/views/student-resume/student-resume.controller.js"></script>
+        <script src="app/features/student/views/student-dream-job-toolkit/student-dream-job-toolkit.controller.js"></script>
+        <script src="app/features/student/views/student-career-checkin/student-career-checkin.controller.js"></script>
+
+        <!-- Company Module -->
+        <script src="app/features/company/company.module.js"></script>
+        <script src="app/features/company/views/company-home/company-home.controller.js"></script>
+        <script src="app/features/company/views/company-about/company-about.controller.js"></script>
+        <script src="app/features/company/views/company-specialization/company-specialization.controller.js"></script>
+        <script src="app/features/company/views/company-vision-performance/company-vision-performance.controller.js"></script>
+        <script src="app/features/company/views/company-current-vacancy/company-current-vacancy.controller.js"></script>
+        <script src="app/features/company/views/company-benefits/company-benefits.controller.js"></script>
+
+        <!-- Registration Module -->
+        <script src="app/features/registration/registration.module.js"></script>
+        <script src="app/features/registration/views/campus-registration/campus-registration.controller.js"></script>
+        <script src="app/features/registration/views/student-registration/student-registration.controller.js"></script>
+        <script src="app/features/registration/views/company-registration/company-registration.controller.js"></script>
+        <script src="app/features/admin/views/admin-dashboard/admin-dashboard.controller.js"></script>
+        <script src="app/features/admin/views/campus-management/campus-management.controller.js"></script>
+        <script src="app/features/admin/views/student-management/student-management.controller.js"></script>
+        <script src="app/features/admin/views/company-management/company-management.controller.js"></script>
+        <script src="app/features/admin/views/app-management/app-management.controller.js"></script>
+
+        <!-- Settings Module -->
+        <script src="app/features/settings/settings.module.js"></script>
+        <script src="app/features/settings/settings.controller.js"></script>
+
+        <!-- Routes Configuration -->
+        <script src="app/config/routes.config.js"></script>
+
+        <!-- App Run Block -->
+        <script src="app/core/run/app.run.js"></script>
+
+        <!-- ==================== LEGACY CONTROLLERS (To be migrated) ==================== -->
+        <!-- These will be gradually moved to feature modules -->
+        <script src="app/components/login-landing-page/login-landing-page.controller.js"></script>
+        <script src="app/components/login/login.controller.js"></script>
+        <script src="app/components/register/register.controller.js"></script>
+        <script src="app/components/register-options/register-options.controller.js"></script>
+        <script src="app/components/dashboard/dashboard.controller.js"></script>
+        <script src="app/views/courseOffer/course-offer-form.controller.js"></script>
+        <script src="app/views/campus-registration-form/campus-registration-form.controller.js"></script>
+        <script src="app/views/view-campus-profile/view-campus-profile.controller.js"></script>
+    </body>
+</html>

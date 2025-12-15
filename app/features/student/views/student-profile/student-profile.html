@@ -1,0 +1,286 @@
+<div class="student-profile-page">
+    <!-- Profile Header Section -->
+    <div class="profile-header-section">
+        <div class="profile-header-content">
+            <!-- Left: Profile Image and Stats -->
+            <div class="profile-image-section">
+                <div class="profile-image-wrapper">
+                    <img
+                        src="assets/images/profile-placeholder.jpg"
+                        alt="Profile"
+                        class="profile-image"
+                    />
+                </div>
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-value orange">25 Promotions</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">100 Followers</span>
+                    </div>
+                </div>
+                <button class="btn-follow">Follow <i class="fa fa-chevron-right"></i></button>
+            </div>
+
+            <!-- Right: Profile Details -->
+            <div class="profile-details-section" ng-if="profileData">
+                <h1 class="profile-name">{{ profileData.name }}</h1>
+                <p class="profile-rank">{{ profileData.rank }}</p>
+                <p class="profile-campus">{{ profileData.campusName }}</p>
+                <p class="profile-batch">{{ profileData.batch }}</p>
+                <button class="btn-download-resume">
+                    Download Resume <i class="fa fa-chevron-down"></i>
+                </button>
+            </div>
+            <div class="profile-details-section" ng-if="!profileData">
+                <h1 class="profile-name">Ankitha Willson</h1>
+                <p class="profile-rank">Rank</p>
+                <p class="profile-campus">Campus Name</p>
+                <p class="profile-batch">Batch</p>
+                <button class="btn-download-resume">
+                    Download Resume <i class="fa fa-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Journey Section -->
+    <div class="section-container">
+        <h2 class="section-title">My Journey</h2>
+        <div class="journey-content">
+            <p>
+                Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
+                Ipsum has been the industry's standard dummy text ever since the 1500s, when an
+                unknown printer took a galley of type and scrambled it to make a type specimen book.
+            </p>
+            <p>
+                It has survived not only five centuries, but also the leap into electronic
+                typesetting, remaining essentially unchanged. It was popularised in the 1960s with
+                the release of Letraset sheets containing Lorem Ipsum passages, and more recently
+                with desktop publishing software like Aldus PageMaker including versions of Lorem
+                Ipsum.
+            </p>
+            <p>
+                Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a
+                piece of classical Latin literature from 45 BC, making it over 2000 years old.
+                Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked
+                up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and
+                going through the cites of the word in classical literature, discovered the
+                undoubtable source.
+            </p>
+        </div>
+    </div>
+
+    <!-- My Batchmates Section -->
+    <div class="section-container">
+        <h2 class="section-title">My Batchmates</h2>
+        <app-carousel
+            type="pagination"
+            current-page="batchmatesPage"
+            total-pages="batchmatesTotalPages"
+            on-page-change="onBatchmatesPageChange(page)"
+        >
+            <div class="batchmates-grid">
+                <div
+                    class="batchmate-item"
+                    ng-repeat="batchmate in batchmates | limitTo: batchmatesPageSize : (batchmatesPage - 1) * batchmatesPageSize"
+                >
+                    <div class="batchmate-avatar">
+                        <img
+                            ng-if="batchmate.image"
+                            ng-src="{{ batchmate.image }}"
+                            alt="{{ batchmate.name }}"
+                        />
+                        <div ng-if="!batchmate.image" class="batchmate-avatar-placeholder">
+                            {{ batchmate.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="batchmate-name">{{ batchmate.name }} ({{ batchmate.id }})</p>
+                </div>
+            </div>
+        </app-carousel>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="section-container">
+        <h2 class="section-title">Overview</h2>
+        <div class="overview-charts">
+            <!-- Course Insights Chart -->
+            <div class="chart-card">
+                <h3 class="chart-title">Course Insights</h3>
+                <div class="chart-container">
+                    <div class="donut-chart">
+                        <div class="donut-chart-center">20</div>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <span class="legend-dot completed"></span>
+                            <span>Completed</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot ongoing"></span>
+                            <span>On-going</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot enrolled"></span>
+                            <span>Enrolled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Knowledge Base Chart -->
+            <div class="chart-card">
+                <h3 class="chart-title">Knowledge Base</h3>
+                <div class="chart-container">
+                    <div class="bar-chart">
+                        <div class="bar-chart-item" ng-repeat="skill in knowledgeBase">
+                            <div
+                                class="bar"
+                                ng-style="{'background-color': skill.color, 'height': skill.percentage + '%'}"
+                            ></div>
+                            <span class="bar-label">{{ skill.name }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Projects Section -->
+    <div class="section-container">
+        <h2 class="section-title">My Projects</h2>
+        <div class="projects-list">
+            <div class="project-item" ng-repeat="project in projects">
+                <div class="project-content">
+                    <h3 class="project-title">{{ project.title }}</h3>
+                    <p class="project-description-label">Project Description</p>
+                    <div class="project-description">
+                        <p ng-repeat="paragraph in project.description">{{ paragraph }}</p>
+                    </div>
+                </div>
+                <div class="project-technologies">
+                    <p class="technologies-label">Technologies used</p>
+                    <div class="technologies-grid">
+                        <div class="tech-icon" ng-repeat="tech in project.technologies">
+                            <img ng-src="{{ tech.icon }}" alt="{{ tech.name }}" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="see-more-link">
+            <a href="#">See more</a>
+        </div>
+    </div>
+
+    <!-- Alumni Community Section -->
+    <div class="section-container">
+        <h2 class="section-title">Alumni Community</h2>
+        <app-carousel
+            type="arrows"
+            arrow-src="assets/images/carousel-arrow.png"
+            current-page="alumniPage"
+            total-pages="alumniTotalPages"
+            on-page-change="onAlumniPageChange(page)"
+        >
+            <div class="alumni-list">
+                <div
+                    class="alumni-item"
+                    ng-repeat="alum in alumni | limitTo: alumniPageSize : (alumniPage - 1) * alumniPageSize"
+                >
+                    <div class="alumni-avatar">
+                        <img ng-if="alum.image" ng-src="{{ alum.image }}" alt="{{ alum.name }}" />
+                        <div ng-if="!alum.image" class="alumni-avatar-placeholder">
+                            {{ alum.name.charAt(0) }}
+                        </div>
+                    </div>
+                    <p class="alumni-name">{{ alum.name }}</p>
+                    <p class="alumni-designation">{{ alum.designation }}</p>
+                    <p class="alumni-company">{{ alum.company }}</p>
+                </div>
+            </div>
+        </app-carousel>
+    </div>
+
+    <!-- What People Say About Me Section -->
+    <div class="testimonials-section">
+        <h2 class="testimonials-title">What People Say About Me</h2>
+        <div class="testimonial-content">
+            <p class="testimonial-quote">
+                "A dedicated and proactive student who consistently strives for excellence in
+                academics and extracurricular activities."
+            </p>
+            <div class="testimonial-author">
+                <div class="testimonial-avatar">
+                    <img
+                        ng-if="currentTestimonial.image"
+                        ng-src="{{ currentTestimonial.image }}"
+                        alt="{{ currentTestimonial.name }}"
+                    />
+                    <div ng-if="!currentTestimonial.image" class="testimonial-avatar-placeholder">
+                        {{ currentTestimonial.name.charAt(0) }}
+                    </div>
+                </div>
+                <span class="testimonial-name">-{{ currentTestimonial.name }}</span>
+            </div>
+        </div>
+        <div class="testimonial-navigation">
+            <button class="carousel-arrow left"><i class="fa fa-chevron-left"></i></button>
+            <button class="carousel-arrow right"><i class="fa fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- Get In Touch Section -->
+    <div class="contact-section">
+        <div class="contact-header">
+            <h2 class="contact-title">Get In Touch</h2>
+            <div class="contact-info">
+                <div class="contact-info-item">
+                    <i class="fa fa-envelope"></i>
+                    <span>ankith@gmail.com</span>
+                </div>
+                <div class="contact-info-item">
+                    <i class="fa fa-phone"></i>
+                    <span>+91 807-876-9087</span>
+                </div>
+                <div class="contact-info-item">
+                    <i class="fa fa-map-marker-alt"></i>
+                    <span>103, 1st Main Road, 3rd Phase, JP Nagar, Bangalore - 560076</span>
+                </div>
+            </div>
+        </div>
+        <p class="contact-intro">
+            Your input is valuable in recognizing accomplishments and guiding improvement. Let us
+            know your insights on this student's progress, abilities, and highlights using the form
+            below!
+        </p>
+        <div class="contact-content">
+            <div class="recommendation-section">
+                <p class="recommendation-question">
+                    Would you recommend promoting this student based on their performance and
+                    potential?
+                </p>
+                <div class="recommendation-buttons">
+                    <button class="btn-recommend yes"><i class="fa fa-thumbs-up"></i> Yes</button>
+                    <button class="btn-recommend no"><i class="fa fa-thumbs-down"></i> No</button>
+                </div>
+            </div>
+            <div class="feedback-form">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" ng-model="feedbackForm.name" placeholder="Enter your name" />
+                </div>
+                <div class="form-group">
+                    <label>Speak your mind about Ankitha!</label>
+                    <textarea
+                        ng-model="feedbackForm.message"
+                        placeholder="Write your feedback here..."
+                        rows="5"
+                    ></textarea>
+                </div>
+                <button class="btn-send" ng-click="submitFeedback()">send</button>
+            </div>
+        </div>
+    </div>
+</div>

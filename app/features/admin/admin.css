@@ -1,0 +1,241 @@
+/* Admin Page Styles */
+.admin-page {
+    padding: 0;
+    background: var(--color-background);
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.announcement-wrapper {
+    padding: 20px var(--spacing-xl) var(--spacing-md) var(--spacing-xl);
+    margin: 0;
+    margin-top: 0;
+}
+
+.announcement-wrapper > * {
+    margin-top: 0;
+}
+
+.admin-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.admin-page-title {
+    font-size: var(--font-xxl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.admin-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.admin-empty-state {
+    text-align: center;
+    padding: var(--spacing-xxl);
+    color: var(--color-text-secondary);
+    font-size: var(--font-md);
+}
+
+.admin-loading {
+    text-align: center;
+    padding: var(--spacing-xxl);
+    color: var(--color-text-secondary);
+    font-size: var(--font-md);
+}
+
+.admin-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.admin-page--app-management .admin-dashboard-stats--app-management {
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+        'engagement entities'
+        'placements entities';
+    align-items: start;
+}
+
+.admin-page--app-management .admin-chart-card--engagement {
+    grid-area: engagement;
+}
+
+.admin-page--app-management .admin-chart-card--placements {
+    grid-area: placements;
+}
+
+.admin-page--app-management .admin-chart-card--entities {
+    grid-area: entities;
+}
+
+.admin-chart-card {
+    background: var(--color-white);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.admin-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.admin-chart-card h3 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-lg);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+}
+
+.chart-placeholder {
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-light);
+    background: var(--color-background);
+    border-radius: var(--radius-sm);
+}
+
+.chart-year-select {
+    border: none;
+    background: var(--color-secondary);
+    color: var(--color-white);
+    font-size: var(--font-sm);
+    font-weight: var(--font-semibold);
+    padding: 4px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    outline: none;
+}
+
+.chart-surface {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.chart-svg {
+    width: 100%;
+    height: 220px;
+    display: block;
+    background: var(--color-white);
+}
+
+.chart-grid-line {
+    stroke: rgba(242, 157, 82, 0.28);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.chart-line {
+    fill: none;
+    stroke: #7b80ff;
+    stroke-width: 2;
+}
+
+.chart-dot {
+    fill: #ffffff;
+    stroke: #7b80ff;
+    stroke-width: 2;
+}
+
+.chart-xlabel {
+    fill: var(--color-text-secondary);
+    font-size: 10px;
+}
+
+.chart-bar {
+    fill: rgba(242, 157, 82, 0.65);
+}
+
+.chart-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-sm);
+}
+
+.chart-legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.chart-legend-dot--line {
+    background: #7b80ff;
+}
+
+.chart-legend-dot--bar {
+    background: rgba(242, 157, 82, 0.85);
+}
+
+.entities-layout {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--spacing-lg);
+    align-items: center;
+}
+
+.chart-svg--pie {
+    height: 260px;
+}
+
+.chart-pie-label {
+    fill: rgba(17, 17, 17, 0.75);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.entities-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 120px;
+}
+
+.entities-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--font-sm);
+    color: var(--color-text-secondary);
+}
+
+.entities-legend-swatch {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+@media (max-width: 1100px) {
+    .admin-page--app-management .admin-dashboard-stats--app-management {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            'engagement'
+            'entities'
+            'placements';
+    }
+
+    .entities-layout {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+}

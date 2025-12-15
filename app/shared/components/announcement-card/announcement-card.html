@@ -1,0 +1,10 @@
+<div class="app-announcement-card app-announcement-{{variant}}">
+    <div class="app-announcement-content">
+        <p class="app-announcement-date" ng-if="date">{{date}}</p>
+        <h2 class="app-announcement-title">{{title}}</h2>
+        <p class="app-announcement-description" ng-if="description">{{description}}</p>
+        <div class="app-announcement-indicators" ng-if="!description">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</div>

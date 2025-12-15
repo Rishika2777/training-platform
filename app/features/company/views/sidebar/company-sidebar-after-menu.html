@@ -1,0 +1,19 @@
+<!-- Company Sidebar Bottom: Meet Our CEO -->
+<div class="sidebar-after-menu">
+    <div class="sidebar-section sidebar-section--company">
+        <div class="sidebar-section-title sidebar-section-title--accent">Meet Our CEO</div>
+        <div class="sidebar-ceo">
+            <div class="sidebar-ceo-avatar">
+                <img
+                    ng-if="companyCeoImage"
+                    ng-src="{{ companyCeoImage }}"
+                    alt="{{ companyCeoName }}"
+                />
+                <div ng-if="!companyCeoImage" class="sidebar-ceo-avatar-placeholder">
+                    {{ companyCeoName.charAt(0) }}
+                </div>
+            </div>
+            <div class="sidebar-ceo-name">{{ companyCeoName }}</div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,50 @@
+<!-- app/layout/header.html -->
+<header class="top-header">
+    <div class="header-left">
+        <button class="menu-btn">
+            <i class="fa fa-bars"></i>
+        </button>
+        <img src="assets/logo.png" alt="logo" class="logo" />
+    </div>
+
+    <div class="header-center">
+        <h1 class="page-title">{{ pageTitle }}</h1>
+    </div>
+
+    <div class="header-right">
+        <app-search
+            ng-if="showSearch"
+            placeholder="Search for anything"
+            ng-model="searchQuery"
+            on-search="handleSearch(query)"
+            search-btn-color="secondary"
+        >
+        </app-search>
+        <div class="icons">
+            <span class="icon" ng-click="goDashboard()">
+                <i class="fa fa-home"></i>
+            </span>
+            <span class="icon" id="notificationsIcon" ng-click="toggleNotifications($event)">
+                <i class="fa fa-bell"></i>
+            </span>
+            <span class="icon" id="settingsIcon" ng-click="toggleSettings($event)">
+                <i class="fa fa-cog"></i>
+            </span>
+            <span class="icon">
+                <i class="fa fa-user"></i>
+            </span>
+        </div>
+
+        <app-notifications-dropdown
+            is-open="isNotificationsOpen"
+            anchor-id="notificationsIcon"
+            on-close="closeNotifications()"
+        ></app-notifications-dropdown>
+
+        <app-settings-menu
+            is-open="isSettingsOpen"
+            anchor-id="settingsIcon"
+            on-close="closeSettings()"
+        ></app-settings-menu>
+    </div>
+</header>

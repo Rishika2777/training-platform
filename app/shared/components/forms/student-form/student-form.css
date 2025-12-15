@@ -1,0 +1,63 @@
+.app-form-step {
+    min-height: 400px;
+}
+
+.app-form-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.app-form-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: var(--color-secondary-light);
+    color: var(--color-white);
+    border-radius: var(--radius-full);
+    font-size: var(--font-sm);
+}
+
+.app-form-tag-remove {
+    background: none;
+    border: none;
+    color: var(--color-white);
+    cursor: pointer;
+    font-size: var(--font-lg);
+    padding: 0;
+    margin-left: var(--spacing-xs);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    transition: var(--transition-fast);
+}
+
+.app-form-tag-remove:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.app-form-row-email-address {
+    grid-template-columns: 1fr 2fr;
+    display: grid;
+}
+
+.app-form-row-email-address .app-form-col-textarea {
+    display: flex;
+    flex-direction: column;
+}
+
+.app-form-row-email-address .app-textarea-wrapper {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .app-form-row-email-address {
+        grid-template-columns: 1fr;
+    }
+}

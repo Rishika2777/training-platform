@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# Run build validation only (linting already done in pre-commit)
+echo "🔨 Validating build..."
+npm run validate
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Build validation failed. Please fix the errors before pushing."
+    exit 1
+fi
+
+echo ""
+echo "✅ All pre-push checks passed!"
+echo "🚀 Ready to push to GitHub."

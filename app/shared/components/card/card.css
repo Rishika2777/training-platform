@@ -1,0 +1,202 @@
+.app-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-normal);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.app-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.app-card-clickable {
+    cursor: pointer;
+}
+
+.app-card-clickable:hover {
+    transform: translateY(-2px);
+}
+
+.app-card-content {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    flex: 1;
+}
+
+/* Image Styles */
+.app-card-image-wrapper {
+    flex-shrink: 0;
+}
+
+.app-card-image {
+    object-fit: cover;
+    display: block;
+}
+
+.app-card-image-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-primary);
+}
+
+.app-card-image-rectangle {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+}
+
+/* Body Content */
+.app-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-card-title {
+    margin: 0 0 var(--spacing-xs) 0;
+    font-size: var(--font-md);
+    font-weight: var(--font-semibold);
+    color: var(--color-secondary);
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.app-card-subtitle {
+    margin: 0 0 var(--spacing-xs) 0;
+    font-size: var(--font-sm);
+    font-weight: var(--font-normal);
+    color: var(--color-secondary-light);
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.app-card-description {
+    margin: var(--spacing-sm) 0 0 0;
+    font-size: var(--font-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* Action Buttons */
+.app-card-actions {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.app-card-actions:empty {
+    display: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+.app-card-actions [card-actions] {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.app-card-actions [card-actions] .app-card-action-btn {
+    flex: 1;
+}
+
+.app-card-action-btn {
+    flex: 1;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    outline: none;
+}
+
+.app-card-action-btn:focus {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+}
+
+.app-card-action-btn-view {
+    background-color: var(--color-success);
+    color: var(--color-white);
+}
+
+.app-card-action-btn-view:hover {
+    background-color: #45a049;
+    opacity: 0.9;
+}
+
+.app-card-action-btn-delete {
+    background-color: var(--color-error);
+    color: var(--color-white);
+}
+
+.app-card-action-btn-delete:hover {
+    background-color: #e53935;
+    opacity: 0.9;
+}
+
+.app-card-action-btn-edit {
+    background-color: var(--color-info);
+    color: var(--color-white);
+}
+
+.app-card-action-btn-edit:hover {
+    opacity: 0.9;
+}
+
+.app-card-action-btn-primary {
+    background-color: var(--color-secondary);
+    color: var(--color-white);
+}
+
+.app-card-action-btn-primary:hover {
+    background-color: var(--color-secondary-dark);
+}
+
+.app-card-action-btn-secondary {
+    background-color: var(--color-white);
+    color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
+}
+
+.app-card-action-btn-secondary:hover {
+    background-color: var(--color-secondary);
+    color: var(--color-white);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .app-card-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .app-card-image-circle,
+    .app-card-image-rectangle {
+        width: 80px;
+        height: 80px;
+    }
+
+    .app-card-actions {
+        flex-direction: column;
+    }
+
+    .app-card-actions [card-actions] {
+        flex-direction: column;
+    }
+
+    .app-card-action-btn {
+        width: 100%;
+    }
+}

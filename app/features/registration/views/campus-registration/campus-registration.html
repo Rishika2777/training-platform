@@ -1,0 +1,17 @@
+<div class="registration-page">
+    <!-- Use existing header component -->
+    <div
+        class="layout-header"
+        ng-include="'app/layout/header/header.html'"
+        ng-controller="headerController"
+    ></div>
+
+    <div class="registration-content">
+        <app-campus-form
+            ng-model="campusData"
+            mode="create"
+            on-submit="handleSubmit(campus)"
+            on-cancel="handleCancel()"
+        ></app-campus-form>
+    </div>
+</div>

@@ -1,0 +1,303 @@
+.company-current-vacancy-page {
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.page-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.btn-primary {
+    background: #557f87;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    background: #46696f;
+}
+
+.content-wrapper {
+    margin-top: 30px;
+}
+
+.vacancies-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.vacancy-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #557f87;
+}
+
+.vacancy-card.closed {
+    border-left-color: #999;
+    opacity: 0.7;
+}
+
+.vacancy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.vacancy-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+
+.status-badge.active {
+    background: #4caf50;
+    color: white;
+}
+
+.status-badge.closed {
+    background: #999;
+    color: white;
+}
+
+.vacancy-details {
+    margin-bottom: 20px;
+}
+
+.vacancy-details p {
+    margin: 8px 0;
+    color: #666;
+}
+
+.vacancy-details i {
+    margin-right: 8px;
+    color: #557f87;
+}
+
+.vacancy-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-secondary,
+.btn-danger {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+/* Vacancy Form Modal Styles */
+.vacancy-form-modal-content {
+    padding: var(--spacing-md);
+}
+
+.modal-main-heading {
+    color: var(--color-primary);
+    font-size: var(--font-xl);
+    font-weight: var(--font-semibold);
+    margin: 0 0 var(--spacing-xl) 0;
+    text-align: left;
+}
+
+.form-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.section-heading {
+    font-size: var(--font-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-lg) 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group-full {
+    grid-column: 1 / -1;
+}
+
+.form-label {
+    font-size: var(--font-md);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-sm);
+    font-weight: var(--font-normal);
+}
+
+.vacancy-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--color-secondary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-md);
+    outline: none;
+    transition: var(--transition-normal);
+    background: var(--color-white);
+    color: var(--color-text-primary);
+}
+
+.vacancy-input:focus {
+    border-color: var(--color-secondary-dark);
+}
+
+select.vacancy-input {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--spacing-sm) center;
+    padding-right: var(--spacing-xl);
+}
+
+.vacancy-textarea {
+    width: 100%;
+    padding: var(--spacing-md);
+    border: 2px solid var(--color-secondary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-md);
+    font-family: inherit;
+    outline: none;
+    transition: var(--transition-normal);
+    resize: vertical;
+    color: var(--color-text-primary);
+}
+
+.vacancy-textarea:focus {
+    border-color: var(--color-secondary-dark);
+}
+
+.selection-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.selection-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.checkbox-group {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-md);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.vacancy-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    appearance: none;
+    position: relative;
+    transition: var(--transition-normal);
+}
+
+.vacancy-checkbox:checked {
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+}
+
+.vacancy-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--color-white);
+    font-size: var(--font-sm);
+    font-weight: var(--font-bold);
+}
+
+.vacancy-checkbox:focus {
+    outline: none;
+    border-color: var(--color-secondary-dark);
+}
+
+.btn-submit {
+    background: var(--color-primary);
+    color: var(--color-white);
+    padding: var(--spacing-sm) var(--spacing-xl);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-md);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.btn-submit:hover {
+    background: var(--color-primary-dark);
+}
