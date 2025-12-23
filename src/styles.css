@@ -1,0 +1,86 @@
+/* Global styles + theme tokens (ported from legacy Synkup_FE) */
+
+:root {
+  /* Theme */
+  /* (swapped as per latest Figma request) */
+  --color-primary: #628a8e;
+  --color-primary-dark: #4f7477;
+  --color-secondary: #f4a261;
+  --color-secondary-light: #f7b27b;
+  --color-background: #f6f7f8;
+  --color-footer: var(--color-secondary);
+  --color-white: #ffffff;
+  --color-text-primary: #333333;
+  --color-text-secondary: #666666;
+  --color-border: #e0e0e0;
+  --color-success: #4caf50;
+  --color-error: #f44336;
+  --color-warning: #ff9800;
+  --color-info: #2196f3;
+
+  --space-xs: 5px;
+  --space-sm: 10px;
+  --space-md: 15px;
+  --space-lg: 20px;
+  --space-xl: 30px;
+  --space-xxl: 40px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 25px;
+
+  /* Responsive layout spacing */
+  --page-padding-x: 80px;
+  --page-padding-y: 40px;
+
+  /* Layout */
+  --app-header-height: 60px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+html {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --page-padding-x: 16px;
+    --page-padding-y: 24px;
+
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+    --space-xxl: 32px;
+  }
+}

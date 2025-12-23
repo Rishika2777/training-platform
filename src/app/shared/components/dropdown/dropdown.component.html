@@ -1,0 +1,30 @@
+<div class="field">
+  @if (label) {
+    <label class="label" [attr.for]="selectId">
+      {{ label }}
+      @if (required) {
+        <span class="asterisk" aria-hidden="true">*</span>
+      }
+    </label>
+  }
+
+  <div class="select-wrapper">
+    <select
+      [id]="selectId"
+      class="control"
+      [class.invalid]="invalid"
+      [disabled]="disabled"
+      [value]="value ?? ''"
+      [attr.required]="required ? '' : null"
+      [attr.aria-required]="required"
+      (change)="onSelect(getValue($event))"
+    >
+      <option value="" disabled>{{ placeholder }}</option>
+      @for (item of items; track item.value) {
+        <option [value]="item.value">{{ item.label }}</option>
+      }
+    </select>
+  </div>
+</div>
+
+

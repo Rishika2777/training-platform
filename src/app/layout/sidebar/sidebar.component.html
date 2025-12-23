@@ -1,0 +1,97 @@
+@if (isAuthenticated()) {
+  <aside class="sidebar" [class.collapsed]="collapsed">
+    <div class="profile">
+      <div class="avatar" aria-hidden="true">{{ initials(userLabel()) }}</div>
+      @if (!collapsed) {
+        <div class="profile-meta">
+          <div class="profile-name">{{ userLabel() }}</div>
+          <div class="profile-rank">Rank</div>
+        </div>
+      }
+    </div>
+
+    <nav class="sidebar-main">
+      <ul class="sidebar-menu">
+        @for (item of menuItems(); track item.id) {
+          <li
+            class="sidebar-menu-item"
+            [class.active]="isActive(item)"
+            (click)="handleMenuClick(item)"
+            role="button"
+            tabindex="0"
+            [attr.title]="collapsed ? item.label : null"
+          >
+            <i class="menu-icon" [class]="'fa-solid ' + item.icon" aria-hidden="true"></i>
+            @if (!collapsed) {
+              <span class="sidebar-menu-label">{{ item.label }}</span>
+            }
+          </li>
+        }
+      </ul>
+    </nav>
+
+    @if (!collapsed && showCampusFaculties()) {
+      <div class="sidebar-footer">
+        <div class="faculties-section">
+          <div class="faculties-header">
+            <div class="faculties-title">Our Faculties</div>
+            <button class="add-faculty-btn" type="button" (click)="onAddFacultyClick()" title="Add Faculty">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          <div class="faculties-list">
+            @for (faculty of displayedFaculty; track faculty.imageUrl) {
+              <div class="faculty-item">
+                <img class="faculty-avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
+                <div class="faculty-name">{{ faculty.name }}</div>
+              </div>
+            }
+          </div>
+          @if (facultyTotalPages > 1) {
+            <div class="faculties-pagination">
+              <button
+                type="button"
+                class="pagination-arrow"
+                [disabled]="facultyPage === 1"
+                (click)="onFacultyPageChange(facultyPage - 1)"
+                aria-label="Previous page"
+              >
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              @for (page of facultyPageNumbers; track page) {
+                <button
+                  type="button"
+                  class="pagination-page"
+                  [class.active]="facultyPage === page"
+                  (click)="onFacultyPageChange(page)"
+                >
+                  {{ page }}
+                </button>
+              }
+              <button
+                type="button"
+                class="pagination-arrow"
+                [disabled]="facultyPage === facultyTotalPages"
+                (click)="onFacultyPageChange(facultyPage + 1)"
+                aria-label="Next page"
+              >
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (!collapsed && showStudentHomeFooter()) {
+      <div class="sidebar-footer">
+        <button class="quizhub" type="button">QuizHub <i class="fa-solid fa-angles-right"></i></button>
+        <div class="ideas">
+          <div class="ideas-title"><i class="fa-solid fa-lightbulb"></i> Your Ideas Matter!</div>
+          <button class="ideas-btn" type="button" (click)="onIdeasSubmitClick()">Submit Now <i class="fa-solid fa-angles-right"></i></button>
+        </div>
+      </div>
+    }
+  </aside>
+}
+

@@ -1,0 +1,43 @@
+.input-with-file-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.input-with-icon {
+  position: relative;
+  display: grid;
+}
+
+.icon-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-top: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  pointer-events: auto;
+}
+
+.icon-btn:hover {
+  opacity: 0.8;
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paperclip-icon {
+  color: var(--color-secondary);
+  opacity: 0.7;
+}
+

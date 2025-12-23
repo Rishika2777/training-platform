@@ -1,0 +1,33 @@
+.fab {
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.fab.sm {
+  width: 34px;
+  height: 34px;
+}
+
+.fab.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.fab.secondary {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.icon {
+  font-weight: 900;
+}
+
+

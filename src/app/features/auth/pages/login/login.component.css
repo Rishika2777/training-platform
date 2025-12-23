@@ -1,0 +1,165 @@
+.login-page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--color-primary);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.header-btn {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px;
+}
+
+.register-btn {
+  display: inline-flex;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+}
+
+.container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: var(--page-padding-y) var(--page-padding-x);
+  gap: 24px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.left-box,
+.right-box {
+  width: 40%;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 40px;
+  border-radius: 25px;
+  color: #fff;
+  text-align: center;
+}
+
+.left-box h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.right-box h3 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+:host ::ng-deep .right-box app-input .control {
+  width: 100%;
+  max-width: 420px;
+  padding: 12px;
+  margin: 0;
+  border-radius: 20px;
+  border: none;
+}
+
+:host ::ng-deep app-button.signin-btn .btn {
+  width: 100%;
+  max-width: 200px;
+  margin: 5px auto 0 auto;
+  text-align: center;
+  padding: 10px 30px;
+  border-radius: 20px;
+  border: 2px solid var(--color-secondary);
+  background: #fff;
+  color: var(--color-secondary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+:host ::ng-deep app-button.signin-btn .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.links {
+  margin-top: 10px;
+  color: #fff;
+}
+
+.links span,
+.forgot {
+  color: var(--color-secondary);
+  cursor: pointer;
+}
+
+footer {
+  background: var(--color-footer);
+  text-align: center;
+  padding: 20px;
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    justify-content: center;
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .left-box,
+  .right-box {
+    width: 100%;
+    max-width: 520px;
+    padding: 26px 20px;
+    border-radius: 18px;
+  }
+
+  .left-box h2 {
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+
+  .right-box h3 {
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+
+  :host ::ng-deep .right-box app-input .control {
+    max-width: 100%;
+    border-radius: 16px;
+  }
+
+  :host ::ng-deep app-button.signin-btn .btn {
+    max-width: 100%;
+  }
+
+  .header-btn {
+    padding: 14px 14px 0 14px;
+  }
+
+  :host ::ng-deep app-button.register-btn .btn {
+    padding: 8px 18px;
+    font-size: 14px;
+    border-radius: 20px;
+  }
+
+  footer {
+    padding: 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .left-box {
+    display: none;
+  }
+
+  .container {
+    padding: 14px;
+  }
+
+  .right-box {
+    padding: 22px 16px;
+  }
+}

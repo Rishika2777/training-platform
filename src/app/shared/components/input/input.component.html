@@ -1,0 +1,55 @@
+<div class="field">
+  @if (label) {
+    <label class="label" [attr.for]="controlId">
+      {{ label }}
+      @if (required) {
+        <span class="asterisk" aria-hidden="true">*</span>
+      }
+    </label>
+  }
+
+  @if (type === 'file') {
+    <div
+      class="file-wrapper"
+      [class.invalid]="invalid"
+      [class.disabled]="disabled"
+      tabindex="0"
+      role="button"
+      [attr.aria-disabled]="disabled"
+      (click)="!disabled && fileInput.click()"
+      (keydown.enter)="!disabled && fileInput.click()"
+      (keydown.space)="$event.preventDefault(); !disabled && fileInput.click()"
+    >
+      <span class="file-placeholder">{{ placeholder || 'Upload file' }}</span>
+      <i class="fa-solid fa-paperclip file-icon" aria-hidden="true"></i>
+
+      <input
+        #fileInput
+        class="file-native"
+        [id]="controlId"
+        [disabled]="disabled"
+        type="file"
+        [attr.required]="required ? '' : null"
+        [attr.aria-required]="required"
+        [attr.accept]="accept"
+        (change)="onFileChange(getFiles($event))"
+      />
+    </div>
+  } @else {
+    <input
+      class="control"
+      [class.invalid]="invalid"
+      [id]="controlId"
+      [disabled]="disabled"
+      [type]="type"
+      [attr.required]="required ? '' : null"
+      [attr.aria-required]="required"
+      [attr.maxlength]="maxlength"
+      [placeholder]="placeholder"
+      [value]="value"
+      (input)="onInput(getValue($event))"
+    />
+  }
+</div>
+
+

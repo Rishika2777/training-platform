@@ -1,0 +1,35 @@
+.field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.label {
+  color: var(--color-text-primary);
+}
+
+.control {
+  border: 2px solid var(--color-secondary);
+  border-radius: 15px;
+  padding: 10px;
+  resize: vertical;
+}
+
+
+.control:focus,
+.control:focus-visible {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.control.invalid {
+  border-color: var(--color-error);
+  box-shadow: none;
+}
+
+.control.invalid:focus,
+.control.invalid:focus-visible {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 30%, transparent);
+}

@@ -1,0 +1,44 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.arrow {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.arrow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pages {
+  display: flex;
+  gap: 6px;
+}
+
+.page {
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.page.active {
+  background: var(--color-secondary);
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+

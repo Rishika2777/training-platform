@@ -1,0 +1,23 @@
+<div class="learning-pathway">
+  <div class="courses-grid">
+    @for (course of courses; track course.id) {
+      <div class="course-card">
+        <div class="course-image">
+          <img [src]="course.imageUrl" [alt]="course.title" />
+        </div>
+        <div class="course-content">
+          <h3 class="course-title">{{ course.title }}</h3>
+          <button
+            type="button"
+            class="enroll-btn"
+            (click)="onEnroll(course)"
+          >
+            Enroll Now...
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+

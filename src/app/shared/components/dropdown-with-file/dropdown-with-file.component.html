@@ -1,0 +1,33 @@
+<div class="dropdown-with-file-wrapper">
+  <input
+    #fileInput
+    type="file"
+    [id]="fileInputId || 'dropdown-file-input-hidden'"
+    [accept]="accept ?? undefined"
+    [disabled]="disabled"
+    style="display: none"
+    (change)="onFileChange($any($event.target).files)"
+  />
+  <div class="dropdown-with-icon">
+    <app-dropdown
+      [label]="label"
+      [placeholder]="placeholder"
+      [items]="items"
+      [value]="value"
+      [disabled]="disabled"
+      [required]="required"
+      [invalid]="invalid"
+      (valueChange)="onDropdownChange($event)"
+    />
+    <button
+      type="button"
+      class="icon-btn paperclip-icon"
+      (click)="triggerFileSelect()"
+      [disabled]="disabled"
+      aria-label="Attach file"
+    >
+      <i class="fa-solid fa-paperclip"></i>
+    </button>
+  </div>
+</div>
+

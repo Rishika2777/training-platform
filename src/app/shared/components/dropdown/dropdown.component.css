@@ -1,0 +1,64 @@
+.field {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.label {
+  color: var(--color-text-primary);
+}
+
+.asterisk {
+  margin-left: 6px;
+  color: var(--color-error);
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 459px;
+}
+
+.control {
+  width: 100%;
+  max-width: 459px;
+  border: 2px solid var(--color-secondary);
+  border-radius: 15px;
+  padding: 0 40px 0 15px;
+  height: 40px;
+  font: inherit;
+  background: var(--color-white);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F4A261' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.control:focus,
+.control:focus-visible {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.control.invalid {
+  border-color: var(--color-error);
+  box-shadow: none;
+}
+
+.control.invalid:focus,
+.control.invalid:focus-visible {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+@media (max-width: 768px) {
+  .control {
+    height: 56px;
+    border-width: 3px;
+    border-radius: 18px;
+    padding: 0 16px;
+  }
+}
+
+

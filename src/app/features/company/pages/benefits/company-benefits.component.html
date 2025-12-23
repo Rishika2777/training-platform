@@ -1,0 +1,46 @@
+<form class="benefits-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-header">
+    <h2 class="form-title">Benefits Offer</h2>
+  </div>
+
+  <div class="form-content">
+    <div class="rate-salary-row">
+      <app-dropdown
+        label="Intern-to-Job Rate"
+        [items]="rateItems"
+        [value]="value.internToJobRate"
+        [disabled]="submitting"
+        placeholder="Select rate"
+        (valueChange)="updateField('internToJobRate', $event)"
+      />
+      <app-dropdown
+        label="Starting Salary Range"
+        [items]="salaryItems"
+        [value]="value.startingSalaryRange"
+        [disabled]="submitting"
+        placeholder="Select salary range"
+        (valueChange)="updateField('startingSalaryRange', $event)"
+      />
+    </div>
+
+    <div class="benefits-list">
+      @for (field of benefitFields; track field.key) {
+        <div class="benefit-field">
+          <label class="field-label" [attr.for]="'benefit-' + field.key">{{ field.label }}</label>
+          <textarea
+            [id]="'benefit-' + field.key"
+            class="benefit-textarea"
+            [value]="value[field.key]"
+            [disabled]="submitting"
+            [placeholder]="'Enter ' + field.label.toLowerCase() + ' description...'"
+            (input)="updateField(field.key, $any($event.target).value)"
+          ></textarea>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>

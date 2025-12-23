@@ -1,0 +1,44 @@
+<form class="specialization-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-header">
+    <h2 class="form-title">We are specialized in</h2>
+  </div>
+
+  <div class="technologies-list">
+    @for (tech of value.technologies; track $index) {
+      <div class="technology-row">
+        <div class="tech-icon">
+          <i class="fa-solid fa-network-wired"></i>
+        </div>
+        <app-input
+          label="Technology Name"
+          type="text"
+          [value]="tech"
+          [disabled]="submitting"
+          (valueChange)="updateTechnology($index, $event)"
+        />
+        <button
+          type="button"
+          class="action-btn add-btn"
+          (click)="addTechnology()"
+          [disabled]="submitting"
+          title="Add"
+        >
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <button
+          type="button"
+          class="action-btn remove-btn"
+          (click)="removeTechnology($index)"
+          [disabled]="submitting || value.technologies.length === 1"
+          title="Remove"
+        >
+          <i class="fa-solid fa-minus"></i>
+        </button>
+      </div>
+    }
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>

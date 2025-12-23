@@ -1,0 +1,93 @@
+<div class="admin-dashboard">
+  <div class="announcement">
+    <div class="announcement-date">{{ announcementDate }}</div>
+    <div class="announcement-title">RecN Announcement</div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="pill primary" type="button">
+      Add New ReN Announcement
+      <span class="pill-icon" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>
+    </button>
+    <button class="pill warn" type="button">
+      Remove
+      <span class="pill-icon" aria-hidden="true"><i class="fa-solid fa-minus"></i></span>
+    </button>
+  </div>
+
+  <div class="grid">
+    <div class="main">
+      <div class="composer">
+        <input class="composer-input" type="text" placeholder="what’s on your mind?" />
+        <div class="composer-actions" aria-hidden="true">
+          <i class="fa-solid fa-image"></i>
+          <i class="fa-solid fa-user"></i>
+          <button class="composer-send" type="button">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="feed">
+        @for (post of posts; track post.imageUrl) {
+          <article class="post">
+            <div class="post-head">
+              <img class="post-avatar" [src]="post.imageUrl" [alt]="post.author" />
+              <div class="post-meta">
+                <div class="post-author">{{ post.author }}</div>
+                <div class="post-id">{{ post.authorId }}</div>
+              </div>
+            </div>
+
+            <div class="post-body">
+              <img class="post-image" [src]="post.imageUrl" alt="" aria-hidden="true" />
+              <p class="post-text">{{ post.text }}</p>
+            </div>
+
+            <div class="post-actions" aria-hidden="true">
+              <button class="post-action" type="button"><i class="fa-regular fa-thumbs-up"></i></button>
+              <button class="post-action" type="button"><i class="fa-regular fa-message"></i></button>
+              <button class="post-action warn" type="button"><i class="fa-solid fa-circle-exclamation"></i></button>
+            </div>
+          </article>
+        }
+      </div>
+    </div>
+
+    <aside class="side">
+      <section class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Courses We offer</div>
+        </div>
+
+        <div class="tiles">
+          <button class="tile add" type="button" title="Add">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+          <div class="tile"></div>
+          <div class="tile"></div>
+        </div>
+      </section>
+
+      <section class="notice">
+        <div class="notice-title">News and Updates</div>
+        <div class="notice-card">
+          <div class="notice-head">Upcoming Placements</div>
+          <div class="notice-text">
+            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
+            <br />
+            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
+          </div>
+          <div class="notice-more">See more</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+

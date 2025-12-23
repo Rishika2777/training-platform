@@ -1,0 +1,27 @@
+@if (isOpen) {
+  <div class="menu">
+    <div class="menu-header">
+      <strong>Notifications</strong>
+      <button class="x" type="button" (click)="close()" aria-label="Close">×</button>
+    </div>
+
+    <div class="menu-body">
+      @if (items.length === 0) {
+        <div class="empty">No notifications</div>
+      } @else {
+        <ul class="list">
+          @for (n of items; track n.id) {
+            <li class="item">
+              <div class="title">{{ n.title }}</div>
+              @if (n.timeLabel) {
+                <div class="time">{{ n.timeLabel }}</div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+}
+
+

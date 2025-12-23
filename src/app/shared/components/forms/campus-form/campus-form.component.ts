@@ -1,0 +1,103 @@
+import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ButtonComponent } from '../../button/button.component';
+import { InputComponent } from '../../input/input.component';
+import { TextareaComponent } from '../../textarea/textarea.component';
+
+export interface CampusFormValue {
+  campusName: string;
+  campusLogoUrl: string;
+  campusLogoFiles: FileList | null;
+  rank: string;
+
+  adminName: string;
+  adminEmail: string;
+  adminPhone: string;
+  adminDept: string;
+  adminDesignation: string;
+
+  website: string;
+  about: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
+@Component({
+  selector: 'app-campus-form',
+  standalone: true,
+  imports: [CommonModule, ButtonComponent, InputComponent, TextareaComponent],
+  templateUrl: './campus-form.component.html',
+  styleUrl: './campus-form.component.css',
+})
+export class CampusFormComponent {
+  @Input() submitting = false;
+  @Input() title = 'Campus Registration';
+  @Input() mode: 'create' | 'review' = 'create';
+
+  @Input() value: CampusFormValue = {
+    campusName: '',
+    campusLogoUrl: '',
+    campusLogoFiles: null,
+    rank: '',
+    adminName: '',
+    adminEmail: '',
+    adminPhone: '',
+    adminDept: '',
+    adminDesignation: '',
+    website: '',
+    about: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+  };
+
+  @Output() valueChange = new EventEmitter<CampusFormValue>();
+  @Output() submitted = new EventEmitter<CampusFormValue>();
+  @Output() cancelled = new EventEmitter<void>();
+
+  submitAttempted = false;
+
+  get isReviewMode(): boolean {
+    return this.mode === 'review';
+  }
+
+  patch(patch: Partial<CampusFormValue>): void {
+    const next: CampusFormValue = { ...this.value, ...patch };
+    this.value = next;
+    this.valueChange.emit(next);
+  }
+
+  isInvalid(field: 'campusName' | 'campusLogoFiles' | 'rank' | 'adminName' | 'adminEmail'): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    if (field === 'campusLogoFiles') {
+      return !this.value.campusLogoFiles || this.value.campusLogoFiles.length === 0;
+    }
+    const raw = this.value[field];
+    return typeof raw !== 'string' || raw.trim().length === 0;
+  }
+
+  private isFormValid(): boolean {
+    return (
+      !this.isInvalid('campusName') &&
+      !this.isInvalid('campusLogoFiles') &&
+      !this.isInvalid('rank') &&
+      !this.isInvalid('adminName') &&
+      !this.isInvalid('adminEmail')
+    );
+  }
+
+  submit(): void {
+    this.submitAttempted = true;
+    if (!this.isFormValid()) {
+      return;
+    }
+    this.submitted.emit(this.value);
+  }
+}
+
+

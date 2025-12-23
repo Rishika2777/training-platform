@@ -1,0 +1,12 @@
+<button
+  class="btn"
+  [class.primary]="variant === 'primary'"
+  [class.secondary]="variant === 'secondary'"
+  [class.outline]="variant === 'outline'"
+  [attr.type]="type"
+  [disabled]="disabled"
+  (click)="$event.stopPropagation(); buttonClick.emit($event)"
+>
+  {{ label }}
+</button>
+

@@ -1,0 +1,30 @@
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" aria-label="RecN">
+        <div class="brand-mark">RecN</div>
+      </div>
+
+      @if (showSearch) {
+        <app-search
+          class="search"
+          [placeholder]="searchPlaceholder"
+          [value]="searchValue"
+          (valueChange)="handleSearch($event)"
+          (searched)="handleSearched($event)"
+        />
+      } @else {
+        <div class="spacer"></div>
+      }
+
+      <app-button class="login-btn" type="button" variant="outline" label="Login" (buttonClick)="onLoginClick()" />
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="page">
+      <ng-content />
+    </section>
+  </main>
+</div>
+

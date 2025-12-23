@@ -1,0 +1,60 @@
+<form class="resume-upload-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-header">
+    <h2 class="form-title">Showcase your expertise</h2>
+    <p class="form-subtitle">Upload your resume now!</p>
+  </div>
+
+  <div class="form-content">
+    <p class="description">
+      Need a professional resume? Use AI to generate yours in just a few clicks!
+    </p>
+
+    <button type="button" class="download-btn" (click)="submit()">
+      Download Now
+    </button>
+
+    <p class="description">
+      Upload your document and open the door to new opportunities!
+    </p>
+
+    <div
+      class="drop-zone"
+      [class.dragging]="isDragging"
+      [class.has-file]="hasFile"
+      tabindex="0"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+      (click)="triggerFileSelect()"
+      (keyup.enter)="triggerFileSelect()"
+    >
+      <input
+        #fileInput
+        type="file"
+        accept=".pdf,.doc,.docx"
+        style="display: none"
+        [disabled]="submitting"
+        (change)="onFileSelected($event)"
+      />
+
+      @if (hasFile) {
+        <div class="file-selected">
+          <i class="fa-solid fa-file-pdf file-icon"></i>
+          <span class="file-name">{{ fileName }}</span>
+        </div>
+      } @else {
+        <div class="drop-zone-content">
+          <div class="drop-icon">
+            <i class="fa-solid fa-plus"></i>
+          </div>
+          <p class="drop-text">Drop the document here</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting || !hasFile" />
+  </div>
+</form>
+

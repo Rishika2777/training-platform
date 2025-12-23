@@ -1,0 +1,33 @@
+<div class="input-with-file-wrapper">
+  <input
+    #fileInput
+    type="file"
+    [id]="fileInputId || 'file-input-hidden'"
+    [accept]="accept ?? undefined"
+    [disabled]="disabled"
+    [required]="required"
+    style="display: none"
+    (change)="onFileChange($any($event.target).files)"
+  />
+  <div class="input-with-icon">
+    <app-input
+      [label]="label"
+      type="text"
+      [value]="value"
+      [disabled]="disabled"
+      [required]="required"
+      [invalid]="invalid"
+      (valueChange)="onTextChange($event)"
+    />
+    <button
+      type="button"
+      class="icon-btn paperclip-icon"
+      (click)="triggerFileSelect()"
+      [disabled]="disabled"
+      aria-label="Attach file"
+    >
+      <i class="fa-solid fa-paperclip"></i>
+    </button>
+  </div>
+</div>
+

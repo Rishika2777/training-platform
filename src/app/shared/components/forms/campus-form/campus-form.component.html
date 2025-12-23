@@ -1,0 +1,169 @@
+<div class="app-form-container">
+  <h2 class="app-form-title">{{ title }}</h2>
+
+  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate>
+    <div class="app-form-row">
+      <app-input
+        label="Campus Name"
+        [required]="true"
+        [invalid]="isInvalid('campusName')"
+        type="text"
+        [value]="value.campusName"
+        (valueChange)="patch({ campusName: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Upload Photo"
+        [required]="true"
+        [invalid]="isInvalid('campusLogoFiles')"
+        type="file"
+        (filesSelected)="patch({ campusLogoFiles: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Campus Rank"
+        [required]="true"
+        [invalid]="isInvalid('rank')"
+        type="number"
+        [value]="value.rank"
+        (valueChange)="patch({ rank: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+    </div>
+
+    <div class="app-form-row">
+      <app-input
+        label="Admin Name"
+        [required]="true"
+        [invalid]="isInvalid('adminName')"
+        type="text"
+        [value]="value.adminName"
+        (valueChange)="patch({ adminName: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Admin Email"
+        [required]="true"
+        [invalid]="isInvalid('adminEmail')"
+        type="email"
+        [value]="value.adminEmail"
+        (valueChange)="patch({ adminEmail: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Admin Phone No."
+        type="tel"
+        [value]="value.adminPhone"
+        (valueChange)="patch({ adminPhone: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+    </div>
+
+    <div class="app-form-row">
+      <app-input
+        label="Admin Dept"
+        type="text"
+        [value]="value.adminDept"
+        (valueChange)="patch({ adminDept: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Admin Designation"
+        type="text"
+        [value]="value.adminDesignation"
+        (valueChange)="patch({ adminDesignation: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Campus Website URL"
+        type="url"
+        placeholder="https://example.com"
+        [value]="value.website"
+        (valueChange)="patch({ website: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+    </div>
+
+    <div class="app-form-row app-form-row-textarea">
+      <div class="app-form-col-textarea">
+        <app-textarea
+          label="About Campus"
+          [rows]="4"
+          [value]="value.about"
+          (valueChange)="patch({ about: $event })"
+          [disabled]="submitting || isReviewMode"
+        />
+      </div>
+
+      <div class="app-form-col-textarea">
+        <app-textarea
+          label="Campus Address"
+          [rows]="4"
+          [value]="value.address"
+          (valueChange)="patch({ address: $event })"
+          [disabled]="submitting || isReviewMode"
+        />
+      </div>
+    </div>
+
+    <div class="app-form-row">
+      <app-input
+        label="City"
+        type="text"
+        [value]="value.city"
+        (valueChange)="patch({ city: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="State"
+        type="text"
+        [value]="value.state"
+        (valueChange)="patch({ state: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+
+      <app-input
+        label="Pincode"
+        type="text"
+        [value]="value.pincode"
+        (valueChange)="patch({ pincode: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+    </div>
+
+    <div class="app-form-actions">
+      @if (!isReviewMode) {
+        <app-button
+          type="button"
+          variant="outline"
+          label="Cancel"
+          [disabled]="submitting"
+          (click)="cancelled.emit()"
+        />
+        <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+      } @else {
+        <app-button
+          type="button"
+          variant="outline"
+          label="Reject"
+          [disabled]="submitting"
+          (click)="cancelled.emit()"
+        />
+        <app-button
+          type="button"
+          variant="secondary"
+          label="Approve"
+          [disabled]="submitting"
+          (click)="submit()"
+        />
+      }
+    </div>
+  </form>
+</div>

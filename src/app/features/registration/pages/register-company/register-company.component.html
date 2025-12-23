@@ -1,0 +1,16 @@
+<app-registration-page-layout
+  [showSearch]="true"
+  [searchValue]="searchValue"
+  (searchValueChange)="searchValue = $event"
+  (searched)="handleSearch($event)"
+>
+  <app-company-form
+    title="Company Registration Form"
+    mode="create"
+    [value]="formValue"
+    [submitting]="submitting"
+    (valueChange)="formValue = $event"
+    (submitted)="submit($event)"
+    (cancelled)="cancel()"
+  />
+</app-registration-page-layout>

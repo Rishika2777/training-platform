@@ -1,0 +1,76 @@
+.app-step-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-24);
+  padding: var(--space-12) 0;
+  position: relative;
+}
+
+.app-step-indicator::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+.app-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.app-step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--color-white);
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  transition: 0.2s ease;
+}
+
+.app-step-item.app-step-active .app-step-icon {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.app-step-item.app-step-completed .app-step-icon {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-white);
+}
+
+.app-step-item.app-step-disabled .app-step-icon {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-step-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.app-step-item.app-step-active .app-step-label {
+  color: var(--color-secondary);
+  font-weight: 600;
+}
+
+.app-step-item.app-step-completed .app-step-label {
+  color: var(--color-success);
+}

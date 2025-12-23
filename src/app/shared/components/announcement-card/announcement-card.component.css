@@ -1,0 +1,18 @@
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--color-white);
+}
+
+.date {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.title {
+  margin-top: 6px;
+  font-weight: 800;
+}
+
+

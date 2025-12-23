@@ -1,0 +1,37 @@
+<form class="companies-visited-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-row">
+    <app-input
+      label="Company Logo"
+      type="text"
+      [value]="companyLogoName || 'Select logo file'"
+      [disabled]="true"
+      placeholder="Select logo file"
+    />
+    <button type="button" class="file-attach-btn" (click)="triggerCompanyLogoSelect()">
+      <i class="fa-solid fa-paperclip"></i>
+    </button>
+    <input
+      #companyLogoFileInput
+      type="file"
+      accept="image/*"
+      style="display: none"
+      [disabled]="submitting"
+      (change)="onCompanyLogoSelected($any($event.target).files)"
+    />
+  </div>
+
+  <div class="form-row">
+    <app-input
+      label="Company Name"
+      type="text"
+      [value]="value.companyName"
+      [disabled]="submitting"
+      (valueChange)="patch({ companyName: $event })"
+    />
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>
+

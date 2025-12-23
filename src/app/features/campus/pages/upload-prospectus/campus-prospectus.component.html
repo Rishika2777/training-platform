@@ -1,0 +1,27 @@
+<form class="prospectus-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-row">
+    <app-input-with-file
+      label="Campus"
+      [value]="value.campus"
+      [disabled]="submitting"
+      [required]="true"
+      (valueChange)="patch({ campus: $event })"
+      (fileSelected)="onCampusFileSelected($event)"
+    />
+  </div>
+
+  <div class="form-row">
+    <app-dropdown-with-file
+      label="Course"
+      [items]="courseItems"
+      [value]="value.course"
+      [disabled]="submitting"
+      (valueChange)="patch({ course: $event })"
+      (fileSelected)="onCourseFileSelected($event)"
+    />
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>

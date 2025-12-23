@@ -1,0 +1,78 @@
+.specialization-form {
+  display: grid;
+  gap: 24px;
+}
+
+.form-header {
+  display: grid;
+  gap: 8px;
+}
+
+.form-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.technologies-list {
+  display: grid;
+  gap: 16px;
+}
+
+.technology-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.tech-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: #e3f2fd;
+  border-radius: 8px;
+  color: #1976d2;
+  font-size: 18px;
+  margin-bottom: 26px;
+}
+
+.action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: opacity 0.2s ease;
+  margin-bottom: 26px;
+}
+
+.action-btn:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-btn {
+  background: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.remove-btn {
+  background: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}

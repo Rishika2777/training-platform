@@ -1,0 +1,155 @@
+.landing-feature-row {
+  padding: 20px var(--page-padding-x);
+  margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: var(--color-white);
+  margin-left: 60px;
+}
+
+.feature-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Keep arrows left/right fixed while swapping text/image for reverse */
+.feature-content .left-arrow {
+  order: 1;
+}
+
+.feature-content .right-arrow {
+  order: 4;
+}
+
+.feature-content .text-section {
+  order: 2;
+  flex: 1;
+  text-align: right;
+}
+
+.feature-content .image-section {
+  order: 3;
+  flex: 0 0 auto;
+}
+
+.feature-content.reverse-layout .text-section {
+  order: 3;
+  text-align: left;
+}
+
+.feature-content.reverse-layout .image-section {
+  order: 2;
+}
+
+/* Arrows */
+.arrow {
+  background: #fff;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  color: #333;
+  flex-shrink: 0;
+}
+
+.arrow:hover {
+  transform: scale(1.1);
+}
+
+.arrow-icon {
+  font-size: 26px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+/* Text Section */
+.text-section {
+  color: #fff;
+  padding: 0 40px;
+}
+
+.text-section h3 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #fff;
+}
+
+.text-section p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #f0f0f0;
+  margin: 0;
+}
+
+/* Image Section */
+.image-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.image-section img {
+  max-width: 400px;
+  height: auto;
+  border-radius: 0;
+  transition: transform 0.3s ease;
+}
+
+.image-section img:hover {
+  transform: scale(1.02);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .landing-feature-row {
+    padding: 20px 20px;
+  }
+
+  .section-title {
+    margin-left: 0;
+  }
+
+  .feature-content,
+  .feature-content.reverse-layout {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .feature-content .text-section,
+  .feature-content.reverse-layout .text-section {
+    text-align: center;
+    order: 2;
+    padding: 0;
+  }
+
+  .feature-content .image-section,
+  .feature-content.reverse-layout .image-section {
+    order: 1;
+    margin-bottom: 20px;
+  }
+
+  .arrow {
+    display: none;
+  }
+}
+
+

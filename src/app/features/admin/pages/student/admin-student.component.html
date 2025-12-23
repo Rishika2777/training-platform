@@ -1,0 +1,43 @@
+<div class="admin-student-page">
+  <div class="announcement">
+    <div class="announcement-date">{{ announcementDate }}</div>
+    <div class="announcement-title">RecN Announcement</div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+
+  <section class="registered-section">
+    <div class="section-header">
+      <h2 class="section-title">Registered Students</h2>
+      <button type="button" class="add-btn" (click)="onAdd()" title="Add Student">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    <div class="students-grid">
+      @for (student of displayedStudents; track student.id) {
+        <div class="student-card">
+          <div class="card-avatar">
+            <img [src]="student.imageUrl" [alt]="student.name" />
+          </div>
+          <div class="card-content">
+            <div class="card-name">{{ student.name }}</div>
+            <div class="card-campus">{{ student.campusName }}</div>
+            <div class="card-actions">
+              <app-button class="view-btn" label="View" variant="outline" (buttonClick)="onView(student)"></app-button>
+              <app-button class="delete-btn" label="Delete" variant="outline" (buttonClick)="onDelete(student)"></app-button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <app-pagination
+      [currentPage]="currentPage"
+      [totalPages]="totalPages"
+      (pageChange)="onPageChange($event)"
+    ></app-pagination>
+  </section>
+</div>

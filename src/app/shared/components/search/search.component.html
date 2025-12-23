@@ -1,0 +1,13 @@
+<div class="search">
+  <app-input
+    label=""
+    [placeholder]="placeholder"
+    [value]="value"
+    [disabled]="disabled"
+    (valueChange)="valueChange.emit($event)"
+  />
+
+  <app-button type="button" variant="outline" label="Search" [disabled]="disabled" (buttonClick)="submit()" />
+</div>
+
+

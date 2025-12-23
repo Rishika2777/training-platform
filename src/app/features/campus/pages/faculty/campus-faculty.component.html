@@ -1,0 +1,154 @@
+<form class="faculty-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-section">
+    <h3 class="section-title">Basic Information</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <app-input
+          label="Full Name"
+          type="text"
+          [value]="value.fullName"
+          [disabled]="submitting"
+          [required]="true"
+          (valueChange)="patch({ fullName: $event })"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-input
+          label="Upload Photo"
+          type="file"
+          accept="image/*"
+          [disabled]="submitting"
+          (filesSelected)="onPhotoSelected($event)"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-input
+          label="Email"
+          type="email"
+          [value]="value.email"
+          [disabled]="submitting"
+          [required]="true"
+          (valueChange)="patch({ email: $event })"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-input
+          label="Date of Birth"
+          type="date"
+          [value]="value.dateOfBirth"
+          [disabled]="submitting"
+          [required]="true"
+          (valueChange)="patch({ dateOfBirth: $event })"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3 class="section-title">Professional Information</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <app-dropdown
+          label="Designation"
+          placeholder="Select Designation"
+          [items]="designationItems"
+          [value]="value.designation"
+          [disabled]="submitting"
+          (valueChange)="patch({ designation: $event })"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-dropdown
+          label="Department"
+          placeholder="Select Department"
+          [items]="departmentItems"
+          [value]="value.department"
+          [disabled]="submitting"
+          (valueChange)="patch({ department: $event })"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-dropdown
+          label="Specialization"
+          placeholder="Select Specialization"
+          [items]="specializationItems"
+          [value]="value.specialization"
+          [disabled]="submitting"
+          (valueChange)="patch({ specialization: $event })"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-dropdown
+          label="Years Of Experience"
+          placeholder="Select Experience"
+          [items]="experienceItems"
+          [value]="value.yearsOfExperience"
+          [disabled]="submitting"
+          (valueChange)="patch({ yearsOfExperience: $event })"
+        />
+      </div>
+
+      <div class="form-row qualifications">
+        <div class="qualifications-header">
+          <span class="field-label">Qualifications</span>
+          <button
+            type="button"
+            class="add-btn-with-text"
+            (click)="addQualification()"
+            [disabled]="submitting"
+          >
+            <span>Add</span>
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        @for (qual of value.qualifications; track $index) {
+          <div class="input-field">
+            <app-input
+              type="text"
+              [value]="qual"
+              [disabled]="submitting"
+              (valueChange)="updateQualification($index, $event)"
+            />
+          </div>
+        }
+      </div>
+
+      <div class="form-row certificates">
+        <div class="certificates-header">
+          <span class="field-label">Certificates</span>
+          <button
+            type="button"
+            class="add-btn-with-text"
+            (click)="addCertificate()"
+            [disabled]="submitting"
+          >
+            <span>Add</span>
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        @for (cert of value.certificates; track $index) {
+          <div class="input-field">
+            <app-input
+              type="text"
+              [value]="cert"
+              [disabled]="submitting"
+              (valueChange)="updateCertificate($index, $event)"
+            />
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="button" label="Cancel" variant="primary" [disabled]="submitting" (buttonClick)="cancel()" />
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>
+

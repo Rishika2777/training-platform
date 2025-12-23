@@ -1,0 +1,42 @@
+<div class="admin-campus-page">
+  <div class="announcement">
+    <div class="announcement-date">{{ announcementDate }}</div>
+    <div class="announcement-title">RecN Announcement</div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+
+  <section class="registered-section">
+    <div class="section-header">
+      <h2 class="section-title">Registered Campus</h2>
+      <button type="button" class="add-btn" (click)="onAdd()" title="Add Campus">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    <div class="campuses-grid">
+      @for (campus of displayedCampuses; track campus.id) {
+        <div class="campus-card">
+          <div class="card-image">
+            <img [src]="campus.imageUrl" [alt]="campus.name" />
+          </div>
+          <div class="card-content">
+            <div class="card-name">{{ campus.name }}</div>
+            <div class="card-actions">
+              <app-button class="view-btn" label="View" variant="outline" (buttonClick)="onView(campus)"></app-button>
+              <app-button class="delete-btn" label="Delete" variant="outline" (buttonClick)="onDelete(campus)"></app-button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <app-pagination
+      [currentPage]="currentPage"
+      [totalPages]="totalPages"
+      (pageChange)="onPageChange($event)"
+    ></app-pagination>
+  </section>
+</div>

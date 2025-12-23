@@ -1,0 +1,56 @@
+<div class="register-options-page">
+  <!-- Top Right Sign In Button -->
+  <div class="top-right">
+      <app-button
+        class="signin-btn"
+        type="button"
+        variant="outline"
+        label="Sign In"
+        (click)="goToLogin()"
+      />
+  </div>
+
+  <div class="container">
+      <!-- Left Box -->
+      <div class="left-box">
+          <h2>Welcome To Your<br />Professional Community</h2>
+          <p>
+              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
+              Ipsum has been the industry's
+          </p>
+      </div>
+
+      <!-- Right Options -->
+      <div class="right-box">
+          @for (option of options; track option.userType) {
+            <app-button
+              class="option-btn"
+              type="button"
+              variant="outline"
+              label="Register as {{ option.label }}"
+              [disabled]="submitting"
+              (click)="select(option)"
+            />
+          }
+      </div>
+  </div>
+
+  <footer>© 2025 Clavrit Digital Solutions. All rights reserved.</footer>
+</div>
+
+<!-- OTP Verification Modal -->
+<app-modal
+  [visible]="showOtpModal"
+  title="Verify OTP"
+  size="md"
+  (closed)="handleOtpCancel()"
+>
+  <app-verify-otp
+    [submitting]="verifyingOtp"
+    [resending]="resendingOtp"
+    [email]="userEmail"
+    (submitted)="handleOtpSubmit($event)"
+    (cancelled)="handleOtpCancel()"
+    (resendOtp)="handleResendOtp()"
+  />
+</app-modal>

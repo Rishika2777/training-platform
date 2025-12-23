@@ -1,0 +1,184 @@
+<div class="company-home">
+  <div class="announcement">
+    <div class="announcement-date">{{ announcementDate }}</div>
+    <div class="announcement-title">RecN Announcement</div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="main">
+      <section class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Key people</div>
+          <button class="panel-icon" type="button" title="Filter">
+            <i class="fa-solid fa-filter" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <app-carousel
+          type="pagination"
+          [currentPage]="keyPeoplePage"
+          [totalPages]="keyPeopleTotalPages"
+          (pageChange)="keyPeoplePage = $event"
+        >
+          <div class="avatar-row">
+            @for (p of keyPeoplePageItems(); track p.imageUrl) {
+              <div class="avatar-card">
+                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                <div class="avatar-name">{{ p.name }}</div>
+                <div class="avatar-sub">{{ p.subtitle }}</div>
+              </div>
+            }
+          </div>
+        </app-carousel>
+      </section>
+
+      <div class="composer">
+        <input class="composer-input" type="text" placeholder="what’s on your mind?" />
+        <div class="composer-actions" aria-hidden="true">
+          <i class="fa-solid fa-image"></i>
+          <i class="fa-solid fa-user"></i>
+          <button class="composer-send" type="button">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="feed">
+        @for (post of posts; track post.imageUrl) {
+          <article class="post">
+            <div class="post-head">
+              <img class="post-avatar" [src]="post.imageUrl" [alt]="post.author" />
+              <div class="post-meta">
+                <div class="post-author">{{ post.author }}</div>
+                <div class="post-id">{{ post.authorId }}</div>
+              </div>
+            </div>
+
+            <div class="post-body">
+              <img class="post-image" [src]="post.imageUrl" alt="" aria-hidden="true" />
+              <p class="post-text">{{ post.text }}</p>
+            </div>
+
+            <div class="post-actions" aria-hidden="true">
+              <button class="post-action" type="button"><i class="fa-regular fa-thumbs-up"></i></button>
+              <button class="post-action" type="button"><i class="fa-regular fa-message"></i></button>
+              <button class="post-action warn" type="button"><i class="fa-solid fa-circle-exclamation"></i></button>
+            </div>
+          </article>
+        }
+      </div>
+    </div>
+
+    <aside class="side">
+      <section class="panel companies">
+        <div class="panel-head">
+          <div class="panel-title">Clients of our company</div>
+        </div>
+
+        <div class="company-grid">
+          <button class="company-tile add" type="button" title="Add">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+          @for (c of clients; track c.alt) {
+            <div class="company-tile">
+              @if (c.imageUrl) {
+                <img class="tile-image" [src]="c.imageUrl" [alt]="c.alt" />
+              }
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="notice">
+        <div class="notice-title">News and Updates</div>
+        <div class="notice-card">
+          <div class="notice-head">Upcoming Events</div>
+          <div class="notice-text">
+            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
+            <br />
+            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
+          </div>
+          <div class="notice-more">See more</div>
+        </div>
+      </section>
+
+      <section class="panel preferred">
+        <div class="panel-head">
+          <div class="panel-title">Preferred Campus</div>
+        </div>
+
+        <div class="company-grid">
+          <button class="company-tile add" type="button" title="Add">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+          @for (t of preferredCampuses; track t.alt) {
+            <div class="company-tile">
+              @if (t.imageUrl) {
+                <img class="tile-image" [src]="t.imageUrl" [alt]="t.alt" />
+              }
+            </div>
+          }
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Specialization Modal -->
+  <app-modal
+    [visible]="isSpecializationModalOpen()"
+    title="list-specialization"
+    size="md"
+    (closed)="closeModal()"
+  >
+    <app-company-specialization
+      [submitting]="submittingSpecialization"
+      (submitted)="handleSpecializationSubmit($event); closeModal()"
+    />
+  </app-modal>
+
+  <!-- Vision & Performance Modal -->
+  <app-modal
+    [visible]="isVisionPerformanceModalOpen()"
+    title="vision & performance"
+    size="md"
+    (closed)="closeModal()"
+  >
+    <app-company-vision-performance
+      [submitting]="submittingVisionPerformance"
+      (submitted)="handleVisionPerformanceSubmit($event); closeModal()"
+    />
+  </app-modal>
+
+  <!-- Benefits Modal -->
+  <app-modal
+    [visible]="isBenefitsModalOpen()"
+    title="Benefits"
+    size="lg"
+    (closed)="closeModal()"
+  >
+    <app-company-benefits
+      [submitting]="submittingBenefits"
+      (submitted)="handleBenefitsSubmit($event); closeModal()"
+    />
+  </app-modal>
+
+  <!-- Current Vacancy Modal -->
+  <app-modal
+    [visible]="isCurrentVacancyModalOpen()"
+    title="Available opportunity"
+    size="lg"
+    (closed)="closeModal()"
+  >
+    <app-company-current-vacancy
+      [submitting]="submittingCurrentVacancy"
+      (submitted)="handleCurrentVacancySubmit($event); closeModal()"
+    />
+  </app-modal>
+</div>
+
+

@@ -1,0 +1,99 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  border: 0;
+  padding: 0;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 1001;
+  padding: 16px;
+}
+
+.panel {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.modal.sm .panel {
+  width: min(420px, 100%);
+}
+.modal.md .panel {
+  width: min(720px, 100%);
+}
+.modal.lg .panel {
+  width: min(980px, 100%);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  position: relative;
+}
+
+.title {
+  font-weight: 800;
+  text-align: center;
+  flex: 1;
+}
+
+.title:empty {
+  display: none;
+}
+
+.title.left-align {
+  text-align: left;
+}
+
+.title.lowercase {
+  text-transform: lowercase;
+}
+
+.close {
+  border: none;
+  background: var(--color-secondary);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-white);
+  font-weight: 400;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  position: absolute;
+  right: 14px;
+}
+
+.close:hover {
+  opacity: 0.9;
+}
+
+.close-spacer {
+  width: 32px;
+  height: 32px;
+}
+
+.body {
+  padding: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+

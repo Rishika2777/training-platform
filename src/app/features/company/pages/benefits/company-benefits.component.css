@@ -1,0 +1,79 @@
+.benefits-form {
+  display: grid;
+  gap: 24px;
+}
+
+.form-header {
+  display: grid;
+  gap: 8px;
+}
+
+.form-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.form-content {
+  display: grid;
+  gap: 20px;
+}
+
+.rate-salary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.benefits-list {
+  display: grid;
+  gap: 20px;
+}
+
+.benefit-field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.benefit-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px 16px;
+  border: 2px solid var(--color-secondary);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1.5;
+}
+
+.benefit-textarea:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.benefit-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .rate-salary-row {
+    grid-template-columns: 1fr;
+  }
+}

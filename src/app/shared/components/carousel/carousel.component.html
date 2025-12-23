@@ -1,0 +1,18 @@
+<div class="carousel">
+  <div class="content">
+    <ng-content></ng-content>
+  </div>
+
+  @if (type === 'pagination') {
+    <div class="footer">
+      <app-pagination
+        [currentPage]="currentPage"
+        [totalPages]="totalPages"
+        [maxVisible]="maxVisible"
+        (pageChange)="pageChange.emit($event)"
+      />
+    </div>
+  }
+</div>
+
+

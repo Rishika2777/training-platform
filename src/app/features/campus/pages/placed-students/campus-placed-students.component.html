@@ -1,0 +1,89 @@
+<form class="placed-students-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-grid">
+    <div class="form-row">
+      <app-input
+        label="Student Name"
+        type="text"
+        [value]="value.studentName"
+        [disabled]="submitting"
+        (valueChange)="patch({ studentName: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-input
+        label="Student Photo"
+        type="text"
+        [value]="studentPhotoName || 'Select photo file'"
+        [disabled]="true"
+        placeholder="Select photo file"
+      />
+      <button type="button" class="file-attach-btn" (click)="triggerStudentPhotoSelect()">
+        <i class="fa-solid fa-paperclip"></i>
+      </button>
+      <input
+        #studentPhotoFileInput
+        type="file"
+        accept="image/*"
+        style="display: none"
+        [disabled]="submitting"
+        (change)="onStudentPhotoSelected($any($event.target).files)"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-dropdown
+        label="Course"
+        [items]="courseItems"
+        [value]="value.course"
+        [disabled]="submitting"
+        (valueChange)="patch({ course: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-dropdown
+        label="Batch"
+        [items]="batchItems"
+        [value]="value.batch"
+        [disabled]="submitting"
+        (valueChange)="patch({ batch: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-input
+        label="Placement Company"
+        type="text"
+        [value]="value.placementCompany"
+        [disabled]="submitting"
+        (valueChange)="patch({ placementCompany: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-dropdown
+        label="Designation"
+        [items]="designationItems"
+        [value]="value.designation"
+        [disabled]="submitting"
+        (valueChange)="patch({ designation: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-dropdown
+        label="Sector"
+        [items]="sectorItems"
+        [value]="value.sector"
+        [disabled]="submitting"
+        (valueChange)="patch({ sector: $event })"
+      />
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>
+

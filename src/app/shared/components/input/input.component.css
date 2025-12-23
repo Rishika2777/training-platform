@@ -1,0 +1,123 @@
+.field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  width: 100%;
+}
+
+.label {
+  color: var(--color-text-primary);
+}
+
+.asterisk {
+  margin-left: 6px;
+  color: var(--color-error);
+}
+
+.control {
+  width: 100%;
+  max-width: 459px;
+  border: 2px solid var(--color-secondary); /* Figma: #F4A261 */
+  height: 40px;
+  border-radius: 15px;
+  padding: 0 45px 0 15px;
+  /* font: inherit; */
+}
+
+.control:focus,
+.control:focus-visible {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.control.invalid {
+  border-color: var(--color-error);
+  box-shadow: none;
+}
+
+.control.invalid:focus,
+.control.invalid:focus-visible {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.file-wrapper {
+  width: 100%;
+  max-width: 459px;
+  height: 40px;
+  border: 2px solid var(--color-secondary);
+  border-radius: 15px;
+  padding: 0 12px 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-white);
+  cursor: pointer;
+  user-select: none;
+}
+
+.file-wrapper:focus,
+.file-wrapper:focus-visible,
+.file-wrapper:focus-within {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.file-wrapper.invalid {
+  border-color: var(--color-error);
+  box-shadow: none;
+}
+
+.file-wrapper.invalid:focus,
+.file-wrapper.invalid:focus-visible,
+.file-wrapper.invalid:focus-within {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.file-wrapper.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-placeholder {
+  color: color-mix(in srgb, var(--color-text-primary) 65%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+}
+
+.file-icon {
+  color: var(--color-secondary);
+  font-size: 18px;
+}
+
+.file-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .control {
+    height: 56px;
+    border-width: 3px;
+    border-radius: 18px;
+    padding: 0 16px;
+  }
+
+  .file-wrapper {
+    height: 56px;
+    border-width: 3px;
+    border-radius: 18px;
+    padding: 0 10px 0 16px;
+  }
+}
+

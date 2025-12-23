@@ -1,0 +1,67 @@
+<div class="login-page">
+  <div class="header-btn">
+      <app-button
+        class="register-btn"
+        type="button"
+        variant="outline"
+        label="Register"
+        (buttonClick)="goToRegisterOptions()"
+      />
+  </div>
+
+  <div class="container">
+      <!-- Left Welcome Box -->
+      <div class="left-box">
+          <h2>Welcome To Your<br />Professional Community</h2>
+          <p>
+              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
+              Ipsum has been the industry's...
+          </p>
+      </div>
+
+      <!-- Sign In Box -->
+      <div class="right-box">
+          <h3>Sign In</h3>
+
+          <form class="login-form" [formGroup]="form" (ngSubmit)="submit()">
+              <app-input
+                label=""
+                type="text"
+                placeholder="Email"
+                [value]="form.controls.email.value"
+                [disabled]="submitting"
+                (valueChange)="form.controls.email.setValue($event)"
+              />
+
+              <app-input
+                label=""
+                type="password"
+                placeholder="Password"
+                [value]="form.controls.password.value"
+                [disabled]="submitting"
+                (valueChange)="form.controls.password.setValue($event)"
+              />
+
+              <app-button
+                class="signin-btn"
+                type="submit"
+                variant="outline"
+                label="Sign In"
+                [disabled]="submitting || form.invalid"
+              />
+
+              <div class="links">
+                  <p>
+                    New To RecN?
+                    <span role="link" tabindex="0" (click)="goToRegisterOptions()" (keyup.enter)="goToRegisterOptions()">Register Now</span>
+                  </p>
+                  <p class="forgot" role="button" tabindex="0" (click)="forgotPassword()" (keyup.enter)="forgotPassword()">
+                    Forgot Password?
+                  </p>
+              </div>
+          </form>
+      </div>
+  </div>
+
+  <footer>© 2025 Clavrit Digital Solutions. All rights reserved.</footer>
+</div>

@@ -1,0 +1,25 @@
+<nav class="pagination" aria-label="Pagination">
+  <button class="arrow" type="button" [disabled]="!canPrev()" (click)="prev()" aria-label="Previous page">
+    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+  </button>
+
+  <div class="pages" role="list">
+    @for (p of pages(); track p) {
+      <button
+        class="page"
+        type="button"
+        [class.active]="p === currentPage"
+        (click)="goTo(p)"
+        [attr.aria-current]="p === currentPage ? 'page' : null"
+      >
+        {{ p }}
+      </button>
+    }
+  </div>
+
+  <button class="arrow" type="button" [disabled]="!canNext()" (click)="next()" aria-label="Next page">
+    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+  </button>
+</nav>
+
+

@@ -1,0 +1,42 @@
+.companies-visited-form {
+  display: grid;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.file-attach-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-secondary);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+}
+
+.file-attach-btn:hover {
+  background: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.file-attach-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+

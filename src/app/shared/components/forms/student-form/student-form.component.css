@@ -1,0 +1,237 @@
+.app-form-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.app-form-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-xl);
+  text-align: center;
+}
+
+.app-form-section {
+  margin-bottom: var(--space-lg);
+}
+
+.app-form-section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: var(--space-md) 0;
+  color: var(--color-text-primary);
+}
+
+.app-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.app-form-row .app-form-col-full {
+  grid-column: span 3;
+}
+
+.app-form-col-textarea {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-form-row-textarea {
+  grid-template-columns: repeat(2, 1fr);
+  display: grid;
+}
+
+.app-form-row-certificates {
+  grid-template-columns: 1fr auto;
+}
+
+.app-form-row-skill-add {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.app-form-row-skill-add-one {
+  grid-template-columns: 1fr auto;
+}
+
+.app-form-row-skill-add-two {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.mini-btns {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: end;
+}
+
+:host ::ng-deep app-button.mini-btn .btn {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--color-secondary);
+  color: var(--color-secondary);
+  background: var(--color-white);
+  padding: 0 14px;
+}
+
+:host ::ng-deep app-button.mini-btn .btn.primary {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.app-form-action-col {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: end;
+}
+
+.app-form-action-col-right {
+  justify-content: flex-end;
+}
+
+.app-form-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.app-inline-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.required {
+  color: var(--color-error);
+  margin-left: 6px;
+}
+
+.app-checkbox-group,
+.app-radio-group {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.app-checkbox,
+.app-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.app-checkbox input,
+.app-radio input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-secondary);
+}
+
+.app-checkbox-inline {
+  margin-top: var(--space-sm);
+}
+
+.app-checkbox-terms {
+  margin-top: var(--space-md);
+  align-items: flex-start;
+}
+
+.app-checkbox-terms input {
+  margin-top: 3px;
+}
+
+.app-input-error {
+  margin-top: var(--space-sm);
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-form-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.app-form-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--color-secondary) 80%, black);
+  color: var(--color-white);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.app-form-tag-remove {
+  background: none;
+  border: none;
+  color: var(--color-white);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin-left: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.app-form-tag-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .app-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row-textarea {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row-certificates {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row-skill-add {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row-skill-add-one {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row-skill-add-two {
+    grid-template-columns: 1fr;
+  }
+
+  .app-form-row .app-form-col-full {
+    grid-column: span 1;
+  }
+
+  .app-form-actions app-button {
+    width: 100%;
+  }
+}

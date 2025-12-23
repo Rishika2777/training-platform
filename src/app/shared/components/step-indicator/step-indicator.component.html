@@ -1,0 +1,19 @@
+<div class="app-step-indicator">
+  @for (step of steps; track $index) {
+    <div
+      class="app-step-item"
+      [class.app-step-active]="$index + 1 === currentStep"
+      [class.app-step-completed]="$index + 1 < currentStep"
+      [class.app-step-disabled]="disabled && $index + 1 !== currentStep && $index + 1 > currentStep"
+    >
+      <div class="app-step-icon">
+        @if ($index + 1 < currentStep) {
+          <i class="fa fa-check"></i>
+        } @else {
+          <span>{{ $index + 1 }}</span>
+        }
+      </div>
+      <div class="app-step-label">{{ step }}</div>
+    </div>
+  }
+</div>

@@ -1,0 +1,33 @@
+<section class="courses-page">
+  <div class="page-header">
+    <h2 class="page-title">Courses We Offer</h2>
+  </div>
+
+  <div class="courses-grid">
+    @for (course of courses; track course.id) {
+      <div class="course-card">
+        <div class="course-card-top">
+          <div class="course-code">{{ course.name }}</div>
+          <div class="course-details">
+            <span>seats: {{ course.seats }}</span>
+            <span>Duration: {{ course.duration }}</span>
+          </div>
+        </div>
+        <div class="course-card-bottom">
+          <div class="course-full-name">{{ course.fullName }}</div>
+        </div>
+      </div>
+    }
+
+    <div class="course-card add-card" tabindex="0" (click)="addCourse()" (keyup.enter)="addCourse()">
+      <div class="course-card-top">
+        <div class="add-icon">
+          <i class="fa-solid fa-plus"></i>
+        </div>
+      </div>
+      <div class="course-card-bottom">
+        <div class="add-text">Add</div>
+      </div>
+    </div>
+  </div>
+</section>

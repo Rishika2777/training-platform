@@ -1,0 +1,220 @@
+<form class="current-vacancy-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-sections">
+    <!-- Job Details Section -->
+    <section class="form-section">
+      <h3 class="section-title">Job Details</h3>
+      <div class="section-content">
+        <div class="form-row">
+          <app-dropdown
+            label="Job Title"
+            [items]="jobTitleItems"
+            [value]="value.jobTitle"
+            [disabled]="submitting"
+            placeholder="Select job title"
+            (valueChange)="updateField('jobTitle', $event)"
+          />
+          <app-dropdown
+            label="Job Type"
+            [items]="jobTypeItems"
+            [value]="value.jobType"
+            [disabled]="submitting"
+            placeholder="Select job type"
+            (valueChange)="updateField('jobType', $event)"
+          />
+        </div>
+
+        <div class="form-row">
+          <app-dropdown
+            label="Contract Duration"
+            [items]="contractDurationItems"
+            [value]="value.contractDuration"
+            [disabled]="submitting"
+            placeholder="Select duration"
+            (valueChange)="updateField('contractDuration', $event)"
+          />
+          <app-dropdown
+            label="Job Location"
+            [items]="jobLocationItems"
+            [value]="value.jobLocation"
+            [disabled]="submitting"
+            placeholder="Select location"
+            (valueChange)="updateField('jobLocation', $event)"
+          />
+        </div>
+
+        <div class="form-row">
+          <app-input
+            label="Salary"
+            type="text"
+            [value]="value.salary"
+            [disabled]="submitting"
+            placeholder="Enter salary"
+            (valueChange)="updateField('salary', $event)"
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="field-label" for="job-description">Job Description</label>
+            <textarea
+              id="job-description"
+              class="textarea-input"
+              [value]="value.jobDescription"
+              [disabled]="submitting"
+              placeholder="Enter job description..."
+              (input)="updateField('jobDescription', $any($event.target).value)"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <app-dropdown
+            label="Department"
+            [items]="departmentItems"
+            [value]="value.department"
+            [disabled]="submitting"
+            placeholder="Select department"
+            (valueChange)="updateField('department', $event)"
+          />
+          <app-dropdown
+            label="No. of Openings"
+            [items]="numberOfOpeningsItems"
+            [value]="value.numberOfOpenings"
+            [disabled]="submitting"
+            placeholder="Select number"
+            (valueChange)="updateField('numberOfOpenings', $event)"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Eligibility Criteria Section -->
+    <section class="form-section">
+      <h3 class="section-title">Eligibility Criteria</h3>
+      <div class="section-content">
+        <div class="form-row">
+          <app-dropdown
+            label="Required Qualifications"
+            [items]="qualificationsItems"
+            [value]="value.requiredQualifications"
+            [disabled]="submitting"
+            placeholder="Select qualification"
+            (valueChange)="updateField('requiredQualifications', $event)"
+          />
+          <app-dropdown
+            label="Streams Eligible"
+            [items]="streamsItems"
+            [value]="value.streamsEligible"
+            [disabled]="submitting"
+            placeholder="Select stream"
+            (valueChange)="updateField('streamsEligible', $event)"
+          />
+        </div>
+
+        <div class="form-row">
+          <app-dropdown
+            label="Year of Passing"
+            [items]="yearItems"
+            [value]="value.yearOfPassing"
+            [disabled]="submitting"
+            placeholder="Select year"
+            (valueChange)="updateField('yearOfPassing', $event)"
+          />
+          <app-input
+            label="Minimum CGPA/percentage"
+            type="text"
+            [value]="value.minimumCGPA"
+            [disabled]="submitting"
+            placeholder="Enter CGPA/percentage"
+            (valueChange)="updateField('minimumCGPA', $event)"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Selection Process Details Section -->
+    <section class="form-section">
+      <h3 class="section-title">Selection Process Details</h3>
+      <div class="section-content">
+        <div class="checkbox-group">
+          <span class="checkbox-group-label">Selection Rounds</span>
+          <div class="checkbox-list">
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.selectionRounds.aptitudeTest"
+                [disabled]="submitting"
+                (change)="toggleSelectionRound('aptitudeTest')"
+              />
+              <span>Aptitude Test</span>
+            </label>
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.selectionRounds.groupDiscussion"
+                [disabled]="submitting"
+                (change)="toggleSelectionRound('groupDiscussion')"
+              />
+              <span>Group Discussion</span>
+            </label>
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.selectionRounds.faceToFace"
+                [disabled]="submitting"
+                (change)="toggleSelectionRound('faceToFace')"
+              />
+              <span>Face To Face</span>
+            </label>
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.selectionRounds.all"
+                [disabled]="submitting"
+                (change)="toggleSelectionRound('all')"
+              />
+              <span>All</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <span class="checkbox-group-label">Mode of Selection</span>
+          <div class="checkbox-list">
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.modeOfSelection.online"
+                [disabled]="submitting"
+                (change)="toggleModeOfSelection('online')"
+              />
+              <span>Online</span>
+            </label>
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.modeOfSelection.offline"
+                [disabled]="submitting"
+                (change)="toggleModeOfSelection('offline')"
+              />
+              <span>Offline</span>
+            </label>
+            <label class="checkbox-item">
+              <input
+                type="checkbox"
+                [checked]="value.modeOfSelection.both"
+                [disabled]="submitting"
+                (change)="toggleModeOfSelection('both')"
+              />
+              <span>Both</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>

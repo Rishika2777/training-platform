@@ -1,0 +1,163 @@
+<form class="form" (submit)="$event.preventDefault(); submit()">
+  @if (title) {
+    <h2 class="form-title">{{ title }}</h2>
+  }
+
+  <div class="grid grid-3">
+    <app-input
+      label="Company Name"
+      [value]="value.companyName"
+      (valueChange)="patch({ companyName: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Upload Photo"
+      type="file"
+      accept="image/*"
+      [placeholder]="companyPhotoPlaceholder"
+      [disabled]="submitting"
+      (filesSelected)="onCompanyPhotoSelected($event)"
+    />
+
+    <app-input
+      label="Admin Name"
+      [value]="value.adminName"
+      (valueChange)="patch({ adminName: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Admin Designation"
+      [value]="value.adminDesignation"
+      (valueChange)="patch({ adminDesignation: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Admin Email"
+      type="email"
+      [value]="value.adminEmail"
+      (valueChange)="patch({ adminEmail: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Admin Phone No."
+      type="tel"
+      [value]="value.adminPhone"
+      (valueChange)="patch({ adminPhone: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Company Website URL"
+      type="url"
+      [value]="value.companyWebsiteUrl"
+      (valueChange)="patch({ companyWebsiteUrl: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Other website URL"
+      type="url"
+      [value]="value.otherWebsiteUrl"
+      (valueChange)="patch({ otherWebsiteUrl: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-input
+      label="Register Number"
+      [value]="value.registerNumber"
+      (valueChange)="patch({ registerNumber: $event })"
+      [disabled]="submitting"
+    />
+  </div>
+
+  <div class="section">
+    <div class="section-title">Add Key People</div>
+
+    <div class="key-people">
+      @for (person of value.keyPeople; track $index) {
+        <div class="key-person-row">
+          <app-input
+            [label]="$index === 0 ? 'Name' : ''"
+            [value]="person.name"
+            (valueChange)="patchKeyPerson($index, { name: $event })"
+            [disabled]="submitting"
+          />
+
+          <app-input
+            [label]="$index === 0 ? 'Upload Photo' : ''"
+            type="file"
+            accept="image/*"
+            [placeholder]="keyPersonPhotoPlaceholder($index)"
+            [disabled]="submitting"
+            (filesSelected)="onKeyPersonPhotoSelected($index, $event)"
+          />
+
+          <app-input
+            [label]="$index === 0 ? 'Designation' : ''"
+            [value]="person.designation"
+            (valueChange)="patchKeyPerson($index, { designation: $event })"
+            [disabled]="submitting"
+          />
+
+          <div class="key-person-actions">
+            @if (value.keyPeople.length > 1) {
+              <button
+                type="button"
+                class="icon-btn icon-btn--remove"
+                [disabled]="submitting"
+                (click)="removeKeyPerson($index)"
+                aria-label="Remove key person"
+              >
+                ×
+              </button>
+            }
+
+            @if (isLastKeyPerson($index)) {
+              <button
+                type="button"
+                class="icon-btn icon-btn--add"
+                [disabled]="submitting"
+                (click)="addKeyPerson()"
+                aria-label="Add key person"
+              >
+                +
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <app-textarea
+      label="About Company"
+      [rows]="4"
+      [value]="value.aboutCompany"
+      (valueChange)="patch({ aboutCompany: $event })"
+      [disabled]="submitting"
+    />
+
+    <app-textarea
+      label="Company Address"
+      [rows]="4"
+      [value]="value.companyAddress"
+      (valueChange)="patch({ companyAddress: $event })"
+      [disabled]="submitting"
+    />
+  </div>
+
+  <div class="actions actions-center">
+    @if (mode === 'edit') {
+      <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
+    }
+
+    <app-button type="submit" variant="primary" [label]="mode === 'edit' ? 'Save' : 'Submit'" [disabled]="submitting" />
+  </div>
+</form>
+
+

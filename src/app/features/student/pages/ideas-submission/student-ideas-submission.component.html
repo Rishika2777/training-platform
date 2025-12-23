@@ -1,0 +1,84 @@
+<form class="ideas-submission-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-header">
+    <h2 class="form-title">Your Ideas Shape the Future</h2>
+    <p class="form-subtitle">Share Them with Us!</p>
+  </div>
+
+  <div class="form-content">
+    <p class="description">
+      Download the template and update each section based on your ideas.
+    </p>
+
+    <button type="button" class="download-btn" (click)="downloadTemplate()">
+      Download Now
+    </button>
+
+    <p class="description">
+      Upload the document, and let's turn your vision into reality!
+    </p>
+
+    <div
+      class="drop-zone"
+      [class.dragging]="isDragging"
+      [class.has-file]="hasFile"
+      tabindex="0"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+      (click)="triggerFileSelect()"
+      (keyup.enter)="triggerFileSelect()"
+    >
+      <input
+        #fileInput
+        type="file"
+        accept=".pdf,.doc,.docx"
+        style="display: none"
+        [disabled]="submitting"
+        (change)="onFileSelected($event)"
+      />
+
+      @if (hasFile) {
+        <div class="file-selected">
+          <i class="fa-solid fa-file-pdf file-icon"></i>
+          <span class="file-name">{{ fileName }}</span>
+        </div>
+      } @else {
+        <div class="drop-zone-content">
+          <div class="drop-icon">
+            <i class="fa-solid fa-plus"></i>
+          </div>
+          <p class="drop-text">Drop the document here</p>
+        </div>
+      }
+    </div>
+
+    <div class="form-field">
+      <label class="field-label" for="idea-description">
+        Describe Your Idea
+        <span class="word-limit">(Not more than {{ maxDescriptionLength }} words)</span>
+      </label>
+      <textarea
+        id="idea-description"
+        class="description-input"
+        [value]="value.description"
+        [disabled]="submitting"
+        [attr.maxlength]="maxDescriptionLength"
+        placeholder="Enter your idea description..."
+        (input)="onDescriptionChange($any($event.target).value)"
+      ></textarea>
+      <div class="character-count">
+        {{ descriptionLength }}/{{ maxDescriptionLength }} characters
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button
+      type="submit"
+      label="Submit"
+      variant="primary"
+      [disabled]="submitting || !isFormValid()"
+    />
+  </div>
+</form>
+

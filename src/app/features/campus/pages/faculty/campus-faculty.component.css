@@ -1,0 +1,132 @@
+.faculty-form {
+  display: grid;
+  gap: 32px;
+}
+
+.form-section {
+  display: grid;
+  gap: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+  text-align: left;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  gap: 12px;
+}
+
+.form-row.qualifications,
+.form-row.certificates {
+  grid-column: span 3;
+}
+
+:host ::ng-deep .form-row app-input .field,
+:host ::ng-deep .form-row app-dropdown .field {
+  max-width: 100%;
+}
+
+:host ::ng-deep .form-row app-input .control,
+:host ::ng-deep .form-row app-dropdown .select-wrapper {
+  max-width: 100%;
+}
+
+.qualifications,
+.certificates {
+  display: grid;
+  gap: 12px;
+}
+
+.qualifications-header,
+.certificates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.input-field {
+  display: grid;
+  gap: 0;
+}
+
+.add-btn-with-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  transition: opacity 0.2s ease;
+}
+
+.add-btn-with-text:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.add-btn-with-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-btn-with-text i {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: var(--color-white);
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+@media (max-width: 1200px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-row.qualifications,
+  .form-row.certificates {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row.qualifications,
+  .form-row.certificates {
+    grid-column: span 1;
+  }
+}
+

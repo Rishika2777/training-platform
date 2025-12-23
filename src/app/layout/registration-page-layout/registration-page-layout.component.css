@@ -1,0 +1,96 @@
+.shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-primary);
+}
+
+.topbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px var(--page-padding-x);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 70px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #1b1f3a;
+  color: var(--color-secondary);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.content {
+  padding: 24px 0 40px 0;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--page-padding-x);
+}
+
+:host ::ng-deep app-search.search .search {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+:host ::ng-deep app-search.search app-input .control {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0 14px;
+}
+
+:host ::ng-deep app-search.search app-button .btn {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--color-secondary);
+  color: var(--color-secondary);
+  background: var(--color-white);
+  padding: 0 14px;
+}
+
+:host ::ng-deep app-button.login-btn .btn {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--color-secondary);
+  color: var(--color-secondary);
+  background: var(--color-white);
+  padding: 0 18px;
+}
+
+@media (max-width: 768px) {
+  .topbar-inner {
+    grid-template-columns: 1fr;
+    padding: 14px var(--page-padding-x);
+  }
+  .brand {
+    justify-content: center;
+  }
+  :host ::ng-deep app-button.login-btn .btn {
+    width: 100%;
+  }
+}
+

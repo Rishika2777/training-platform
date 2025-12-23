@@ -1,0 +1,17 @@
+<button
+  class="fab"
+  [class.sm]="size === 'sm'"
+  [class.primary]="variant === 'primary'"
+  [class.secondary]="variant === 'secondary'"
+  type="button"
+  [attr.title]="title"
+  (click)="onClick()"
+>
+  @if (icon) {
+    <span class="icon">{{ icon }}</span>
+  } @else {
+    <span class="icon">+</span>
+  }
+</button>
+
+

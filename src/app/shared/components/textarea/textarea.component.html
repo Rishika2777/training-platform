@@ -1,0 +1,18 @@
+<div class="field">
+  @if (label) {
+    <label class="label" [attr.for]="controlId">{{ label }}</label>
+  }
+
+  <textarea
+    class="control"
+    [class.invalid]="invalid"
+    [id]="controlId"
+    [disabled]="disabled"
+    [rows]="rows"
+    [placeholder]="placeholder"
+    [value]="value"
+    (input)="onInput(getValue($event))"
+  ></textarea>
+</div>
+
+

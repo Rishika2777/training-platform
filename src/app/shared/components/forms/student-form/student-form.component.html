@@ -1,0 +1,686 @@
+<div class="app-form-container">
+  <h2 class="app-form-title">Student Registration</h2>
+
+  <app-step-indicator [steps]="steps" [currentStep]="currentStep + 1" [disabled]="submitting" />
+
+  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate>
+    @if (currentStep === 0) {
+      <div class="app-form-step">
+        <div class="app-form-row">
+          <app-input
+            label="First Name"
+            [required]="true"
+            [invalid]="isRequiredInvalidText(value.firstName)"
+            type="text"
+            [value]="value.firstName"
+            (valueChange)="patch({ firstName: $event })"
+            [disabled]="submitting"
+          />
+
+          <app-input
+            label="Last Name"
+            type="text"
+            [value]="value.lastName"
+            (valueChange)="patch({ lastName: $event })"
+            [disabled]="submitting"
+          />
+
+          <app-input
+            label="Upload Photo"
+            type="file"
+            (filesSelected)="patch({ photoFiles: $event })"
+            [disabled]="submitting"
+          />
+        </div>
+
+        <div class="app-form-row">
+  <app-input
+            label="Date of Birth"
+            [required]="true"
+            [invalid]="isDobInvalid()"
+            type="date"
+            [value]="value.dateOfBirth"
+            (valueChange)="patch({ dateOfBirth: $event })"
+            [disabled]="submitting"
+          />
+
+          <app-dropdown
+            label="Gender"
+            [required]="true"
+            [invalid]="isRequiredInvalidDropdown(value.gender)"
+            [items]="genderItems"
+            [value]="value.gender"
+            (valueChange)="patch({ gender: $event })"
+    [disabled]="submitting"
+  />
+
+          <app-input
+            label="Mobile No."
+            [required]="true"
+            [invalid]="isRequiredInvalidText(value.mobile)"
+            type="tel"
+            [value]="value.mobile"
+            (valueChange)="patch({ mobile: $event })"
+            [disabled]="submitting"
+          />
+        </div>
+
+        @if (submitAttempted && isDobTooYoung()) {
+          <div class="app-form-row">
+            <div class="app-form-col-full">
+              <div class="app-input-error">Date of birth must be at least 15 years ago.</div>
+            </div>
+          </div>
+        }
+
+        <div class="app-form-row app-form-row-textarea">
+          <div class="app-form-col-textarea">
+  <app-input
+    label="Email"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.email)"
+    type="email"
+    [value]="value.email"
+    (valueChange)="patch({ email: $event })"
+    [disabled]="submitting"
+  />
+          </div>
+
+          <div class="app-form-col-textarea">
+            <app-textarea
+              label="Address"
+              [rows]="3"
+              [value]="value.address"
+              (valueChange)="patch({ address: $event })"
+              [disabled]="submitting"
+            />
+          </div>
+        </div>
+
+        <div class="app-form-row app-form-row-textarea">
+          <div class="app-form-col-textarea">
+            <app-textarea
+              label="Profile Summary"
+              [rows]="4"
+              [value]="value.profileSummary"
+              (valueChange)="patch({ profileSummary: $event })"
+              [disabled]="submitting"
+            />
+          </div>
+          <div class="app-form-col-textarea">
+  <app-textarea
+    label="About"
+    [rows]="4"
+    [value]="value.about"
+    (valueChange)="patch({ about: $event })"
+    [disabled]="submitting"
+  />
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (currentStep === 1) {
+      <div class="app-form-step">
+        <h3 class="app-form-section-title">Educational Background</h3>
+
+        @for (edu of value.education; track $index) {
+          <div class="app-form-section">
+            <div class="app-form-row">
+              <app-input
+                label="Qualification"
+                [required]="true"
+                [invalid]="isEducationFieldInvalid($index, 'qualification')"
+                type="text"
+                [value]="edu.qualification"
+                (valueChange)="patchEducationAt($index, { qualification: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Institution Name"
+                [required]="true"
+                [invalid]="isEducationFieldInvalid($index, 'institution')"
+                type="text"
+                [value]="edu.institution"
+                (valueChange)="patchEducationAt($index, { institution: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Degree"
+                [required]="true"
+                [invalid]="isEducationFieldInvalid($index, 'degree')"
+                type="text"
+                [value]="edu.degree"
+                (valueChange)="patchEducationAt($index, { degree: $event })"
+                [disabled]="submitting"
+              />
+            </div>
+
+            <div class="app-form-row">
+              <app-input
+                label="Specialization"
+                [required]="true"
+                [invalid]="isEducationFieldInvalid($index, 'specialization')"
+                type="text"
+                [value]="edu.specialization"
+                (valueChange)="patchEducationAt($index, { specialization: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Year Of Passing"
+                [required]="true"
+                [invalid]="isEducationFieldInvalid($index, 'yearOfPassing')"
+                type="text"
+                [value]="edu.yearOfPassing"
+                (valueChange)="patchEducationAt($index, { yearOfPassing: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Percentage/Grade/CGPA"
+                type="text"
+                [value]="edu.percentageOrCgpa"
+                (valueChange)="patchEducationAt($index, { percentageOrCgpa: $event })"
+                [disabled]="submitting"
+              />
+            </div>
+
+            <div class="app-form-row app-form-row-certificates">
+              <app-input
+                label="Certificates"
+                type="file"
+                [disabled]="submitting"
+                (filesSelected)="setEducationCertificates($index, $event)"
+              />
+
+              <div class="app-form-action-col mini-btns">
+                <app-button
+                  class="mini-btn"
+                  type="button"
+                  variant="outline"
+                  label="Add"
+                  [disabled]="submitting"
+                  (click)="addEducation()"
+                />
+                <app-button
+                  class="mini-btn"
+                  type="button"
+                  variant="outline"
+                  label="Remove"
+                  [disabled]="submitting || value.education.length <= 1"
+                  (click)="removeEducationAt($index)"
+                />
+              </div>
+            </div>
+
+            @if (edu.certificateFileNames.length > 0) {
+              <div class="app-form-tags">
+                @for (name of edu.certificateFileNames; track name) {
+                  <span class="app-form-tag">{{ name }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (currentStep === 2) {
+      <div class="app-form-step">
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Technical Skills</h3>
+          <div class="app-form-row app-form-row-skill-add-two">
+            <app-input
+              label="Skill"
+              type="text"
+              [value]="newTechnicalSkill.skill"
+              (valueChange)="setNewTechnicalSkillSkill($event)"
+              [disabled]="submitting"
+            />
+            <app-input
+              label="Proficiency (out of 10)"
+              type="number"
+              [value]="newTechnicalSkill.proficiency"
+              (valueChange)="setNewTechnicalSkillProficiency($event)"
+              [disabled]="submitting"
+            />
+            <div class="app-form-action-col mini-btns">
+              <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addTechnicalSkill()" />
+            </div>
+          </div>
+
+          @if (value.technicalSkills.length > 0) {
+            <div class="app-form-tags">
+              @for (item of value.technicalSkills; track $index) {
+                <span class="app-form-tag">
+                  {{ item.skill }}@if (item.proficiency) { ({{ item.proficiency }}/10) }
+                  <button type="button" class="app-form-tag-remove" (click)="removeTechnicalSkillAt($index)" [disabled]="submitting">×</button>
+                </span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Soft Skills</h3>
+          <div class="app-form-row app-form-row-skill-add-one">
+            <app-input
+              label="Soft Skill"
+              type="text"
+              [value]="newSoftSkill"
+              (valueChange)="newSoftSkill = $event"
+              [disabled]="submitting"
+            />
+            <div class="app-form-action-col mini-btns">
+              <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addSoftSkill()" />
+            </div>
+          </div>
+          @if (value.softSkills.length > 0) {
+            <div class="app-form-tags">
+              @for (item of value.softSkills; track $index) {
+                <span class="app-form-tag">
+                  {{ item }}
+                  <button type="button" class="app-form-tag-remove" (click)="removeSoftSkillAt($index)" [disabled]="submitting">×</button>
+                </span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Languages Known</h3>
+          <div class="app-form-row app-form-row-skill-add-one">
+            <app-input
+              label="Language"
+              type="text"
+              [value]="newLanguage"
+              (valueChange)="newLanguage = $event"
+              [disabled]="submitting"
+            />
+            <div class="app-form-action-col mini-btns">
+              <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addLanguage()" />
+            </div>
+          </div>
+          @if (value.languagesKnown.length > 0) {
+            <div class="app-form-tags">
+              @for (item of value.languagesKnown; track $index) {
+                <span class="app-form-tag">
+                  {{ item }}
+                  <button type="button" class="app-form-tag-remove" (click)="removeLanguageAt($index)" [disabled]="submitting">×</button>
+                </span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Work Preferences</h3>
+          <div class="app-form-row">
+            <app-input
+              label="Job Roles of Interest"
+              type="text"
+              [value]="value.workPreferences.jobRolesInterested"
+              (valueChange)="setWorkPreferenceField('jobRolesInterested', $event)"
+              [disabled]="submitting"
+            />
+            <app-input
+              label="Preferred Location"
+              type="text"
+              [value]="value.workPreferences.preferredLocation"
+              (valueChange)="setWorkPreferenceField('preferredLocation', $event)"
+              [disabled]="submitting"
+            />
+            <app-input
+              label="Availability To Start"
+              type="date"
+              [value]="value.workPreferences.availabilityToStart"
+              (valueChange)="setWorkPreferenceField('availabilityToStart', $event)"
+              [disabled]="submitting"
+            />
+          </div>
+
+          <div class="app-form-row">
+            <app-input
+              label="Expected Salary"
+              type="text"
+              [value]="value.workPreferences.expectedSalary"
+              (valueChange)="setWorkPreferenceField('expectedSalary', $event)"
+              [disabled]="submitting"
+            />
+
+            <div class="app-form-col-full">
+              <span class="app-inline-label">Employment Type</span>
+              <div class="app-checkbox-group">
+                <label class="app-checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="value.workPreferences.employmentType.internship"
+                    (change)="toggleEmploymentType('internship')"
+                    [disabled]="submitting"
+                  />
+                  <span>Internship</span>
+                </label>
+                <label class="app-checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="value.workPreferences.employmentType.fullTime"
+                    (change)="toggleEmploymentType('fullTime')"
+                    [disabled]="submitting"
+                  />
+                  <span>Full-time</span>
+                </label>
+                <label class="app-checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="value.workPreferences.employmentType.both"
+                    (change)="toggleEmploymentType('both')"
+                    [disabled]="submitting"
+                  />
+                  <span>Both</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Work Experience</h3>
+          @for (exp of value.workExperience; track $index) {
+            <div class="app-form-row">
+              <app-input
+                label="Company Name"
+                [required]="true"
+                [invalid]="isWorkExperienceFieldInvalid($index, 'companyName')"
+                type="text"
+                [value]="exp.companyName"
+                (valueChange)="patchWorkExperienceAt($index, { companyName: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Role"
+                [required]="true"
+                [invalid]="isWorkExperienceFieldInvalid($index, 'role')"
+                type="text"
+                [value]="exp.role"
+                (valueChange)="patchWorkExperienceAt($index, { role: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="Start Date"
+                [required]="true"
+                [invalid]="isWorkExperienceFieldInvalid($index, 'startDate')"
+                type="date"
+                [value]="exp.startDate"
+                (valueChange)="patchWorkExperienceAt($index, { startDate: $event })"
+                [disabled]="submitting"
+              />
+            </div>
+            <div class="app-form-row">
+              <app-input
+                label="End Date"
+                [required]="!exp.currentlyWorkingHere"
+                [invalid]="isWorkExperienceFieldInvalid($index, 'endDate')"
+                type="date"
+                [value]="exp.endDate"
+                (valueChange)="patchWorkExperienceAt($index, { endDate: $event })"
+                [disabled]="submitting || exp.currentlyWorkingHere"
+              />
+              <div class="app-form-col-full">
+                <label class="app-checkbox app-checkbox-inline">
+                  <input
+                    type="checkbox"
+                    [checked]="exp.currentlyWorkingHere"
+                    (change)="patchWorkExperienceAt($index, { currentlyWorkingHere: !exp.currentlyWorkingHere })"
+                    [disabled]="submitting"
+                  />
+                  <span>I am currently working here</span>
+                </label>
+              </div>
+              <div class="app-form-action-col app-form-action-col-right mini-btns">
+                <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addWorkExperience()" />
+                <app-button
+                  class="mini-btn"
+                  type="button"
+                  variant="outline"
+                  label="Remove"
+                  [disabled]="submitting || value.workExperience.length <= 1"
+                  (click)="removeWorkExperienceAt($index)"
+                />
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="app-form-section">
+          <h3 class="app-form-section-title">Project Details</h3>
+          @for (proj of value.projects; track $index; let projIndex = $index) {
+            <div class="app-form-row">
+              <app-input
+                label="Project Name"
+                type="text"
+                [value]="proj.projectName"
+                (valueChange)="patchProjectAt(projIndex, { projectName: $event })"
+                [disabled]="submitting"
+              />
+              <div class="app-form-col-full">
+                <app-textarea
+                  label="Description"
+                  [rows]="4"
+                  [value]="proj.description"
+                  (valueChange)="patchProjectAt(projIndex, { description: $event })"
+                  [disabled]="submitting"
+                />
+              </div>
+            </div>
+            <div class="app-form-row">
+              <app-input
+                label="Project URL"
+                type="url"
+                placeholder="https://example.com"
+                [value]="proj.projectUrl"
+                (valueChange)="patchProjectAt(projIndex, { projectUrl: $event })"
+                [disabled]="submitting"
+              />
+              <app-input
+                label="GitHub URL"
+                type="url"
+                placeholder="https://github.com/user/repo"
+                [value]="proj.githubUrl"
+                (valueChange)="patchProjectAt(projIndex, { githubUrl: $event })"
+                [disabled]="submitting"
+              />
+              <div></div>
+            </div>
+            <div class="app-form-row app-form-row-skill-add-one">
+              <app-input
+                label="Technologies Used"
+                type="text"
+                [value]="newProjectTechnology"
+                (valueChange)="newProjectTechnology = $event"
+                [disabled]="submitting"
+              />
+              <div class="app-form-action-col mini-btns">
+                <app-button
+                  class="mini-btn"
+                  type="button"
+                  variant="outline"
+                  label="Add"
+                  [disabled]="submitting"
+                  (click)="addProjectTechnologyAt(projIndex)"
+                />
+              </div>
+            </div>
+            @if (proj.technologiesUsed.length > 0) {
+              <div class="app-form-tags">
+                @for (t of proj.technologiesUsed; track $index; let techIndex = $index) {
+                  <span class="app-form-tag">
+                    {{ t }}
+                    <button
+                      type="button"
+                      class="app-form-tag-remove"
+                      (click)="removeProjectTechnologyAt(projIndex, techIndex)"
+                      [disabled]="submitting"
+                    >
+                      ×
+                    </button>
+                  </span>
+                }
+              </div>
+            }
+            <div class="app-form-row">
+              <div class="app-form-action-col app-form-action-col-right mini-btns">
+                <app-button class="mini-btn" type="button" variant="outline" label="Add Project" [disabled]="submitting" (buttonClick)="addProject()" />
+                <app-button
+                  class="mini-btn"
+                  type="button"
+                  variant="outline"
+                  label="Remove Project"
+                  [disabled]="submitting || value.projects.length <= 1"
+                  (click)="removeProjectAt(projIndex)"
+                />
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (currentStep === 3) {
+      <div class="app-form-step">
+        <div class="app-form-row">
+          <app-input
+            label="GOVT ID Proof (Aadhar/PAN etc.)"
+            [required]="true"
+            [invalid]="isRequiredInvalidFiles(value.additional.govtIdProofFiles)"
+            type="file"
+            [disabled]="submitting"
+            (filesSelected)="setAdditionalField('govtIdProofFiles', $event)"
+          />
+          <app-input
+            label="Resume/CV"
+            [required]="true"
+            [invalid]="isRequiredInvalidFiles(value.additional.resumeFiles)"
+            type="file"
+            [disabled]="submitting"
+            (filesSelected)="setAdditionalField('resumeFiles', $event)"
+          />
+          <app-input
+            label="Certificates"
+            type="file"
+            [disabled]="submitting"
+            (filesSelected)="setAdditionalCertificates($event)"
+          />
+        </div>
+
+        @if (value.additional.certificateFileNames.length > 0) {
+          <div class="app-form-tags">
+            @for (name of value.additional.certificateFileNames; track name) {
+              <span class="app-form-tag">{{ name }}</span>
+            }
+          </div>
+        }
+
+        <div class="app-form-row">
+          <app-input
+            label="Portfolio URL"
+            type="url"
+            placeholder="https://example.com"
+            [value]="value.additional.portfolioUrl"
+            (valueChange)="setAdditionalField('portfolioUrl', $event)"
+            [disabled]="submitting"
+          />
+          <app-input
+            label="Other Websites"
+            type="text"
+            [value]="value.additional.otherWebsites"
+            (valueChange)="setAdditionalField('otherWebsites', $event)"
+            [disabled]="submitting"
+          />
+          <div class="app-form-col-full">
+            <span class="app-inline-label">Offers in hand? <span class="required">*</span></span>
+            <div class="app-radio-group">
+              <label class="app-radio">
+                <input
+                  type="radio"
+                  name="offersInHand"
+                  value="yes"
+                  [checked]="value.additional.offersInHand === 'yes'"
+                  (change)="setAdditionalField('offersInHand', 'yes')"
+                  [disabled]="submitting"
+                />
+                <span>Yes</span>
+              </label>
+              <label class="app-radio">
+                <input
+                  type="radio"
+                  name="offersInHand"
+                  value="no"
+                  [checked]="value.additional.offersInHand === 'no'"
+                  (change)="setAdditionalField('offersInHand', 'no')"
+                  [disabled]="submitting"
+                />
+                <span>No</span>
+              </label>
+            </div>
+            @if (isOffersInHandInvalid()) {
+              <div class="app-input-error">Please select Yes or No.</div>
+            }
+          </div>
+        </div>
+
+        <div class="app-form-row">
+          <app-dropdown
+            label="How did you hear about the portal?"
+            [items]="heardAboutItems"
+            [value]="value.additional.heardAboutPortal"
+            (valueChange)="setAdditionalField('heardAboutPortal', $event)"
+            [disabled]="submitting"
+          />
+          <app-dropdown
+            label="Would you like to receive job alerts via email/SMS?"
+            [items]="jobAlertsViaItems"
+            [value]="value.additional.jobAlertsVia"
+            (valueChange)="setAdditionalField('jobAlertsVia', $event)"
+            [disabled]="submitting"
+          />
+          <div></div>
+        </div>
+
+        <div class="app-form-row">
+          <div class="app-form-col-full">
+            <label class="app-checkbox app-checkbox-terms">
+              <input
+                type="checkbox"
+                [checked]="value.additional.agreeToTerms"
+                (change)="setAdditionalField('agreeToTerms', !value.additional.agreeToTerms)"
+                [disabled]="submitting"
+              />
+              <span>
+                I agree to the Terms and Conditions, Privacy Policy, and data sharing policies.
+              </span>
+            </label>
+            @if (submitAttempted && !value.additional.agreeToTerms) {
+              <div class="app-input-error">You must agree before submitting.</div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="app-form-actions">
+      <app-button
+        type="button"
+        variant="outline"
+        label="Go Back"
+        [disabled]="submitting || currentStep === 0"
+        (buttonClick)="prevStep()"
+      />
+    <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
+
+      @if (currentStep < steps.length - 1) {
+        <app-button type="button" variant="primary" label="Save and Next" [disabled]="submitting" (buttonClick)="nextStep()" />
+      } @else {
+    <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+      }
+  </div>
+</form>
+</div>

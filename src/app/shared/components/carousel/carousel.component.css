@@ -1,0 +1,11 @@
+.carousel {
+  display: grid;
+  gap: 10px;
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+}
+
+

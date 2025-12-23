@@ -1,30 +1,6 @@
-
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-echo "🔍 Running pre-commit checks..."
-echo ""
+npm run build
 
-# Skip running lint-staged if nothing is staged.
-# This avoids lint-staged's "empty commit" error and lets git handle it normally.
-STAGED_FILES=$(git diff --cached --name-only)
-if [ -z "$STAGED_FILES" ]; then
-    echo "ℹ️  No staged files. Skipping pre-commit checks."
-    exit 0
-fi
-
-# Auto-fix staged files. Allow empty so git can decide if there's anything to commit.
-npx lint-staged --allow-empty
-LINT_EXIT_CODE=$?
-
-if [ $LINT_EXIT_CODE -ne 0 ]; then
-    echo ""
-    echo "❌ Pre-commit checks failed."
-    echo "📝 Please review the output above, then re-stage if files were modified:"
-    echo "   git add <files>"
-    echo "   git commit"
-    exit 1
-fi
-
-echo ""
-echo "✅ Pre-commit checks passed!"
+npx lint-staged

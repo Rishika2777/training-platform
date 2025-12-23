@@ -1,0 +1,13 @@
+<section class="page">
+  <h2>Settings</h2>
+
+  <app-card title="Current section">
+    @if (section(); as s) {
+      <p><strong>{{ s }}</strong></p>
+    } @else {
+      <p><strong>default</strong></p>
+    }
+  </app-card>
+</section>
+
+

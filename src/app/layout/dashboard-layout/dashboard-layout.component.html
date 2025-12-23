@@ -1,0 +1,8 @@
+<app-header [sidebarCollapsed]="sidebarCollapsed()" (toggleSidebar)="toggleSidebar()" />
+<div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()">
+  <app-sidebar [collapsed]="sidebarCollapsed()" />
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>
+

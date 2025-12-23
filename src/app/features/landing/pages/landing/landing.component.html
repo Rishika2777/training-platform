@@ -1,0 +1,84 @@
+<div class="login-home">
+  <div class="hero-section">
+      <div class="top-right-buttons">
+          <button class="btn-register" type="button" (click)="goToRegister()">Register</button>
+          <button class="btn-login" type="button" (click)="goToLogin()">Sign In</button>
+      </div>
+
+      <div class="hero-content">
+          <h1>Welcome To Your Professional Community</h1>
+          <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry.</p>
+          <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M10 2a8 8 0 105.293 14.293l4.707 4.707a1 1 0 001.414-1.414l-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"
+                />
+              </svg>
+              <input type="text" placeholder="Search CAMPUS, Students and Companies" />
+          </div>
+      </div>
+  </div>
+
+  <app-landing-feature-row
+      title="Campus Registered"
+      image="assets/images/landing-card-campus.png"
+      cardTitle="Campus Name"
+      description="Lorem ipsum dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      direction="normal"
+  />
+
+  <app-landing-feature-row
+      title="Companies Registered"
+      image="assets/images/landing-card-company.png"
+      cardTitle="Company Name"
+      description="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      direction="reverse"
+  />
+
+  <app-landing-feature-row
+      title="Institutions Registered"
+      image="assets/images/landing-card-institution.png"
+      cardTitle="Institution Name"
+      description="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      direction="normal"
+  />
+
+  <div class="reviews-section">
+      <h2>Latest News / Reviews</h2>
+
+      <div class="review-row">
+          <div class="review-card">
+              <img src="assets/images/login-news-image.png" alt="News" />
+              <h4>Title</h4>
+              <p>Lorem Ipsum dummy text...</p>
+          </div>
+
+          <div class="review-card">
+              <img src="assets/images/login-news-image.png" alt="News" />
+              <h4>Title</h4>
+              <p>Lorem Ipsum dummy text...</p>
+          </div>
+
+          <div class="review-card">
+              <img src="assets/images/login-news-image.png" alt="News" />
+              <h4>Title</h4>
+              <p>Lorem Ipsum dummy text...</p>
+          </div>
+      </div>
+  </div>
+
+  <div class="about-section">
+      <h2>About RecN</h2>
+      <p>
+          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum
+          has been the industry's standard dummy text ever since Lorem Ipsum is simply dummy text
+          of the printing and typesetting industry. Lorem Ipsum has been the industry's standard
+          dummy text ever since Lorem Ipsum is simply dummy text of the printing and typesetting
+          industry. Lorem Ipsum has been the industry's standard dummy text ever since Lorem
+          Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has
+          been the industry's standard dummy text ever since
+      </p>
+  </div>
+
+  <footer class="landing-footer">© {{ year }} Clavrit Digital Solutions. All rights reserved.</footer>
+</div>
