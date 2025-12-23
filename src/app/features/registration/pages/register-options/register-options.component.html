@@ -6,7 +6,7 @@
         type="button"
         variant="outline"
         label="Sign In"
-        (click)="goToLogin()"
+        (buttonClick)="goToLogin()"
       />
   </div>
 
@@ -29,7 +29,7 @@
               variant="outline"
               label="Register as {{ option.label }}"
               [disabled]="submitting"
-              (click)="select(option)"
+              (buttonClick)="select(option)"
             />
           }
       </div>

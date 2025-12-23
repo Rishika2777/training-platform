@@ -145,7 +145,7 @@
           variant="outline"
           label="Cancel"
           [disabled]="submitting"
-          (click)="cancelled.emit()"
+          (buttonClick)="cancelled.emit()"
         />
         <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
       } @else {
@@ -154,14 +154,14 @@
           variant="outline"
           label="Reject"
           [disabled]="submitting"
-          (click)="cancelled.emit()"
+          (buttonClick)="cancelled.emit()"
         />
         <app-button
           type="button"
           variant="secondary"
           label="Approve"
           [disabled]="submitting"
-          (click)="submit()"
+          (buttonClick)="submit()"
         />
       }
     </div>

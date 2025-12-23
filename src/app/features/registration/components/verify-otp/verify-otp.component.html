@@ -36,14 +36,14 @@
         variant="outline"
         label="Cancel"
         [disabled]="submitting"
-        (click)="cancel()"
+        (buttonClick)="cancel()"
       />
       <app-button
         type="button"
         variant="primary"
         label="Verify"
         [disabled]="submitting || !otp.trim()"
-        (click)="submit()"
+        (buttonClick)="submit()"
       />
     </div>
   </div>

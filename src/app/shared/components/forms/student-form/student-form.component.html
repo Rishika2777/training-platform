@@ -199,7 +199,7 @@
                   variant="outline"
                   label="Add"
                   [disabled]="submitting"
-                  (click)="addEducation()"
+                  (buttonClick)="addEducation()"
                 />
                 <app-button
                   class="mini-btn"
@@ -207,7 +207,7 @@
                   variant="outline"
                   label="Remove"
                   [disabled]="submitting || value.education.length <= 1"
-                  (click)="removeEducationAt($index)"
+                  (buttonClick)="removeEducationAt($index)"
                 />
               </div>
             </div>
@@ -443,7 +443,7 @@
                   variant="outline"
                   label="Remove"
                   [disabled]="submitting || value.workExperience.length <= 1"
-                  (click)="removeWorkExperienceAt($index)"
+                  (buttonClick)="removeWorkExperienceAt($index)"
                 />
               </div>
             </div>
@@ -505,7 +505,7 @@
                   variant="outline"
                   label="Add"
                   [disabled]="submitting"
-                  (click)="addProjectTechnologyAt(projIndex)"
+                  (buttonClick)="addProjectTechnologyAt(projIndex)"
                 />
               </div>
             </div>
@@ -535,7 +535,7 @@
                   variant="outline"
                   label="Remove Project"
                   [disabled]="submitting || value.projects.length <= 1"
-                  (click)="removeProjectAt(projIndex)"
+                  (buttonClick)="removeProjectAt(projIndex)"
                 />
               </div>
             </div>
