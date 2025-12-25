@@ -59,7 +59,6 @@ export class RegisterCampusComponent {
   }
 
   submit(value: CampusFormValue): void {
-    console.log('Campus Registration Form Values:', value);
     if (this.submitting) {
       return;
     }

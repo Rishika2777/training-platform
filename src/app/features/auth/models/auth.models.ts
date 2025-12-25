@@ -3,4 +3,5 @@ export interface LoginRequestModel {
   password: string;
 }
 
-
+// Re-export from admin models for consistency
+export type { LoginRequest } from '../../admin/models/admin-api.models';

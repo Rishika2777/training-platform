@@ -58,8 +58,8 @@ export class StudentLearningPathwayComponent {
     },
   ];
 
-  onEnroll(course: CertificationCourse): void {
-    console.log('Enroll in course:', course);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onEnroll(_course: CertificationCourse): void {
     // TODO: Implement enrollment logic
   }
 }

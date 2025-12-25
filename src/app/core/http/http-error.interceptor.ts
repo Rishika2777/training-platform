@@ -6,26 +6,66 @@ import { NotificationService } from '../notifications/notification.service';
 function getErrorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
     const payload = error.error;
+    
+    // Handle string error response
     if (typeof payload === 'string' && payload.trim().length > 0) {
       return payload;
     }
+    
+    // Handle object error response (API response format)
     if (payload && typeof payload === 'object') {
-      const maybeMessage = (payload as { message?: unknown }).message;
-      if (typeof maybeMessage === 'string' && maybeMessage.trim().length > 0) {
-        return maybeMessage;
+      const errorObj = payload as { error?: unknown; message?: unknown; statusCode?: number };
+      
+      // Check for 'error' field first (detailed error message from backend)
+      if (typeof errorObj.error === 'string' && errorObj.error.trim().length > 0) {
+        return errorObj.error;
+      }
+      
+      // Check for 'message' field (general message from backend)
+      if (typeof errorObj.message === 'string' && errorObj.message.trim().length > 0) {
+        return errorObj.message;
+      }
+      
+      // Check for nested error object
+      if (errorObj.error && typeof errorObj.error === 'object') {
+        const nestedError = errorObj.error as { message?: unknown };
+        if (typeof nestedError.message === 'string' && nestedError.message.trim().length > 0) {
+          return nestedError.message;
+        }
       }
     }
+    
+    // Fallback to HTTP error message
     if (typeof error.message === 'string' && error.message.trim().length > 0) {
       return error.message;
     }
-    return `Request failed (${error.status})`;
+    
+    // Default error message based on status code
+    const statusMessages: Record<number, string> = {
+      400: 'Bad Request',
+      401: 'Unauthorized - Please login again',
+      403: 'Forbidden - You do not have permission',
+      404: 'Resource not found',
+      409: 'Conflict - Resource already exists',
+      429: 'Too many requests - Please try again later',
+      500: 'Internal server error',
+      502: 'Bad gateway',
+      503: 'Service unavailable',
+    };
+    
+    const statusMessage = statusMessages[error.status ?? 0];
+    if (statusMessage) {
+      return statusMessage;
+    }
+    
+    return `Request failed (${error.status ?? 'Unknown'})`;
   }
 
   if (error instanceof Error) {
     return error.message;
   }
 
-  return 'Unexpected error';
+  return 'Unexpected error occurred';
 }
 
 export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {

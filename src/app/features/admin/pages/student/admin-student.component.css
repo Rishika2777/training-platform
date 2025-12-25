@@ -85,92 +85,6 @@
   gap: 20px;
 }
 
-.student-card {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--color-white);
-  display: grid;
-  grid-template-rows: auto 1fr;
-  align-items: start;
-}
-
-.card-avatar {
-  width: 100%;
-  padding: 16px;
-  display: grid;
-  place-items: center;
-  background: #f8f9fa;
-}
-
-.card-avatar img {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-  object-position: center;
-}
-
-.card-content {
-  padding: 12px;
-  display: grid;
-  gap: 8px;
-  text-align: center;
-}
-
-.card-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.card-campus {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-:host ::ng-deep .card-actions app-button {
-  flex: 1;
-}
-
-:host ::ng-deep .card-actions app-button.view-btn .btn {
-  flex: 1;
-  padding: 8px 16px;
-  background: var(--color-primary);
-  color: var(--color-white);
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  transition: opacity 0.2s ease;
-}
-
-:host ::ng-deep .card-actions app-button.view-btn .btn:hover {
-  opacity: 0.8;
-}
-
-:host ::ng-deep .card-actions app-button.delete-btn .btn {
-  flex: 1;
-  padding: 8px 16px;
-  background: #dc3545;
-  color: var(--color-white);
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  transition: opacity 0.2s ease;
-}
-
-:host ::ng-deep .card-actions app-button.delete-btn .btn:hover {
-  opacity: 0.8;
-}
 
 @media (max-width: 1200px) {
   .students-grid {
@@ -178,8 +92,68 @@
   }
 }
 
+.delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.delete-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: 8px;
+}
+
+.delete-item-info strong {
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info .email {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.delete-modal-actions app-button {
+  min-width: 100px;
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-white);
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary:hover {
+  opacity: 0.9;
+}
+
 @media (max-width: 768px) {
   .students-grid {
     grid-template-columns: 1fr;
+  }
+
+  .delete-modal-actions {
+    flex-direction: column;
+  }
+
+  .delete-modal-actions app-button {
+    width: 100%;
   }
 }

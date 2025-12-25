@@ -1,9 +1,77 @@
-<section class="page">
-  <h2>Company Management</h2>
+<div class="admin-company-page">
+  <div class="announcement">
+    <div class="announcement-date">{{ announcementDate }}</div>
+    <div class="announcement-title">RecN Announcement</div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
 
-  <app-card title="Legacy behavior">
-    <p>Placeholder for admin company management screen.</p>
-  </app-card>
-</section>
+  <section class="registered-section">
+    <div class="section-header">
+      <h2 class="section-title">Registered Companies</h2>
+      <button type="button" class="add-btn" (click)="onAdd()" title="Add Company">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    @if (isLoading) {
+      <div class="loading-state">Loading companies...</div>
+    } @else if (companies.length === 0) {
+      <div class="empty-state">No companies found</div>
+    } @else {
+      <div class="companies-grid">
+        @for (company of displayedCompanies; track company.id) {
+          <app-card
+            type="company"
+            [data]="company"
+            (viewClick)="onView($event)"
+            (deleteClick)="onDelete($event)"
+          ></app-card>
+        }
+      </div>
+    }
+
+    @if (!isLoading && companies.length > 0) {
+      <app-pagination
+        [currentPage]="currentPage"
+        [totalPages]="totalPages"
+        (pageChange)="onPageChange($event)"
+      ></app-pagination>
+    }
+  </section>
+
+  <app-modal
+    [visible]="showDeleteModal"
+    title="Delete Company"
+    size="sm"
+    (closed)="closeDeleteModal()"
+  >
+    <div class="delete-modal-content">
+      <p>Are you sure you want to delete this company?</p>
+      @if (selectedCompany) {
+        <div class="delete-item-info">
+          <strong>{{ selectedCompany.name }}</strong>
+          @if (selectedCompany.email) {
+            <span class="email">{{ selectedCompany.email }}</span>
+          }
+        </div>
+      }
+      <div class="delete-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeDeleteModal()"
+        ></app-button>
+        <app-button
+          label="Delete"
+          variant="primary"
+          (buttonClick)="confirmDelete()"
+        ></app-button>
+      </div>
+    </div>
+  </app-modal>
+</div>
 
 

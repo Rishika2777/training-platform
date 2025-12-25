@@ -112,23 +112,23 @@ export class StudentHomeComponent {
     this.modalService.closeModal();
   }
 
-  handleResumeSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleResumeSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Resume form submitted:', value);
     this.submittingResume = true;
     // TODO: Call API service
   }
 
-  handleCareerCheckinSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleCareerCheckinSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Career check-in form submitted:', value);
     this.submittingCareerCheckin = true;
     // TODO: Call API service
   }
 
-  handleIdeasSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleIdeasSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Ideas submission form submitted:', value);
     this.submittingIdeas = true;
     // TODO: Call API service
   }

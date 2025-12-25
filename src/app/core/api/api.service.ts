@@ -67,9 +67,10 @@ export class ApiService {
     endpoint: string,
     body: TBody,
     urlParams?: UrlParams,
+    query?: Readonly<Record<string, string | number | boolean | null | undefined>>,
   ): Observable<TResponse> {
     const url = this.baseUrl + replaceUrlParams(endpoint, urlParams);
-    return this.http.patch<TResponse>(url, body);
+    return this.http.patch<TResponse>(url, body, { params: buildHttpParams(query) });
   }
 
   delete<TResponse>(endpoint: string, urlParams?: UrlParams): Observable<TResponse> {

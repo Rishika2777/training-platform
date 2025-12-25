@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
-import { API_ENDPOINTS, UserRole, UserType } from '../config/app.constants';
+import { API_ENDPOINTS, EnumLoginStatus, UserRole, UserType } from '../config/app.constants';
 import { ApiService } from '../api/api.service';
 import { AuthStateService } from './auth-state.service';
 import { UserData } from '../models/user.model';
@@ -45,6 +45,7 @@ interface AuthPayload {
   role?: string;
   roles?: readonly string[];
   permissions?: readonly string[];
+  approvalStatus?: string;
   profileCompleted?: boolean;
   profileServiceId?: string;
   redirectTo?: string;
@@ -56,6 +57,7 @@ interface AuthPayloadUser {
   userType?: string;
   roles?: readonly string[];
   permissions?: readonly string[];
+  approvalStatus?: string;
   profileCompleted?: boolean;
   profileServiceId?: string;
   redirectTo?: string;
@@ -127,10 +129,15 @@ function mergeUserPayload(payload: AuthPayload): AuthPayload {
     userType: payload.userType ?? u.userType,
     roles: payload.roles ?? u.roles,
     permissions: payload.permissions ?? u.permissions,
+    approvalStatus: payload.approvalStatus ?? u.approvalStatus,
     profileCompleted: payload.profileCompleted ?? u.profileCompleted,
     profileServiceId: payload.profileServiceId ?? u.profileServiceId,
     redirectTo: payload.redirectTo ?? u.redirectTo,
   };
+}
+
+function isEnumLoginStatus(value: string): value is EnumLoginStatus {
+  return value === 'PENDING_REGISTRATION' || value === 'PENDING_APPROVAL' || value === 'APPROVED' || value === 'REJECTED';
 }
 
 function buildUserData(payload: AuthPayload): UserData | null {
@@ -140,6 +147,7 @@ function buildUserData(payload: AuthPayload): UserData | null {
   }
   const userType = p.userType && isUserType(p.userType) ? p.userType : null;
   const roles = normalizeRoles(p.userType, p.roles);
+  const approvalStatus = p.approvalStatus && isEnumLoginStatus(p.approvalStatus) ? p.approvalStatus : undefined;
 
   return {
     userId: p.userId,
@@ -148,6 +156,7 @@ function buildUserData(payload: AuthPayload): UserData | null {
     role: roles[0] ?? null,
     roles,
     permissions: [...(p.permissions ?? [])],
+    approvalStatus,
     profileCompleted: p.profileCompleted,
     profileServiceId: p.profileServiceId,
     redirectTo: p.redirectTo,
@@ -172,7 +181,11 @@ export class AuthService {
 
   login(credentials: LoginRequest): Observable<unknown> {
     return this.api.post<unknown, LoginRequest>(API_ENDPOINTS.AUTH.LOGIN, credentials).pipe(
-      tap((response) => this.persistAuthFromResponse(response)),
+      tap({
+        next: (response) => {
+          this.persistAuthFromResponse(response);
+        },
+      }),
     );
   }
 
@@ -261,14 +274,31 @@ export class AuthService {
   }
 
   private persistAuthFromResponse(response: unknown): void {
-    // Allow either wrapped { data: {...} } or direct payload
-    const payload = unwrapResponse<AuthPayload>(response as AuthPayload | ApiResponse<AuthPayload>);
+    // Handle ApiResponse<AuthResponse> structure: { success, message, data: { accessToken, ... } }
+    let payload: AuthPayload | null = null;
+
+    if (response && typeof response === 'object') {
+      const apiResponse = response as ApiResponse<AuthPayload>;
+      
+      // Check if it's an ApiResponse wrapper
+      if ('data' in apiResponse && apiResponse.data) {
+        payload = apiResponse.data as AuthPayload;
+      } else if ('accessToken' in response || 'access_token' in response) {
+        // Direct payload (for backward compatibility)
+        payload = response as AuthPayload;
+      }
+    }
+
     if (!payload) {
       return;
     }
 
-    if (payload.accessToken) {
-      this.authState.setTokens(payload.accessToken, payload.refreshToken ?? null);
+    // Extract accessToken (handle both camelCase and snake_case)
+    const accessToken = payload.accessToken ?? (payload as { access_token?: string }).access_token;
+    const refreshToken = payload.refreshToken ?? (payload as { refresh_token?: string }).refresh_token;
+
+    if (accessToken) {
+      this.authState.setTokens(accessToken, refreshToken ?? null);
     }
 
     const user = buildUserData(payload);

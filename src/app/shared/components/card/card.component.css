@@ -1,18 +1,211 @@
-.card {
+.admin-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   background: var(--color-white);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
+  min-height: 120px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.card-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Student Card - Circular Avatar */
+.student-card .card-avatar {
+  width: 120px;
+  height: 120px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-card .card-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  border: 2px solid #e8d5ff;
+}
+
+/* Company/Campus Card - Rectangular Image */
+.company-card .card-image,
+.campus-card .card-image {
+  width: 200px;
+  min-width: 120px;
+  max-width: 200px;
+  height: 120px;
+  overflow: hidden;
+  background: #f0f0f0;
+  flex-shrink: 0;
+}
+
+@media (max-width: 992px) {
+  .company-card .card-image,
+  .campus-card .card-image {
+    width: 150px;
+    min-width: 120px;
+    max-width: 150px;
+    height: 100px;
+  }
+
+  .card-content {
+    padding: 12px;
+  }
+
+  .card-name {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .company-card .card-image,
+  .campus-card .card-image {
+    width: 120px;
+    min-width: 100px;
+    max-width: 120px;
+    height: 90px;
+  }
+
+  .student-card .card-avatar {
+    width: 80px;
+    height: 80px;
+    padding: 12px;
+  }
+}
+
+.company-card .card-image img,
+.campus-card .card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.card-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
   overflow: hidden;
 }
 
-.header {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border);
-  font-weight: 800;
+.card-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.body {
-  padding: 12px;
+.card-secondary {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-secondary);
+  line-height: 1.3;
 }
 
+.card-email {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.view-btn,
+.delete-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-btn {
+  text-transform: lowercase;
+}
+
+.delete-btn {
+  text-transform: none;
+}
+
+.view-btn {
+  background: #628a8e;
+  color: var(--color-white);
+}
+
+.view-btn:hover {
+  opacity: 0.85;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: var(--color-white);
+}
+
+.delete-btn:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .admin-card {
+    grid-template-columns: 1fr;
+  }
+
+  .company-card .card-image,
+  .campus-card .card-image {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    height: 160px;
+  }
+
+  .student-card .card-avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .card-content {
+    padding: 12px;
+  }
+
+  .card-name {
+    font-size: 16px;
+  }
+
+  .card-email {
+    font-size: 12px;
+  }
+
+  .view-btn,
+  .delete-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}

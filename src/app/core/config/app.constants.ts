@@ -38,6 +38,15 @@
    */
   export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'CAMPUS_ADMIN' | 'COMPANY_ADMIN' | 'STUDENT' | 'USER';
 
+  export type EnumLoginStatus = 'PENDING_REGISTRATION' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
+  export const LOGIN_STATUS: Readonly<Record<Uppercase<EnumLoginStatus>, EnumLoginStatus>> = {
+    PENDING_REGISTRATION: 'PENDING_REGISTRATION',
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  } as const;
+  
   export const USER_ROLES: Readonly<Record<Uppercase<UserRole>, UserRole>> = {
     SUPER_ADMIN: 'SUPER_ADMIN',
     ADMIN: 'ADMIN',

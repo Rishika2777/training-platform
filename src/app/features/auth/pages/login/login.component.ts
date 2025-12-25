@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { LOGIN_STATUS } from '../../../../core/config/app.constants';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { RoleService } from '../../../../core/rbac/role.service';
@@ -43,12 +44,52 @@ export class LoginComponent {
     this.auth.login(payload).subscribe({
       next: () => {
         this.submitting = false;
-        void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
+        this.handleLoginResponse();
       },
       error: () => {
         this.submitting = false;
       },
     });
+  }
+
+  private handleLoginResponse(): void {
+    const user = this.roles.getCurrentUser();
+    if (!user) {
+      return;
+    }
+
+    // Skip approval status checks for admin users
+    if (this.roles.isAdmin()) {
+      void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
+      return;
+    }
+
+    const approvalStatus = user.approvalStatus;
+    const userType = user.userType ?? null;
+
+    if (approvalStatus === LOGIN_STATUS.PENDING_REGISTRATION) {
+      const registrationRoute = this.roles.getRegistrationRouteForUserType(userType);
+      void this.router.navigateByUrl(registrationRoute);
+      return;
+    }
+
+    if (approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
+      this.notifications.info('Admin still haven\'t reviewed your form. Please wait for approval.');
+      return;
+    }
+
+    if (approvalStatus === LOGIN_STATUS.APPROVED) {
+      void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
+      return;
+    }
+
+    if (approvalStatus === LOGIN_STATUS.REJECTED) {
+      this.notifications.error('The admin rejected your form. Please contact admin for more information.');
+      return;
+    }
+
+    // Fallback: if no approval status, navigate to home (for backward compatibility)
+    void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
   }
 
   forgotPassword(): void {

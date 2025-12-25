@@ -38,18 +38,25 @@
       <button class="icon" type="button" title="Home" (click)="goHome()">
         <i class="fa-solid fa-house" aria-hidden="true"></i>
       </button>
-      <button class="icon" type="button" title="Notifications" (click)="noop()">
-        <i class="fa-regular fa-bell" aria-hidden="true"></i>
-      </button>
+      <div class="notifications-wrapper">
+        <button class="icon" type="button" title="Notifications" (click)="toggleNotifications($event)">
+          <i class="fa-regular fa-bell" aria-hidden="true"></i>
+        </button>
+        <app-notifications-dropdown
+          [isOpen]="notificationsOpen()"
+          [items]="notifications"
+          (closed)="closeNotifications()"
+          (seePrevious)="onSeePreviousNotifications()"
+        />
+      </div>
       <a class="icon" title="Settings" [routerLink]="['/settings']">
         <i class="fa-solid fa-gear" aria-hidden="true"></i>
       </a>
-      <button class="icon" type="button" title="Refresh" (click)="refresh()">
-        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-      </button>
 
       @if (isAuthenticated()) {
-        <button class="logout" type="button" (click)="logout()">Logout</button>
+        <button class="icon" type="button" title="Logout" (click)="logout()">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        </button>
       }
     </div>
   }

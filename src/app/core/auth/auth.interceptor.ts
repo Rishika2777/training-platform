@@ -1,11 +1,11 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { STORAGE_KEYS } from '../config/app.constants';
-import { StorageService } from '../storage/storage.service';
+import { AuthStateService } from './auth-state.service';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const storage = inject(StorageService);
-  const token = storage.get(STORAGE_KEYS.AUTH_TOKEN);
+  const authState = inject(AuthStateService);
+  const token = authState.token();
+  
   if (!token) {
     return next(req);
   }

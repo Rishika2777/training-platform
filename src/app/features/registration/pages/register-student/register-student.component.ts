@@ -6,7 +6,10 @@ import {
   StudentFormComponent,
   StudentFormValue,
 } from '../../../../shared/components/forms/student-form/student-form.component';
-import { StudentApiService } from '../../../student/services/student-api.service';
+import {
+  StudentApiService,
+  mapStudentFormValueToRegisterRequest,
+} from '../../../student/services/student-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -37,7 +40,6 @@ export class RegisterStudentComponent {
   });
 
   submit(value: StudentFormValue): void {
-    console.log('Student Registration Form Values:', value);
     if (this.submitting) {
       return;
     }
@@ -49,15 +51,9 @@ export class RegisterStudentComponent {
     }
 
     this.submitting = true;
+    const registerRequest = mapStudentFormValueToRegisterRequest(value, String(user.userId));
     this.studentApi
-      .registerStudent(
-        {
-          fullName: value.fullName || value.firstName,
-          email: value.email,
-          about: value.about,
-        },
-        { userId: user.userId, userType: user.userType },
-      )
+      .registerStudent(registerRequest, { userId: user.userId, userType: user.userType })
       .pipe(
         switchMap((result) => {
           const studentId = result.studentId;

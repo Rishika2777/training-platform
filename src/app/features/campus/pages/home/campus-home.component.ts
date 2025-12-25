@@ -116,9 +116,9 @@ export class CampusHomeComponent {
     this.modalService.closeModal();
   }
 
-  handleProspectusSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleProspectusSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Prospectus form submitted:', value);
     this.submittingProspectus = true;
     // TODO: Call API service
     // this.campusApi.uploadProspectus(value).subscribe({
@@ -132,9 +132,9 @@ export class CampusHomeComponent {
     // });
   }
 
-  handleCompaniesSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleCompaniesSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Companies visited form submitted:', value);
     this.submittingCompanies = true;
     // TODO: Call API service
     // this.campusApi.addCompanyVisited(value).subscribe({
@@ -148,9 +148,9 @@ export class CampusHomeComponent {
     // });
   }
 
-  handlePlacedStudentsSubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handlePlacedStudentsSubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Placed students form submitted:', value);
     this.submittingPlacedStudents = true;
     // TODO: Call API service
     // this.campusApi.addPlacedStudent(value).subscribe({
@@ -164,9 +164,9 @@ export class CampusHomeComponent {
     // });
   }
 
-  handleFacultySubmit(value: unknown): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleFacultySubmit(_value: unknown): void {
     // API call will be implemented here
-    console.log('Faculty form submitted:', value);
     this.submittingFaculty = true;
     // TODO: Call API service
     // this.campusApi.addFaculty(value).subscribe({

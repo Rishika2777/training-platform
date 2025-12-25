@@ -1,6 +1,170 @@
-.page {
+.admin-company-page {
   display: grid;
-  gap: 12px;
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.announcement {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.announcement-date {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.announcement-title {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.announcement-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  opacity: 0.4;
+}
+
+.dot.active {
+  opacity: 1;
+}
+
+.registered-section {
+  display: grid;
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.add-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-secondary);
+  color: var(--color-white);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  transition: opacity 0.2s ease;
+}
+
+.add-btn:hover {
+  opacity: 0.8;
+}
+
+.companies-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 
+@media (max-width: 1200px) {
+  .companies-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.delete-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: 8px;
+}
+
+.delete-item-info strong {
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info .email {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.delete-modal-actions app-button {
+  min-width: 100px;
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-white);
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .companies-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-modal-actions {
+    flex-direction: column;
+  }
+
+  .delete-modal-actions app-button {
+    width: 100%;
+  }
+}

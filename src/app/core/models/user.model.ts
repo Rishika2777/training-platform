@@ -1,4 +1,4 @@
-import { UserRole, UserType } from '../config/app.constants';
+import { EnumLoginStatus, UserRole, UserType } from '../config/app.constants';
 
 export type UserId = string | number;
 
@@ -22,6 +22,11 @@ export interface UserData {
   roles: UserRole[];
 
   permissions: string[];
+
+  /**
+   * Approval status for user registration/approval flow.
+   */
+  approvalStatus?: EnumLoginStatus;
 
   profileCompleted?: boolean;
   profileServiceId?: string;

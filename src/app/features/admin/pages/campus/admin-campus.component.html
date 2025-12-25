@@ -16,27 +16,60 @@
         <i class="fa-solid fa-plus"></i>
       </button>
     </div>
-    <div class="campuses-grid">
-      @for (campus of displayedCampuses; track campus.id) {
-        <div class="campus-card">
-          <div class="card-image">
-            <img [src]="campus.imageUrl" [alt]="campus.name" />
-          </div>
-          <div class="card-content">
-            <div class="card-name">{{ campus.name }}</div>
-            <div class="card-actions">
-              <app-button class="view-btn" label="View" variant="outline" (buttonClick)="onView(campus)"></app-button>
-              <app-button class="delete-btn" label="Delete" variant="outline" (buttonClick)="onDelete(campus)"></app-button>
-            </div>
-          </div>
+    @if (isLoading) {
+      <div class="loading-state">Loading campuses...</div>
+    } @else if (campuses.length === 0) {
+      <div class="empty-state">No campuses found</div>
+    } @else {
+      <div class="campuses-grid">
+        @for (campus of displayedCampuses; track campus.id) {
+          <app-card
+            type="campus"
+            [data]="campus"
+            (viewClick)="onView($event)"
+            (deleteClick)="onDelete($event)"
+          ></app-card>
+        }
+      </div>
+    }
+
+    @if (!isLoading && campuses.length > 0) {
+      <app-pagination
+        [currentPage]="currentPage"
+        [totalPages]="totalPages"
+        (pageChange)="onPageChange($event)"
+      ></app-pagination>
+    }
+  </section>
+
+  <app-modal
+    [visible]="showDeleteModal"
+    title="Delete Campus"
+    size="sm"
+    (closed)="closeDeleteModal()"
+  >
+    <div class="delete-modal-content">
+      <p>Are you sure you want to delete this campus?</p>
+      @if (selectedCampus) {
+        <div class="delete-item-info">
+          <strong>{{ selectedCampus.name }}</strong>
+          @if (selectedCampus.email) {
+            <span class="email">{{ selectedCampus.email }}</span>
+          }
         </div>
       }
+      <div class="delete-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeDeleteModal()"
+        ></app-button>
+        <app-button
+          label="Delete"
+          variant="primary"
+          (buttonClick)="confirmDelete()"
+        ></app-button>
+      </div>
     </div>
-
-    <app-pagination
-      [currentPage]="currentPage"
-      [totalPages]="totalPages"
-      (pageChange)="onPageChange($event)"
-    ></app-pagination>
-  </section>
+  </app-modal>
 </div>

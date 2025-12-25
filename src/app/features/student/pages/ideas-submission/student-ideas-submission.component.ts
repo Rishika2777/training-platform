@@ -93,7 +93,6 @@ export class StudentIdeasSubmissionComponent {
 
   downloadTemplate(): void {
     // TODO: Implement template download
-    console.log('Download template');
   }
 
   get fileName(): string {

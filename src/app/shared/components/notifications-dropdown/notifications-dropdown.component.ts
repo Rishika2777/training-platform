@@ -1,10 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
 
 export interface NotificationItem {
   id: string;
-  title: string;
-  timeLabel?: string;
+  userName: string;
+  message: string;
+  timeLabel: string;
+  profileImageUrl: string;
+  section: 'new' | 'today';
 }
 
 @Component({
@@ -19,9 +22,27 @@ export class NotificationsDropdownComponent {
   @Input() items: readonly NotificationItem[] = [];
 
   @Output() closed = new EventEmitter<void>();
+  @Output() seePrevious = new EventEmitter<void>();
+
+  get newNotifications(): readonly NotificationItem[] {
+    return this.items.filter((item) => item.section === 'new');
+  }
+
+  get todayNotifications(): readonly NotificationItem[] {
+    return this.items.filter((item) => item.section === 'today');
+  }
 
   close(): void {
     this.closed.emit();
+  }
+
+  onSeePrevious(): void {
+    this.seePrevious.emit();
+  }
+
+  @HostListener('click', ['$event'])
+  onClick(event: Event): void {
+    event.stopPropagation();
   }
 }
 

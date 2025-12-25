@@ -122,6 +122,22 @@ export class RoleService {
     // Backend sets `profileCompleted === true` only after completing the profile flow.
     return user.profileCompleted !== true;
   }
+
+  /**
+   * Get registration route based on user type.
+   */
+  getRegistrationRouteForUserType(userType: UserType | null): string {
+    if (userType === 'CAMPUS') {
+      return ROUTES.REGISTER_CAMPUS;
+    }
+    if (userType === 'COMPANY') {
+      return ROUTES.REGISTER_COMPANY;
+    }
+    if (userType === 'STUDENT') {
+      return ROUTES.REGISTER_STUDENT;
+    }
+    return ROUTES.REGISTER_OPTIONS;
+  }
 }
 
 

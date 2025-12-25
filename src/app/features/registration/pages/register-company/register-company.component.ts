@@ -32,7 +32,6 @@ export class RegisterCompanyComponent {
   }
 
   submit(value: CompanyFormValue): void {
-    console.log('Company Registration Form Values:', value);
     // TODO: wire API call later
     this.formValue = value;
   }

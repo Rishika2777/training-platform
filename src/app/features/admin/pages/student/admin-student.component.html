@@ -16,28 +16,60 @@
         <i class="fa-solid fa-plus"></i>
       </button>
     </div>
-    <div class="students-grid">
-      @for (student of displayedStudents; track student.id) {
-        <div class="student-card">
-          <div class="card-avatar">
-            <img [src]="student.imageUrl" [alt]="student.name" />
-          </div>
-          <div class="card-content">
-            <div class="card-name">{{ student.name }}</div>
-            <div class="card-campus">{{ student.campusName }}</div>
-            <div class="card-actions">
-              <app-button class="view-btn" label="View" variant="outline" (buttonClick)="onView(student)"></app-button>
-              <app-button class="delete-btn" label="Delete" variant="outline" (buttonClick)="onDelete(student)"></app-button>
-            </div>
-          </div>
+    @if (isLoading) {
+      <div class="loading-state">Loading students...</div>
+    } @else if (students.length === 0) {
+      <div class="empty-state">No students found</div>
+    } @else {
+      <div class="students-grid">
+        @for (student of displayedStudents; track student.id) {
+          <app-card
+            type="student"
+            [data]="student"
+            (viewClick)="onView($event)"
+            (deleteClick)="onDelete($event)"
+          ></app-card>
+        }
+      </div>
+    }
+
+    @if (!isLoading && students.length > 0) {
+      <app-pagination
+        [currentPage]="currentPage"
+        [totalPages]="totalPages"
+        (pageChange)="onPageChange($event)"
+      ></app-pagination>
+    }
+  </section>
+
+  <app-modal
+    [visible]="showDeleteModal"
+    title="Delete Student"
+    size="sm"
+    (closed)="closeDeleteModal()"
+  >
+    <div class="delete-modal-content">
+      <p>Are you sure you want to delete this student?</p>
+      @if (selectedStudent) {
+        <div class="delete-item-info">
+          <strong>{{ selectedStudent.name }}</strong>
+          @if (selectedStudent.email) {
+            <span class="email">{{ selectedStudent.email }}</span>
+          }
         </div>
       }
+      <div class="delete-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeDeleteModal()"
+        ></app-button>
+        <app-button
+          label="Delete"
+          variant="primary"
+          (buttonClick)="confirmDelete()"
+        ></app-button>
+      </div>
     </div>
-
-    <app-pagination
-      [currentPage]="currentPage"
-      [totalPages]="totalPages"
-      (pageChange)="onPageChange($event)"
-    ></app-pagination>
-  </section>
+  </app-modal>
 </div>

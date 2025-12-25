@@ -89,26 +89,26 @@ export class CompanyHomeComponent {
     this.modalService.closeModal();
   }
 
-  handleSpecializationSubmit(value: unknown): void {
-    console.log('Specialization form submitted:', value);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleSpecializationSubmit(_value: unknown): void {
     this.submittingSpecialization = true;
     // TODO: Call API service
   }
 
-  handleVisionPerformanceSubmit(value: unknown): void {
-    console.log('Vision & Performance form submitted:', value);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleVisionPerformanceSubmit(_value: unknown): void {
     this.submittingVisionPerformance = true;
     // TODO: Call API service
   }
 
-  handleBenefitsSubmit(value: unknown): void {
-    console.log('Benefits form submitted:', value);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleBenefitsSubmit(_value: unknown): void {
     this.submittingBenefits = true;
     // TODO: Call API service
   }
 
-  handleCurrentVacancySubmit(value: unknown): void {
-    console.log('Current Vacancy form submitted:', value);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleCurrentVacancySubmit(_value: unknown): void {
     this.submittingCurrentVacancy = true;
     // TODO: Call API service
   }
