@@ -1,0 +1,80 @@
+<section class="settings-section">
+    <div class="settings-container">
+      <div class="settings-header">
+        <a [routerLink]="['/settings']" class="back-button">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Back to Settings</span>
+        </a>
+        <h2 class="settings-title">Delete Account</h2>
+        <p class="settings-subtitle">Permanently delete your account and all associated data</p>
+      </div>
+      
+      <div class="settings-content">
+        <div class="delete-content">
+          <div class="warning-box">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div class="warning-text">
+              <strong>Warning:</strong> This action cannot be undone. All your data, including profile information, 
+              settings, and account history will be permanently deleted.
+            </div>
+          </div>
+  
+          <div class="delete-section">
+            <h3 class="section-title">Before You Delete</h3>
+            <ul class="delete-list">
+              <li>Download any data you want to keep</li>
+              <li>Cancel any active subscriptions</li>
+              <li>Ensure you have access to alternative accounts if needed</li>
+              <li>Consider contacting support if you're experiencing issues</li>
+            </ul>
+          </div>
+  
+          <form [formGroup]="deleteForm" (ngSubmit)="onSubmit()" class="delete-form">
+            <div class="form-group">
+              <label for="reason" class="form-label">Reason for Deletion (Optional)</label>
+              <select id="reason" formControlName="reason" class="form-control">
+                <option value="">Select a reason</option>
+                <option value="no-longer-needed">No longer need the service</option>
+                <option value="privacy-concerns">Privacy concerns</option>
+                <option value="found-alternative">Found an alternative</option>
+                <option value="too-expensive">Too expensive</option>
+                <option value="technical-issues">Technical issues</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+  
+            <div class="form-group">
+              <label for="password" class="form-label">Confirm Password</label>
+              <input 
+                type="password" 
+                id="password" 
+                formControlName="password" 
+                class="form-control" 
+                placeholder="Enter your password to confirm"
+              />
+              <small class="form-hint">You must enter your password to delete your account</small>
+            </div>
+  
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="confirmDelete" />
+                <span>I understand that this action is permanent and cannot be undone</span>
+              </label>
+            </div>
+  
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+              <button 
+                type="submit" 
+                class="btn btn-danger" 
+                [disabled]="deleteForm.invalid || !deleteForm.get('confirmDelete')?.value"
+              >
+                <i class="fa-solid fa-trash"></i>
+                Delete My Account
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>

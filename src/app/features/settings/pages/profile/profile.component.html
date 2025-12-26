@@ -1,0 +1,77 @@
+<section class="settings-section">
+    <div class="settings-container">
+      <div class="settings-header">
+        <a [routerLink]="['/settings']" class="back-button">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Back to Settings</span>
+        </a>
+        <h2 class="settings-title">Profile Settings</h2>
+        <p class="settings-subtitle">Update your personal information and preferences</p>
+      </div>
+      
+      <div class="settings-content">
+        <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
+          <app-input
+            label="Full Name"
+            type="text"
+            placeholder="Enter your full name"
+            [value]="profileForm.get('fullName')?.value || ''"
+            [required]="true"
+            [invalid]="!!(profileForm.get('fullName')?.invalid && profileForm.get('fullName')?.touched)"
+            (valueChange)="profileForm.patchValue({ fullName: $event })"
+          />
+          <app-input
+            label="Email Address"
+            type="email"
+            placeholder="Enter your email address"
+            [value]="profileForm.get('email')?.value || ''"
+            [required]="true"
+            [invalid]="!!(profileForm.get('email')?.invalid && profileForm.get('email')?.touched)"
+            (valueChange)="profileForm.patchValue({ email: $event })"
+          />
+          <app-input
+            label="Phone Number"
+            type="tel"
+            placeholder="Enter your phone number"
+            [value]="profileForm.get('phone')?.value || ''"
+            [required]="true"
+            [invalid]="!!(profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched)"
+            (valueChange)="profileForm.patchValue({ phone: $event })"
+          />
+          <app-textarea
+            label="Bio (Optional)"
+            placeholder="Tell us about yourself"
+            [rows]="4"
+            [value]="profileForm.get('bio')?.value || ''"
+            (valueChange)="profileForm.patchValue({ bio: $event })"
+          />
+          <app-input
+            label="Profile Picture"
+            type="file"
+            placeholder="Upload a profile picture (max 5MB)"
+            accept="image/*"
+            (filesSelected)="onFileChange($event)"
+          />
+  
+          <div class="form-actions">
+            <app-button
+              type="button"
+              variant="secondary"
+              label="Cancel"
+              (buttonClick)="onCancel()"
+            />
+            <app-button
+              type="submit"
+              variant="primary"
+              label="Save Changes"
+              [disabled]="profileForm.invalid"
+            />
+          </div>
+        </form>
+        <p class="profile-description">
+          Keep your profile information up to date so others can find and connect with you. Your profile picture and bio help others learn more about you. All information is kept private and secure according to our privacy policy.
+        </p>
+        <div class="section-divider"></div>
+      </div>
+    </div>
+  </section>
