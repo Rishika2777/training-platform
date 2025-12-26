@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
+import { EnumLoginStatus } from '../../../../core/config/app.constants';
 
 export interface CampusFormValue {
   campusName: string;
@@ -58,6 +59,7 @@ export class CampusFormComponent {
   @Output() valueChange = new EventEmitter<CampusFormValue>();
   @Output() submitted = new EventEmitter<CampusFormValue>();
   @Output() cancelled = new EventEmitter<void>();
+  @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
 
   submitAttempted = false;
 
@@ -93,11 +95,29 @@ export class CampusFormComponent {
   }
 
   submit(): void {
+    // In review mode, use explicit Approve/Reject buttons instead of form submit validation.
+    if (this.isReviewMode) {
+      return;
+    }
     this.submitAttempted = true;
     if (!this.isFormValid()) {
       return;
     }
     this.submitted.emit(this.value);
+  }
+
+  approve(): void {
+    if (!this.isReviewMode) {
+      return;
+    }
+    this.reviewAction.emit('APPROVED');
+  }
+
+  reject(): void {
+    if (!this.isReviewMode) {
+      return;
+    }
+    this.reviewAction.emit('REJECTED');
   }
 }
 

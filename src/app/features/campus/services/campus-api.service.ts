@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, UserType } from '../../../core/config/app.constants';
+import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
 
 /**
  * Placeholder for campus API calls.
@@ -37,11 +37,20 @@ export class CampusApiService {
   }
 
   /**
+   * GET /campus/{campusId}
+   * Public endpoint (no auth required).
+   */
+  getCampusById(campusId: string): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
+    return this.http.get<unknown>(url).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
    * PUT /campus/{campusId}/approval (Admin)
    */
   updateCampusApprovalStatus(
     campusId: string,
-    request: Record<string, string>,
+    request: UpdateCampusApprovalStatusRequest,
   ): Observable<Campus | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.APPROVAL, { campusId });
     return this.http
@@ -118,9 +127,14 @@ export interface CampusRegistrationResponse {
   updatedAt?: string | null;
 }
 
+export interface UpdateCampusApprovalStatusRequest {
+  approvalStatus: EnumLoginStatus;
+}
+
 export interface Campus {
   id?: string;
   campusId?: string;
+  userId?: string;
   email?: string;
   campusName?: string;
   photoUrl?: string;

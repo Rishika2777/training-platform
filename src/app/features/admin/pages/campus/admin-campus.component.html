@@ -72,4 +72,21 @@
       </div>
     </div>
   </app-modal>
+
+  <app-modal
+    [visible]="showViewModal"
+    title="Campus Profile"
+    size="lg"
+    (closed)="closeViewModal()"
+  >
+    <app-campus-form
+      title=""
+      mode="review"
+      [value]="viewValue"
+      [submitting]="viewSubmitting"
+      [adminEmailLocked]="true"
+      (reviewAction)="handleReviewAction($event)"
+      (cancelled)="closeViewModal()"
+    />
+  </app-modal>
 </div>

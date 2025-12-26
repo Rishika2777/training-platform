@@ -5,6 +5,7 @@ import { DropdownComponent, DropdownItem } from '../../dropdown/dropdown.compone
 import { InputComponent } from '../../input/input.component';
 import { StepIndicatorComponent } from '../../step-indicator/step-indicator.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
+import { EnumLoginStatus } from '../../../../core/config/app.constants';
 
 type YesNo = 'yes' | 'no';
 type Gender = 'male' | 'female' | 'other';
@@ -184,15 +185,21 @@ export class StudentFormComponent {
   @Input() submitting = false;
   @Input() value: StudentFormValue = createEmptyStudentFormValue();
   @Input() emailLocked = false;
+  @Input() mode: 'create' | 'review' = 'create';
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
   @Output() cancelled = new EventEmitter<void>();
+  @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
 
   readonly steps = ['Personal Info', 'Education', 'Skills & Experience', 'Additional'] as const;
   currentStep = 0;
   submitAttempted = false;
   private stepNavLocked = false;
+
+  get isReviewMode(): boolean {
+    return this.mode === 'review';
+  }
 
   readonly genderItems: readonly DropdownItem<Gender>[] = [
     { label: 'Male', value: 'male' },
@@ -266,6 +273,9 @@ export class StudentFormComponent {
   }
 
   patch(patch: Partial<StudentFormValue>): void {
+    if (this.isReviewMode) {
+      return;
+    }
     const next: StudentFormValue = { ...this.value, ...patch };
 
     // Keep derived fields in sync.
@@ -485,11 +495,18 @@ export class StudentFormComponent {
   }
 
   submit(): void {
+    if (this.isReviewMode) {
+      return;
+    }
     this.submitAttempted = true;
     if (!this.isFormValid()) {
       return;
     }
     this.submitted.emit(this.value);
+  }
+
+  emitReviewAction(status: EnumLoginStatus): void {
+    this.reviewAction.emit(status);
   }
 
   private isCurrentStepValid(): boolean {

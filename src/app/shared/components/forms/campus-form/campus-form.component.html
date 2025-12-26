@@ -123,20 +123,22 @@
         />
         <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
       } @else {
-        <app-button
-          type="button"
-          variant="outline"
-          label="Reject"
-          [disabled]="submitting"
-          (buttonClick)="cancelled.emit()"
-        />
-        <app-button
-          type="button"
-          variant="secondary"
-          label="Approve"
-          [disabled]="submitting"
-          (buttonClick)="submit()"
-        />
+        <div style="display: flex; gap: 12px; justify-content: center; align-items: center;">
+          <app-button
+            type="button"
+            variant="outline"
+            label="Reject"
+            [disabled]="submitting"
+            (buttonClick)="reject()"
+          />
+          <app-button
+            type="button"
+            variant="secondary"
+            label="Approve"
+            [disabled]="submitting"
+            (buttonClick)="approve()"
+          />
+        </div>
       }
     </div>
   </form>

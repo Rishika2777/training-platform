@@ -149,6 +149,28 @@ export interface ApiResponseListStudentProfileResponse {
   timestamp?: string;
 }
 
+// Swagger uses ApiResponseObject / ApiResponseStudentProfileResponse for full profile endpoints.
+export type StudentFullProfileObject = Record<string, unknown>;
+export type StudentUpdateRequest = Record<string, unknown>;
+
+export interface ApiResponseObject {
+  success?: boolean;
+  message?: string;
+  data?: StudentFullProfileObject;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface ApiResponseStudentProfileResponse {
+  success?: boolean;
+  message?: string;
+  data?: StudentFullProfileObject;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 function mapGenderToApi(gender: string | null): 'MALE' | 'FEMALE' | 'OTHER' {
   if (gender === 'male') return 'MALE';
   if (gender === 'female') return 'FEMALE';

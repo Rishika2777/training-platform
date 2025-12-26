@@ -143,6 +143,7 @@
       BASE: '/campus',
       REGISTER: '/campus/register',
       GET_ALL: '/campus/getAll',
+      BY_ID: '/campus/:campusId',
       APPROVAL: '/campus/:campusId/approval',
     },
     USERS: {

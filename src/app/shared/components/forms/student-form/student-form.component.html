@@ -14,7 +14,7 @@
             type="text"
             [value]="value.firstName"
             (valueChange)="patch({ firstName: $event })"
-            [disabled]="submitting"
+            [disabled]="submitting || isReviewMode"
           />
 
           <app-input
@@ -22,14 +22,14 @@
             type="text"
             [value]="value.lastName"
             (valueChange)="patch({ lastName: $event })"
-            [disabled]="submitting"
+            [disabled]="submitting || isReviewMode"
           />
 
           <app-input
             label="Upload Photo"
             type="file"
             (filesSelected)="patch({ photoFiles: $event })"
-            [disabled]="submitting"
+            [disabled]="submitting || isReviewMode"
           />
         </div>
 
@@ -41,7 +41,7 @@
             type="date"
             [value]="value.dateOfBirth"
             (valueChange)="patch({ dateOfBirth: $event })"
-            [disabled]="submitting"
+            [disabled]="submitting || isReviewMode"
           />
 
           <app-dropdown
@@ -51,7 +51,7 @@
             [items]="genderItems"
             [value]="value.gender"
             (valueChange)="patch({ gender: $event })"
-    [disabled]="submitting"
+    [disabled]="submitting || isReviewMode"
   />
 
           <app-input
@@ -61,7 +61,7 @@
             type="tel"
             [value]="value.mobile"
             (valueChange)="patch({ mobile: $event })"
-            [disabled]="submitting"
+            [disabled]="submitting || isReviewMode"
           />
         </div>
 
@@ -82,7 +82,7 @@
     type="email"
     [value]="value.email"
     (valueChange)="patch({ email: $event })"
-    [disabled]="submitting || emailLocked"
+              [disabled]="submitting || isReviewMode || emailLocked"
   />
           </div>
 
@@ -667,20 +667,49 @@
     }
 
     <div class="app-form-actions">
-      <app-button
-        type="button"
-        variant="outline"
-        label="Go Back"
-        [disabled]="submitting || currentStep === 0"
-        (buttonClick)="prevStep()"
-      />
-    <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
-
-      @if (currentStep < steps.length - 1) {
-        <app-button type="button" variant="primary" label="Save and Next" [disabled]="submitting" (buttonClick)="nextStep()" />
+      @if (isReviewMode) {
+        <app-button
+          type="button"
+          variant="outline"
+          label="Reject"
+          [disabled]="submitting"
+          (buttonClick)="emitReviewAction('REJECTED')"
+        />
+        <app-button
+          type="button"
+          variant="primary"
+          label="Approve"
+          [disabled]="submitting"
+          (buttonClick)="emitReviewAction('APPROVED')"
+        />
       } @else {
-    <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+        <app-button
+          type="button"
+          variant="outline"
+          label="Go Back"
+          [disabled]="submitting || currentStep === 0"
+          (buttonClick)="prevStep()"
+        />
+        <app-button
+          type="button"
+          variant="outline"
+          label="Cancel"
+          [disabled]="submitting"
+          (buttonClick)="cancelled.emit()"
+        />
+
+        @if (currentStep < steps.length - 1) {
+          <app-button
+            type="button"
+            variant="primary"
+            label="Save and Next"
+            [disabled]="submitting"
+            (buttonClick)="nextStep()"
+          />
+        } @else {
+          <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+        }
       }
-  </div>
+    </div>
 </form>
 </div>

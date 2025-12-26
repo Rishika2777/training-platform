@@ -6,11 +6,16 @@ import { ModalComponent } from '../../../../shared/components/modal/modal.compon
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
 import { Campus, CampusApiService } from '../../../campus/services/campus-api.service';
+import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import {
+  CampusFormComponent,
+  CampusFormValue,
+} from '../../../../shared/components/forms/campus-form/campus-form.component';
 
 @Component({
   selector: 'app-admin-campus',
   standalone: true,
-  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent],
+  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CampusFormComponent],
   templateUrl: './admin-campus.component.html',
   styleUrl: './admin-campus.component.css',
 })
@@ -26,6 +31,27 @@ export class AdminCampusComponent implements OnInit {
 
   showDeleteModal = false;
   selectedCampus: CardData | null = null;
+
+  showViewModal = false;
+  viewSubmitting = false;
+  selectedCampusId: string | null = null;
+  viewValue: CampusFormValue = {
+    campusName: '',
+    campusLogoUrl: '',
+    campusLogoFiles: null,
+    rank: '',
+    adminName: '',
+    adminEmail: '',
+    adminPhone: '',
+    adminDept: '',
+    adminDesignation: '',
+    website: '',
+    about: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+  };
 
   currentPage = 1;
   readonly itemsPerPage = 9;
@@ -50,8 +76,7 @@ export class AdminCampusComponent implements OnInit {
                 name: campus.campusName ?? campus.email?.split('@')[0] ?? 'Campus Name',
                 imageUrl: campus.photoUrl ?? 'assets/images/landing-card-campus.png',
                 email: campus.email ?? '',
-                // Admin actions still operate on a "user id". API doesn't provide it here, so leave undefined.
-                userId: undefined,
+                userId: campus.id ?? null,
               };
               return cardData;
             });
@@ -93,9 +118,80 @@ export class AdminCampusComponent implements OnInit {
   }
 
   onView(campus: CardData): void {
-    if (campus.userId) {
-      this.adminApi.getUserById(campus.userId).subscribe();
+     const userId = campus.userId ?? null;
+     const campusId = campus.id ?? null;
+     // Prefer userId for view/approval operations (as requested).
+     const idToUse = userId ?? campusId;
+      if (!idToUse) {
+      return;
     }
+
+    this.viewSubmitting = true;
+    this.campusApi.getCampusById(idToUse).subscribe({
+      next: (profile) => {
+        this.viewSubmitting = false;
+        if (!profile?.campusId && !profile?.id) {
+          return;
+        }
+         // Use userId for subsequent approval call (as requested). Fallback to the id we used to fetch.
+         this.selectedCampusId = profile.userId ?? userId ?? idToUse;
+        this.viewValue = this.mapCampusToFormValue(profile);
+        this.showViewModal = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+      },
+    });
+  }
+
+  closeViewModal(): void {
+    this.showViewModal = false;
+    this.selectedCampusId = null;
+  }
+
+  handleReviewAction(status: EnumLoginStatus): void {
+    if (!this.selectedCampusId) {
+      return;
+    }
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return;
+    }
+    if (status === 'REJECTED' && !confirm('Are you sure you want to reject this campus?')) {
+      return;
+    }
+
+    this.viewSubmitting = true;
+    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: status }).subscribe({
+      next: () => {
+        this.viewSubmitting = false;
+        this.closeViewModal();
+        this.loadCampuses();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+      },
+    });
+  }
+
+  private mapCampusToFormValue(profile: Campus): CampusFormValue {
+    return {
+      campusName: profile.campusName ?? '',
+      campusLogoUrl: profile.photoUrl ?? '',
+      campusLogoFiles: null,
+      rank: profile.campusRank !== undefined && profile.campusRank !== null ? String(profile.campusRank) : '',
+      adminName: profile.adminName ?? '',
+      adminEmail: profile.adminEmail ?? profile.email ?? '',
+      adminPhone: profile.adminPhone ?? '',
+      adminDept: profile.adminDepartment ?? '',
+      adminDesignation: profile.adminDesignation ?? '',
+      website: profile.campusWebsiteUrl ?? '',
+      about: profile.aboutCampus ?? '',
+      address: profile.campusAddress ?? '',
+      city: '',
+      state: '',
+      pincode: '',
+    };
   }
 
   onDelete(campus: CardData): void {

@@ -3,9 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN } from '../../../core/config/app.constants';
 import {
+  ApiResponseObject,
   ApiResponseListStudentProfileResponse,
+  ApiResponseStudentProfileResponse,
   ApiResponseStudentRegistrationResponse,
   StudentCompleteRegistrationRequest,
+  StudentUpdateRequest,
 } from '../models/student.models';
 
 /**
@@ -32,6 +35,38 @@ export class StudentApiService {
       params,
       withCredentials: false,
     });
+  }
+
+  /**
+   * GET /student/{studentId}/profile
+   * Swagger: requires requesterUserId + requesterUserType query params.
+   */
+  getStudentFullProfile(
+    studentId: string,
+    requesterUserId: string,
+    requesterUserType: string,
+  ): Observable<ApiResponseObject> {
+    const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.FULL_PROFILE, { studentId }));
+    const params = new HttpParams()
+      .set('requesterUserId', requesterUserId)
+      .set('requesterUserType', requesterUserType);
+    return this.http.get<ApiResponseObject>(url, { params });
+  }
+
+  /**
+   * PATCH /student/{studentId}/update
+   * Swagger: requires userId query param.
+   *
+   * Note: backend expects studentId value here (even though the query param is named "userId").
+   */
+  updateStudentFullProfile(
+    studentId: string,
+    studentIdForQuery: string,
+    request: StudentUpdateRequest,
+  ): Observable<ApiResponseStudentProfileResponse> {
+    const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.UPDATE_FULL_PROFILE, { studentId }));
+    const params = new HttpParams().set('studentId', studentIdForQuery);
+    return this.http.patch<ApiResponseStudentProfileResponse>(url, request, { params });
   }
 
   private buildUrl(endpoint: string): string {
@@ -64,6 +99,14 @@ export class StudentApiService {
 
     return url + normalizedEndpoint;
   }
+}
+
+function resolvePathParams(endpoint: string, params: Record<string, string>): string {
+  let out = endpoint;
+  for (const [key, value] of Object.entries(params)) {
+    out = out.replace(`:${key}`, encodeURIComponent(value));
+  }
+  return out;
 }
 
 
