@@ -58,10 +58,9 @@ export class AdminCompanyComponent implements OnInit {
             this.companies = companies.map((company) => {
               const cardData: CardData = {
                 id: company.companyId ?? `company-${Math.random().toString(36).substr(2, 9)}`,
-                name: company.companyName ?? company.email?.split('@')[0] ?? 'Company Name',
-                imageUrl: company.companyLogoUrl ?? 'assets/images/landing-card-company.png',
-                secondaryInfo: `Approval: ${toApprovalStatusLabel(company.approvalStatus)}`,
-                email: company.email ?? company.adminEmail ?? '',
+                name: cleanUiText(company.companyName) || cleanUiText(company.email?.split('@')[0]) || 'Company Name',
+                badge: toApprovalStatusLabel(company.approvalStatus),
+                email: cleanUiText(company.email) || cleanUiText(company.adminEmail),
                 // We don't get a "userId" here for admin user deletion; keep undefined.
                 userId: undefined,
               };
@@ -255,6 +254,16 @@ function toApprovalStatusLabel(status: string | null | undefined): string {
   if (cleaned === 'PENDING') {
     return 'PENDING_APPROVAL';
   }
+  if (cleaned.toLowerCase() === 'string') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
+}
+
+function cleanUiText(value: string | null | undefined): string {
+  const cleaned = (value ?? '').trim();
+  if (!cleaned) return '';
+  if (cleaned.toLowerCase() === 'string') return '';
   return cleaned;
 }
 

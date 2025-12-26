@@ -113,8 +113,8 @@ export class AdminStudentComponent implements OnInit {
               const cardData: CardData = {
                 id: student.studentId ?? student.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
                 name: fullName,
-                imageUrl: student.profilePhotoUrl ?? 'assets/images/login-news-image.png',
-                secondaryInfo: buildStudentSecondaryInfo(student.campusName, student.approvalStatus),
+                secondaryInfo: buildStudentSecondaryInfo(student.campusName),
+                badge: toApprovalStatusLabel(student.approvalStatus),
                 email: '', // StudentProfileResponse doesn't have email field
                 userId: student.userId,
               };
@@ -477,13 +477,9 @@ function toUserIdString(value: unknown): string | null {
   return null;
 }
 
-function buildStudentSecondaryInfo(campusName: string | null | undefined, approvalStatus: string | null | undefined): string {
-  const campus = (campusName ?? '').trim();
-  const status = toApprovalStatusLabel(approvalStatus);
-  if (campus) {
-    return `${campus} • Approval: ${status}`;
-  }
-  return `Approval: ${status}`;
+function buildStudentSecondaryInfo(campusName: string | null | undefined): string {
+  const campus = cleanUiText(campusName);
+  return campus ? `Campus: ${campus}` : '';
 }
 
 function toApprovalStatusLabel(status: string | null | undefined): string {
@@ -494,5 +490,15 @@ function toApprovalStatusLabel(status: string | null | undefined): string {
   if (cleaned === 'PENDING') {
     return 'PENDING_APPROVAL';
   }
+  if (cleaned.toLowerCase() === 'string') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
+}
+
+function cleanUiText(value: string | null | undefined): string {
+  const cleaned = (value ?? '').trim();
+  if (!cleaned) return '';
+  if (cleaned.toLowerCase() === 'string') return '';
   return cleaned;
 }

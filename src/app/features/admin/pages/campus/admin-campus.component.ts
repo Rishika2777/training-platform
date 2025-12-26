@@ -72,10 +72,9 @@ export class AdminCampusComponent implements OnInit {
             this.campuses = campuses.map((campus) => {
               const cardData: CardData = {
                 id: campus.campusId ?? campus.id ?? `campus-${Math.random().toString(36).substr(2, 9)}`,
-                name: campus.campusName ?? campus.email?.split('@')[0] ?? 'Campus Name',
-                imageUrl: campus.photoUrl ?? 'assets/images/landing-card-campus.png',
-                secondaryInfo: `Approval: ${toApprovalStatusLabel(campus.approvalStatus)}`,
-                email: campus.email ?? '',
+                name: cleanUiText(campus.campusName) || cleanUiText(campus.email?.split('@')[0]) || 'Campus Name',
+                badge: toApprovalStatusLabel(campus.approvalStatus),
+                email: cleanUiText(campus.email),
                 userId: campus.id ?? null,
               };
               return cardData;
@@ -244,5 +243,15 @@ function toApprovalStatusLabel(status: string | null | undefined): string {
   if (cleaned === 'PENDING') {
     return 'PENDING_APPROVAL';
   }
+  if (cleaned.toLowerCase() === 'string') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
+}
+
+function cleanUiText(value: string | null | undefined): string {
+  const cleaned = (value ?? '').trim();
+  if (!cleaned) return '';
+  if (cleaned.toLowerCase() === 'string') return '';
   return cleaned;
 }

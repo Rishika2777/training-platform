@@ -1,18 +1,17 @@
 @if (data) {
   <div class="admin-card" [class.student-card]="type === 'student'" [class.company-card]="type === 'company'" [class.campus-card]="type === 'campus'">
     <div class="card-image-container">
-      @if (type === 'student') {
-        <div class="card-avatar">
-          <img [src]="displayImage" [alt]="displayName" />
-        </div>
-      } @else {
-        <div class="card-image">
-          <img [src]="displayImage" [alt]="displayName" />
-        </div>
-      }
+      <div class="card-avatar" [style.background]="avatarBackground" [style.color]="avatarTextColor">
+        {{ initials }}
+      </div>
     </div>
     <div class="card-content">
-      <div class="card-name">{{ displayName }}</div>
+      <div class="card-name-row">
+        <div class="card-name">{{ displayName }}</div>
+        @if (badgeLabel) {
+          <span [class]="badgeClass">{{ badgeLabel }}</span>
+        }
+      </div>
       @if (displaySecondaryInfo) {
         <div class="card-secondary">{{ displaySecondaryInfo }}</div>
       }
