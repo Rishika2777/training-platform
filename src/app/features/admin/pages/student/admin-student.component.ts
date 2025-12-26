@@ -47,6 +47,7 @@ export class AdminStudentComponent implements OnInit {
   viewSubmitting = false;
   selectedStudentId: string | null = null;
   selectedStudentUserId: string | null = null;
+  selectedStudentApprovalStatus: string | null = null;
   viewValue: StudentFormValue = createEmptyStudentFormValue();
 
   currentPage = 1;
@@ -113,7 +114,7 @@ export class AdminStudentComponent implements OnInit {
                 id: student.studentId ?? student.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
                 name: fullName,
                 imageUrl: student.profilePhotoUrl ?? 'assets/images/login-news-image.png',
-                secondaryInfo: student.campusName ?? 'Campus Name',
+                secondaryInfo: buildStudentSecondaryInfo(student.campusName, student.approvalStatus),
                 email: '', // StudentProfileResponse doesn't have email field
                 userId: student.userId,
               };
@@ -169,6 +170,7 @@ export class AdminStudentComponent implements OnInit {
     this.viewSubmitting = true;
     this.selectedStudentId = student.id;
     this.selectedStudentUserId = null;
+    this.selectedStudentApprovalStatus = null;
 
     this.studentApi.getStudentFullProfile(student.id, requesterUserId, 'ADMIN').subscribe({
       next: (response) => {
@@ -177,6 +179,7 @@ export class AdminStudentComponent implements OnInit {
         if (!isRecord(data)) {
           return;
         }
+        this.selectedStudentApprovalStatus = readString(data, 'approvalStatus') || null;
         this.selectedStudentUserId = readString(data, 'userId') || null;
         this.viewValue = this.mapFullProfileToFormValue(data);
         this.showViewModal = true;
@@ -193,6 +196,7 @@ export class AdminStudentComponent implements OnInit {
     this.viewSubmitting = false;
     this.selectedStudentId = null;
     this.selectedStudentUserId = null;
+    this.selectedStudentApprovalStatus = null;
     this.viewValue = createEmptyStudentFormValue();
   }
 
@@ -274,6 +278,10 @@ export class AdminStudentComponent implements OnInit {
 
   onAdd(): void {
     // Add student functionality
+  }
+
+  get isSelectedStudentApproved(): boolean {
+    return isApprovedStatus(this.selectedStudentApprovalStatus);
   }
 
   private mapFullProfileToFormValue(data: Record<string, unknown>): StudentFormValue {
@@ -376,6 +384,10 @@ export class AdminStudentComponent implements OnInit {
   }
 }
 
+function isApprovedStatus(status: string | null | undefined): boolean {
+  return toApprovalStatusLabel(status) === 'APPROVED';
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -463,4 +475,24 @@ function toUserIdString(value: unknown): string | null {
     return Number.isFinite(value) ? String(value) : null;
   }
   return null;
+}
+
+function buildStudentSecondaryInfo(campusName: string | null | undefined, approvalStatus: string | null | undefined): string {
+  const campus = (campusName ?? '').trim();
+  const status = toApprovalStatusLabel(approvalStatus);
+  if (campus) {
+    return `${campus} • Approval: ${status}`;
+  }
+  return `Approval: ${status}`;
+}
+
+function toApprovalStatusLabel(status: string | null | undefined): string {
+  const cleaned = (status ?? '').trim();
+  if (!cleaned) {
+    return 'PENDING_APPROVAL';
+  }
+  if (cleaned === 'PENDING') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
 }

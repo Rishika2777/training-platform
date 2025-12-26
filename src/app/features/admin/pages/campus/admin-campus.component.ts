@@ -4,7 +4,6 @@ import { PaginationComponent } from '../../../../shared/components/pagination/pa
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { AdminApiService } from '../../services/admin-api.service';
 import { Campus, CampusApiService } from '../../../campus/services/campus-api.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import {
@@ -20,7 +19,6 @@ import {
   styleUrl: './admin-campus.component.css',
 })
 export class AdminCampusComponent implements OnInit {
-  private readonly adminApi = inject(AdminApiService);
   private readonly campusApi = inject(CampusApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   readonly announcementDate = 'January 7th, 2025';
@@ -35,6 +33,7 @@ export class AdminCampusComponent implements OnInit {
   showViewModal = false;
   viewSubmitting = false;
   selectedCampusId: string | null = null;
+  selectedCampusApprovalStatus: string | null = null;
   viewValue: CampusFormValue = {
     campusName: '',
     campusLogoUrl: '',
@@ -75,6 +74,7 @@ export class AdminCampusComponent implements OnInit {
                 id: campus.campusId ?? campus.id ?? `campus-${Math.random().toString(36).substr(2, 9)}`,
                 name: campus.campusName ?? campus.email?.split('@')[0] ?? 'Campus Name',
                 imageUrl: campus.photoUrl ?? 'assets/images/landing-card-campus.png',
+                secondaryInfo: `Approval: ${toApprovalStatusLabel(campus.approvalStatus)}`,
                 email: campus.email ?? '',
                 userId: campus.id ?? null,
               };
@@ -135,6 +135,7 @@ export class AdminCampusComponent implements OnInit {
         }
          // Use userId for subsequent approval call (as requested). Fallback to the id we used to fetch.
          this.selectedCampusId = profile.userId ?? userId ?? idToUse;
+         this.selectedCampusApprovalStatus = profile.approvalStatus ?? null;
         this.viewValue = this.mapCampusToFormValue(profile);
         this.showViewModal = true;
         this.cdr.detectChanges();
@@ -148,6 +149,7 @@ export class AdminCampusComponent implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedCampusId = null;
+    this.selectedCampusApprovalStatus = null;
   }
 
   handleReviewAction(status: EnumLoginStatus): void {
@@ -200,8 +202,10 @@ export class AdminCampusComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (this.selectedCampus?.userId) {
-      this.adminApi.deleteUser(this.selectedCampus.userId).subscribe({
+    console.log('confirmDelete', this.selectedCampus);
+    const campusId = this.selectedCampus?.id ?? null;
+    if (campusId) {
+      this.campusApi.deleteCampusByAdmin(campusId).subscribe({
         next: () => {
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion
@@ -225,4 +229,20 @@ export class AdminCampusComponent implements OnInit {
   onAdd(): void {
     // TODO: Implement add action
   }
+
+  get isSelectedCampusApproved(): boolean {
+    return toApprovalStatusLabel(this.selectedCampusApprovalStatus) === 'APPROVED';
+  }
+}
+
+function toApprovalStatusLabel(status: string | null | undefined): string {
+  const cleaned = (status ?? '').trim();
+  if (!cleaned) {
+    return 'PENDING_APPROVAL';
+  }
+  // Student endpoints often use "PENDING" while admin screens expect "PENDING_APPROVAL"
+  if (cleaned === 'PENDING') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
 }

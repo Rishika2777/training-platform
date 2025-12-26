@@ -37,6 +37,7 @@ export class CampusFormComponent {
   @Input() title = 'Campus Registration';
   @Input() mode: 'create' | 'review' = 'create';
   @Input() adminEmailLocked = false;
+  @Input() approveDisabled = false;
 
   @Input() value: CampusFormValue = {
     campusName: '',

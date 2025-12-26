@@ -35,6 +35,7 @@ export class AdminCompanyComponent implements OnInit {
   showViewModal = false;
   viewSubmitting = false;
   selectedCompanyId: string | null = null;
+  selectedCompanyApprovalStatus: string | null = null;
   viewValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   currentPage = 1;
@@ -59,6 +60,7 @@ export class AdminCompanyComponent implements OnInit {
                 id: company.companyId ?? `company-${Math.random().toString(36).substr(2, 9)}`,
                 name: company.companyName ?? company.email?.split('@')[0] ?? 'Company Name',
                 imageUrl: company.companyLogoUrl ?? 'assets/images/landing-card-company.png',
+                secondaryInfo: `Approval: ${toApprovalStatusLabel(company.approvalStatus)}`,
                 email: company.email ?? company.adminEmail ?? '',
                 // We don't get a "userId" here for admin user deletion; keep undefined.
                 userId: undefined,
@@ -110,6 +112,7 @@ export class AdminCompanyComponent implements OnInit {
           return;
         }
         this.selectedCompanyId = profile.companyId;
+        this.selectedCompanyApprovalStatus = profile.approvalStatus ?? null;
         this.viewValue = this.mapProfileToFormValue(profile);
         this.showViewModal = true;
         this.cdr.detectChanges();
@@ -123,6 +126,7 @@ export class AdminCompanyComponent implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedCompanyId = null;
+    this.selectedCompanyApprovalStatus = null;
     this.viewValue = CompanyFormComponent.createEmptyValue();
   }
 
@@ -233,6 +237,25 @@ export class AdminCompanyComponent implements OnInit {
   onAdd(): void {
     // Add company functionality
   }
+
+  get isSelectedCompanyApproved(): boolean {
+    return isApprovedStatus(this.selectedCompanyApprovalStatus);
+  }
+}
+
+function isApprovedStatus(status: string | null | undefined): boolean {
+  return toApprovalStatusLabel(status) === 'APPROVED';
+}
+
+function toApprovalStatusLabel(status: string | null | undefined): string {
+  const cleaned = (status ?? '').trim();
+  if (!cleaned) {
+    return 'PENDING_APPROVAL';
+  }
+  if (cleaned === 'PENDING') {
+    return 'PENDING_APPROVAL';
+  }
+  return cleaned;
 }
 
 function readFirstNonEmptyString(obj: unknown, keys: readonly string[]): string {

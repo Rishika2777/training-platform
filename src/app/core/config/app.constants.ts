@@ -93,6 +93,7 @@
     AUTH: {
       VERIFY_EMAIL: '/auth/verify-email',
       VERIFY_OTP: '/auth/verify-otp',
+    RESEND_OTP: '/auth/resend-otp',
       ME: '/auth/me',
       LOGIN: '/auth/login',
       LOGOUT: '/auth/logout',

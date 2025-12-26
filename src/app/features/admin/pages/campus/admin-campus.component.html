@@ -85,6 +85,7 @@
       [value]="viewValue"
       [submitting]="viewSubmitting"
       [adminEmailLocked]="true"
+      [approveDisabled]="isSelectedCampusApproved"
       (reviewAction)="handleReviewAction($event)"
       (cancelled)="closeViewModal()"
     />

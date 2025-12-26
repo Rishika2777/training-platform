@@ -85,6 +85,7 @@
       [value]="viewValue"
       [submitting]="viewSubmitting"
       [adminEmailLocked]="true"
+      [approveDisabled]="isSelectedCompanyApproved"
       (reviewAction)="handleReviewAction($event)"
       (cancelled)="closeViewModal()"
     />

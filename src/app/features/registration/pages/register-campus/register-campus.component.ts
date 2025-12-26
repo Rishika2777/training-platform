@@ -113,6 +113,7 @@ export class RegisterCampusComponent {
             this.notify.success(
               'You have successfully submitted the form, please wait until admin review and approve you form',
             );
+            void this.router.navigateByUrl('/login');
             return;
           }
 

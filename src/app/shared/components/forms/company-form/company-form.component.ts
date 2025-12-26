@@ -42,6 +42,7 @@ export class CompanyFormComponent {
   @Input() mode: 'create' | 'edit' | 'review' = 'create';
   @Input() submitting = false;
   @Input() adminEmailLocked = false;
+  @Input() approveDisabled = false;
   @Input() value: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   @Output() valueChange = new EventEmitter<CompanyFormValue>();

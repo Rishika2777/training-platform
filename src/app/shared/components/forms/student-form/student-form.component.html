@@ -1,5 +1,7 @@
 <div class="app-form-container">
-  <h2 class="app-form-title">Student Registration</h2>
+  @if (!isReviewMode) {
+    <h2 class="app-form-title">Student Registration</h2>
+  }
 
   <app-step-indicator [steps]="steps" [currentStep]="currentStep + 1" [disabled]="submitting" />
 
@@ -679,7 +681,7 @@
           type="button"
           variant="primary"
           label="Approve"
-          [disabled]="submitting"
+          [disabled]="submitting || approveDisabled"
           (buttonClick)="emitReviewAction('APPROVED')"
         />
       } @else {

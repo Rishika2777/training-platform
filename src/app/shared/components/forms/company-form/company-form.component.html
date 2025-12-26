@@ -1,5 +1,5 @@
 <form class="form" (submit)="$event.preventDefault(); submit()">
-  @if (title) {
+  @if (title && !isReviewMode) {
     <h2 class="form-title">{{ title }}</h2>
   }
 
@@ -171,7 +171,7 @@
           type="button"
           variant="primary"
           label="Approve"
-          [disabled]="submitting"
+          [disabled]="submitting || approveDisabled"
           (buttonClick)="approve()"
         />
       </div>

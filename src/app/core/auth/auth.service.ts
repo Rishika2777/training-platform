@@ -29,6 +29,15 @@ export interface RegistrationDraft {
   confirmPassword: string;
 }
 
+export interface ResendOtpRequest {
+  email: string;
+}
+
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+}
+
 interface ApiResponse<T> {
   success?: boolean;
   message?: string;
@@ -205,9 +214,15 @@ export class AuthService {
     return this.api.get<unknown>(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { token });
   }
 
-  verifyOtp(otp: string, options?: { persistAuth?: boolean }): Observable<unknown> {
+  resendOtp(email: string): Observable<void> {
+    return this.api
+      .post<ApiResponse<void>, ResendOtpRequest>(API_ENDPOINTS.AUTH.RESEND_OTP, { email })
+      .pipe(map(() => void 0));
+  }
+
+  verifyOtp(request: VerifyOtpRequest, options?: { persistAuth?: boolean }): Observable<unknown> {
     const persistTokens = options?.persistAuth === true;
-    return this.api.post<unknown, { otp: string }>(API_ENDPOINTS.AUTH.VERIFY_OTP, { otp }).pipe(
+    return this.api.post<unknown, VerifyOtpRequest>(API_ENDPOINTS.AUTH.VERIFY_OTP, request).pipe(
       tap((response) => {
         this.persistAuthFromResponse(response, { persistTokens });
       }),

@@ -84,6 +84,7 @@
       [submitting]="viewSubmitting"
       [value]="viewValue"
       [emailLocked]="true"
+      [approveDisabled]="isSelectedStudentApproved"
       (reviewAction)="handleReviewAction($event)"
     ></app-student-form>
   </app-modal>

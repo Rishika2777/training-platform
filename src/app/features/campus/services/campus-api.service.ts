@@ -58,6 +58,15 @@ export class CampusApiService {
       .pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
   }
 
+  /**
+   * DELETE /campus/{campusId} (Admin)
+   * Deletes campus by campusId.
+   */
+  deleteCampusByAdmin(campusId: string): Observable<void> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
+    return this.http.delete<unknown>(url).pipe(map(() => void 0));
+  }
+
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const resolved = resolvePathParams(endpoint, params);
 

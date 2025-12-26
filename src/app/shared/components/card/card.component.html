@@ -13,7 +13,7 @@
     </div>
     <div class="card-content">
       <div class="card-name">{{ displayName }}</div>
-      @if (type === 'student' && displaySecondaryInfo) {
+      @if (displaySecondaryInfo) {
         <div class="card-secondary">{{ displaySecondaryInfo }}</div>
       }
       @if (displayEmail) {

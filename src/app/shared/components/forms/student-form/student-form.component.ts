@@ -186,6 +186,7 @@ export class StudentFormComponent {
   @Input() value: StudentFormValue = createEmptyStudentFormValue();
   @Input() emailLocked = false;
   @Input() mode: 'create' | 'review' = 'create';
+  @Input() approveDisabled = false;
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
