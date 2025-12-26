@@ -6,11 +6,16 @@ import { ModalComponent } from '../../../../shared/components/modal/modal.compon
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
 import { CompanyApiService, CompanyRegistrationResponse } from '../../../company/services/company-api.service';
+import {
+  CompanyFormComponent,
+  CompanyFormValue,
+} from '../../../../shared/components/forms/company-form/company-form.component';
+import { EnumLoginStatus } from '../../../../core/config/app.constants';
 
 @Component({
   selector: 'app-admin-company',
   standalone: true,
-  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent],
+  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CompanyFormComponent],
   templateUrl: './admin-company.component.html',
   styleUrl: './admin-company.component.css',
 })
@@ -26,6 +31,11 @@ export class AdminCompanyComponent implements OnInit {
 
   showDeleteModal = false;
   selectedCompany: CardData | null = null;
+
+  showViewModal = false;
+  viewSubmitting = false;
+  selectedCompanyId: string | null = null;
+  viewValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   currentPage = 1;
   readonly itemsPerPage = 9;
@@ -88,9 +98,58 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   onView(company: CardData): void {
-    if (company.userId) {
-      this.adminApi.getUserById(company.userId).subscribe();
+    if (!company.id) {
+      return;
     }
+
+    this.viewSubmitting = true;
+    this.companyApi.getCompanyById(company.id).subscribe({
+      next: (profile) => {
+        this.viewSubmitting = false;
+        if (!profile?.companyId) {
+          return;
+        }
+        this.selectedCompanyId = profile.companyId;
+        this.viewValue = this.mapProfileToFormValue(profile);
+        this.showViewModal = true;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+      },
+    });
+  }
+
+  closeViewModal(): void {
+    this.showViewModal = false;
+    this.selectedCompanyId = null;
+    this.viewValue = CompanyFormComponent.createEmptyValue();
+  }
+
+  handleReviewAction(status: EnumLoginStatus): void {
+    if (!this.selectedCompanyId) {
+      return;
+    }
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return;
+    }
+    if (status === 'REJECTED' && !confirm('Are you sure you want to reject this company?')) {
+      return;
+    }
+
+    this.viewSubmitting = true;
+    this.companyApi
+      .updateCompanyApprovalStatus(this.selectedCompanyId, 'ADMIN', { approvalStatus: status })
+      .subscribe({
+        next: () => {
+          this.viewSubmitting = false;
+          this.closeViewModal();
+          this.loadCompanies();
+        },
+        error: () => {
+          this.viewSubmitting = false;
+        },
+      });
   }
 
   onDelete(company: CardData): void {
@@ -123,26 +182,47 @@ export class AdminCompanyComponent implements OnInit {
 
   onApprove(company: CardData): void {
     if (company.id) {
-      this.adminApi
-        .approveCompany(company.id, { status: 'APPROVED', comment: 'Approved by admin' })
-        .subscribe({
-          next: () => {
-            this.loadCompanies();
-          },
-        });
+      this.companyApi
+        .updateCompanyApprovalStatus(company.id, 'ADMIN', { approvalStatus: 'APPROVED' })
+        .subscribe({ next: () => this.loadCompanies() });
     }
   }
 
   onReject(company: CardData): void {
     if (company.id && confirm('Are you sure you want to reject this company?')) {
-      this.adminApi
-        .approveCompany(company.id, { status: 'REJECTED', comment: 'Rejected by admin' })
-        .subscribe({
-          next: () => {
-            this.loadCompanies();
-          },
-        });
+      this.companyApi
+        .updateCompanyApprovalStatus(company.id, 'ADMIN', { approvalStatus: 'REJECTED' })
+        .subscribe({ next: () => this.loadCompanies() });
     }
+  }
+
+  private mapProfileToFormValue(profile: CompanyRegistrationResponse): CompanyFormValue {
+    const aboutCompany = readFirstNonEmptyString(profile, ['aboutCompany', 'description', 'about']);
+    const companyAddress = readFirstNonEmptyString(profile, ['companyAddress', 'address']);
+
+    return {
+      ...CompanyFormComponent.createEmptyValue(),
+      companyName: profile.companyName ?? '',
+      // Uploads not wired here; keep null.
+      companyPhoto: null,
+      adminName: profile.adminName ?? '',
+      adminDesignation: profile.adminDesignation ?? '',
+      adminEmail: profile.adminEmail ?? profile.email ?? '',
+      adminPhone: profile.adminPhone ?? '',
+      companyWebsiteUrl: profile.websiteUrl ?? '',
+      otherWebsiteUrl: profile.otherWebsiteUrl ?? '',
+      registerNumber: profile.registerNumber ?? '',
+      keyPeople:
+        profile.keyPeople && profile.keyPeople.length > 0
+          ? profile.keyPeople.map((p) => ({
+              name: p.name ?? '',
+              designation: p.designation ?? '',
+              photo: null,
+            }))
+          : [CompanyFormComponent.createEmptyKeyPerson()],
+      aboutCompany,
+      companyAddress,
+    };
   }
 
   onPageChange(page: number): void {
@@ -153,6 +233,20 @@ export class AdminCompanyComponent implements OnInit {
   onAdd(): void {
     // Add company functionality
   }
+}
+
+function readFirstNonEmptyString(obj: unknown, keys: readonly string[]): string {
+  if (!obj || typeof obj !== 'object') {
+    return '';
+  }
+  const rec = obj as Record<string, unknown>;
+  for (const key of keys) {
+    const val = rec[key];
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val;
+    }
+  }
+  return '';
 }
 
 

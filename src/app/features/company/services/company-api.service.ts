@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, UserType } from '../../../core/config/app.constants';
+import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
 
 /**
  * Placeholder for company API calls.
@@ -107,10 +107,8 @@ export interface CompanyRegistrationResponse {
   updatedAt?: string | null;
 }
 
-export type CompanyApprovalStatus = 'PENDING_APPROVAL' | 'PENDING_REGISTRATION' | 'APPROVED' | 'REJECTED';
-
 export interface UpdateApprovalStatusRequest {
-  approvalStatus: CompanyApprovalStatus;
+  approvalStatus: EnumLoginStatus;
 }
 
 export interface KeyPersonRequest {

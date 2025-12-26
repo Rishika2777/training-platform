@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
+import { EnumLoginStatus } from '../../../../core/config/app.constants';
 
 export interface KeyPersonValue {
   name: string;
@@ -38,7 +39,7 @@ export interface CompanyFormValue {
 })
 export class CompanyFormComponent {
   @Input() title: string | null = null;
-  @Input() mode: 'create' | 'edit' = 'create';
+  @Input() mode: 'create' | 'edit' | 'review' = 'create';
   @Input() submitting = false;
   @Input() adminEmailLocked = false;
   @Input() value: CompanyFormValue = CompanyFormComponent.createEmptyValue();
@@ -46,6 +47,11 @@ export class CompanyFormComponent {
   @Output() valueChange = new EventEmitter<CompanyFormValue>();
   @Output() submitted = new EventEmitter<CompanyFormValue>();
   @Output() cancelled = new EventEmitter<void>();
+  @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
+
+  get isReviewMode(): boolean {
+    return this.mode === 'review';
+  }
 
   static createEmptyKeyPerson(): KeyPersonValue {
     return { name: '', designation: '', photo: null };
@@ -124,7 +130,25 @@ export class CompanyFormComponent {
   }
 
   submit(): void {
+    // In review mode, use the explicit Approve/Reject buttons instead of form submit.
+    if (this.isReviewMode) {
+      return;
+    }
     this.submitted.emit(this.value);
+  }
+
+  approve(): void {
+    if (!this.isReviewMode) {
+      return;
+    }
+    this.reviewAction.emit('APPROVED');
+  }
+
+  reject(): void {
+    if (!this.isReviewMode) {
+      return;
+    }
+    this.reviewAction.emit('REJECTED');
   }
 
   private pickFirstFile(files: FileList): File | null {

@@ -72,6 +72,23 @@
       </div>
     </div>
   </app-modal>
+
+  <app-modal
+    [visible]="showViewModal"
+    title="Company Profile"
+    size="lg"
+    (closed)="closeViewModal()"
+  >
+    <app-company-form
+      title=""
+      mode="review"
+      [value]="viewValue"
+      [submitting]="viewSubmitting"
+      [adminEmailLocked]="true"
+      (reviewAction)="handleReviewAction($event)"
+      (cancelled)="closeViewModal()"
+    />
+  </app-modal>
 </div>
 
 
