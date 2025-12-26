@@ -50,6 +50,9 @@ export class AdminStudentComponent implements OnInit {
   selectedStudentApprovalStatus: string | null = null;
   viewValue: StudentFormValue = createEmptyStudentFormValue();
 
+  showReviewModal = false;
+  pendingReviewStatus: EnumLoginStatus | null = null;
+
   currentPage = 1;
   readonly itemsPerPage = 9;
   totalPages = 1;
@@ -205,23 +208,50 @@ export class AdminStudentComponent implements OnInit {
     if (!studentId) {
       return;
     }
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return;
+    }
+    this.pendingReviewStatus = status;
+    this.showReviewModal = true;
+  }
+
+  confirmReviewAction(): void {
+    const studentId = this.selectedStudentId;
+    if (!studentId || !this.pendingReviewStatus) {
+      return;
+    }
+    if (this.pendingReviewStatus !== 'APPROVED' && this.pendingReviewStatus !== 'REJECTED') {
+      return;
+    }
+
+    // Close review modal immediately
+    this.closeReviewModal();
+    this.cdr.detectChanges();
 
     // Backend expects studentId in query param (even if query param key is named "userId").
     const studentIdForQuery = studentId;
 
+    // Show loading state and make API call
     this.viewSubmitting = true;
     this.studentApi
-      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: status })
+      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: this.pendingReviewStatus })
       .subscribe({
         next: () => {
           this.viewSubmitting = false;
           this.closeViewModal();
           this.loadStudents();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.viewSubmitting = false;
+          this.cdr.detectChanges();
         },
       });
+  }
+
+  closeReviewModal(): void {
+    this.showReviewModal = false;
+    this.pendingReviewStatus = null;
   }
 
   onDelete(student: CardData): void {

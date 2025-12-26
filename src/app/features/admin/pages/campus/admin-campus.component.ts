@@ -34,6 +34,9 @@ export class AdminCampusComponent implements OnInit {
   viewSubmitting = false;
   selectedCampusId: string | null = null;
   selectedCampusApprovalStatus: string | null = null;
+
+  showReviewModal = false;
+  pendingReviewStatus: EnumLoginStatus | null = null;
   viewValue: CampusFormValue = {
     campusName: '',
     campusLogoUrl: '',
@@ -158,21 +161,41 @@ export class AdminCampusComponent implements OnInit {
     if (status !== 'APPROVED' && status !== 'REJECTED') {
       return;
     }
-    if (status === 'REJECTED' && !confirm('Are you sure you want to reject this campus?')) {
+    this.pendingReviewStatus = status;
+    this.showReviewModal = true;
+  }
+
+  confirmReviewAction(): void {
+    if (!this.selectedCampusId || !this.pendingReviewStatus) {
+      return;
+    }
+    if (this.pendingReviewStatus !== 'APPROVED' && this.pendingReviewStatus !== 'REJECTED') {
       return;
     }
 
+    // Close review modal immediately
+    this.closeReviewModal();
+    this.cdr.detectChanges();
+
+    // Show loading state and make API call
     this.viewSubmitting = true;
-    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: status }).subscribe({
+    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: this.pendingReviewStatus }).subscribe({
       next: () => {
         this.viewSubmitting = false;
         this.closeViewModal();
         this.loadCampuses();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.viewSubmitting = false;
+        this.cdr.detectChanges();
       },
     });
+  }
+
+  closeReviewModal(): void {
+    this.showReviewModal = false;
+    this.pendingReviewStatus = null;
   }
 
   private mapCampusToFormValue(profile: Campus): CampusFormValue {
@@ -201,8 +224,7 @@ export class AdminCampusComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    console.log('confirmDelete', this.selectedCampus);
-    const campusId = this.selectedCampus?.id ?? null;
+    const campusId = this.selectedCampus?.userId ?? null;
     if (campusId) {
       this.campusApi.deleteCampusByAdmin(campusId).subscribe({
         next: () => {
