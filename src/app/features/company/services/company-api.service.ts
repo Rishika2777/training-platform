@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, UserType } from '../../../core/config/app.constants';
@@ -16,18 +16,69 @@ export class CompanyApiService {
   registerCompany(
     data: CompanyRegisterRequest,
     options?: RegisterCompanyOptions,
-  ): Observable<CompanyRegisterResult> {
-    const url = this.baseUrl + API_ENDPOINTS.COMPANY.REGISTER;
-    const params = buildParams(options);
+  ): Observable<CompanyRegistrationResponse | null> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.REGISTER);
+    const headers = buildUserHeaders(options);
 
-    return this.http.post<unknown>(url, data, { params }).pipe(map(extractCompanyRegisterResult));
+    // Swagger-style backends often require X-User-Id for registration routes.
+    return this.http.post<unknown>(url, data, { headers }).pipe(map(extractCompanyRegistrationResponse));
+  }
+
+  /**
+   * GET /company/company/all (Admin)
+   * Swagger: requires `userType=ADMIN` query param.
+   */
+  getAllCompanies(requesterUserType: 'ADMIN'): Observable<readonly CompanyRegistrationResponse[]> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.GET_ALL);
+    const params = new HttpParams().set('userType', requesterUserType);
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        const data = unwrapResponse<unknown>(raw);
+        return Array.isArray(data) ? (data as CompanyRegistrationResponse[]) : [];
+      }),
+    );
+  }
+
+  /**
+   * GET /company/{companyId}
+   */
+  getCompanyById(companyId: string): Observable<CompanyRegistrationResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.BY_ID, { companyId }));
+    return this.http.get<unknown>(url).pipe(map(extractCompanyRegistrationResponse));
+  }
+
+  /**
+   * PATCH /company/{companyId}/approvalStatus/update (Admin)
+   * Swagger: requires `requesterUserType=ADMIN` query param.
+   */
+  updateCompanyApprovalStatus(
+    companyId: string,
+    requesterUserType: 'ADMIN',
+    request: UpdateApprovalStatusRequest,
+  ): Observable<CompanyRegistrationResponse | null> {
+    const url = buildUrl(
+      this.baseUrl,
+      resolvePathParams(API_ENDPOINTS.COMPANY.UPDATE_APPROVAL_STATUS, { companyId }),
+    );
+    const params = new HttpParams().set('requesterUserType', requesterUserType);
+    return this.http.patch<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
   }
 }
 
 export interface CompanyRegisterRequest {
   companyName: string;
-  website?: string;
-  description?: string;
+  companyLogoUrl?: string;
+  adminName: string;
+  adminDesignation: string;
+  adminEmail: string;
+  adminPhone: string;
+  websiteUrl: string;
+  otherWebsiteUrl: string;
+  registerNumber: string;
+  keyPeople?: readonly KeyPersonRequest[];
+  aboutCompany: string;
+  companyAddress: string;
 }
 
 export interface RegisterCompanyOptions {
@@ -35,27 +86,52 @@ export interface RegisterCompanyOptions {
   userType?: UserType;
 }
 
-export interface CompanyRegisterResult {
-  companyId: string | null;
-  raw: unknown;
+export interface CompanyRegistrationResponse {
+  companyId?: string;
+  email?: string;
+  userId?: string;
+  companyName?: string;
+  companyLogoUrl?: string;
+  adminName?: string;
+  adminDesignation?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  websiteUrl?: string;
+  otherWebsiteUrl?: string;
+  registerNumber?: string;
+  keyPeople?: readonly KeyPersonResponse[];
+  aboutCompany?: string;
+  companyAddress?: string;
+  approvalStatus?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type CompanyApprovalStatus = 'PENDING_APPROVAL' | 'PENDING_REGISTRATION' | 'APPROVED' | 'REJECTED';
+
+export interface UpdateApprovalStatusRequest {
+  approvalStatus: CompanyApprovalStatus;
+}
+
+export interface KeyPersonRequest {
+  name: string;
+  photoUrl?: string;
+  designation: string;
+}
+
+export interface KeyPersonResponse {
+  name?: string;
+  photoUrl?: string;
+  designation?: string;
 }
 
 interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
   data?: T;
-}
-
-function buildParams(options?: RegisterCompanyOptions): HttpParams {
-  if (!options || (!options.userId && !options.userType)) {
-    return new HttpParams();
-  }
-  let params = new HttpParams();
-  if (options.userId !== undefined) {
-    params = params.set('userId', String(options.userId));
-  }
-  if (options.userType) {
-    params = params.set('userType', String(options.userType));
-  }
-  return params;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
 }
 
 function unwrapResponse<T>(raw: unknown): T | null {
@@ -66,25 +142,51 @@ function unwrapResponse<T>(raw: unknown): T | null {
   return maybe.data ?? null;
 }
 
-function readStringProp(obj: unknown, key: string): string | null {
-  if (!obj || typeof obj !== 'object') {
+function extractCompanyRegistrationResponse(raw: unknown): CompanyRegistrationResponse | null {
+  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
+  if (!wrapped || typeof wrapped !== 'object') {
     return null;
   }
-  const rec = obj as Record<string, unknown>;
-  const value = rec[key];
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  return wrapped as CompanyRegistrationResponse;
 }
 
-function extractCompanyRegisterResult(raw: unknown): CompanyRegisterResult {
-  // Legacy backend may return { companyId }, { id }, or { data: { companyId } }.
-  const directCompanyId = readStringProp(raw, 'companyId') ?? readStringProp(raw, 'id');
-  const wrapped = unwrapResponse<unknown>(raw);
-  const wrappedCompanyId = readStringProp(wrapped, 'companyId') ?? readStringProp(wrapped, 'id');
+function buildUserHeaders(options?: RegisterCompanyOptions): HttpHeaders {
+  let headers = new HttpHeaders();
+  if (!options) {
+    return headers;
+  }
+  if (options.userId !== undefined) {
+    headers = headers.set('X-User-Id', String(options.userId));
+  }
+  if (options.userType) {
+    headers = headers.set('X-User-Type', String(options.userType));
+  }
+  return headers;
+}
 
-  return {
-    companyId: directCompanyId ?? wrappedCompanyId,
-    raw,
-  };
+function buildUrl(baseUrl: string, endpoint: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) {
+    return endpoint;
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+  }
+  if (trimmed.includes('.') || (trimmed.includes(':') && !trimmed.startsWith(':'))) {
+    return `http://${trimmed}` + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+  }
+  return trimmed + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+}
+
+function resolvePathParams(endpoint: string, params: Record<string, string>): string {
+  let out = endpoint;
+  for (const [key, value] of Object.entries(params)) {
+    out = out.replace(`:${key}`, encodeURIComponent(value));
+  }
+  return out;
 }
 
 

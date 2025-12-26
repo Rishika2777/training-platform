@@ -40,6 +40,7 @@ export class CompanyFormComponent {
   @Input() title: string | null = null;
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() submitting = false;
+  @Input() adminEmailLocked = false;
   @Input() value: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   @Output() valueChange = new EventEmitter<CompanyFormValue>();

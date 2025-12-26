@@ -35,6 +35,22 @@ function normalizeBaseUrl(value: string | undefined): string | undefined {
   return value.endsWith('/') ? value.slice(0, -1) : value;
 }
 
+function isBrowserRuntime(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+/**
+ * In the browser we should avoid absolute service URLs (cross-origin) because it triggers CORS.
+ * Allow only relative base URLs like "/api/v1" from `globalThis.__env`.
+ */
+function normalizeBrowserBaseUrl(value: string | undefined): string | undefined {
+  const normalized = normalizeBaseUrl(value);
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized.startsWith('/') ? normalized : undefined;
+}
+
 /**
  * Resolve final config:
  * - Browser: `globalThis.__env` (served from `/assets/env.js`)
@@ -43,32 +59,39 @@ function normalizeBaseUrl(value: string | undefined): string | undefined {
  */
 export function resolveAppConfig(): AppConfig {
   const fromWindow = readWindowEnv();
+  const isBrowser = isBrowserRuntime();
 
   const apiBase =
-    normalizeBaseUrl(fromWindow?.SYNKUP_API_BASE_URL) ??
-    normalizeBaseUrl(fromWindow?.AUTH_SERVICE_URL) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.SYNKUP_API_BASE_URL) : normalizeBaseUrl(fromWindow?.SYNKUP_API_BASE_URL)) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.AUTH_SERVICE_URL) : normalizeBaseUrl(fromWindow?.AUTH_SERVICE_URL)) ??
     normalizeBaseUrl(readProcessEnv('SYNKUP_API_BASE_URL')) ??
     normalizeBaseUrl(readProcessEnv('AUTH_SERVICE_URL')) ??
     APP_CONFIG.API_BASE_URL;
 
   const studentBase =
-    normalizeBaseUrl(fromWindow?.SYNKUP_STUDENT_API_BASE_URL) ??
-    normalizeBaseUrl(fromWindow?.STUDENT_SERVICE_URL) ??
+    (isBrowser
+      ? normalizeBrowserBaseUrl(fromWindow?.SYNKUP_STUDENT_API_BASE_URL)
+      : normalizeBaseUrl(fromWindow?.SYNKUP_STUDENT_API_BASE_URL)) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.STUDENT_SERVICE_URL) : normalizeBaseUrl(fromWindow?.STUDENT_SERVICE_URL)) ??
     normalizeBaseUrl(readProcessEnv('SYNKUP_STUDENT_API_BASE_URL')) ??
     normalizeBaseUrl(readProcessEnv('STUDENT_SERVICE_URL')) ??
     APP_CONFIG.STUDENT_API_BASE_URL;
 
   const campusBase =
-    normalizeBaseUrl(fromWindow?.SYNKUP_CAMPUS_API_BASE_URL) ??
-    normalizeBaseUrl(fromWindow?.CAMPUS_SERVICE_URL) ??
+    (isBrowser
+      ? normalizeBrowserBaseUrl(fromWindow?.SYNKUP_CAMPUS_API_BASE_URL)
+      : normalizeBaseUrl(fromWindow?.SYNKUP_CAMPUS_API_BASE_URL)) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.CAMPUS_SERVICE_URL) : normalizeBaseUrl(fromWindow?.CAMPUS_SERVICE_URL)) ??
     normalizeBaseUrl(readProcessEnv('SYNKUP_CAMPUS_API_BASE_URL')) ??
     normalizeBaseUrl(readProcessEnv('CAMPUS_SERVICE_URL')) ??
     APP_CONFIG.CAMPUS_API_BASE_URL;
 
   const companyBase =
-    normalizeBaseUrl(fromWindow?.SYNKUP_COMPANY_API_BASE_URL) ??
-    normalizeBaseUrl(fromWindow?.COMPANY_SERVICE_URL) ??
-    normalizeBaseUrl(fromWindow?.CAMPANY_SERVICE_URL) ??
+    (isBrowser
+      ? normalizeBrowserBaseUrl(fromWindow?.SYNKUP_COMPANY_API_BASE_URL)
+      : normalizeBaseUrl(fromWindow?.SYNKUP_COMPANY_API_BASE_URL)) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.COMPANY_SERVICE_URL) : normalizeBaseUrl(fromWindow?.COMPANY_SERVICE_URL)) ??
+    (isBrowser ? normalizeBrowserBaseUrl(fromWindow?.CAMPANY_SERVICE_URL) : normalizeBaseUrl(fromWindow?.CAMPANY_SERVICE_URL)) ??
     normalizeBaseUrl(readProcessEnv('SYNKUP_COMPANY_API_BASE_URL')) ??
     normalizeBaseUrl(readProcessEnv('COMPANY_SERVICE_URL')) ??
     normalizeBaseUrl(readProcessEnv('CAMPANY_SERVICE_URL')) ??

@@ -128,14 +128,22 @@
       IDEA_TEMPLATE: '/student/ideas/template',
       BATCHMATES: '/batchmates/:studentId/batchmates',
       PLACED_STUDENTS: '/placed-students',
+      ALL_STUDENTS: '/student/students',
     },
     COMPANY: {
       BASE: '/company',
       REGISTER: '/company/register',
+      GET_ALL: '/company/company/all',
+      BY_ID: '/company/:companyId',
+      UPDATE: '/company/:companyId/update',
+      UPDATE_APPROVAL_STATUS: '/company/:companyId/approvalStatus/update',
+      APPROVAL_STATUS: '/company/:companyId/approval-status',
     },
     CAMPUS: {
       BASE: '/campus',
       REGISTER: '/campus/register',
+      GET_ALL: '/campus/getAll',
+      APPROVAL: '/campus/:campusId/approval',
     },
     USERS: {
       BASE: '/users',

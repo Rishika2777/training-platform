@@ -183,6 +183,7 @@ function createEmptyAdditionalInfo(): StudentAdditionalInfo {
 export class StudentFormComponent {
   @Input() submitting = false;
   @Input() value: StudentFormValue = createEmptyStudentFormValue();
+  @Input() emailLocked = false;
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();

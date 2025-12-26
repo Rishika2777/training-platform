@@ -10,8 +10,8 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
-import { STORAGE_KEYS } from '../../../../core/config/app.constants';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { LOGIN_STATUS, STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { CampusRegistrationResponse } from '../../../campus/services/campus-api.service';
 import { RegistrationPageLayoutComponent } from '../../../../layout/registration-page-layout/registration-page-layout.component';
 
 @Component({
@@ -32,13 +32,18 @@ export class RegisterCampusComponent {
   submitting = false;
   searchValue = '';
 
+  private readonly initialAdminEmail =
+    this.auth.getCurrentUser()?.email ?? this.auth.getRegistrationData()?.email ?? '';
+
+  readonly adminEmailLocked = this.initialAdminEmail.trim().length > 0;
+
   formValue: CampusFormValue = {
     campusName: '',
     campusLogoUrl: '',
     campusLogoFiles: null,
     rank: '',
     adminName: '',
-    adminEmail: '',
+    adminEmail: this.initialAdminEmail,
     adminPhone: '',
     adminDept: '',
     adminDesignation: '',
@@ -75,48 +80,54 @@ export class RegisterCampusComponent {
         {
           campusName: value.campusName,
           campusLogoUrl: value.campusLogoUrl,
-          rank: value.rank,
+          campusRank: Number.parseInt(value.rank || '0', 10) || 0,
           adminName: value.adminName,
           adminEmail: value.adminEmail,
           adminPhone: value.adminPhone,
-          adminDept: value.adminDept,
+          adminDepartment: value.adminDept,
           adminDesignation: value.adminDesignation,
-          website: value.website,
-          about: value.about,
-          address: value.address,
-          city: value.city,
-          state: value.state,
-          pincode: value.pincode,
+          websiteUrl: value.website,
+          aboutCampus: value.about,
+          campusAddress: value.address,
         },
         { userId: user.userId, userType: user.userType },
       )
-      .pipe(
-        switchMap((result) => {
-          const campusId = result.campusId;
-          if (!campusId) {
-            return of(null);
-          }
-
-          this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
-          const current = this.authState.user();
-          if (current && !current.profileServiceId) {
-            this.authState.setUser({ ...current, profileServiceId: campusId });
-          }
-
-          return this.auth.completeProfile(campusId).pipe(
-            map(() => campusId),
-            catchError(() => of(campusId)),
-          );
-        }),
-      )
       .subscribe({
-        next: (campusId) => {
+        next: (response: CampusRegistrationResponse | null) => {
           this.submitting = false;
-          if (!campusId) {
-            this.notify.success('Saved.');
-            void this.router.navigateByUrl('/campus/home');
+
+          const campusId = response?.campusId ?? null;
+          const approvalStatus = response?.approvalStatus ?? null;
+
+          if (campusId) {
+            this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
+            const current = this.authState.user();
+            if (current && !current.profileServiceId) {
+              this.authState.setUser({ ...current, profileServiceId: campusId });
+            }
+          }
+
+          // Pending approval: show wait message.
+          // Backend may return "PENDING" or "PENDING_APPROVAL". Treat both as pending approval.
+          if (approvalStatus === 'PENDING' || approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
+            this.notify.success(
+              'You have successfully submitted the form, please wait until admin review and approve you form',
+            );
             return;
           }
+
+          // If backend says pending registration, fallback to this registration page.
+          if (approvalStatus === LOGIN_STATUS.PENDING_REGISTRATION) {
+            void this.router.navigateByUrl('/register-campus');
+            return;
+          }
+
+          if (approvalStatus === LOGIN_STATUS.REJECTED) {
+            this.notify.error('The admin rejected your form. Please contact admin for more information.');
+            return;
+          }
+
+          // Approved (or unknown): proceed to home.
           this.notify.success('Campus profile created successfully.');
           void this.router.navigateByUrl('/campus/home');
         },

@@ -5,7 +5,8 @@ import { CardComponent, CardData } from '../../../../shared/components/card/card
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
-import { UserResponse } from '../../models/admin-api.models';
+import { StudentApiService } from '../../../student/services/student-api.service';
+import { StudentProfileResponse } from '../../../student/models/student.models';
 
 @Component({
   selector: 'app-admin-student',
@@ -16,6 +17,7 @@ import { UserResponse } from '../../models/admin-api.models';
 })
 export class AdminStudentComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
+  private readonly studentApi = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   readonly announcementDate = 'January 7th, 2025';
 
@@ -39,18 +41,60 @@ export class AdminStudentComponent implements OnInit {
     this.students = [];
     this.displayedStudents = [];
     
-    this.adminApi.getUsersByType('STUDENT').subscribe({
-      next: (users: UserResponse[]) => {
+    // this.adminApi.getUsersByType('STUDENT').subscribe({
+    //   next: (users: UserResponse[]) => {
+    //     try {
+    //       if (users && Array.isArray(users) && users.length > 0) {
+    //         this.students = users.map((user) => {
+    //           const cardData: CardData = {
+    //             id: user.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
+    //             name: user.email?.split('@')[0] ?? 'Student Name',
+    //             imageUrl: 'assets/images/login-news-image.png',
+    //             secondaryInfo: 'Campus Name',
+    //             email: user.email ?? 'student@example.com',
+    //             userId: user.userId,
+    //           };
+    //           return cardData;
+    //         });
+    //         this.totalPages = Math.max(1, Math.ceil(this.students.length / this.itemsPerPage));
+    //         this.currentPage = 1;
+    //         this.updateDisplayedStudents();
+    //       } else {
+    //         this.students = [];
+    //         this.displayedStudents = [];
+    //         this.totalPages = 1;
+    //       }
+    //     } catch {
+    //       this.students = [];
+    //       this.displayedStudents = [];
+    //       this.totalPages = 1;
+    //     }
+    //     this.isLoading = false;
+    //     this.cdr.detectChanges();
+    //   },
+    //   error: () => {
+    //     this.students = [];
+    //     this.displayedStudents = [];
+    //     this.totalPages = 1;
+    //     this.isLoading = false;
+    //     this.cdr.detectChanges();
+    //   },
+    // });
+
+    this.studentApi.getAllStudents('ADMIN').subscribe({
+      next: (response) => {
         try {
-          if (users && Array.isArray(users) && users.length > 0) {
-            this.students = users.map((user) => {
+          const studentProfiles = response.data ?? [];
+          if (studentProfiles && Array.isArray(studentProfiles) && studentProfiles.length > 0) {
+            this.students = studentProfiles.map((student: StudentProfileResponse) => {
+              const fullName = `${student.firstName} ${student.lastName}`.trim() || 'Student Name';
               const cardData: CardData = {
-                id: user.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
-                name: user.email?.split('@')[0] ?? 'Student Name',
-                imageUrl: 'assets/images/login-news-image.png',
-                secondaryInfo: 'Campus Name',
-                email: user.email ?? 'student@example.com',
-                userId: user.userId,
+                id: student.studentId ?? student.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
+                name: fullName,
+                imageUrl: student.profilePhotoUrl ?? 'assets/images/login-news-image.png',
+                secondaryInfo: student.campusName ?? 'Campus Name',
+                email: '', // StudentProfileResponse doesn't have email field
+                userId: student.userId,
               };
               return cardData;
             });

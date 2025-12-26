@@ -82,7 +82,7 @@
     type="email"
     [value]="value.email"
     (valueChange)="patch({ email: $event })"
-    [disabled]="submitting"
+    [disabled]="submitting || emailLocked"
   />
           </div>
 

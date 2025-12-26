@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, UserType } from '../../../core/config/app.constants';
@@ -16,29 +16,82 @@ export class CampusApiService {
   registerCampus(
     data: CampusRegisterRequest,
     options?: RegisterCampusOptions,
-  ): Observable<CampusRegisterResult> {
-    const url = this.baseUrl + API_ENDPOINTS.CAMPUS.REGISTER;
-    const params = buildParams(options);
+  ): Observable<CampusRegistrationResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.REGISTER);
+    const headers = buildUserHeaders(options);
 
-    return this.http.post<unknown>(url, data, { params }).pipe(map(extractCampusRegisterResult));
+    // Swagger indicates X-User-Id header required; we send it when available.
+    // Response can be wrapped or unwrapped depending on backend version.
+    return this.http
+      .post<unknown>(url, data, { headers })
+      .pipe(map(extractCampusRegistrationResponse));
+  }
+
+  /**
+   * GET /campus/getAll
+   * Public endpoint (no auth required).
+   */
+  getAllCampuses(): Observable<readonly Campus[]> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL);
+    return this.http.get<unknown>(url).pipe(map(extractCampusList));
+  }
+
+  /**
+   * PUT /campus/{campusId}/approval (Admin)
+   */
+  updateCampusApprovalStatus(
+    campusId: string,
+    request: Record<string, string>,
+  ): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.APPROVAL, { campusId });
+    return this.http
+      .put<unknown>(url, request)
+      .pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  private buildUrl(endpoint: string, params?: Record<string, string>): string {
+    const resolved = resolvePathParams(endpoint, params);
+
+    if (!this.baseUrl) {
+      return resolved;
+    }
+
+    let url = this.baseUrl.trim();
+
+    // If URL already has protocol, use it as is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const normalizedEndpoint = resolved.startsWith('/') ? resolved : `/${resolved}`;
+      return url + normalizedEndpoint;
+    }
+
+    // If URL is relative (starts with /), use it as is
+    if (url.startsWith('/')) {
+      const normalizedEndpoint = resolved.startsWith('/') ? resolved : `/${resolved}`;
+      return url + normalizedEndpoint;
+    }
+
+    // If URL looks like a domain/IP address (contains dots or colons), add http:// protocol
+    if (url.includes('.') || (url.includes(':') && !url.startsWith(':'))) {
+      url = `http://${url}`;
+    }
+
+    const normalizedEndpoint = resolved.startsWith('/') ? resolved : `/${resolved}`;
+    return url + normalizedEndpoint;
   }
 }
 
 export interface CampusRegisterRequest {
   campusName: string;
-  campusLogoUrl?: string;
-  rank?: string;
-  adminName?: string;
-  adminEmail?: string;
-  adminPhone?: string;
-  adminDept?: string;
-  adminDesignation?: string;
-  website?: string;
-  about?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
+  campusLogoUrl: string;
+  campusRank: number;
+  adminName: string;
+  adminEmail: string;
+  adminPhone: string;
+  adminDepartment: string;
+  adminDesignation: string;
+  websiteUrl: string;
+  aboutCampus: string;
+  campusAddress: string;
 }
 
 export interface RegisterCampusOptions {
@@ -46,56 +99,116 @@ export interface RegisterCampusOptions {
   userType?: UserType;
 }
 
-export interface CampusRegisterResult {
-  campusId: string | null;
-  raw: unknown;
+export interface CampusRegistrationResponse {
+  campusId?: string;
+  userId?: string;
+  campusName?: string;
+  campusLogoUrl?: string;
+  campusRank?: number;
+  adminName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  adminDepartment?: string;
+  adminDesignation?: string;
+  websiteUrl?: string;
+  aboutCampus?: string;
+  campusAddress?: string;
+  approvalStatus?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface Campus {
+  id?: string;
+  campusId?: string;
+  email?: string;
+  campusName?: string;
+  photoUrl?: string;
+  campusRank?: number;
+  adminName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  adminDepartment?: string;
+  adminDesignation?: string;
+  campusWebsiteUrl?: string;
+  otherWebsiteUrl?: string;
+  aboutCampus?: string;
+  campusAddress?: string;
+  campusTagline?: string;
+  researchInfo?: string;
+  approvalStatus?: string;
+  rejectionComment?: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  public?: boolean;
+  verifiedPhoneNo?: boolean;
 }
 
 interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
   data?: T;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
 }
 
-function buildParams(options?: RegisterCampusOptions): HttpParams {
-  if (!options || (!options.userId && !options.userType)) {
-    return new HttpParams();
+function buildUserHeaders(options?: RegisterCampusOptions): HttpHeaders {
+  let headers = new HttpHeaders();
+  if (!options) {
+    return headers;
   }
-  let params = new HttpParams();
   if (options.userId !== undefined) {
-    params = params.set('userId', String(options.userId));
+    headers = headers.set('X-User-Id', String(options.userId));
   }
   if (options.userType) {
-    params = params.set('userType', String(options.userType));
+    headers = headers.set('X-User-Type', String(options.userType));
   }
-  return params;
+  return headers;
 }
 
-function unwrapResponse<T>(raw: unknown): T | null {
+function unwrapApiResponse<T>(raw: unknown): T | null {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
   const maybe = raw as ApiResponse<T>;
-  return maybe.data ?? null;
+  // Prefer wrapped .data, but allow direct object response too.
+  if ('data' in maybe) {
+    return (maybe.data ?? null) as T | null;
+  }
+  return raw as T;
 }
 
-function readStringProp(obj: unknown, key: string): string | null {
-  if (!obj || typeof obj !== 'object') {
+function extractCampusRegistrationResponse(raw: unknown): CampusRegistrationResponse | null {
+  const wrapped = unwrapApiResponse<unknown>(raw);
+  if (!wrapped || typeof wrapped !== 'object') {
     return null;
   }
-  const rec = obj as Record<string, unknown>;
-  const value = rec[key];
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  return wrapped as CampusRegistrationResponse;
 }
 
-function extractCampusRegisterResult(raw: unknown): CampusRegisterResult {
-  // Legacy backend may return { campusId }, { id }, or { data: { campusId } }.
-  const directCampusId = readStringProp(raw, 'campusId') ?? readStringProp(raw, 'id');
-  const wrapped = unwrapResponse<unknown>(raw);
-  const wrappedCampusId = readStringProp(wrapped, 'campusId') ?? readStringProp(wrapped, 'id');
+function extractCampusList(raw: unknown): readonly Campus[] {
+  const wrapped = unwrapApiResponse<unknown>(raw);
+  if (Array.isArray(wrapped)) {
+    return wrapped as Campus[];
+  }
+  if (Array.isArray(raw)) {
+    return raw as Campus[];
+  }
+  return [];
+}
 
-  return {
-    campusId: directCampusId ?? wrappedCampusId,
-    raw,
-  };
+function resolvePathParams(endpoint: string, params?: Record<string, string>): string {
+  if (!params) {
+    return endpoint;
+  }
+  let out = endpoint;
+  for (const [key, value] of Object.entries(params)) {
+    out = out.replace(`:${key}`, encodeURIComponent(value));
+  }
+  return out;
 }
 
 

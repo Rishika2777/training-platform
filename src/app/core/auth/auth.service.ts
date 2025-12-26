@@ -183,19 +183,20 @@ export class AuthService {
     return this.api.post<unknown, LoginRequest>(API_ENDPOINTS.AUTH.LOGIN, credentials).pipe(
       tap({
         next: (response) => {
-          this.persistAuthFromResponse(response);
+          // Login should always persist tokens + user context.
+          this.persistAuthFromResponse(response, { persistTokens: true });
         },
       }),
     );
   }
 
   register(user: RegisterRequest, options?: RegisterOptions): Observable<unknown> {
-    const persist = options?.persistAuth === true;
+    const persistTokens = options?.persistAuth === true;
     return this.api.post<unknown, RegisterRequest>(API_ENDPOINTS.AUTH.REGISTER, user).pipe(
       tap((response) => {
-        if (persist) {
-          this.persistAuthFromResponse(response);
-        }
+        // Always persist user context (userId/email/userType) so multi-step registration pages can work,
+        // but only persist tokens when explicitly asked (e.g., after OTP verification).
+        this.persistAuthFromResponse(response, { persistTokens });
       }),
     );
   }
@@ -205,12 +206,10 @@ export class AuthService {
   }
 
   verifyOtp(otp: string, options?: { persistAuth?: boolean }): Observable<unknown> {
-    const persist = options?.persistAuth === true;
+    const persistTokens = options?.persistAuth === true;
     return this.api.post<unknown, { otp: string }>(API_ENDPOINTS.AUTH.VERIFY_OTP, { otp }).pipe(
       tap((response) => {
-        if (persist) {
-          this.persistAuthFromResponse(response);
-        }
+        this.persistAuthFromResponse(response, { persistTokens });
       }),
     );
   }
@@ -241,7 +240,7 @@ export class AuthService {
 
   refreshToken(refreshToken: string): Observable<unknown> {
     return this.api.post<unknown, { refreshToken: string }>(API_ENDPOINTS.AUTH.REFRESH_TOKEN, { refreshToken }).pipe(
-      tap((response) => this.persistAuthFromResponse(response)),
+      tap((response) => this.persistAuthFromResponse(response, { persistTokens: true })),
     );
   }
 
@@ -273,38 +272,52 @@ export class AuthService {
     return this.authState.user();
   }
 
-  private persistAuthFromResponse(response: unknown): void {
-    // Handle ApiResponse<AuthResponse> structure: { success, message, data: { accessToken, ... } }
-    let payload: AuthPayload | null = null;
-
-    if (response && typeof response === 'object') {
-      const apiResponse = response as ApiResponse<AuthPayload>;
-      
-      // Check if it's an ApiResponse wrapper
-      if ('data' in apiResponse && apiResponse.data) {
-        payload = apiResponse.data as AuthPayload;
-      } else if ('accessToken' in response || 'access_token' in response) {
-        // Direct payload (for backward compatibility)
-        payload = response as AuthPayload;
-      }
-    }
-
+  private persistAuthFromResponse(
+    response: unknown,
+    options?: { persistTokens?: boolean },
+  ): void {
+    const payload = this.extractAuthPayload(response);
     if (!payload) {
       return;
     }
 
-    // Extract accessToken (handle both camelCase and snake_case)
-    const accessToken = payload.accessToken ?? (payload as { access_token?: string }).access_token;
-    const refreshToken = payload.refreshToken ?? (payload as { refresh_token?: string }).refresh_token;
+    const persistTokens = options?.persistTokens === true;
+    if (persistTokens) {
+      // Extract accessToken (handle both camelCase and snake_case)
+      const accessToken = payload.accessToken ?? (payload as { access_token?: string }).access_token;
+      const refreshToken = payload.refreshToken ?? (payload as { refresh_token?: string }).refresh_token;
 
-    if (accessToken) {
-      this.authState.setTokens(accessToken, refreshToken ?? null);
+      if (accessToken) {
+        this.authState.setTokens(accessToken, refreshToken ?? null);
+      }
     }
 
+    // Persist user context even when tokens are not persisted (multi-step registration UX).
     const user = buildUserData(payload);
     if (user) {
       this.authState.setUser(user);
     }
+  }
+
+  private extractAuthPayload(response: unknown): AuthPayload | null {
+    // Handle ApiResponse<AuthResponse> structure: { success, message, data: { accessToken, ... } }
+    if (!response || typeof response !== 'object') {
+      return null;
+    }
+
+    const apiResponse = response as ApiResponse<AuthPayload>;
+    // ApiResponse wrapper
+    if ('data' in apiResponse && apiResponse.data) {
+      return apiResponse.data as AuthPayload;
+    }
+
+    // Direct payload (backward compatibility)
+    const rec = response as Record<string, unknown>;
+    if ('accessToken' in rec || 'access_token' in rec || 'user' in rec || 'userId' in rec || 'email' in rec) {
+      return response as AuthPayload;
+    }
+
+    return null;
   }
 }
 

@@ -51,7 +51,7 @@
         type="email"
         [value]="value.adminEmail"
         (valueChange)="patch({ adminEmail: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="submitting || isReviewMode || adminEmailLocked"
       />
 
       <app-input
@@ -110,32 +110,6 @@
           [disabled]="submitting || isReviewMode"
         />
       </div>
-    </div>
-
-    <div class="app-form-row">
-      <app-input
-        label="City"
-        type="text"
-        [value]="value.city"
-        (valueChange)="patch({ city: $event })"
-        [disabled]="submitting || isReviewMode"
-      />
-
-      <app-input
-        label="State"
-        type="text"
-        [value]="value.state"
-        (valueChange)="patch({ state: $event })"
-        [disabled]="submitting || isReviewMode"
-      />
-
-      <app-input
-        label="Pincode"
-        type="text"
-        [value]="value.pincode"
-        (valueChange)="patch({ pincode: $event })"
-        [disabled]="submitting || isReviewMode"
-      />
     </div>
 
     <div class="app-form-actions">

@@ -3,9 +3,9 @@ import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+// import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { RegistrationUserType } from '../../models/registration.models';
-import { VerifyOtpComponent } from '../../components/verify-otp/verify-otp.component';
+// import { VerifyOtpComponent } from '../../components/verify-otp/verify-otp.component';
 
 interface Option {
   label: string;
@@ -21,7 +21,7 @@ function generateRandomPhoneNumber(): string {
 @Component({
   selector: 'app-register-options',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, ModalComponent, VerifyOtpComponent],
+  imports: [CommonModule, ButtonComponent], // ModalComponent, VerifyOtpComponent - commented out as OTP API is not completed
   templateUrl: './register-options.component.html',
   styleUrl: './register-options.component.css',
 })
@@ -31,12 +31,13 @@ export class RegisterOptionsComponent {
   private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
-  verifyingOtp = false;
-  resendingOtp = false;
-  showOtpModal = false;
-  pendingRoute: string | null = null;
-  userEmail = '';
-  selectedUserType: RegistrationUserType | null = null;
+  // OTP-related properties - commented out as OTP API is not completed
+  // verifyingOtp = false;
+  // resendingOtp = false;
+  // showOtpModal = false;
+  // pendingRoute: string | null = null;
+  // userEmail = '';
+  // selectedUserType: RegistrationUserType | null = null;
 
   readonly options: readonly Option[] = [
     { label: 'Campus', userType: 'CAMPUS', route: '/register-campus' },
@@ -55,9 +56,10 @@ export class RegisterOptionsComponent {
     }
 
     this.submitting = true;
-    this.userEmail = draft.email;
-    this.pendingRoute = option.route;
-    this.selectedUserType = option.userType;
+    // OTP-related assignments - commented out as OTP API is not completed
+    // this.userEmail = draft.email;
+    // this.pendingRoute = option.route;
+    // this.selectedUserType = option.userType;
     
     this.auth
       .register(
@@ -73,7 +75,8 @@ export class RegisterOptionsComponent {
       .subscribe({
         next: () => {
           this.submitting = false;
-          this.showOtpModal = true;
+          // Navigate directly to the registration page after role selection
+          void this.router.navigateByUrl(option.route);
           this.cdr.detectChanges();
         },
         error: () => {
@@ -82,68 +85,69 @@ export class RegisterOptionsComponent {
       });
   }
 
-  handleOtpSubmit(otp: string): void {
-    if (this.verifyingOtp || !otp.trim()) {
-      return;
-    }
+  // OTP-related methods - commented out as OTP API is not completed
+  // handleOtpSubmit(otp: string): void {
+  //   if (this.verifyingOtp || !otp.trim()) {
+  //     return;
+  //   }
 
-    this.verifyingOtp = true;
-    this.auth
-      .verifyOtp(otp, { persistAuth: true })
-      .subscribe({
-        next: () => {
-          this.verifyingOtp = false;
-          this.showOtpModal = false;
-          if (this.pendingRoute) {
-            void this.router.navigateByUrl(this.pendingRoute);
-            this.pendingRoute = null;
-            this.selectedUserType = null;
-          }
-        },
-        error: () => {
-          this.verifyingOtp = false;
-        },
-      });
-  }
+  //   this.verifyingOtp = true;
+  //   this.auth
+  //     .verifyOtp(otp, { persistAuth: true })
+  //     .subscribe({
+  //       next: () => {
+  //         this.verifyingOtp = false;
+  //         this.showOtpModal = false;
+  //         if (this.pendingRoute) {
+  //           void this.router.navigateByUrl(this.pendingRoute);
+  //           this.pendingRoute = null;
+  //           this.selectedUserType = null;
+  //         }
+  //       },
+  //       error: () => {
+  //         this.verifyingOtp = false;
+  //       },
+  //     });
+  // }
 
-  handleOtpCancel(): void {
-    this.showOtpModal = false;
-    this.pendingRoute = null;
-    this.selectedUserType = null;
-  }
+  // handleOtpCancel(): void {
+  //   this.showOtpModal = false;
+  //   this.pendingRoute = null;
+  //   this.selectedUserType = null;
+  // }
 
-  handleResendOtp(): void {
-    if (this.resendingOtp || !this.selectedUserType) {
-      return;
-    }
+  // handleResendOtp(): void {
+  //   if (this.resendingOtp || !this.selectedUserType) {
+  //     return;
+  //   }
 
-    const draft = this.auth.getRegistrationData();
-    if (!draft) {
-      return;
-    }
+  //   const draft = this.auth.getRegistrationData();
+  //   if (!draft) {
+  //     return;
+  //   }
 
-    this.resendingOtp = true;
+  //   this.resendingOtp = true;
 
-    this.auth
-      .register(
-        {
-          email: draft.email,
-          phoneNumber: generateRandomPhoneNumber(),
-          password: draft.password,
-          confirmPassword: draft.confirmPassword,
-          userType: this.selectedUserType,
-        },
-        { persistAuth: false },
-      )
-      .subscribe({
-        next: () => {
-          this.resendingOtp = false;
-        },
-        error: () => {
-          this.resendingOtp = false;
-        },
-      });
-  }
+  //   this.auth
+  //     .register(
+  //       {
+  //         email: draft.email,
+  //         phoneNumber: generateRandomPhoneNumber(),
+  //         password: draft.password,
+  //         confirmPassword: draft.confirmPassword,
+  //         userType: this.selectedUserType,
+  //       },
+  //       { persistAuth: false },
+  //     )
+  //     .subscribe({
+  //       next: () => {
+  //         this.resendingOtp = false;
+  //       },
+  //       error: () => {
+  //         this.resendingOtp = false;
+  //       },
+  //     });
+  // }
 
   goToLogin(): void {
     void this.router.navigateByUrl('/login');

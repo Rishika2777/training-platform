@@ -2,6 +2,7 @@
   <app-student-form
     [value]="formValue"
     [submitting]="submitting"
+    [emailLocked]="emailLocked"
     (valueChange)="formValue = $event"
     (submitted)="submit($event)"
     (cancelled)="cancel()"

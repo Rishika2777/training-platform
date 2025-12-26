@@ -39,7 +39,7 @@
       type="email"
       [value]="value.adminEmail"
       (valueChange)="patch({ adminEmail: $event })"
-      [disabled]="submitting"
+      [disabled]="submitting || adminEmailLocked"
     />
 
     <app-input

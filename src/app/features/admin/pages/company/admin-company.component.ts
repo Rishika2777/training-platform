@@ -5,7 +5,7 @@ import { CardComponent, CardData } from '../../../../shared/components/card/card
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
-import { UserResponse } from '../../models/admin-api.models';
+import { CompanyApiService, CompanyRegistrationResponse } from '../../../company/services/company-api.service';
 
 @Component({
   selector: 'app-admin-company',
@@ -16,6 +16,7 @@ import { UserResponse } from '../../models/admin-api.models';
 })
 export class AdminCompanyComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
+  private readonly companyApi = inject(CompanyApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   readonly announcementDate = 'January 7th, 2025';
 
@@ -39,17 +40,18 @@ export class AdminCompanyComponent implements OnInit {
     this.companies = [];
     this.displayedCompanies = [];
     
-    this.adminApi.getUsersByType('COMPANY').subscribe({
-      next: (users: UserResponse[]) => {
+    this.companyApi.getAllCompanies('ADMIN').subscribe({
+      next: (companies: readonly CompanyRegistrationResponse[]) => {
         try {
-          if (users && Array.isArray(users) && users.length > 0) {
-            this.companies = users.map((user) => {
+          if (companies && Array.isArray(companies) && companies.length > 0) {
+            this.companies = companies.map((company) => {
               const cardData: CardData = {
-                id: user.userId ?? `company-${Math.random().toString(36).substr(2, 9)}`,
-                name: user.email?.split('@')[0] ?? 'Company Name',
-                imageUrl: 'assets/images/landing-card-company.png',
-                email: user.email ?? 'company@example.com',
-                userId: user.userId,
+                id: company.companyId ?? `company-${Math.random().toString(36).substr(2, 9)}`,
+                name: company.companyName ?? company.email?.split('@')[0] ?? 'Company Name',
+                imageUrl: company.companyLogoUrl ?? 'assets/images/landing-card-company.png',
+                email: company.email ?? company.adminEmail ?? '',
+                // We don't get a "userId" here for admin user deletion; keep undefined.
+                userId: undefined,
               };
               return cardData;
             });

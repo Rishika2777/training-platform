@@ -13,6 +13,104 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
+function normalizeServiceBaseUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+  }
+  // Support host:port/path without protocol
+  const withProto = `http://${trimmed}`;
+  return withProto.endsWith('/') ? withProto.slice(0, -1) : withProto;
+}
+
+type UpstreamKind = 'STUDENT' | 'CAMPUS' | 'COMPANY' | 'AUTH' | 'ADMIN' | 'DEFAULT';
+
+function resolveUpstreamBase(reqPath: string): string | null {
+  // Prefer service-specific URLs; fall back to generic API base if provided.
+  const student = normalizeServiceBaseUrl(
+    process.env['STUDENT_SERVICE_URL'] ?? process.env['SYNKUP_STUDENT_API_BASE_URL'],
+  );
+  const campus = normalizeServiceBaseUrl(
+    process.env['CAMPUS_SERVICE_URL'] ?? process.env['SYNKUP_CAMPUS_API_BASE_URL'],
+  );
+  const company = normalizeServiceBaseUrl(
+    process.env['COMPANY_SERVICE_URL'] ?? process.env['CAMPANY_SERVICE_URL'] ?? process.env['SYNKUP_COMPANY_API_BASE_URL'],
+  );
+  const auth = normalizeServiceBaseUrl(process.env['AUTH_SERVICE_URL'] ?? process.env['SYNKUP_API_BASE_URL']);
+  const admin = normalizeServiceBaseUrl(process.env['ADMIN_SERVICE_URL'] ?? process.env['SYNKUP_API_BASE_URL']);
+  const fallback = normalizeServiceBaseUrl(process.env['SYNKUP_API_BASE_URL']);
+
+  const kind: UpstreamKind =
+    reqPath.startsWith('/api/v1/student') ||
+    reqPath.startsWith('/api/v1/students') ||
+    reqPath.startsWith('/api/v1/batchmates') ||
+    reqPath.startsWith('/api/v1/placed-students')
+      ? 'STUDENT'
+      : reqPath.startsWith('/api/v1/campus')
+        ? 'CAMPUS'
+        : reqPath.startsWith('/api/v1/company')
+          ? 'COMPANY'
+          : reqPath.startsWith('/api/v1/admin')
+            ? 'ADMIN'
+            : reqPath.startsWith('/api/v1/auth') || reqPath.startsWith('/api/v1/users')
+              ? 'AUTH'
+              : 'DEFAULT';
+
+  if (kind === 'STUDENT') return student ?? fallback;
+  if (kind === 'CAMPUS') return campus ?? fallback;
+  if (kind === 'COMPANY') return company ?? fallback;
+  if (kind === 'ADMIN') return admin ?? fallback;
+  if (kind === 'AUTH') return auth ?? fallback;
+  return fallback;
+}
+
+function shouldHaveBody(method: string): boolean {
+  const m = method.toUpperCase();
+  return m !== 'GET' && m !== 'HEAD';
+}
+
+type NodeFetchRequestInit = RequestInit & { duplex?: 'half' };
+
+async function readIncomingBody(req: express.Request): Promise<ArrayBuffer | null> {
+  if (!shouldHaveBody(req.method)) {
+    return null;
+  }
+
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
+    const chunks: Uint8Array[] = [];
+
+    req.on('data', (chunk: unknown) => {
+      if (chunk instanceof Uint8Array) {
+        chunks.push(chunk);
+        return;
+      }
+      // Express/Node should give us Buffer/Uint8Array; anything else is unexpected.
+      reject(new Error('Unsupported request body chunk type'));
+    });
+
+    req.on('end', () => {
+      const total = chunks.reduce((sum, c) => sum + c.byteLength, 0);
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        merged.set(c, offset);
+        offset += c.byteLength;
+      }
+      resolve(merged.buffer);
+    });
+
+    req.on('error', (err: unknown) => {
+      reject(err instanceof Error ? err : new Error('Failed to read request body'));
+    });
+  });
+}
+
 function parseDotEnv(contents: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const rawLine of contents.split('\n')) {
@@ -56,6 +154,67 @@ function loadDotEnvIfPresent(): void {
 
 // Load `.env` for local dev / deployments (no external deps).
 loadDotEnvIfPresent();
+
+/**
+ * Same-origin reverse proxy to avoid browser CORS.
+ *
+ * The browser calls `/api/v1/...` on this server (localhost:5500).
+ * This server forwards the request to the appropriate upstream service URL
+ * (e.g. STUDENT_SERVICE_URL), and streams back the response.
+ */
+app.use('/api/v1', async (req, res) => {
+  const upstreamBase = resolveUpstreamBase(req.originalUrl);
+  if (!upstreamBase) {
+    res.status(502).json({
+      success: false,
+      message:
+        'Upstream service URL not configured. Set STUDENT_SERVICE_URL (and others) on the server environment.',
+    });
+    return;
+  }
+
+  const targetUrl = new URL(req.originalUrl, upstreamBase);
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      headers.set(key, value.join(', '));
+      continue;
+    }
+    headers.set(key, value);
+  }
+  // Let undici set Host based on the target URL
+  headers.delete('host');
+
+  try {
+    const body = await readIncomingBody(req);
+    const init: NodeFetchRequestInit = {
+      method: req.method,
+      headers,
+      body: body ?? undefined,
+      duplex: body ? 'half' : undefined,
+    };
+
+    const response = await fetch(targetUrl, init);
+
+    res.status(response.status);
+    response.headers.forEach((v, k) => {
+      // Avoid invalid hop-by-hop headers
+      if (k.toLowerCase() === 'transfer-encoding') return;
+      res.setHeader(k, v);
+    });
+
+    const responseBody = new Uint8Array(await response.arrayBuffer());
+    res.end(responseBody);
+  } catch (err) {
+    res.status(502).json({
+      success: false,
+      message: 'Proxy request failed',
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+});
 
 /**
  * Example Express Rest API endpoints can be defined here.

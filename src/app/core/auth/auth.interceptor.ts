@@ -10,13 +10,20 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  return next(
-    req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-    }),
-  );
+  // Skip adding Authorization header if the request has a custom header that indicates
+  // it should skip auth (for CORS preflight issues)
+  if (req.headers.has('X-Skip-Auth')) {
+    return next(req);
+  }
+
+  // Clone request and add Authorization header
+  const clonedReq = req.clone({
+    setHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return next(clonedReq);
 };
 
 

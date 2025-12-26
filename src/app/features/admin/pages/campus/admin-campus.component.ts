@@ -5,7 +5,7 @@ import { CardComponent, CardData } from '../../../../shared/components/card/card
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
-import { UserResponse } from '../../models/admin-api.models';
+import { Campus, CampusApiService } from '../../../campus/services/campus-api.service';
 
 @Component({
   selector: 'app-admin-campus',
@@ -16,6 +16,7 @@ import { UserResponse } from '../../models/admin-api.models';
 })
 export class AdminCampusComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
+  private readonly campusApi = inject(CampusApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   readonly announcementDate = 'January 7th, 2025';
 
@@ -39,17 +40,18 @@ export class AdminCampusComponent implements OnInit {
     this.campuses = [];
     this.displayedCampuses = [];
     
-    this.adminApi.getUsersByType('CAMPUS').subscribe({
-      next: (users: UserResponse[]) => {
+    this.campusApi.getAllCampuses().subscribe({
+      next: (campuses: readonly Campus[]) => {
         try {
-          if (users && Array.isArray(users) && users.length > 0) {
-            this.campuses = users.map((user) => {
+          if (campuses && Array.isArray(campuses) && campuses.length > 0) {
+            this.campuses = campuses.map((campus) => {
               const cardData: CardData = {
-                id: user.userId ?? `campus-${Math.random().toString(36).substr(2, 9)}`,
-                name: user.email?.split('@')[0] ?? 'Campus Name',
-                imageUrl: 'assets/images/landing-card-campus.png',
-                email: user.email ?? 'campus@example.com',
-                userId: user.userId,
+                id: campus.campusId ?? campus.id ?? `campus-${Math.random().toString(36).substr(2, 9)}`,
+                name: campus.campusName ?? campus.email?.split('@')[0] ?? 'Campus Name',
+                imageUrl: campus.photoUrl ?? 'assets/images/landing-card-campus.png',
+                email: campus.email ?? '',
+                // Admin actions still operate on a "user id". API doesn't provide it here, so leave undefined.
+                userId: undefined,
               };
               return cardData;
             });

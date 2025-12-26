@@ -9,6 +9,7 @@
     mode="create"
     [value]="formValue"
     [submitting]="submitting"
+    [adminEmailLocked]="adminEmailLocked"
     (valueChange)="formValue = $event"
     (submitted)="submit($event)"
     (cancelled)="cancel()"
