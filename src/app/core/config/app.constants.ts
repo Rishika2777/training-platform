@@ -145,6 +145,8 @@
       REGISTER: '/campus/register',
       GET_ALL: '/campus/getAll',
       BY_ID: '/campus/:campusId',
+      // Swagger: DELETE /campus/admin/{campusId}
+      DELETE: '/campus/admin/:campusId',
       APPROVAL: '/campus/:campusId/approval',
     },
     USERS: {

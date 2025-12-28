@@ -224,6 +224,8 @@ export class AdminStudentComponent implements OnInit {
       return;
     }
 
+    const statusToSubmit = this.pendingReviewStatus;
+
     // Close review modal immediately
     this.closeReviewModal();
     this.cdr.detectChanges();
@@ -234,7 +236,7 @@ export class AdminStudentComponent implements OnInit {
     // Show loading state and make API call
     this.viewSubmitting = true;
     this.studentApi
-      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: this.pendingReviewStatus })
+      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: statusToSubmit })
       .subscribe({
         next: () => {
           this.viewSubmitting = false;

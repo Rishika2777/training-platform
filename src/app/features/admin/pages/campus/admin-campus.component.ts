@@ -173,13 +173,15 @@ export class AdminCampusComponent implements OnInit {
       return;
     }
 
+    const statusToSubmit = this.pendingReviewStatus;
+
     // Close review modal immediately
     this.closeReviewModal();
     this.cdr.detectChanges();
 
     // Show loading state and make API call
     this.viewSubmitting = true;
-    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: this.pendingReviewStatus }).subscribe({
+    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: statusToSubmit }).subscribe({
       next: () => {
         this.viewSubmitting = false;
         this.closeViewModal();
@@ -225,6 +227,7 @@ export class AdminCampusComponent implements OnInit {
 
   confirmDelete(): void {
     const campusId = this.selectedCampus?.userId ?? null;
+    console.log(campusId);
     if (campusId) {
       this.campusApi.deleteCampusByAdmin(campusId).subscribe({
         next: () => {
