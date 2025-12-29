@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { NotificationService } from '../notifications/notification.service';
+import { AuthService } from '../auth/auth.service';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
@@ -70,8 +71,22 @@ function getErrorMessage(error: unknown): string {
 
 export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
   const notifications = inject(NotificationService);
+  const auth = inject(AuthService);
   return next(req).pipe(
     catchError((err: unknown) => {
+      // Check if this is a login error with emailVerified: false
+      // In this case, we don't show error notification as the login component will handle it with OTP modal
+      if (err instanceof HttpErrorResponse) {
+        const errorResponse = err.error;
+        if (errorResponse && typeof errorResponse === 'object') {
+          const emailVerified = auth.extractEmailVerified(errorResponse);
+          // If emailVerified is false, this is handled by login component - don't show error notification
+          if (emailVerified === false && req.url.includes('/auth/login')) {
+            return throwError(() => err);
+          }
+        }
+      }
+      
       notifications.error(getErrorMessage(err));
       return throwError(() => err);
     }),
