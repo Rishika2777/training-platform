@@ -87,6 +87,7 @@ export class LoginComponent {
         }
         
         // For other errors, let the error interceptor handle the notification
+        this.cdr.detectChanges();
       },
     });
   }

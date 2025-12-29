@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   CompanyFormComponent,
@@ -32,6 +32,7 @@ export class RegisterCompanyComponent {
   private readonly authState = inject(AuthStateService);
   private readonly storage = inject(StorageService);
   private readonly companyApi = inject(CompanyApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   private readonly initialAdminEmail =
     this.auth.getCurrentUser()?.email ?? this.auth.getRegistrationData()?.email ?? '';
@@ -108,6 +109,7 @@ export class RegisterCompanyComponent {
         },
         error: () => {
           this.submitting = false;
+          this.cdr.detectChanges();
         },
       });
   }

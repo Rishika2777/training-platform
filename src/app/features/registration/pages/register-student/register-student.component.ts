@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   createEmptyStudentFormValue,
@@ -29,6 +29,7 @@ export class RegisterStudentComponent {
   private readonly storage = inject(StorageService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
 
@@ -83,6 +84,7 @@ export class RegisterStudentComponent {
         },
         error: () => {
           this.submitting = false;
+          this.cdr.detectChanges();
         },
       });
   }
