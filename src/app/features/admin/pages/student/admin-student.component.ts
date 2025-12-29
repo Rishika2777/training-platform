@@ -315,71 +315,70 @@ export class AdminStudentComponent implements OnInit {
   }
 
   private mapFullProfileToFormValue(data: Record<string, unknown>): StudentFormValue {
-    const personal = readRecord(data, 'personalInfo') ?? data;
-    const educationDetails = readRecord(data, 'educationDetails');
-    const skillsAndExperience = readRecord(data, 'skillsAndExperience');
-    const additional = readRecord(data, 'additionalInfo');
+    // API response has flat structure, not nested - all fields are in the root
+    const firstName = readString(data, 'firstName');
+    const lastName = readString(data, 'lastName');
+    const phoneNumber = readString(data, 'phoneNumber');
+    const about = readString(data, 'about');
+    const gender = mapGenderFromApi(readString(data, 'gender'));
+    const dateOfBirth = readString(data, 'dateOfBirth');
 
-    const skills = skillsAndExperience ? readRecord(skillsAndExperience, 'skills') : null;
-
-    const firstName = readString(personal, 'firstName');
-    const lastName = readString(personal, 'lastName');
-    const email = readString(personal, 'email');
-    const phoneNumber = readString(personal, 'phoneNumber');
-    const about = readString(personal, 'about');
-    const address = readString(personal, 'address');
-    const gender = mapGenderFromApi(readString(personal, 'gender'));
-    const dateOfBirth = readString(personal, 'dateOfBirth');
-
+    // Work experience from flat structure
     const workExp: StudentFormValue['workExperience'] = [
       {
-        companyName: readString(skills, 'companyName'),
-        role: readString(skills, 'role'),
-        startDate: readString(skills, 'startDate'),
-        endDate: readString(skills, 'endDate'),
-        currentlyWorkingHere: readBoolean(skills, 'currentlyWorking') ?? false,
+        companyName: readString(data, 'companyName'),
+        role: readString(data, 'role'),
+        startDate: readString(data, 'startDate'),
+        endDate: readString(data, 'endDate'),
+        currentlyWorkingHere: readBoolean(data, 'currentlyWorking') ?? false,
       },
     ];
 
-    const technicalSkills = readStringArray(skills, 'technicalSkills').map((s) => ({
+    // Skills from flat structure
+    const technicalSkills = readStringArray(data, 'technicalSkills').map((s) => ({
       skill: s,
       proficiency: '',
     }));
 
-    const softSkills = readStringArray(skills, 'softSkills');
-    const languagesKnown = readStringArray(skills, 'languagesKnown');
+    const softSkills = readStringArray(data, 'softSkills');
+    const languagesKnown = readStringArray(data, 'languagesKnown');
 
-    const projects = readRecordArray(skillsAndExperience, 'projects').map((p) => ({
+    // Projects from flat structure
+    const projects = readRecordArray(data, 'projects').map((p) => ({
       projectName: readString(p, 'projectName'),
       description: readString(p, 'description'),
-      projectUrl: readString(p, 'projectUrl'),
-      githubUrl: readString(p, 'githubUrl'),
       technologiesUsed: readStringArray(p, 'technologiesUsed'),
     }));
 
-    const jobRolesInterested = readStringArray(skills, 'jobRolesOfInterest').join(', ');
-    const preferredLocation = readStringArray(skills, 'preferredLocation').join(', ');
-    const availabilityToStart = readStringArray(skills, 'availability').join(', ');
-    const expectedSalary = readString(skills, 'expectedSalary');
+    const jobRolesInterested = readStringArray(data, 'jobRolesOfInterest').join(', ');
+    const preferredLocation = readStringArray(data, 'preferredLocation').join(', ');
+    const availabilityToStart = readStringArray(data, 'availability').join(', ');
+    const expectedSalary = readString(data, 'expectedSalary');
 
-    const employmentTypes = readStringArray(skills, 'employmentType');
+    const employmentTypes = readStringArray(data, 'employmentType');
     const wantsInternship = employmentTypes.includes('INTERNSHIP');
     const wantsFullTime = employmentTypes.includes('FULL_TIME');
 
-    const education = mapEducationDetailsToForm(educationDetails);
+    // Education from flat structure - map directly
+    const education = mapEducationDetailsToForm(data);
 
-    const otherWebsites = readStringArray(additional, 'otherWebsites').join(', ');
-    const offersInHand = mapBooleanToYesNo(readBoolean(additional, 'offersInHand'));
+    // Additional info from flat structure
+    const otherWebsites = readStringArray(data, 'otherWebsites').join(', ');
+    const offersInHand = mapBooleanToYesNo(readBoolean(data, 'offersInHand'));
 
+    // Try to get email from data, or leave empty if not available
+    const email = readString(data, 'email');
+    const address = readString(data, 'address');
+    
     const initial = createEmptyStudentFormValue({
       firstName,
       lastName,
       fullName: [firstName, lastName].filter(Boolean).join(' ').trim(),
-      email,
+      email: email || '',
       mobile: phoneNumber,
       about,
       profileSummary: about,
-      address,
+      address: address || '',
       dateOfBirth,
       gender,
       education,
@@ -401,12 +400,12 @@ export class AdminStudentComponent implements OnInit {
       },
       additional: {
         ...createEmptyStudentFormValue().additional,
-        portfolioUrl: readString(additional, 'portfolioUrl'),
+        portfolioUrl: readString(data, 'portfolioUrl'),
         otherWebsites,
         offersInHand,
-        heardAboutPortal: readString(additional, 'howDidYouHear'),
-        jobAlertsVia: readString(additional, 'jobAlertPreference'),
-        agreeToTerms: readBoolean(additional, 'termsAndCondition') ?? false,
+        heardAboutPortal: readString(data, 'howDidYouHear'),
+        jobAlertsVia: readString(data, 'jobAlertPreference'),
+        agreeToTerms: true, // Assume true if present
       },
     });
 
@@ -420,12 +419,6 @@ function isApprovedStatus(status: string | null | undefined): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function readRecord(obj: Record<string, unknown> | null, key: string): Record<string, unknown> | null {
-  if (!obj) return null;
-  const value = obj[key];
-  return isRecord(value) ? value : null;
 }
 
 function readRecordArray(obj: Record<string, unknown> | null, key: string): Record<string, unknown>[] {

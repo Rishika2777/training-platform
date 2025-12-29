@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
-import { API_ENDPOINTS, EnumLoginStatus, UserRole, UserType } from '../config/app.constants';
+import { API_ENDPOINTS, EnumLoginStatus, LOGIN_STATUS, UserRole, UserType } from '../config/app.constants';
 import { ApiService } from '../api/api.service';
 import { AuthStateService } from './auth-state.service';
 import { UserData } from '../models/user.model';
@@ -313,12 +313,25 @@ export class AuthService {
 
     const persistTokens = options?.persistTokens === true;
     if (persistTokens) {
-      // Extract accessToken (handle both camelCase and snake_case)
-      const accessToken = payload.accessToken ?? (payload as { access_token?: string }).access_token;
-      const refreshToken = payload.refreshToken ?? (payload as { refresh_token?: string }).refresh_token;
+      // Check if approvalStatus is APPROVED before saving tokens
+      const mergedPayload = mergeUserPayload(payload);
+      const approvalStatus = mergedPayload.approvalStatus;
+      const roles = mergedPayload.roles ?? [];
+      
+      // Check if user has admin roles (ADMIN or SUPER_ADMIN)
+      const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+      
+      // Only save tokens if approvalStatus is APPROVED or user is admin
+      const shouldSaveTokens = approvalStatus === LOGIN_STATUS.APPROVED || isAdmin;
+      
+      if (shouldSaveTokens) {
+        // Extract accessToken (handle both camelCase and snake_case)
+        const accessToken = payload.accessToken ?? (payload as { access_token?: string }).access_token;
+        const refreshToken = payload.refreshToken ?? (payload as { refresh_token?: string }).refresh_token;
 
-      if (accessToken) {
-        this.authState.setTokens(accessToken, refreshToken ?? null);
+        if (accessToken) {
+          this.authState.setTokens(accessToken, refreshToken ?? null);
+        }
       }
     }
 

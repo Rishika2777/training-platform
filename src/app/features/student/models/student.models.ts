@@ -47,8 +47,6 @@ export interface StudentProject {
   projectName: string;
   description: string;
   technologiesUsed: string[];
-  projectUrl?: string;
-  githubUrl?: string;
 }
 
 export interface StudentSkillsAndExperience {
@@ -286,8 +284,6 @@ export function mapStudentFormValueToRegisterRequest(
     projectName: toTrimmedString(p.projectName),
     description: toTrimmedString(p.description),
     technologiesUsed: toTrimmedStringArray(Array.from(p.technologiesUsed).filter(Boolean)),
-    projectUrl: toTrimmedString(p.projectUrl),
-    githubUrl: toTrimmedString(p.githubUrl),
   }));
 
   const skillsAndExperience: StudentSkillsAndExperience = {

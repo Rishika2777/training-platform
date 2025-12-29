@@ -115,6 +115,8 @@ export class LoginComponent {
 
     if (approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
       this.notifications.info('Admin still haven\'t reviewed your form. Please wait for approval.');
+      this.submitting = false;
+      this.cdr.detectChanges();
       return;
     }
 
@@ -125,6 +127,8 @@ export class LoginComponent {
 
     if (approvalStatus === LOGIN_STATUS.REJECTED) {
       this.notifications.error('The admin rejected your form. Please contact admin for more information.');
+      this.submitting = false;
+      this.cdr.detectChanges();
       return;
     }
 

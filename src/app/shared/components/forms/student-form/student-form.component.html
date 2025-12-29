@@ -3,10 +3,12 @@
   <h2 class="app-form-title">Student Registration</h2>
   }
 
-  <app-step-indicator [steps]="steps" [currentStep]="currentStep + 1" [disabled]="submitting" />
+  @if (!isReviewMode) {
+    <app-step-indicator [steps]="steps" [currentStep]="currentStep + 1" [disabled]="submitting" />
+  }
 
-  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate>
-    @if (currentStep === 0) {
+  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate [class.review-mode]="isReviewMode">
+    @if (currentStep === 0 || isReviewMode) {
       <div class="app-form-step">
         <div class="app-form-row">
           <app-input
@@ -87,14 +89,13 @@
               [disabled]="submitting || isReviewMode || emailLocked"
   />
           </div>
-
           <div class="app-form-col-textarea">
             <app-textarea
               label="Address"
               [rows]="3"
               [value]="value.address"
               (valueChange)="patch({ address: $event })"
-              [disabled]="submitting"
+              [disabled]="submitting || isReviewMode"
             />
           </div>
         </div>
@@ -122,7 +123,7 @@
       </div>
     }
 
-    @if (currentStep === 1) {
+    @if (currentStep === 1 || isReviewMode) {
       <div class="app-form-step">
         <h3 class="app-form-section-title">Educational Background</h3>
 
@@ -226,7 +227,7 @@
       </div>
     }
 
-    @if (currentStep === 2) {
+    @if (currentStep === 2 || isReviewMode) {
       <div class="app-form-step">
         <div class="app-form-section">
           <h3 class="app-form-section-title">Technical Skills</h3>
@@ -473,25 +474,6 @@
                 />
               </div>
             </div>
-            <div class="app-form-row">
-              <app-input
-                label="Project URL"
-                type="url"
-                placeholder="https://example.com"
-                [value]="proj.projectUrl"
-                (valueChange)="patchProjectAt(projIndex, { projectUrl: $event })"
-                [disabled]="submitting"
-              />
-              <app-input
-                label="GitHub URL"
-                type="url"
-                placeholder="https://github.com/user/repo"
-                [value]="proj.githubUrl"
-                (valueChange)="patchProjectAt(projIndex, { githubUrl: $event })"
-                [disabled]="submitting"
-              />
-              <div></div>
-            </div>
             <div class="app-form-row app-form-row-skill-add-one">
               <app-input
                 label="Technologies Used"
@@ -546,7 +528,7 @@
       </div>
     }
 
-    @if (currentStep === 3) {
+    @if (currentStep === 3 || isReviewMode) {
       <div class="app-form-step">
         <div class="app-form-row">
           <app-input
