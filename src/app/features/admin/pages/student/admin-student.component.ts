@@ -311,7 +311,8 @@ export class AdminStudentComponent implements OnInit {
   }
 
   get isSelectedStudentApproved(): boolean {
-    return isApprovedStatus(this.selectedStudentApprovalStatus);
+    const status = toApprovalStatusLabel(this.selectedStudentApprovalStatus);
+    return status === 'APPROVED' || status === 'REJECTED';
   }
 
   private mapFullProfileToFormValue(data: Record<string, unknown>): StudentFormValue {
@@ -411,10 +412,6 @@ export class AdminStudentComponent implements OnInit {
 
     return initial;
   }
-}
-
-function isApprovedStatus(status: string | null | undefined): boolean {
-  return toApprovalStatusLabel(status) === 'APPROVED';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

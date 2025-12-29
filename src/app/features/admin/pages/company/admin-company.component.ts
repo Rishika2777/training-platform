@@ -265,12 +265,9 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   get isSelectedCompanyApproved(): boolean {
-    return isApprovedStatus(this.selectedCompanyApprovalStatus);
+    const status = toApprovalStatusLabel(this.selectedCompanyApprovalStatus);
+    return status === 'APPROVED' || status === 'REJECTED';
   }
-}
-
-function isApprovedStatus(status: string | null | undefined): boolean {
-  return toApprovalStatusLabel(status) === 'APPROVED';
 }
 
 function toApprovalStatusLabel(status: string | null | undefined): string {

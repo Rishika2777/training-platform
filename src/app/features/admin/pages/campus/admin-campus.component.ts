@@ -255,7 +255,8 @@ export class AdminCampusComponent implements OnInit {
   }
 
   get isSelectedCampusApproved(): boolean {
-    return toApprovalStatusLabel(this.selectedCampusApprovalStatus) === 'APPROVED';
+    const status = toApprovalStatusLabel(this.selectedCampusApprovalStatus);
+    return status === 'APPROVED' || status === 'REJECTED';
   }
 }
 
