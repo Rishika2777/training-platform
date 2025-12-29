@@ -187,8 +187,9 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (this.selectedCompany?.userId) {
-      this.adminApi.deleteUser(this.selectedCompany.userId).subscribe({
+    const companyId = this.selectedCompany?.id;
+    if (companyId) {
+      this.companyApi.deleteCompany(companyId).subscribe({
         next: () => {
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion

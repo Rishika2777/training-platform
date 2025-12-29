@@ -113,6 +113,7 @@
       APPROVAL_STATUS_BY_STUDENT_ID: '/student/:studentId/approval-status',
       APPROVAL_STATUS_BY_USER_ID: '/student/approval-status',
       UPDATE_FULL_PROFILE: '/student/:studentId/update',
+      UPDATE_APPROVAL_STATUS: '/student/:studentId/approvalStatus/update',
       UPDATE_SKILLS: '/student/:studentId/skills',
       UPDATE_EDUCATION: '/student/:studentId/education',
       UPDATE_ADDITIONAL_INFO: '/student/:studentId/additional-info',
@@ -130,6 +131,7 @@
       BATCHMATES: '/batchmates/:studentId/batchmates',
       PLACED_STUDENTS: '/placed-students',
       ALL_STUDENTS: '/student/students',
+      DELETE: '/student/students/:studentId',
     },
     COMPANY: {
       BASE: '/company',
@@ -139,6 +141,7 @@
       UPDATE: '/company/:companyId/update',
       UPDATE_APPROVAL_STATUS: '/company/:companyId/approvalStatus/update',
       APPROVAL_STATUS: '/company/:companyId/approval-status',
+      DELETE: '/company/delete/:companyId',
     },
     CAMPUS: {
       BASE: '/campus',

@@ -230,13 +230,10 @@ export class AdminStudentComponent implements OnInit {
     this.closeReviewModal();
     this.cdr.detectChanges();
 
-    // Backend expects studentId in query param (even if query param key is named "userId").
-    const studentIdForQuery = studentId;
-
     // Show loading state and make API call
     this.viewSubmitting = true;
     this.studentApi
-      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: statusToSubmit })
+      .updateStudentApprovalStatus(studentId, 'ADMIN', { approvalStatus: statusToSubmit })
       .subscribe({
         next: () => {
           this.viewSubmitting = false;
@@ -262,8 +259,9 @@ export class AdminStudentComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (this.selectedStudent?.userId) {
-      this.adminApi.deleteUser(this.selectedStudent.userId).subscribe({
+    const studentId = this.selectedStudent?.id;
+    if (studentId) {
+      this.studentApi.deleteStudent(studentId).subscribe({
         next: () => {
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion

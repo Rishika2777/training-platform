@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN } from '../../../core/config/app.constants';
 import {
   ApiResponseObject,
@@ -67,6 +67,30 @@ export class StudentApiService {
     const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.UPDATE_FULL_PROFILE, { studentId }));
     const params = new HttpParams().set('studentId', studentIdForQuery);
     return this.http.patch<ApiResponseStudentProfileResponse>(url, request, { params });
+  }
+
+  /**
+   * PATCH /student/{studentId}/approvalStatus/update
+   * Swagger: requires requesterUserType query param.
+   * Updates the approval status of a student profile. Only ADMIN users can access this endpoint.
+   */
+  updateStudentApprovalStatus(
+    studentId: string,
+    requesterUserType: string,
+    request: { approvalStatus: string },
+  ): Observable<ApiResponseStudentProfileResponse> {
+    const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.UPDATE_APPROVAL_STATUS, { studentId }));
+    const params = new HttpParams().set('requesterUserType', requesterUserType);
+    return this.http.patch<ApiResponseStudentProfileResponse>(url, request, { params });
+  }
+
+  /**
+   * DELETE /student/students/{studentId}
+   * Deletes student profile by studentId.
+   */
+  deleteStudent(studentId: string): Observable<void> {
+    const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.DELETE, { studentId }));
+    return this.http.delete<unknown>(url).pipe(map(() => void 0));
   }
 
   private buildUrl(endpoint: string): string {
