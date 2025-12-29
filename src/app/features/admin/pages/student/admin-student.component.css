@@ -144,16 +144,60 @@
   opacity: 0.9;
 }
 
+.review-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.review-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: 8px;
+}
+
+.review-item-info strong {
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.review-item-info .email {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.review-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.review-modal-actions app-button {
+  min-width: 100px;
+}
+
 @media (max-width: 768px) {
   .students-grid {
     grid-template-columns: 1fr;
   }
 
-  .delete-modal-actions {
+  .delete-modal-actions,
+  .review-modal-actions {
     flex-direction: column;
   }
 
-  .delete-modal-actions app-button {
+  .delete-modal-actions app-button,
+  .review-modal-actions app-button {
     width: 100%;
   }
 }

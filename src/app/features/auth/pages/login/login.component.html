@@ -65,3 +65,20 @@
 
   <footer>© 2025 Synkup Solutions. All rights reserved.</footer>
 </div>
+
+<!-- OTP Verification Modal -->
+<app-modal
+  [visible]="showOtpModal"
+  title="Verify OTP"
+  size="md"
+  (closed)="handleOtpCancel()"
+>
+  <app-verify-otp
+    [submitting]="verifyingOtp"
+    [resending]="resendingOtp"
+    [email]="userEmail"
+    (submitted)="handleOtpSubmit($event)"
+    (cancelled)="handleOtpCancel()"
+    (resendOtp)="handleResendOtp()"
+  />
+</app-modal>

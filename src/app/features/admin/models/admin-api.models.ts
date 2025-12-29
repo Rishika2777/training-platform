@@ -29,6 +29,8 @@ export interface AuthResponse {
   roles?: string[];
   permissions?: string[];
   approvalStatus?: 'PENDING_REGISTRATION' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  emailVerified?: boolean;
+  onboardingFormSubmit?: boolean;
   accessToken?: string;
   refreshToken?: string;
   accessTokenExpiresIn?: number;

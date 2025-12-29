@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LOGIN_STATUS } from '../../../../core/config/app.constants';
@@ -8,6 +8,8 @@ import { NotificationService } from '../../../../core/notifications/notification
 import { RoleService } from '../../../../core/rbac/role.service';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { VerifyOtpComponent } from '../../../registration/components/verify-otp/verify-otp.component';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -17,7 +19,7 @@ type LoginForm = FormGroup<{
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonComponent, InputComponent],
+  imports: [CommonModule, ReactiveFormsModule, ButtonComponent, InputComponent, ModalComponent, VerifyOtpComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })
@@ -26,8 +28,13 @@ export class LoginComponent {
   private readonly router = inject(Router);
   private readonly roles = inject(RoleService);
   private readonly notifications = inject(NotificationService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
+  verifyingOtp = false;
+  resendingOtp = false;
+  showOtpModal = false;
+  userEmail = '';
 
   readonly form: LoginForm = new FormGroup({
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
@@ -42,8 +49,19 @@ export class LoginComponent {
     const payload = this.form.getRawValue();
 
     this.auth.login(payload).subscribe({
-      next: () => {
+      next: (response) => {
         this.submitting = false;
+        const emailVerified = this.auth.extractEmailVerified(response);
+        const email = this.auth.extractEmailFromResponse(response);
+
+        if (emailVerified === false && email) {
+          this.userEmail = email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
+        }
+
         this.handleLoginResponse();
       },
       error: () => {
@@ -98,6 +116,52 @@ export class LoginComponent {
 
   goToRegisterOptions(): void {
     void this.router.navigateByUrl('/register');
+  }
+
+  handleOtpSubmit(otp: string): void {
+    const cleanedOtp = otp.trim();
+    if (this.verifyingOtp || !cleanedOtp || !this.userEmail) {
+      return;
+    }
+
+    this.verifyingOtp = true;
+    this.auth
+      .verifyOtp({ email: this.userEmail, otp: cleanedOtp }, { persistAuth: true })
+      .subscribe({
+        next: () => {
+          this.verifyingOtp = false;
+          this.showOtpModal = false;
+          this.handleLoginResponse();
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.verifyingOtp = false;
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  handleOtpCancel(): void {
+    this.showOtpModal = false;
+    this.cdr.detectChanges();
+  }
+
+  handleResendOtp(): void {
+    if (this.resendingOtp || !this.userEmail) {
+      return;
+    }
+
+    this.resendingOtp = true;
+    this.auth.resendOtp(this.userEmail).subscribe({
+      next: () => {
+        this.resendingOtp = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.resendingOtp = false;
+        this.cdr.detectChanges();
+      },
+    });
   }
 }
 

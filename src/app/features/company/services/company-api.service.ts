@@ -64,6 +64,15 @@ export class CompanyApiService {
     const params = new HttpParams().set('requesterUserType', requesterUserType);
     return this.http.patch<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
   }
+
+  /**
+   * DELETE /company/delete/{companyId}
+   * Deletes company profile by companyId.
+   */
+  deleteCompany(companyId: string): Observable<void> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.DELETE, { companyId }));
+    return this.http.delete<unknown>(url).pipe(map(() => void 0));
+  }
 }
 
 export interface CompanyRegisterRequest {

@@ -38,6 +38,9 @@ export class AdminCompanyComponent implements OnInit {
   selectedCompanyApprovalStatus: string | null = null;
   viewValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
+  showReviewModal = false;
+  pendingReviewStatus: EnumLoginStatus | null = null;
+
   currentPage = 1;
   readonly itemsPerPage = 9;
   totalPages = 1;
@@ -136,23 +139,46 @@ export class AdminCompanyComponent implements OnInit {
     if (status !== 'APPROVED' && status !== 'REJECTED') {
       return;
     }
-    if (status === 'REJECTED' && !confirm('Are you sure you want to reject this company?')) {
+    this.pendingReviewStatus = status;
+    this.showReviewModal = true;
+  }
+
+  confirmReviewAction(): void {
+    if (!this.selectedCompanyId || !this.pendingReviewStatus) {
+      return;
+    }
+    if (this.pendingReviewStatus !== 'APPROVED' && this.pendingReviewStatus !== 'REJECTED') {
       return;
     }
 
+    // Store status before closing modal (since closeReviewModal sets it to null)
+    const statusToUpdate = this.pendingReviewStatus;
+
+    // Close review modal immediately
+    this.closeReviewModal();
+    this.cdr.detectChanges();
+
+    // Show loading state and make API call
     this.viewSubmitting = true;
     this.companyApi
-      .updateCompanyApprovalStatus(this.selectedCompanyId, 'ADMIN', { approvalStatus: status })
+      .updateCompanyApprovalStatus(this.selectedCompanyId, 'ADMIN', { approvalStatus: statusToUpdate })
       .subscribe({
         next: () => {
           this.viewSubmitting = false;
           this.closeViewModal();
           this.loadCompanies();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.viewSubmitting = false;
+          this.cdr.detectChanges();
         },
       });
+  }
+
+  closeReviewModal(): void {
+    this.showReviewModal = false;
+    this.pendingReviewStatus = null;
   }
 
   onDelete(company: CardData): void {
@@ -161,8 +187,9 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (this.selectedCompany?.userId) {
-      this.adminApi.deleteUser(this.selectedCompany.userId).subscribe({
+    const companyId = this.selectedCompany?.id;
+    if (companyId) {
+      this.companyApi.deleteCompany(companyId).subscribe({
         next: () => {
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion

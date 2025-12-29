@@ -90,6 +90,44 @@
       (cancelled)="closeViewModal()"
     />
   </app-modal>
+
+  <app-modal
+    [visible]="showReviewModal"
+    [title]="pendingReviewStatus === 'APPROVED' ? 'Approve Company' : 'Reject Company'"
+    size="sm"
+    modalClass="review-confirmation-modal"
+    (closed)="closeReviewModal()"
+  >
+    <div class="review-modal-content">
+      <p>
+        @if (pendingReviewStatus === 'APPROVED') {
+          Are you sure you want to approve this company?
+        } @else {
+          Are you sure you want to reject this company?
+        }
+      </p>
+      @if (viewValue.companyName) {
+        <div class="review-item-info">
+          <strong>{{ viewValue.companyName }}</strong>
+          @if (viewValue.adminEmail) {
+            <span class="email">{{ viewValue.adminEmail }}</span>
+          }
+        </div>
+      }
+      <div class="review-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeReviewModal()"
+        ></app-button>
+        <app-button
+          [label]="pendingReviewStatus === 'APPROVED' ? 'Approve' : 'Reject'"
+          variant="primary"
+          (buttonClick)="confirmReviewAction()"
+        ></app-button>
+      </div>
+    </div>
+  </app-modal>
 </div>
 
 

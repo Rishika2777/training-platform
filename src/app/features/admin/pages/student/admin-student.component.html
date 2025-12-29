@@ -88,4 +88,42 @@
       (reviewAction)="handleReviewAction($event)"
     ></app-student-form>
   </app-modal>
+
+  <app-modal
+    [visible]="showReviewModal"
+    [title]="pendingReviewStatus === 'APPROVED' ? 'Approve Student' : 'Reject Student'"
+    size="sm"
+    modalClass="review-confirmation-modal"
+    (closed)="closeReviewModal()"
+  >
+    <div class="review-modal-content">
+      <p>
+        @if (pendingReviewStatus === 'APPROVED') {
+          Are you sure you want to approve this student?
+        } @else {
+          Are you sure you want to reject this student?
+        }
+      </p>
+      @if (viewValue.fullName) {
+        <div class="review-item-info">
+          <strong>{{ viewValue.fullName }}</strong>
+          @if (viewValue.email) {
+            <span class="email">{{ viewValue.email }}</span>
+          }
+        </div>
+      }
+      <div class="review-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeReviewModal()"
+        ></app-button>
+        <app-button
+          [label]="pendingReviewStatus === 'APPROVED' ? 'Approve' : 'Reject'"
+          variant="primary"
+          (buttonClick)="confirmReviewAction()"
+        ></app-button>
+      </div>
+    </div>
+  </app-modal>
 </div>

@@ -55,6 +55,8 @@ interface AuthPayload {
   roles?: readonly string[];
   permissions?: readonly string[];
   approvalStatus?: string;
+  emailVerified?: boolean;
+  onboardingFormSubmit?: boolean;
   profileCompleted?: boolean;
   profileServiceId?: string;
   redirectTo?: string;
@@ -67,6 +69,8 @@ interface AuthPayloadUser {
   roles?: readonly string[];
   permissions?: readonly string[];
   approvalStatus?: string;
+  emailVerified?: boolean;
+  onboardingFormSubmit?: boolean;
   profileCompleted?: boolean;
   profileServiceId?: string;
   redirectTo?: string;
@@ -196,7 +200,18 @@ export class AuthService {
           this.persistAuthFromResponse(response, { persistTokens: true });
         },
       }),
+      map((response) => response),
     );
+  }
+
+  extractEmailVerified(response: unknown): boolean | undefined {
+    const payload = this.extractAuthPayload(response);
+    return payload?.emailVerified;
+  }
+
+  extractEmailFromResponse(response: unknown): string | undefined {
+    const payload = this.extractAuthPayload(response);
+    return payload?.email;
   }
 
   register(user: RegisterRequest, options?: RegisterOptions): Observable<unknown> {

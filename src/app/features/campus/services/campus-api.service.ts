@@ -59,11 +59,11 @@ export class CampusApiService {
   }
 
   /**
-   * DELETE /campus/{campusId} (Admin)
+   * DELETE /campus/admin/{campusId} (Admin)
    * Deletes campus by campusId.
    */
   deleteCampusByAdmin(campusId: string): Observable<void> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE, { campusId });
     return this.http.delete<unknown>(url).pipe(map(() => void 0));
   }
 

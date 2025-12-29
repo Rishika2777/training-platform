@@ -50,6 +50,9 @@ export class AdminStudentComponent implements OnInit {
   selectedStudentApprovalStatus: string | null = null;
   viewValue: StudentFormValue = createEmptyStudentFormValue();
 
+  showReviewModal = false;
+  pendingReviewStatus: EnumLoginStatus | null = null;
+
   currentPage = 1;
   readonly itemsPerPage = 9;
   totalPages = 1;
@@ -205,23 +208,49 @@ export class AdminStudentComponent implements OnInit {
     if (!studentId) {
       return;
     }
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      return;
+    }
+    this.pendingReviewStatus = status;
+    this.showReviewModal = true;
+  }
 
-    // Backend expects studentId in query param (even if query param key is named "userId").
-    const studentIdForQuery = studentId;
+  confirmReviewAction(): void {
+    const studentId = this.selectedStudentId;
+    if (!studentId || !this.pendingReviewStatus) {
+      return;
+    }
+    if (this.pendingReviewStatus !== 'APPROVED' && this.pendingReviewStatus !== 'REJECTED') {
+      return;
+    }
 
+    const statusToSubmit = this.pendingReviewStatus;
+
+    // Close review modal immediately
+    this.closeReviewModal();
+    this.cdr.detectChanges();
+
+    // Show loading state and make API call
     this.viewSubmitting = true;
     this.studentApi
-      .updateStudentFullProfile(studentId, studentIdForQuery, { approvalStatus: status })
+      .updateStudentApprovalStatus(studentId, 'ADMIN', { approvalStatus: statusToSubmit })
       .subscribe({
         next: () => {
           this.viewSubmitting = false;
           this.closeViewModal();
           this.loadStudents();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.viewSubmitting = false;
+          this.cdr.detectChanges();
         },
       });
+  }
+
+  closeReviewModal(): void {
+    this.showReviewModal = false;
+    this.pendingReviewStatus = null;
   }
 
   onDelete(student: CardData): void {
@@ -230,8 +259,9 @@ export class AdminStudentComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (this.selectedStudent?.userId) {
-      this.adminApi.deleteUser(this.selectedStudent.userId).subscribe({
+    const studentId = this.selectedStudent?.id;
+    if (studentId) {
+      this.studentApi.deleteStudent(studentId).subscribe({
         next: () => {
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion

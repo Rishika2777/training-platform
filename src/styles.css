@@ -72,6 +72,20 @@ canvas {
   max-width: 100%;
 }
 
+/* Ensure review confirmation modals appear above other modals */
+.review-confirmation-modal {
+  z-index: 2002 !important;
+}
+
+app-modal:has(.review-confirmation-modal) .backdrop {
+  z-index: 2000 !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+app-modal:has(.review-confirmation-modal) .modal {
+  z-index: 2001 !important;
+}
+
 @media (max-width: 768px) {
   :root {
     --page-padding-x: 16px;

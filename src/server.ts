@@ -156,6 +156,31 @@ function loadDotEnvIfPresent(): void {
 loadDotEnvIfPresent();
 
 /**
+ * Helper function to set CORS headers on the response.
+ */
+function setCorsHeaders(req: express.Request, res: express.Response): void {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    // Avoid caching one origin's response and serving it to a different origin.
+    res.setHeader('Vary', 'Origin');
+  } else {
+    // If no origin header (same-origin request), allow all (or set specific origin)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  // Echo requested headers for preflight to avoid missing a custom header and failing OPTIONS.
+  const requestHeaders = req.headers['access-control-request-headers'];
+  const allowHeaders =
+    typeof requestHeaders === 'string' && requestHeaders.trim()
+      ? requestHeaders
+      : 'Content-Type, Authorization, X-Requested-With, X-User-Id, X-Skip-Auth';
+  res.setHeader('Access-Control-Allow-Headers', allowHeaders);
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+}
+
+/**
  * Same-origin reverse proxy to avoid browser CORS.
  *
  * The browser calls `/api/v1/...` on this server (localhost:5500).
@@ -163,8 +188,16 @@ loadDotEnvIfPresent();
  * (e.g. STUDENT_SERVICE_URL), and streams back the response.
  */
 app.use('/api/v1', async (req, res) => {
+  // Handle CORS preflight (OPTIONS) requests immediately
+  if (req.method === 'OPTIONS') {
+    setCorsHeaders(req, res);
+    res.status(204).end();
+    return;
+  }
+
   const upstreamBase = resolveUpstreamBase(req.originalUrl);
   if (!upstreamBase) {
+    setCorsHeaders(req, res);
     res.status(502).json({
       success: false,
       message:
@@ -173,18 +206,24 @@ app.use('/api/v1', async (req, res) => {
     return;
   }
 
+  // Construct target URL: req.originalUrl (e.g., "/api/v1/student/...") is resolved against upstreamBase
   const targetUrl = new URL(req.originalUrl, upstreamBase);
 
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
     if (value === undefined) continue;
+    // Skip CORS-related headers that shouldn't be forwarded to upstream
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'host' || lowerKey === 'origin' || lowerKey === 'referer') {
+      continue;
+    }
     if (Array.isArray(value)) {
       headers.set(key, value.join(', '));
       continue;
     }
     headers.set(key, value);
   }
-  // Let undici set Host based on the target URL
+  // Let fetch set Host based on the target URL
   headers.delete('host');
 
   try {
@@ -198,16 +237,42 @@ app.use('/api/v1', async (req, res) => {
 
     const response = await fetch(targetUrl, init);
 
+    // Set CORS headers before setting other response headers
+    setCorsHeaders(req, res);
+
     res.status(response.status);
+
+    // Forward response headers from upstream, but skip hop-by-hop headers and CORS headers
     response.headers.forEach((v, k) => {
-      // Avoid invalid hop-by-hop headers
-      if (k.toLowerCase() === 'transfer-encoding') return;
+      const lowerKey = k.toLowerCase();
+      // Skip hop-by-hop headers that shouldn't be forwarded
+      if (
+        lowerKey === 'transfer-encoding' ||
+        lowerKey === 'connection' ||
+        lowerKey === 'keep-alive' ||
+        lowerKey === 'proxy-authenticate' ||
+        lowerKey === 'proxy-authorization' ||
+        lowerKey === 'te' ||
+        lowerKey === 'trailer' ||
+        lowerKey === 'upgrade'
+      ) {
+        return;
+      }
+      // Don't forward CORS headers from upstream (we set our own)
+      if (
+        lowerKey.startsWith('access-control-') ||
+        lowerKey === 'content-encoding' || // fetch may transparently decode; we serve raw bytes below
+        lowerKey === 'content-length' // we buffer and re-send; content-length may no longer match
+      ) {
+        return;
+      }
       res.setHeader(k, v);
     });
 
     const responseBody = new Uint8Array(await response.arrayBuffer());
     res.end(responseBody);
   } catch (err) {
+    setCorsHeaders(req, res);
     res.status(502).json({
       success: false,
       message: 'Proxy request failed',
