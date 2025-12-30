@@ -114,6 +114,11 @@ export class SidebarComponent {
       this.notifications.info('This action is not yet implemented.');
       return;
     }
+    // Check if it's an external URL
+    if (item.route.startsWith('http://') || item.route.startsWith('https://')) {
+      window.open(item.route, '_blank', 'noopener,noreferrer');
+      return;
+    }
     void this.router.navigateByUrl(item.route);
   }
 
@@ -124,7 +129,6 @@ export class SidebarComponent {
       'student-resume': 'resume-upload',
       'student-career-checkin': 'career-checkin',
       'student-learning-pathway': 'learning-pathway',
-      'student-dream-job-toolkit': 'dream-job-toolkit',
       'company-specialization': 'company-specialization',
       'company-vision-performance': 'company-vision-performance',
       'company-benefits': 'company-benefits',

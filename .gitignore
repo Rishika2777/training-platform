@@ -42,3 +42,11 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Local development scripts (for memory fixes)
+start-dev.sh
+start-dev.bat
+start-dev.ps1
+start-with-memory.sh
+start.bat
+.npmrc

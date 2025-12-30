@@ -61,9 +61,9 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'student-dream-job-toolkit',
-        label: 'Your Dream Job Toolkit',
+        label: 'AI Toolkit',
         icon: 'fa-briefcase',
-        route: '#',
+        route: 'https://www.udemy.com/topic/artificial-intelligence/',
         order: 4,
         module: 'student',
       },

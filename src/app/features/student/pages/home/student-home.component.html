@@ -211,6 +211,16 @@
       (submitted)="handleIdeasSubmit($event); closeModal()"
     />
   </app-modal>
+
+  <!-- AI Toolkit Modal -->
+  <app-modal
+    [visible]="isDreamJobToolkitModalOpen()"
+    title="AI Toolkit"
+    size="lg"
+    (closed)="closeModal()"
+  >
+    <app-student-ai-toolkit />
+  </app-modal>
 </div>
 
 

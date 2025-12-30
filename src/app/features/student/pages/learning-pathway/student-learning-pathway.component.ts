@@ -58,9 +58,15 @@ export class StudentLearningPathwayComponent {
     },
   ];
 
+  // Redirect to Udemy third-party page
+  redirectToUdemy(): void {
+    window.open('https://www.udemy.com/?utm_campaign=Brand-Udemy_la.EN_cc.India_dev.&utm_source=google&utm_medium=paid-search&portfolio=BrandDirect&utm_audience=mx&utm_tactic=brand&utm_term=udemy&utm_content=g&funnel=&test=&gad_source=1&gad_campaignid=17099057432&gbraid=0AAAAADROdO1fyGQgpzubfBjy8bD2GOMQC&gclid=Cj0KCQiA6sjKBhCSARIsAJvYcpPVCxqy6GP09unCN3QEw-8xvNll30tRqNbBtxZsvlZfInjpk1XdAUkaAqT1EALw_wcB', '_blank');
+  }
+
+  // Old method kept for reference (commented courses use this)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onEnroll(_course: CertificationCourse): void {
-    // TODO: Implement enrollment logic
+    this.redirectToUdemy();
   }
 }
 

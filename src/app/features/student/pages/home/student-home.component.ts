@@ -7,6 +7,7 @@ import { StudentResumeUploadComponent } from '../resume-upload/student-resume-up
 import { StudentCareerCheckinComponent } from '../career-checkin/student-career-checkin.component';
 import { StudentLearningPathwayComponent } from '../learning-pathway/student-learning-pathway.component';
 import { StudentIdeasSubmissionComponent } from '../ideas-submission/student-ideas-submission.component';
+import { StudentAiToolkitComponent } from '../ai-toolkit/ai-toolkit.component';
 
 @Component({
   selector: 'app-student-home',
@@ -19,6 +20,7 @@ import { StudentIdeasSubmissionComponent } from '../ideas-submission/student-ide
     StudentCareerCheckinComponent,
     StudentLearningPathwayComponent,
     StudentIdeasSubmissionComponent,
+    StudentAiToolkitComponent,
   ],
   templateUrl: './student-home.component.html',
   styleUrl: './student-home.component.css',
@@ -31,6 +33,7 @@ export class StudentHomeComponent {
   readonly isCareerCheckinModalOpen = computed(() => this.activeModal() === 'career-checkin');
   readonly isLearningPathwayModalOpen = computed(() => this.activeModal() === 'learning-pathway');
   readonly isIdeasSubmissionModalOpen = computed(() => this.activeModal() === 'ideas-submission');
+  readonly isDreamJobToolkitModalOpen = computed(() => this.activeModal() === 'dream-job-toolkit');
 
   submittingResume = false;
   submittingCareerCheckin = false;

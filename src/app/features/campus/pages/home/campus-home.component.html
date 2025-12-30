@@ -81,9 +81,9 @@
           class="panel-icon"
           type="button"
           title="Add"
-          (click)="modalService.openModal('placed-students')"
+          (click)="modalService.openModal('course-form')"
         >
-                    <i class="fa-solid fa-filter" aria-hidden="true"></i>
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
         </div>
 
@@ -228,6 +228,19 @@
     [submitting]="submittingFaculty"
     (submitted)="handleFacultySubmit($event)"
     (cancelled)="handleFacultyCancel()"
+  />
+</app-modal>
+
+<!-- Course Form Modal -->
+<app-modal
+  [visible]="isCourseFormModalOpen()"
+  title="Add Course"
+  size="md"
+  (closed)="closeModal()"
+>
+  <app-campus-course-form
+    [submitting]="submittingCourseForm"
+    (submitted)="handleCourseFormSubmit($event); closeModal()"
   />
 </app-modal>
 

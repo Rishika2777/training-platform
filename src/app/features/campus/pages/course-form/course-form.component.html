@@ -1,0 +1,51 @@
+<form class="course-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <div class="form-grid">
+    <div class="form-row">
+      <app-input
+        label="Course Name"
+        type="text"
+        [value]="value.courseName"
+        [disabled]="submitting"
+        (valueChange)="patch({ courseName: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-input
+        label="Course Duration"
+        type="text"
+        [value]="value.courseDuration"
+        [disabled]="submitting"
+        placeholder="e.g., 3 yr"
+        (valueChange)="patch({ courseDuration: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-input
+        label="Seats Available"
+        type="text"
+        [value]="value.seatsAvailable"
+        [disabled]="submitting"
+        placeholder="e.g., 30"
+        (valueChange)="patch({ seatsAvailable: $event })"
+      />
+    </div>
+
+    <div class="form-row">
+      <app-input
+        label="Description"
+        type="text"
+        [value]="value.description"
+        [disabled]="submitting"
+        placeholder="Enter course description"
+        (valueChange)="patch({ description: $event })"
+      />
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+  </div>
+</form>
+

@@ -7,6 +7,7 @@ import { CampusCompaniesVisitedComponent } from '../companies-visited/campus-com
 import { CampusPlacedStudentsComponent } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent } from '../faculty/campus-faculty.component';
+import { CampusCourseFormComponent } from '../course-form/course-form.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 
 @Component({
@@ -21,6 +22,7 @@ import { ModalService } from '../../../../core/modal/modal.service';
     CampusPlacedStudentsComponent,
     CampusCoursesComponent,
     CampusFacultyComponent,
+    CampusCourseFormComponent,
   ],
   templateUrl: './campus-home.component.html',
   styleUrl: './campus-home.component.css',
@@ -34,11 +36,13 @@ export class CampusHomeComponent {
   readonly isPlacedStudentsModalOpen = computed(() => this.activeModal() === 'placed-students');
   readonly isCoursesModalOpen = computed(() => this.activeModal() === 'courses');
   readonly isFacultyModalOpen = computed(() => this.activeModal() === 'faculty');
+  readonly isCourseFormModalOpen = computed(() => this.activeModal() === 'course-form');
 
   submittingProspectus = false;
   submittingCompanies = false;
   submittingPlacedStudents = false;
   submittingFaculty = false;
+  submittingCourseForm = false;
   readonly announcementDate = 'January 7th, 2025';
 
   readonly currentBatch: readonly PersonCard[] = [
@@ -182,6 +186,22 @@ export class CampusHomeComponent {
 
   handleFacultyCancel(): void {
     this.closeModal();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleCourseFormSubmit(_value: unknown): void {
+    // API call will be implemented here
+    this.submittingCourseForm = true;
+    // TODO: Call API service
+    // this.campusApi.addCourse(value).subscribe({
+    //   next: () => {
+    //     this.submittingCourseForm = false;
+    //     this.closeModal();
+    //   },
+    //   error: () => {
+    //     this.submittingCourseForm = false;
+    //   }
+    // });
   }
 }
 

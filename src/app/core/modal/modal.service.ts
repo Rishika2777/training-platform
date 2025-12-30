@@ -6,6 +6,7 @@ export type ModalType =
   | 'placed-students'
   | 'courses'
   | 'faculty'
+  | 'course-form'
   | 'resume-upload'
   | 'career-checkin'
   | 'learning-pathway'
