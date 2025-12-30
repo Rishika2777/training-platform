@@ -405,7 +405,7 @@ export class AdminStudentComponent implements OnInit {
         otherWebsites,
         offersInHand,
         heardAboutPortal: readString(data, 'howDidYouHear'),
-        jobAlertsVia: readString(data, 'jobAlertPreference'),
+        jobAlertsVia: mapJobAlertPreferenceFromApi(readString(data, 'jobAlertPreference')),
         agreeToTerms: true, // Assume true if present
       },
     });
@@ -455,6 +455,13 @@ function mapBooleanToYesNo(value: boolean | null): 'yes' | 'no' | null {
   if (value === true) return 'yes';
   if (value === false) return 'no';
   return null;
+}
+
+function mapJobAlertPreferenceFromApi(apiValue: string): string {
+  if (apiValue === 'EMAIL') return 'Email';
+  if (apiValue === 'SMS') return 'SMS';
+  if (apiValue === 'EMAIL_SMS') return 'Email & SMS';
+  return '';
 }
 
 function mapEducationDetailsToForm(education: Record<string, unknown> | null): StudentFormValue['education'] {
