@@ -164,7 +164,7 @@
           type="button"
           variant="outline"
           label="Reject"
-          [disabled]="submitting"
+          [disabled]="submitting || approveDisabled"
           (buttonClick)="reject()"
         />
         <app-button

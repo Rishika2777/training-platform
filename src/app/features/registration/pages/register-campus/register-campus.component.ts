@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   CampusFormComponent,
@@ -28,6 +28,7 @@ export class RegisterCampusComponent {
   private readonly storage = inject(StorageService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
   searchValue = '';
@@ -134,6 +135,7 @@ export class RegisterCampusComponent {
         },
         error: () => {
           this.submitting = false;
+          this.cdr.detectChanges();
         },
       });
   }

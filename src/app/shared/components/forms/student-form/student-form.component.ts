@@ -37,8 +37,6 @@ export interface StudentWorkExperienceItem {
 export interface StudentProjectItem {
   projectName: string;
   description: string;
-  projectUrl: string;
-  githubUrl: string;
   technologiesUsed: readonly string[];
 }
 
@@ -149,7 +147,7 @@ function createEmptyWorkExperienceItem(): StudentWorkExperienceItem {
 }
 
 function createEmptyProjectItem(): StudentProjectItem {
-  return { projectName: '', description: '', projectUrl: '', githubUrl: '', technologiesUsed: [] };
+  return { projectName: '', description: '', technologiesUsed: [] };
 }
 
 function createEmptyAdditionalInfo(): StudentAdditionalInfo {

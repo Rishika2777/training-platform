@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { LOGIN_STATUS } from '../../../../core/config/app.constants';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -64,8 +65,29 @@ export class LoginComponent {
 
         this.handleLoginResponse();
       },
-      error: () => {
+      error: (err: unknown) => {
         this.submitting = false;
+        
+        // Check if error response contains emailVerified: false (401 case)
+        if (err instanceof HttpErrorResponse) {
+          const errorResponse = err.error;
+          if (errorResponse && typeof errorResponse === 'object') {
+            const emailVerified = this.auth.extractEmailVerified(errorResponse);
+            const email = this.auth.extractEmailFromResponse(errorResponse);
+            
+            // If emailVerified is false in error response, show OTP modal instead of error
+            if (emailVerified === false && email) {
+              this.userEmail = email;
+              this.showOtpModal = true;
+              this.handleResendOtp();
+              this.cdr.detectChanges();
+              return;
+            }
+          }
+        }
+        
+        // For other errors, let the error interceptor handle the notification
+        this.cdr.detectChanges();
       },
     });
   }
@@ -93,6 +115,8 @@ export class LoginComponent {
 
     if (approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
       this.notifications.info('Admin still haven\'t reviewed your form. Please wait for approval.');
+      this.submitting = false;
+      this.cdr.detectChanges();
       return;
     }
 
@@ -103,6 +127,8 @@ export class LoginComponent {
 
     if (approvalStatus === LOGIN_STATUS.REJECTED) {
       this.notifications.error('The admin rejected your form. Please contact admin for more information.');
+      this.submitting = false;
+      this.cdr.detectChanges();
       return;
     }
 

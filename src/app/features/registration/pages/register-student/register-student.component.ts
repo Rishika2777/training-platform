@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   createEmptyStudentFormValue,
@@ -13,6 +13,7 @@ import { NotificationService } from '../../../../core/notifications/notification
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { RegistrationPageLayoutComponent } from '../../../../layout/registration-page-layout/registration-page-layout.component';
+import { LOGIN_STATUS } from '../../../../core/config/app.constants';
 
 @Component({
   selector: 'app-register-student',
@@ -28,6 +29,7 @@ export class RegisterStudentComponent {
   private readonly storage = inject(StorageService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
 
@@ -62,7 +64,7 @@ export class RegisterStudentComponent {
           const data = response.data ?? null;
           const approvalStatus = data?.approvalStatus ?? null;
 
-          if (approvalStatus === 'PENDING') {
+          if (approvalStatus === 'PENDING'|| approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
             this.notify.success(
               'Form submitted successfully. Please wait until admin approves your profile.',
             );
@@ -70,7 +72,7 @@ export class RegisterStudentComponent {
             return;
           }
 
-          if (approvalStatus === 'REJECTED') {
+          if (approvalStatus === LOGIN_STATUS.REJECTED) {
             this.notify.error('Your profile was rejected. Please contact support or try again.');
             void this.router.navigateByUrl('/login');
             return;
@@ -82,6 +84,7 @@ export class RegisterStudentComponent {
         },
         error: () => {
           this.submitting = false;
+          this.cdr.detectChanges();
         },
       });
   }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -40,6 +40,7 @@ export class RegisterComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly notify = inject(NotificationService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   submitting = false;
 
@@ -61,6 +62,7 @@ export class RegisterComponent {
     if (payload.password !== payload.confirmPassword) {
       this.submitting = false;
       this.notify.error('Passwords do not match');
+      this.cdr.detectChanges();
       return;
     }
 
@@ -71,6 +73,7 @@ export class RegisterComponent {
       confirmPassword: payload.confirmPassword,
     });
     this.submitting = false;
+    this.cdr.detectChanges();
     void this.router.navigateByUrl('/register-options');
   }
 
