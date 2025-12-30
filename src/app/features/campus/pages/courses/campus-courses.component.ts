@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { ModalService } from '../../../../core/modal/modal.service';
 
 export interface CourseCard {
   id: string;
@@ -17,11 +18,13 @@ export interface CourseCard {
   styleUrl: './campus-courses.component.css',
 })
 export class CampusCoursesComponent {
+  private readonly modalService = inject(ModalService);
+
   readonly courses: readonly CourseCard[] = [
     { id: '1', name: 'BCA', fullName: 'Bachelor of Computer Applications', seats: 30, duration: '3 yr' },
   ];
 
   addCourse(): void {
-    // TODO: Open add course modal or form
+    this.modalService.openModal('course-form');
   }
 }
