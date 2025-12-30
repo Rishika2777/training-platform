@@ -47,7 +47,7 @@
               (valueChange)="form.controls.password.setValue($event)"
             />
             <div class="field-help">
-              <small class="hint">Min 6 chars, 1 uppercase, 1 number, 1 special character.</small>
+              <small class="hint">Min 12 chars, 1 uppercase, 1 number, 1 special character.</small>
               @if (form.controls.password.touched && form.controls.password.hasError('passwordStrength')) {
                 <small class="error">Password must match the rules above.</small>
               }

@@ -77,8 +77,13 @@
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Placed Students</div>
-          <button class="panel-icon" type="button" title="Filter">
-            <i class="fa-solid fa-filter" aria-hidden="true"></i>
+          <button
+          class="panel-icon"
+          type="button"
+          title="Add"
+          (click)="modalService.openModal('placed-students')"
+        >
+                    <i class="fa-solid fa-filter" aria-hidden="true"></i>
           </button>
         </div>
 

@@ -19,9 +19,9 @@ function passwordStrengthValidator(control: AbstractControl<string>): Validation
     return null;
   }
 
-  // At least 1 uppercase, 1 number, 1 special char, min length 6
+  // At least 1 uppercase, 1 number, 1 special char, min length 12
   const ok =
-    value.length >= 6 &&
+    value.length >= 12 &&
     /[A-Z]/.test(value) &&
     /\d/.test(value) &&
     /[^A-Za-z0-9]/.test(value);
