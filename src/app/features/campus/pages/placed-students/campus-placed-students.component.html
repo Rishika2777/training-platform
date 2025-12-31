@@ -1,4 +1,4 @@
-<form class="placed-students-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="placed-students-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-grid">
     <div class="form-row">
       <app-input
@@ -83,7 +83,14 @@
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <button 
+      type="button"
+      class="btn primary"
+      [disabled]="submitting"
+      (click)="onButtonClickDirect($event)"
+    >
+      Submit
+    </button>
   </div>
 </form>
 

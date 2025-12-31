@@ -7,6 +7,7 @@
   flex-direction: column;
   justify-content: space-between;
   overflow-x: hidden;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
 .top-right {

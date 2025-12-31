@@ -14,6 +14,7 @@ export class TextareaComponent {
   @Input() rows = 4;
   @Input() value = '';
   @Input() disabled = false;
+  @Input() required = false;
   @Input() invalid = false;
   @Input() id: string | null = null;
 

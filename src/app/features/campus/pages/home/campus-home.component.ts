@@ -1,14 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { CampusProspectusComponent } from '../upload-prospectus/campus-prospectus.component';
-import { CampusCompaniesVisitedComponent } from '../companies-visited/campus-companies-visited.component';
-import { CampusPlacedStudentsComponent } from '../placed-students/campus-placed-students.component';
+import {
+  CampusCompaniesVisitedComponent,
+  CompaniesVisitedFormValue,
+} from '../companies-visited/campus-companies-visited.component';
+import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent } from '../faculty/campus-faculty.component';
 import { CampusCourseFormComponent } from '../course-form/course-form.component';
 import { ModalService } from '../../../../core/modal/modal.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
+import { CampusApiService } from '../../services/campus-api.service';
 
 @Component({
   selector: 'app-campus-home',
@@ -29,6 +34,9 @@ import { ModalService } from '../../../../core/modal/modal.service';
 })
 export class CampusHomeComponent {
   readonly modalService = inject(ModalService);
+  private readonly campusApi = inject(CampusApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly notify = inject(NotificationService);
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -136,36 +144,134 @@ export class CampusHomeComponent {
     // });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleCompaniesSubmit(_value: unknown): void {
-    // API call will be implemented here
+  handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
+    if (!value.companyLogo || !value.companyName.trim()) {
+      this.submittingCompanies = false;
+      return;
+    }
+
     this.submittingCompanies = true;
-    // TODO: Call API service
-    // this.campusApi.addCompanyVisited(value).subscribe({
-    //   next: () => {
-    //     this.submittingCompanies = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingCompanies = false;
-    //   }
-    // });
+
+    // Convert file to base64
+    this.convertFileToBase64(value.companyLogo)
+      .then((base64Logo) => {
+        const request = {
+          companyLogo: base64Logo,
+          companyName: value.companyName.trim(),
+        };
+
+        this.campusApi.addCompanyVisited(request).subscribe({
+          next: () => {
+            console.log('API Integration Working - Company Visited Added Successfully');
+            this.submittingCompanies = false;
+            this.notify.success('Company visited added successfully');
+            this.closeModal();
+            try {
+              this.cdr.detectChanges();
+            } catch {
+              // Component might be destroyed, ignore
+            }
+          },
+          error: (err) => {
+            const errorMessage = err?.error?.message || err?.message || 'Failed to add company visited';
+            console.error('API Integration Failed -', errorMessage);
+            this.submittingCompanies = false;
+            this.notify.error(errorMessage);
+            try {
+              this.cdr.detectChanges();
+            } catch {
+              // Ignore
+            }
+          },
+        });
+      })
+      .catch(() => {
+        console.error('API Integration Failed - Error converting file to base64');
+        setTimeout(() => {
+          this.submittingCompanies = false;
+          this.cdr.detectChanges();
+        }, 0);
+      });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handlePlacedStudentsSubmit(_value: unknown): void {
-    // API call will be implemented here
+  handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
     this.submittingPlacedStudents = true;
-    // TODO: Call API service
-    // this.campusApi.addPlacedStudent(value).subscribe({
-    //   next: () => {
-    //     this.submittingPlacedStudents = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingPlacedStudents = false;
-    //   }
-    // });
+
+    // Convert File to base64 string
+    this.convertFileToBase64(value.studentPhoto)
+      .then((photoBase64) => {
+        const request = {
+          studentName: value.studentName,
+          photo: photoBase64 || '',
+          courseId: value.course, // Assuming course dropdown value is the courseId
+          batch: value.batch,
+          placementCompanyId: value.placementCompany, // Assuming placementCompany value is the placementCompanyId
+          designation: value.designation,
+          sector: value.sector,
+        };
+
+        this.campusApi.addPlacedStudent(request).subscribe({
+          next: (response) => {
+            // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+            setTimeout(() => {
+            this.submittingPlacedStudents = false;
+            if (response?.success) {
+              this.closeModal();
+              }
+              // Safe change detection - won't crash if component is destroyed
+              try {
+                this.cdr.detectChanges();
+              } catch (e) {
+                // Component might be destroyed, ignore
+                console.warn('Change detection skipped:', e);
+              }
+            }, 0);
+          },
+          error: () => {
+            // HTTP interceptor will show error notification to user
+            // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+            setTimeout(() => {
+            this.submittingPlacedStudents = false;
+              // Safe change detection - won't crash if component is destroyed
+              try {
+                this.cdr.detectChanges();
+              } catch (e) {
+                // Component might be destroyed, ignore
+                console.warn('Change detection skipped:', e);
+              }
+            }, 0);
+          },
+        });
+      })
+      .catch((err) => {
+        console.error('Error converting file to base64:', err);
+        // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+        this.submittingPlacedStudents = false;
+          this.cdr.detectChanges();
+        }, 0);
+      });
+  }
+
+  private convertFileToBase64(file: File | null): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve('');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix (e.g., "data:image/jpeg;base64,") and return just the base64 string
+        const base64 = result.includes(',') ? result.split(',')[1] : result;
+        resolve(base64);
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to convert file to base64'));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

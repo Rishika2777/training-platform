@@ -6,19 +6,20 @@ export class NotificationService {
   private readonly toastr = inject(ToastrService);
 
   success(message: string, title?: string): void {
-    this.toastr.success(message, title);
+    // Defer to avoid ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => this.toastr.success(message, title), 0);
   }
 
   info(message: string, title?: string): void {
-    this.toastr.info(message, title);
+    setTimeout(() => this.toastr.info(message, title), 0);
   }
 
   warn(message: string, title?: string): void {
-    this.toastr.warning(message, title);
+    setTimeout(() => this.toastr.warning(message, title), 0);
   }
 
   error(message: string, title?: string): void {
-    this.toastr.error(message, title);
+    setTimeout(() => this.toastr.error(message, title), 0);
   }
 }
 

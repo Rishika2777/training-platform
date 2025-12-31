@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 
 type InputType = 'text' | 'email' | 'password' | 'number' | 'file' | 'url' | 'tel' | 'date';
@@ -11,7 +11,7 @@ type InputType = 'text' | 'email' | 'password' | 'number' | 'file' | 'url' | 'te
   templateUrl: './input.component.html',
   styleUrl: './input.component.css',
 })
-export class InputComponent {
+export class InputComponent implements OnChanges {
   @Input() label = '';
   @Input() type: InputType = 'text';
   @Input() placeholder = '';
@@ -22,6 +22,8 @@ export class InputComponent {
   @Input() invalid = false;
   @Input() id: string | null = null;
   @Input() maxlength: number | null = null;
+  @Input() min: string | null = null;
+  @Input() max: string | null = null;
 
   @Output() valueChange = new EventEmitter<string>();
   @Output() filesSelected = new EventEmitter<FileList>();
@@ -29,6 +31,7 @@ export class InputComponent {
   private static nextId = 0;
 
   private readonly autoId = `app-input-${InputComponent.nextId++}`;
+  selectedFileNames = '';
 
   get controlId(): string {
     return this.id ?? this.autoId;
@@ -55,10 +58,35 @@ export class InputComponent {
   }
 
   onFileChange(files: FileList | null): void {
-    if (!files) {
+    if (!files || files.length === 0) {
+      this.selectedFileNames = '';
       return;
     }
+    
+    // Extract file names and display them
+    const names: string[] = [];
+    for (const file of Array.from(files)) {
+      if (file && file.name) {
+        names.push(file.name);
+      }
+    }
+    this.selectedFileNames = names.join(', ');
+    
     this.filesSelected.emit(files);
+  }
+
+  getFileDisplayText(): string {
+    if (this.selectedFileNames && this.selectedFileNames.trim().length > 0) {
+      return this.selectedFileNames;
+    }
+    return this.placeholder || 'Upload file';
+  }
+
+  // Reset file names when input is cleared
+  ngOnChanges(changes: SimpleChanges): void {
+    if (this.type === 'file' && changes['value'] && !this.value) {
+      this.selectedFileNames = '';
+    }
   }
 }
 

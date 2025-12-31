@@ -23,6 +23,8 @@
 
           <app-input
             label="Last Name"
+            [required]="true"
+            [invalid]="isRequiredInvalidText(value.lastName)"
             type="text"
             [value]="value.lastName"
             (valueChange)="patch({ lastName: $event })"
@@ -31,6 +33,8 @@
 
           <app-input
             label="Upload Photo"
+            [required]="true"
+            [invalid]="isRequiredInvalidFiles(value.photoFiles)"
             type="file"
             (filesSelected)="patch({ photoFiles: $event })"
             [disabled]="submitting || isReviewMode"
@@ -92,6 +96,8 @@
           <div class="app-form-col-textarea">
             <app-textarea
               label="Address"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.address)"
               [rows]="3"
               [value]="value.address"
               (valueChange)="patch({ address: $event })"
@@ -104,6 +110,8 @@
           <div class="app-form-col-textarea">
             <app-textarea
             label="Profile Summary"
+            [required]="true"
+            [invalid]="isRequiredInvalidText(value.profileSummary)"
             [rows]="4"
             [value]="value.profileSummary"
             (valueChange)="patch({ profileSummary: $event })"
@@ -113,6 +121,8 @@
           <div class="app-form-col-textarea">
   <app-textarea
     label="About"
+    [required]="true"
+    [invalid]="isRequiredInvalidText(value.about)"
     [rows]="4"
     [value]="value.about"
     (valueChange)="patch({ about: $event })"
@@ -328,6 +338,8 @@
           <div class="app-form-row">
             <app-input
               label="Job Roles of Interest"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.jobRolesInterested)"
               type="text"
               [value]="value.workPreferences.jobRolesInterested"
               (valueChange)="setWorkPreferenceField('jobRolesInterested', $event)"
@@ -335,6 +347,8 @@
             />
             <app-input
               label="Preferred Location"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.preferredLocation)"
               type="text"
               [value]="value.workPreferences.preferredLocation"
               (valueChange)="setWorkPreferenceField('preferredLocation', $event)"
@@ -342,6 +356,8 @@
             />
             <app-input
               label="Availability To Start"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.availabilityToStart)"
               type="date"
               [value]="value.workPreferences.availabilityToStart"
               (valueChange)="setWorkPreferenceField('availabilityToStart', $event)"
@@ -352,6 +368,8 @@
           <div class="app-form-row">
             <app-input
               label="Expected Salary"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.expectedSalary)"
               type="text"
               [value]="value.workPreferences.expectedSalary"
               (valueChange)="setWorkPreferenceField('expectedSalary', $event)"
@@ -399,8 +417,6 @@
             <div class="app-form-row">
               <app-input
                 label="Company Name"
-                [required]="true"
-                [invalid]="isWorkExperienceFieldInvalid($index, 'companyName')"
                 type="text"
                 [value]="exp.companyName"
                 (valueChange)="patchWorkExperienceAt($index, { companyName: $event })"
@@ -408,8 +424,6 @@
               />
               <app-input
                 label="Role"
-                [required]="true"
-                [invalid]="isWorkExperienceFieldInvalid($index, 'role')"
                 type="text"
                 [value]="exp.role"
                 (valueChange)="patchWorkExperienceAt($index, { role: $event })"
@@ -417,8 +431,6 @@
               />
               <app-input
                 label="Start Date"
-                [required]="true"
-                [invalid]="isWorkExperienceFieldInvalid($index, 'startDate')"
                 type="date"
                 [value]="exp.startDate"
                 (valueChange)="patchWorkExperienceAt($index, { startDate: $event })"
@@ -428,8 +440,6 @@
             <div class="app-form-row">
               <app-input
                 label="End Date"
-                [required]="!exp.currentlyWorkingHere"
-                [invalid]="isWorkExperienceFieldInvalid($index, 'endDate')"
                 type="date"
                 [value]="exp.endDate"
                 (valueChange)="patchWorkExperienceAt($index, { endDate: $event })"
@@ -580,6 +590,8 @@
         <div class="app-form-row">
           <app-input
             label="Portfolio URL"
+            [required]="true"
+            [invalid]="isRequiredInvalidText(value.additional.portfolioUrl)"
             type="url"
             placeholder="https://example.com"
             [value]="value.additional.portfolioUrl"
@@ -628,6 +640,8 @@
         <div class="app-form-row">
           <app-dropdown
             label="How did you hear about the portal?"
+            [required]="true"
+            [invalid]="isRequiredInvalidDropdown(value.additional.heardAboutPortal)"
             [items]="heardAboutItems"
             [value]="value.additional.heardAboutPortal"
             (valueChange)="setAdditionalField('heardAboutPortal', $event)"
@@ -635,6 +649,8 @@
           />
           <app-dropdown
             label="Would you like to receive job alerts via email/SMS?"
+            [required]="true"
+            [invalid]="isRequiredInvalidDropdown(value.additional.jobAlertsVia)"
             [items]="jobAlertsViaItems"
             [value]="value.additional.jobAlertsVia"
             (valueChange)="setAdditionalField('jobAlertsVia', $event)"

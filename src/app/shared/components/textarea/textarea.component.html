@@ -1,6 +1,11 @@
 <div class="field">
   @if (label) {
-    <label class="label" [attr.for]="controlId">{{ label }}</label>
+    <label class="label" [attr.for]="controlId">
+      {{ label }}
+      @if (required) {
+        <span class="asterisk" aria-hidden="true">*</span>
+      }
+    </label>
   }
 
   <textarea
@@ -9,6 +14,8 @@
     [id]="controlId"
     [disabled]="disabled"
     [rows]="rows"
+    [attr.required]="required ? '' : null"
+    [attr.aria-required]="required"
     [placeholder]="placeholder"
     [value]="value"
     (input)="onInput(getValue($event))"

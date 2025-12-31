@@ -67,6 +67,45 @@ export class CampusApiService {
     return this.http.delete<unknown>(url).pipe(map(() => void 0));
   }
 
+  /**
+   * POST /dashboard/students/placed
+   * Add a placed student.
+   */
+  addPlacedStudent(request: AddPlacedStudentRequest): Observable<AddPlacedStudentResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_PLACED_STUDENT);
+    console.log('CampusApiService.addPlacedStudent called');
+    console.log('Request URL:', url);
+    console.log('Request body:', { ...request, photo: request.photo ? `[base64, length: ${request.photo.length}]` : '' });
+    
+    return this.http.post<unknown>(url, request).pipe(
+      map((raw) => {
+        console.log('API Service - Raw response received:', raw);
+        // The API returns the full response object with success, message, data, error
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as AddPlacedStudentResponse;
+        }
+        console.warn('API Service - Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * POST /dashboard/companies/visited
+   * Add a company visited.
+   */
+  addCompanyVisited(request: AddCompanyVisitedRequest): Observable<AddCompanyVisitedResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED);
+    return this.http.post<unknown>(url, request).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as AddCompanyVisitedResponse;
+        }
+        return null;
+      })
+    );
+  }
+
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const resolved = resolvePathParams(endpoint, params);
 
@@ -167,6 +206,64 @@ export interface Campus {
   updatedAt?: string;
   public?: boolean;
   verifiedPhoneNo?: boolean;
+}
+
+export interface AddPlacedStudentRequest {
+  studentName: string;
+  photo: string;
+  courseId: string;
+  batch: string;
+  placementCompanyId: string;
+  designation: string;
+  sector: string;
+}
+
+export interface AddPlacedStudentResponseData {
+  id?: string;
+  userId?: string;
+  campusId?: string;
+  courseId?: string;
+  studentName?: string;
+  photoUrl?: string;
+  batch?: string;
+  rollNumber?: string;
+  email?: string;
+  phone?: string;
+  placementCompanyId?: string;
+  placementDate?: string;
+  designation?: string;
+  sector?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  placed?: boolean;
+}
+
+export interface AddPlacedStudentResponse {
+  success: boolean;
+  message: string;
+  data: AddPlacedStudentResponseData;
+  error: string;
+}
+
+export interface AddCompanyVisitedRequest {
+  companyLogo: string; // base64 encoded image
+  companyName: string;
+}
+
+export interface AddCompanyVisitedResponseData {
+  id?: string;
+  campusId?: string;
+  companyName?: string;
+  companyLogoUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AddCompanyVisitedResponse {
+  success: boolean;
+  message: string;
+  data: AddCompanyVisitedResponseData;
+  error: string;
 }
 
 interface ApiResponse<T> {

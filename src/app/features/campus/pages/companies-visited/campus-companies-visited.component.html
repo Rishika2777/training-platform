@@ -1,13 +1,25 @@
-<form class="companies-visited-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="companies-visited-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
   <div class="form-row">
+    <div class="file-input-wrapper">
+      <div class="field-label">
+        Company Logo
+        <span class="asterisk" aria-hidden="true">*</span>
+      </div>
+      <div class="file-input-container">
     <app-input
-      label="Company Logo"
       type="text"
       [value]="companyLogoName || 'Select logo file'"
       [disabled]="true"
+          [invalid]="submitAttempted && !value.companyLogo"
       placeholder="Select logo file"
     />
-    <button type="button" class="file-attach-btn" (click)="triggerCompanyLogoSelect()">
+        <button
+          type="button"
+          class="file-attach-btn"
+          (click)="triggerCompanyLogoSelect()"
+          [disabled]="submitting"
+          [attr.aria-label]="'Select company logo file'"
+        >
       <i class="fa-solid fa-paperclip"></i>
     </button>
     <input
@@ -18,20 +30,37 @@
       [disabled]="submitting"
       (change)="onCompanyLogoSelected($any($event.target).files)"
     />
+      </div>
+      @if (submitAttempted && !value.companyLogo) {
+        <span class="error-message">Company logo is required</span>
+      }
+    </div>
   </div>
 
   <div class="form-row">
     <app-input
       label="Company Name"
+      [required]="true"
       type="text"
       [value]="value.companyName"
       [disabled]="submitting"
+      [invalid]="submitAttempted && !value.companyName.trim()"
       (valueChange)="patch({ companyName: $event })"
+      placeholder="Enter company name"
     />
+    @if (submitAttempted && !value.companyName.trim()) {
+      <span class="error-message">Company name is required</span>
+    }
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <app-button
+      type="submit"
+      label="Submit"
+      variant="primary"
+      [disabled]="submitting || !isFormValid()"
+      (buttonClick)="onButtonClick()"
+    />
   </div>
 </form>
 

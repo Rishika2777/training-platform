@@ -5,8 +5,10 @@
   /* (swapped as per latest Figma request) */
   --color-primary: #628a8e;
   --color-primary-dark: #4f7477;
+  --color-primary-light: #7ba0a4;
   --color-secondary: #f4a261;
   --color-secondary-light: #f7b27b;
+  --color-secondary-dark: #e8954a;
   --color-background: #f6f7f8;
   --color-footer: var(--color-secondary);
   --color-white: #ffffff;
@@ -17,6 +19,24 @@
   --color-error: #f44336;
   --color-warning: #ff9800;
   --color-info: #2196f3;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(98, 138, 142, 0.95) 0%, rgba(79, 116, 119, 0.95) 100%);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 
   --space-xs: 5px;
   --space-sm: 10px;
@@ -29,6 +49,12 @@
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-xl: 25px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
 
   /* Responsive layout spacing */
   --page-padding-x: 80px;
@@ -59,6 +85,8 @@ body {
   color: var(--color-text-primary);
   background: var(--color-background);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {

@@ -20,7 +20,7 @@
       (keydown.enter)="!disabled && fileInput.click()"
       (keydown.space)="$event.preventDefault(); !disabled && fileInput.click()"
     >
-      <span class="file-placeholder">{{ placeholder || 'Upload file' }}</span>
+      <span class="file-placeholder">{{ getFileDisplayText() }}</span>
       <i class="fa-solid fa-paperclip file-icon" aria-hidden="true"></i>
 
       <input
@@ -45,6 +45,8 @@
       [attr.required]="required ? '' : null"
       [attr.aria-required]="required"
       [attr.maxlength]="maxlength"
+      [attr.min]="min"
+      [attr.max]="max"
       [placeholder]="placeholder"
       [value]="value"
       (input)="onInput(getValue($event))"

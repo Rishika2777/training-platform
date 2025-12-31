@@ -58,6 +58,8 @@
 
       <app-input
         label="Admin Phone No."
+        [required]="true"
+        [invalid]="isInvalid('adminPhone')"
         type="tel"
         [value]="value.adminPhone"
         (valueChange)="patch({ adminPhone: $event })"
@@ -68,6 +70,8 @@
     <div class="app-form-row">
       <app-input
         label="Admin Dept"
+        [required]="true"
+        [invalid]="isInvalid('adminDept')"
         type="text"
         [value]="value.adminDept"
         (valueChange)="patch({ adminDept: $event })"
@@ -76,6 +80,8 @@
 
       <app-input
         label="Admin Designation"
+        [required]="true"
+        [invalid]="isInvalid('adminDesignation')"
         type="text"
         [value]="value.adminDesignation"
         (valueChange)="patch({ adminDesignation: $event })"
@@ -84,6 +90,8 @@
 
       <app-input
         label="Campus Website URL"
+        [required]="true"
+        [invalid]="isInvalid('website')"
         type="url"
         placeholder="https://example.com"
         [value]="value.website"
@@ -96,6 +104,8 @@
       <div class="app-form-col-textarea">
         <app-textarea
           label="About Campus"
+          [required]="true"
+          [invalid]="isInvalid('about')"
           [rows]="4"
           [value]="value.about"
           (valueChange)="patch({ about: $event })"
@@ -106,6 +116,8 @@
       <div class="app-form-col-textarea">
         <app-textarea
           label="Campus Address"
+          [required]="true"
+          [invalid]="isInvalid('address')"
           [rows]="4"
           [value]="value.address"
           (valueChange)="patch({ address: $event })"

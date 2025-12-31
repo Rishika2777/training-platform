@@ -17,14 +17,14 @@ function getErrorMessage(error: unknown): string {
     if (payload && typeof payload === 'object') {
       const errorObj = payload as { error?: unknown; message?: unknown; statusCode?: number };
       
-      // Check for 'error' field first (detailed error message from backend)
-      if (typeof errorObj.error === 'string' && errorObj.error.trim().length > 0) {
-        return errorObj.error;
-      }
-      
-      // Check for 'message' field (general message from backend)
+      // Check for 'message' field first (most common API response format)
       if (typeof errorObj.message === 'string' && errorObj.message.trim().length > 0) {
         return errorObj.message;
+      }
+      
+      // Check for 'error' field (detailed error message from backend)
+      if (typeof errorObj.error === 'string' && errorObj.error.trim().length > 0) {
+        return errorObj.error;
       }
       
       // Check for nested error object
@@ -50,7 +50,7 @@ function getErrorMessage(error: unknown): string {
       409: 'Conflict - Resource already exists',
       429: 'Too many requests - Please try again later',
       500: 'Internal server error',
-      502: 'Bad gateway',
+      502: 'Service temporarily unavailable. Please try again later or contact support.',
       503: 'Service unavailable',
     };
     

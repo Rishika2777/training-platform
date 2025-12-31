@@ -2,6 +2,7 @@
   display: flex;
   min-height: calc(100vh - 56px);
   overflow-x: hidden;
+  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
 .layout.admin .content {
@@ -18,5 +19,6 @@
   padding: var(--space-lg);
   box-sizing: border-box;
   overflow-x: hidden;
+  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 

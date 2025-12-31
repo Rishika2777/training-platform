@@ -221,6 +221,51 @@ export class StudentFormComponent {
     { label: 'Email & SMS', value: 'Email & SMS' },
   ];
 
+  readonly qualificationItems: readonly DropdownItem<string>[] = [
+   
+    { label: 'Diploma', value: 'Diploma' },
+    { label: 'Bachelor\'s Degree', value: 'Bachelor\'s Degree' },
+    { label: 'Master\'s Degree', value: 'Master\'s Degree' },
+    { label: 'PhD', value: 'PhD' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly degreeItems: readonly DropdownItem<string>[] = [
+    { label: 'B.Tech', value: 'B.Tech' },
+    { label: 'B.E', value: 'B.E' },
+    { label: 'B.Sc', value: 'B.Sc' },
+    { label: 'B.Com', value: 'B.Com' },
+    { label: 'B.A', value: 'B.A' },
+    { label: 'M.Tech', value: 'M.Tech' },
+    { label: 'M.E', value: 'M.E' },
+    { label: 'M.Sc', value: 'M.Sc' },
+    { label: 'MBA', value: 'MBA' },
+    { label: 'MCA', value: 'MCA' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly specializationItems: readonly DropdownItem<string>[] = [
+    { label: 'Computer Science', value: 'Computer Science' },
+    { label: 'Information Technology', value: 'Information Technology' },
+    { label: 'Electronics', value: 'Electronics' },
+    { label: 'Mechanical', value: 'Mechanical' },
+    { label: 'Civil', value: 'Civil' },
+    { label: 'Electrical', value: 'Electrical' },
+    { label: 'Chemical', value: 'Chemical' },
+    { label: 'Aerospace', value: 'Aerospace' },
+    { label: 'Biotechnology', value: 'Biotechnology' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly yearOfPassingItems: readonly DropdownItem<string>[] = (() => {
+    const currentYear = new Date().getFullYear();
+    const years: DropdownItem<string>[] = [];
+    for (let year = currentYear; year >= currentYear - 20; year--) {
+      years.push({ label: String(year), value: String(year) });
+    }
+    return years;
+  })();
+
   // Draft inputs for tag-like lists
   newTechnicalSkill: StudentTechnicalSkillItem = { skill: '', proficiency: '' };
   newSoftSkill = '';
@@ -513,16 +558,22 @@ export class StudentFormComponent {
       case 0:
         return (
           this.value.firstName.trim().length > 0 &&
+          this.value.lastName.trim().length > 0 &&
           this.value.dateOfBirth.trim().length > 0 &&
           isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
           !!this.value.gender &&
           this.value.mobile.trim().length > 0 &&
-          this.value.email.trim().length > 0
+          this.value.email.trim().length > 0 &&
+          this.value.address.trim().length > 0 &&
+          this.value.profileSummary.trim().length > 0 &&
+          this.value.about.trim().length > 0 &&
+          !!this.value.photoFiles &&
+          this.value.photoFiles.length > 0
         );
       case 1:
         return this.isEducationValid();
       case 2:
-        return this.isWorkExperienceValid();
+        return this.isWorkPreferencesValid();
       case 3:
         return this.isAdditionalValid();
       default:
@@ -534,13 +585,19 @@ export class StudentFormComponent {
     // Basic required checks; we can tighten once backend contract is confirmed.
     return (
       this.value.firstName.trim().length > 0 &&
+      this.value.lastName.trim().length > 0 &&
       this.value.dateOfBirth.trim().length > 0 &&
       isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
       !!this.value.gender &&
       this.value.mobile.trim().length > 0 &&
       this.value.email.trim().length > 0 &&
+      this.value.address.trim().length > 0 &&
+      this.value.profileSummary.trim().length > 0 &&
+      this.value.about.trim().length > 0 &&
+      !!this.value.photoFiles &&
+      this.value.photoFiles.length > 0 &&
       this.isEducationValid() &&
-      this.isWorkExperienceValid() &&
+      this.isWorkPreferencesValid() &&
       this.isAdditionalValid()
     );
   }
@@ -568,21 +625,13 @@ export class StudentFormComponent {
     });
   }
 
-  private isWorkExperienceValid(): boolean {
-    if (this.value.workExperience.length === 0) {
-      return false;
-    }
-    return this.value.workExperience.every((e) => {
-      const baseOk =
-        e.companyName.trim().length > 0 && e.role.trim().length > 0 && e.startDate.trim().length > 0;
-      if (!baseOk) {
-        return false;
-      }
-      if (e.currentlyWorkingHere) {
-        return true;
-      }
-      return e.endDate.trim().length > 0;
-    });
+  private isWorkPreferencesValid(): boolean {
+    return (
+      this.value.workPreferences.jobRolesInterested.trim().length > 0 &&
+      this.value.workPreferences.preferredLocation.trim().length > 0 &&
+      this.value.workPreferences.availabilityToStart.trim().length > 0 &&
+      this.value.workPreferences.expectedSalary.trim().length > 0
+    );
   }
 
   private isAdditionalValid(): boolean {
@@ -591,7 +640,10 @@ export class StudentFormComponent {
       this.value.additional.govtIdProofFiles.length > 0 &&
       !!this.value.additional.resumeFiles &&
       this.value.additional.resumeFiles.length > 0 &&
+      this.value.additional.portfolioUrl.trim().length > 0 &&
       this.value.additional.offersInHand !== null &&
+      this.value.additional.heardAboutPortal.trim().length > 0 &&
+      this.value.additional.jobAlertsVia.trim().length > 0 &&
       this.value.additional.agreeToTerms
     );
   }

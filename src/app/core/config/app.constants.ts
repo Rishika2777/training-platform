@@ -151,6 +151,8 @@
       // Swagger: DELETE /campus/admin/{campusId}
       DELETE: '/campus/admin/:campusId',
       APPROVAL: '/campus/:campusId/approval',
+      ADD_PLACED_STUDENT: '/dashboard/students/placed',
+      ADD_COMPANY_VISITED: '/dashboard/companies/visited',
     },
     USERS: {
       BASE: '/users',

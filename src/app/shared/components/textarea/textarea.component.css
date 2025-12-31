@@ -8,6 +8,11 @@
   color: var(--color-text-primary);
 }
 
+.asterisk {
+  margin-left: 6px;
+  color: var(--color-error);
+}
+
 .control {
   border: 2px solid var(--color-secondary);
   border-radius: 15px;

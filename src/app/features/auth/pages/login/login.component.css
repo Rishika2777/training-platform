@@ -36,11 +36,23 @@
 .left-box,
 .right-box {
   width: 40%;
-  background: rgba(255, 255, 255, 0.25);
-  padding: 40px;
-  border-radius: 25px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 48px;
+  border-radius: var(--radius-xl);
   color: #fff;
   text-align: center;
+  box-shadow: var(--glass-shadow);
+  transition: all var(--transition-base);
+}
+
+.left-box:hover,
+.right-box:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .left-box h2 {

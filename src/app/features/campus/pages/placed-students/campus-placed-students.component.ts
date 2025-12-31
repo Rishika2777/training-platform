@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
-import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 
@@ -17,7 +16,7 @@ export interface PlacedStudentsFormValue {
 @Component({
   selector: 'app-campus-placed-students',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, DropdownComponent, InputComponent],
+  imports: [CommonModule, DropdownComponent, InputComponent],
   templateUrl: './campus-placed-students.component.html',
   styleUrl: './campus-placed-students.component.css',
 })
@@ -81,7 +80,27 @@ export class CampusPlacedStudentsComponent {
     return this.value.studentPhoto?.name ?? '';
   }
 
+  onButtonClickDirect(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('=== BUTTON CLICKED DIRECTLY ===');
+    console.log('Submitting flag:', this.submitting);
+    console.log('Current form value:', this.value);
+    this.submit();
+  }
+
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('Form ngSubmit triggered - onFormSubmit called');
+    console.log('Submitting flag:', this.submitting);
+    console.log('Current form value:', this.value);
+    this.submit();
+  }
+
   submit(): void {
+    console.log('=== CampusPlacedStudentsComponent.submit() called ===');
+    console.log('Emitting submitted event with value:', this.value);
     this.submitted.emit(this.value);
   }
 

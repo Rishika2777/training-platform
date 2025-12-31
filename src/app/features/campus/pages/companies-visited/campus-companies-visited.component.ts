@@ -27,6 +27,8 @@ export class CampusCompaniesVisitedComponent {
   @Output() valueChange = new EventEmitter<CompaniesVisitedFormValue>();
   @Output() submitted = new EventEmitter<CompaniesVisitedFormValue>();
 
+  submitAttempted = false;
+
   patch(patch: Partial<CompaniesVisitedFormValue>): void {
     const next: CompaniesVisitedFormValue = { ...this.value, ...patch };
     this.value = next;
@@ -47,11 +49,22 @@ export class CampusCompaniesVisitedComponent {
   }
 
   submit(): void {
-    this.submitted.emit(this.value);
+    this.submitAttempted = true;
+    if (this.isFormValid()) {
+      this.submitted.emit(this.value);
+    }
   }
 
-  private isFormValid(): boolean {
+  isFormValid(): boolean {
     return this.value.companyLogo !== null && this.value.companyName.trim().length > 0;
+  }
+
+  onFormSubmit(): void {
+    this.submit();
+  }
+
+  onButtonClick(): void {
+    this.submit();
   }
 }
 

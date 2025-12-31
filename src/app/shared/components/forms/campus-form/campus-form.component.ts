@@ -74,7 +74,20 @@ export class CampusFormComponent {
     this.valueChange.emit(next);
   }
 
-  isInvalid(field: 'campusName' | 'campusLogoFiles' | 'rank' | 'adminName' | 'adminEmail'): boolean {
+  isInvalid(
+    field:
+      | 'campusName'
+      | 'campusLogoFiles'
+      | 'rank'
+      | 'adminName'
+      | 'adminEmail'
+      | 'adminPhone'
+      | 'adminDept'
+      | 'adminDesignation'
+      | 'website'
+      | 'about'
+      | 'address'
+  ): boolean {
     if (!this.submitAttempted) {
       return false;
     }
@@ -91,7 +104,13 @@ export class CampusFormComponent {
       !this.isInvalid('campusLogoFiles') &&
       !this.isInvalid('rank') &&
       !this.isInvalid('adminName') &&
-      !this.isInvalid('adminEmail')
+      !this.isInvalid('adminEmail') &&
+      !this.isInvalid('adminPhone') &&
+      !this.isInvalid('adminDept') &&
+      !this.isInvalid('adminDesignation') &&
+      !this.isInvalid('website') &&
+      !this.isInvalid('about') &&
+      !this.isInvalid('address')
     );
   }
 

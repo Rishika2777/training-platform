@@ -1,8 +1,300 @@
-<section class="page">
-  <h2>About campus</h2>
-  <app-card title="Overview">
-    <p>Placeholder for campus about page.</p>
-  </app-card>
+<div class="campus-about-page">
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-background" [style.background-image]="'url(assets/images/login-hero-image.png)'"></div>
+    <div class="hero-banner">
+      <div class="hero-content">
+        <h1 class="hero-title">Shaping the Future Through Education and Innovation</h1>
+        <div class="hero-buttons">
+          <app-button label="Admissions" variant="primary" />
+          <app-button label="Faculties" variant="primary" />
+        </div>
+        <div class="hero-metrics">25 Promotions, 100 Followers—The Journey Thrives!</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Campus Insights Section -->
+  <section class="section campus-insights">
+    <h2 class="section-title">Campus Insights</h2>
+    <div class="insights-content">
+      <div class="insights-image">
+        <img src="assets/images/landing-card-campus.png" alt="Campus" />
+        <app-button label="Download Prospectus" variant="primary" />
+      </div>
+      <div class="insights-text">
+        <p>
+          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+          standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+          make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+          typesetting, remaining essentially unchanged.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Our Rising Stars Section -->
+  <section class="section rising-stars">
+    <h2 class="section-title">Our Rising Stars</h2>
+    <app-carousel type="pagination" [currentPage]="risingStarsPage" [totalPages]="risingStarsTotalPages" (pageChange)="risingStarsPage = $event">
+      <div class="avatar-row">
+        @for (star of risingStarsPageItems(); track star.id) {
+          <div class="avatar-card">
+            <img class="avatar" [src]="star.imageUrl" [alt]="star.name" />
+            <div class="avatar-name">{{ star.name }} ({{ star.id }})</div>
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </section>
+
+  <!-- Research Section -->
+  <section class="section research">
+    <h2 class="section-title">Research</h2>
+    <div class="research-content">
+      <p>
+        Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+        standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+        make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+        typesetting, remaining essentially unchanged.
+      </p>
+    </div>
+  </section>
+
+  <!-- Success Stories Section -->
+  <section class="section success-stories">
+    <h2 class="section-title">Success Stories</h2>
+    <div class="carousel-wrapper">
+      <button class="carousel-arrow left" (click)="previousSuccessStory()" [disabled]="successStoryPage === 1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <app-carousel type="none" [currentPage]="successStoryPage" [totalPages]="successStoriesTotalPages">
+        <div class="avatar-row">
+          @for (story of successStoriesPageItems(); track story.id) {
+            <div class="avatar-card">
+              <img class="avatar" [src]="story.imageUrl" [alt]="story.name" />
+              <div class="avatar-name">{{ story.name }}</div>
+              <div class="avatar-sub">{{ story.batch }}</div>
+              <div class="avatar-sub">{{ story.company }}</div>
+            </div>
+          }
+        </div>
+      </app-carousel>
+      <button class="carousel-arrow right" (click)="nextSuccessStory()" [disabled]="successStoryPage === successStoriesTotalPages">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- Overview Section -->
+  <section class="section overview">
+    <div class="overview-grid">
+      <div class="total-count-card">
+        <div class="count-value">1,375</div>
+        <div class="count-label">Total Count</div>
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Graduated Students</h3>
+        <div class="bar-chart">
+          <div class="bar-chart-item">
+            <div class="bar-label">MCA</div>
+            <div class="bar-wrapper">
+              <div class="bar" style="width: 80%; background: var(--color-secondary);"></div>
+            </div>
+          </div>
+          <div class="bar-chart-item">
+            <div class="bar-label">BCA</div>
+            <div class="bar-wrapper">
+              <div class="bar" style="width: 70%; background: var(--color-primary);"></div>
+            </div>
+          </div>
+          <div class="bar-chart-item">
+            <div class="bar-label">BBA</div>
+            <div class="bar-wrapper">
+              <div class="bar" style="width: 60%; background: var(--color-secondary);"></div>
+            </div>
+          </div>
+          <div class="bar-chart-item">
+            <div class="bar-label">B.Tech</div>
+            <div class="bar-wrapper">
+              <div class="bar" style="width: 90%; background: var(--color-primary);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pie-chart-card">
+        <h3 class="chart-title">Projects Developed by Our Students</h3>
+        <div class="pie-chart-placeholder"></div>
+      </div>
+      <div class="pie-chart-card">
+        <div class="pie-chart-placeholder"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Courses We Provide Section -->
+  <section class="section courses-provide">
+    <h2 class="section-title">Courses we Provide</h2>
+    <div class="carousel-wrapper">
+      <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <div class="courses-carousel">
+        @for (course of coursesPageItems(); track course.id) {
+          <div class="course-card">
+            <div class="course-card-top">
+              <div class="course-code">{{ course.name }}</div>
+              <div class="course-details">
+                <span>Seats: {{ course.seats }}</span>
+                <span>Duration: {{ course.duration }}</span>
+              </div>
+            </div>
+            <div class="course-card-bottom">
+              <app-button label="Applications" variant="primary" />
+            </div>
+          </div>
+        }
+      </div>
+      <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- Placement Highlights Section -->
+  <section class="section placement-highlights">
+    <div class="placement-grid">
+      <div class="placement-chart-card">
+        <h3 class="chart-title">Placement Chart</h3>
+        <div class="placement-bar-chart">
+          @for (year of placementYears; track year) {
+            <div class="placement-bar-item">
+              <div class="placement-year">{{ year }}</div>
+              <div class="placement-bars">
+                <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="donut-chart-card">
+        <h3 class="chart-title">Placement in Different Areas</h3>
+        <div class="donut-chart-placeholder"></div>
+      </div>
+      <div class="companies-grid-card">
+        <h3 class="chart-title">Top Companies Visited Our Campus</h3>
+        <div class="companies-grid">
+          @for (i of [1,2,3,4,5,6,7,8,9]; track i) {
+            <div class="company-logo"></div>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Meet Our Faculties Section -->
+  <section class="section faculties">
+    <h2 class="section-title">Meet Our Faculties</h2>
+    <app-carousel type="pagination" [currentPage]="facultiesPage" [totalPages]="facultiesTotalPages" (pageChange)="facultiesPage = $event">
+      <div class="avatar-row">
+        @for (faculty of facultiesPageItems(); track faculty.id) {
+          <div class="avatar-card">
+            <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
+            <div class="avatar-name">{{ faculty.name }}</div>
+            <div class="avatar-sub">{{ faculty.designation }}</div>
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </section>
+
+  <!-- Our Alumni Community Section -->
+  <section class="section alumni">
+    <h2 class="section-title">Our Alumni Community</h2>
+    <div class="carousel-wrapper">
+      <button class="carousel-arrow left" (click)="previousAlumni()" [disabled]="alumniPage === 1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages">
+        <div class="avatar-row">
+          @for (alumnus of alumniPageItems(); track alumnus.id) {
+            <div class="avatar-card">
+              <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
+              <div class="avatar-name">{{ alumnus.name }}</div>
+              <div class="avatar-sub">{{ alumnus.designation }}</div>
+              <div class="avatar-sub">{{ alumnus.company }}</div>
+            </div>
+          }
+        </div>
+      </app-carousel>
+      <button class="carousel-arrow right" (click)="nextAlumni()" [disabled]="alumniPage === alumniTotalPages">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
 </section>
 
+  <!-- Your Voice, Our Strength Section -->
+  <section class="section testimonial">
+    <div class="testimonial-content">
+      <button class="testimonial-arrow left" (click)="previousTestimonial()">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <div class="testimonial-quote">
+        <p class="quote-text">
+          "I'm grateful for the opportunities and resources provided by the campus. It's made a huge difference in my academic journey."
+        </p>
+        <div class="quote-author">
+          <img class="author-avatar" src="assets/images/landing-card-campus.png" alt="Ankita Wilson" />
+          <div class="author-name">Ankita Wilson</div>
+        </div>
+      </div>
+      <button class="testimonial-arrow right" (click)="nextTestimonial()">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </section>
 
+  <!-- Footer Section -->
+  <footer class="footer-section">
+    <div class="footer-content">
+      <div class="footer-left">
+        <h3 class="footer-title">Get In Touch</h3>
+        <div class="contact-info">
+          <div class="contact-item">
+            <i class="fa-solid fa-envelope"></i>
+            <span>contact@university.edu</span>
+          </div>
+          <div class="contact-item">
+            <i class="fa-solid fa-phone"></i>
+            <span>+91 1234567890</span>
+          </div>
+          <div class="contact-item">
+            <i class="fa-solid fa-location-dot"></i>
+            <span>University Campus, City, State</span>
+          </div>
+        </div>
+        <div class="social-icons">
+          <i class="fa-brands fa-facebook"></i>
+          <i class="fa-brands fa-instagram"></i>
+          <i class="fa-brands fa-twitter"></i>
+        </div>
+      </div>
+      <div class="footer-right">
+        <h3 class="footer-title">Feedback</h3>
+        <form class="feedback-form">
+          <div class="feedback-question">
+            <p>Would you recommend promoting this campus based on their performance and potential?</p>
+            <div class="feedback-buttons">
+              <button type="button" class="feedback-btn yes">Yes</button>
+              <button type="button" class="feedback-btn no">No</button>
+            </div>
+          </div>
+          <app-input label="Name" type="text" />
+          <app-textarea label="Speak your mind about Mangalore University!" />
+          <app-button label="Send" variant="primary" type="submit" />
+        </form>
+      </div>
+    </div>
+    <div class="footer-bottom"></div>
+  </footer>
+</div>
