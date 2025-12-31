@@ -210,6 +210,25 @@ function toTrimmedStringArray(values: readonly string[]): string[] {
   return values.map((v) => v.trim()).filter((v) => v.length > 0);
 }
 
+function extractYearFromDate(value: string | null | undefined): string {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  // If it's in YYYY-MM-DD format (date input), extract the year part
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-');
+    return parts[0] || '';
+  }
+  // Otherwise, assume it's already just a year string
+  return trimmed;
+}
+
+function getYearForSorting(value: string | null | undefined): number {
+  const yearStr = extractYearFromDate(value);
+  return parseInt(yearStr || '0', 10);
+}
+
 export function mapStudentFormValueToRegisterRequest(
   formValue: StudentFormValue,
   userId?: string,
@@ -235,8 +254,8 @@ export function mapStudentFormValueToRegisterRequest(
 
   // Find the most recent education (by yearOfPassing) or use the first one
   const sortedEducation = [...education].sort((a, b) => {
-    const yearA = parseInt(a.yearOfPassing || '0', 10);
-    const yearB = parseInt(b.yearOfPassing || '0', 10);
+    const yearA = getYearForSorting(a.yearOfPassing);
+    const yearB = getYearForSorting(b.yearOfPassing);
     return yearB - yearA; // Descending order (most recent first)
   });
   const mostRecentEducation = sortedEducation.length > 0 ? sortedEducation[0] : null;
@@ -246,7 +265,7 @@ export function mapStudentFormValueToRegisterRequest(
     institutionName: toTrimmedStringArray(education.map((e) => e.institution).filter(Boolean)),
     degrees: toTrimmedStringArray(education.map((e) => e.degree).filter(Boolean)),
     specializations: toTrimmedStringArray(education.map((e) => e.specialization).filter(Boolean)),
-    yearOfPassing: toTrimmedString(mostRecentEducation?.yearOfPassing),
+    yearOfPassing: extractYearFromDate(mostRecentEducation?.yearOfPassing),
     certificates: toTrimmedStringArray(
       education.flatMap((e) => Array.from(e.certificateFileNames || [])).filter(Boolean),
     ),
@@ -254,6 +273,10 @@ export function mapStudentFormValueToRegisterRequest(
   };
 
   const latestWorkExp = workExperience.length > 0 ? workExperience[0] : null;
+  const jobRolesInterestedTrimmed = toTrimmedString(formValue.workPreferences.jobRolesInterested);
+  const preferredLocationTrimmed = toTrimmedString(formValue.workPreferences.preferredLocation);
+  const availabilityTrimmed = toTrimmedString(formValue.workPreferences.availabilityToStart);
+
   const skills: StudentSkills = {
     technicalSkills: toTrimmedStringArray(formValue.technicalSkills.map((s) => s.skill).filter(Boolean)),
     softSkills: toTrimmedStringArray(Array.from(formValue.softSkills).filter(Boolean)),
@@ -261,15 +284,9 @@ export function mapStudentFormValueToRegisterRequest(
       formValue.technicalSkills.length > 0 ? formValue.technicalSkills[0].proficiency : '',
     ),
     languagesKnown: toTrimmedStringArray(Array.from(formValue.languagesKnown).filter(Boolean)),
-    jobRolesOfInterest: formValue.workPreferences.jobRolesInterested
-      ? [toTrimmedString(formValue.workPreferences.jobRolesInterested)]
-      : [],
-    preferredLocation: formValue.workPreferences.preferredLocation
-      ? [toTrimmedString(formValue.workPreferences.preferredLocation)]
-      : [],
-    availability: formValue.workPreferences.availabilityToStart
-      ? [toTrimmedString(formValue.workPreferences.availabilityToStart)]
-      : [],
+    jobRolesOfInterest: jobRolesInterestedTrimmed ? [jobRolesInterestedTrimmed] : [],
+    preferredLocation: preferredLocationTrimmed ? [preferredLocationTrimmed] : [],
+    availability: availabilityTrimmed ? [availabilityTrimmed] : [],
     expectedSalary: toTrimmedString(formValue.workPreferences.expectedSalary),
     employmentType: mapEmploymentType(formValue.workPreferences),
     companyName: toTrimmedString(latestWorkExp?.companyName),

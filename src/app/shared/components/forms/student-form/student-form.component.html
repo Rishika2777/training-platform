@@ -65,7 +65,7 @@
           <app-input
             label="Mobile No."
             [required]="true"
-            [invalid]="isRequiredInvalidText(value.mobile)"
+            [invalid]="isMobileInvalid()"
             type="tel"
             [value]="value.mobile"
             (valueChange)="patch({ mobile: $event })"
@@ -77,6 +77,14 @@
           <div class="app-form-row">
             <div class="app-form-col-full">
               <div class="app-input-error">Date of birth must be at least 15 years ago.</div>
+            </div>
+          </div>
+        }
+
+        @if (submitAttempted && isMobileNotTenDigits()) {
+          <div class="app-form-row">
+            <div class="app-form-col-full">
+              <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
             </div>
           </div>
         }
@@ -140,29 +148,29 @@
         @for (edu of value.education; track $index) {
           <div class="app-form-section">
             <div class="app-form-row">
-              <app-input
+              <app-dropdown
                 label="Qualification"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'qualification')"
-                type="text"
+                [items]="qualificationItems"
                 [value]="edu.qualification"
                 (valueChange)="patchEducationAt($index, { qualification: $event })"
                 [disabled]="submitting || isReviewMode"
               />
-              <app-input
+              <app-dropdown
                 label="Institution Name"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'institution')"
-                type="text"
+                [items]="institutionItems"
                 [value]="edu.institution"
                 (valueChange)="patchEducationAt($index, { institution: $event })"
                 [disabled]="submitting || isReviewMode"
               />
-              <app-input
+              <app-dropdown
                 label="Degree"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'degree')"
-                type="text"
+                [items]="degreeItems"
                 [value]="edu.degree"
                 (valueChange)="patchEducationAt($index, { degree: $event })"
                 [disabled]="submitting || isReviewMode"
@@ -170,20 +178,20 @@
             </div>
 
             <div class="app-form-row">
-              <app-input
+              <app-dropdown
                 label="Specialization"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'specialization')"
-                type="text"
+                [items]="specializationItems"
                 [value]="edu.specialization"
                 (valueChange)="patchEducationAt($index, { specialization: $event })"
                 [disabled]="submitting || isReviewMode"
               />
-              <app-input
+              <app-dropdown
                 label="Year Of Passing"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'yearOfPassing')"
-                type="text"
+                [items]="yearOfPassingItems"
                 [value]="edu.yearOfPassing"
                 (valueChange)="patchEducationAt($index, { yearOfPassing: $event })"
                 [disabled]="submitting || isReviewMode"
@@ -245,9 +253,9 @@
           <h3 class="app-form-section-title">Technical Skills</h3>
           @if (!isReviewMode) {
             <div class="app-form-row app-form-row-skill-add-two">
-              <app-input
+              <app-dropdown
                 label="Skill"
-                type="text"
+                [items]="technicalSkillItems"
                 [value]="newTechnicalSkill.skill"
                 (valueChange)="setNewTechnicalSkillSkill($event)"
                 [disabled]="submitting"
@@ -281,9 +289,9 @@
           <h3 class="app-form-section-title">Soft Skills</h3>
           @if (!isReviewMode) {
             <div class="app-form-row app-form-row-skill-add-one">
-              <app-input
+              <app-dropdown
                 label="Soft Skill"
-                type="text"
+                [items]="softSkillItems"
                 [value]="newSoftSkill"
                 (valueChange)="newSoftSkill = $event"
                 [disabled]="submitting"
@@ -309,9 +317,9 @@
           <h3 class="app-form-section-title">Languages Known</h3>
           @if (!isReviewMode) {
             <div class="app-form-row app-form-row-skill-add-one">
-              <app-input
+              <app-dropdown
                 label="Language"
-                type="text"
+                [items]="languageItems"
                 [value]="newLanguage"
                 (valueChange)="newLanguage = $event"
                 [disabled]="submitting"
@@ -336,20 +344,16 @@
         <div class="app-form-section">
           <h3 class="app-form-section-title">Work Preferences</h3>
           <div class="app-form-row">
-            <app-input
+            <app-dropdown
               label="Job Roles of Interest"
-              [required]="true"
-              [invalid]="isRequiredInvalidText(value.workPreferences.jobRolesInterested)"
-              type="text"
+              [items]="jobRolesItems"
               [value]="value.workPreferences.jobRolesInterested"
               (valueChange)="setWorkPreferenceField('jobRolesInterested', $event)"
               [disabled]="submitting || isReviewMode"
             />
-            <app-input
+            <app-dropdown
               label="Preferred Location"
-              [required]="true"
-              [invalid]="isRequiredInvalidText(value.workPreferences.preferredLocation)"
-              type="text"
+              [items]="preferredLocationItems"
               [value]="value.workPreferences.preferredLocation"
               (valueChange)="setWorkPreferenceField('preferredLocation', $event)"
               [disabled]="submitting || isReviewMode"
@@ -422,9 +426,11 @@
                 (valueChange)="patchWorkExperienceAt($index, { companyName: $event })"
                 [disabled]="submitting || isReviewMode"
               />
-              <app-input
+              <app-dropdown
                 label="Role"
-                type="text"
+                [required]="true"
+                [invalid]="isWorkExperienceFieldInvalid($index, 'role')"
+                [items]="workExperienceRoleItems"
                 [value]="exp.role"
                 (valueChange)="patchWorkExperienceAt($index, { role: $event })"
                 [disabled]="submitting || isReviewMode"
@@ -496,9 +502,9 @@
             </div>
             @if (!isReviewMode) {
               <div class="app-form-row app-form-row-skill-add-one">
-                <app-input
+                <app-dropdown
                   label="Technologies Used"
-                  type="text"
+                  [items]="projectTechnologyItems"
                   [value]="newProjectTechnology"
                   (valueChange)="newProjectTechnology = $event"
                   [disabled]="submitting"

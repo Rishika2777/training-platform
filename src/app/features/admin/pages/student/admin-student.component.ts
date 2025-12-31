@@ -351,8 +351,11 @@ export class AdminStudentComponent implements OnInit {
       technologiesUsed: readStringArray(p, 'technologiesUsed'),
     }));
 
-    const jobRolesInterested = readStringArray(data, 'jobRolesOfInterest').join(', ');
-    const preferredLocation = readStringArray(data, 'preferredLocation').join(', ');
+    // For dropdown fields, take the first value from the array
+    const jobRolesArray = readStringArray(data, 'jobRolesOfInterest');
+    const jobRolesInterested = jobRolesArray.length > 0 ? jobRolesArray[0] : '';
+    const preferredLocationArray = readStringArray(data, 'preferredLocation');
+    const preferredLocation = preferredLocationArray.length > 0 ? preferredLocationArray[0] : '';
     const availabilityToStart = readStringArray(data, 'availability').join(', ');
     const expectedSalary = readString(data, 'expectedSalary');
 
@@ -464,6 +467,23 @@ function mapJobAlertPreferenceFromApi(apiValue: string): string {
   return '';
 }
 
+function convertYearToDate(value: string): string {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  // If it's already in YYYY-MM-DD format, return as is
+  if (trimmed.includes('-')) {
+    return trimmed;
+  }
+  // If it's just a year (e.g., "2024"), convert to date format (YYYY-01-01)
+  const year = parseInt(trimmed, 10);
+  if (!Number.isNaN(year) && year > 0) {
+    return `${year}-01-01`;
+  }
+  return trimmed;
+}
+
 function mapEducationDetailsToForm(education: Record<string, unknown> | null): StudentFormValue['education'] {
   if (!education) {
     return createEmptyStudentFormValue().education;
@@ -485,7 +505,7 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
       institution: institutions[i] ?? '',
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
-      yearOfPassing: yearOfPassing,
+      yearOfPassing: convertYearToDate(yearOfPassing),
       percentageOrCgpa: cgpa,
       certificateFiles: null,
       certificateFileNames: i === 0 ? certificates : [],
