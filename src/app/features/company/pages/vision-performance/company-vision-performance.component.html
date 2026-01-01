@@ -26,6 +26,7 @@
             [disabled]="submitting"
             placeholder="Select metric"
             (valueChange)="updateMetric($index, 'name', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Value"
@@ -34,6 +35,7 @@
             [disabled]="submitting"
             placeholder="Select value"
             (valueChange)="updateMetric($index, 'value', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Year"
@@ -42,6 +44,7 @@
             [disabled]="submitting"
             placeholder="Select year"
             (valueChange)="updateMetric($index, 'year', $event)"
+            [autocomplete]="true"
           />
         </div>
       }

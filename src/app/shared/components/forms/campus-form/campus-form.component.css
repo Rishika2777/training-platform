@@ -7,6 +7,12 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 
+.app-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .app-form-title {
   font-size: 1.4rem;
   font-weight: 700;
@@ -18,8 +24,12 @@
 .app-form-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-md);
-  margin-bottom: var(--space-md);
+  gap: 22px 35px;
+  margin-bottom: 22px;
+}
+
+.app-form-row:last-child {
+  margin-bottom: 0;
 }
 
 .app-form-col-full {
@@ -39,6 +49,7 @@
 .app-form-row-textarea {
   grid-template-columns: repeat(2, 1fr);
   display: grid;
+  gap: 22px 35px;
 }
 
 .app-form-row-textarea .app-form-col-textarea {
@@ -54,16 +65,49 @@
   border-top: 1px solid var(--color-border);
 }
 
+.app-form-field-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-input-error {
+  margin-top: var(--space-xs);
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
+  .app-form-container {
+    padding: var(--space-md);
+  }
+
+  .app-form-title {
+    font-size: 1.2rem;
+    margin-bottom: var(--space-lg);
+  }
+
   .app-form-row {
-      grid-template-columns: 1fr;
+    grid-template-columns: 1fr;
+    gap: 16px 0;
+    margin-bottom: 16px;
   }
 
   .app-form-row-textarea {
-      grid-template-columns: 1fr;
+    grid-template-columns: 1fr;
+    gap: 16px 0;
   }
 
   .app-form-col-full {
-      grid-column: span 1;
+    grid-column: span 1;
+  }
+
+  .app-form-actions {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .app-form-actions app-button {
+    width: 100%;
   }
 }

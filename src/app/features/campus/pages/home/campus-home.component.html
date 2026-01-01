@@ -90,8 +90,8 @@
         <app-carousel
           type="pagination"
           [currentPage]="placedStudentsPage"
-          [totalPages]="placedStudentsTotalPages"
-          (pageChange)="placedStudentsPage = $event"
+          [totalPages]="placedStudentsTotalPages()"
+          (pageChange)="onPlacedStudentsPageChange($event)"
         >
           <div class="avatar-row small">
             @for (p of placedStudentsPageItems(); track p.imageUrl) {

@@ -42,13 +42,20 @@
       [disabled]="submitting || adminEmailLocked || isReviewMode"
     />
 
-    <app-input
-      label="Admin Phone No."
-      type="tel"
-      [value]="value.adminPhone"
-      (valueChange)="patch({ adminPhone: $event })"
-      [disabled]="submitting || isReviewMode"
-    />
+    <div class="app-form-field-wrapper">
+      <app-input
+        label="Admin Phone No."
+        type="tel"
+        [required]="true"
+        [invalid]="isAdminPhoneInvalid()"
+        [value]="value.adminPhone"
+        (valueChange)="patch({ adminPhone: $event })"
+        [disabled]="submitting || isReviewMode"
+      />
+      @if (submitAttempted && isAdminPhoneNotTenDigits()) {
+        <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
+      }
+    </div>
 
     <app-input
       label="Company Website URL"
@@ -142,6 +149,8 @@
       [value]="value.aboutCompany"
       (valueChange)="patch({ aboutCompany: $event })"
       [disabled]="submitting || isReviewMode"
+      [maxlength]="2000"
+      [showCharCount]="true"
     />
 
     <app-textarea
@@ -150,6 +159,8 @@
       [value]="value.companyAddress"
       (valueChange)="patch({ companyAddress: $event })"
       [disabled]="submitting || isReviewMode"
+      [maxlength]="500"
+      [showCharCount]="true"
     />
   </div>
 

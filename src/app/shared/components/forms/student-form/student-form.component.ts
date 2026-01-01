@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { DropdownComponent, DropdownItem } from '../../dropdown/dropdown.component';
 import { InputComponent } from '../../input/input.component';
@@ -192,6 +192,8 @@ export class StudentFormComponent {
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
 
   readonly steps = ['Personal Info', 'Education', 'Skills & Experience', 'Additional'] as const;
+  
+  private readonly cdr = inject(ChangeDetectorRef);
   currentStep = 0;
   submitAttempted = false;
   private stepNavLocked = false;
@@ -338,16 +340,16 @@ export class StudentFormComponent {
 
   // Project technologies dropdown items
   readonly projectTechnologyItems: readonly DropdownItem<string>[] = [
-    { label: 'React', value: 'React' },
-    { label: 'Angular', value: 'Angular' },
-    { label: 'Vue.js', value: 'Vue.js' },
-    { label: 'Node.js', value: 'Node.js' },
-    { label: 'Python', value: 'Python' },
-    { label: 'Java', value: 'Java' },
-    { label: 'Spring Boot', value: 'Spring Boot' },
-    { label: 'Django', value: 'Django' },
-    { label: 'MongoDB', value: 'MongoDB' },
-    { label: 'PostgreSQL', value: 'PostgreSQL' },
+    { label: 'React', value: 'REACT' },
+    { label: 'Angular', value: 'ANGULAR' },
+    { label: 'Vue.js', value: 'VUEJS' },
+    { label: 'Node.js', value: 'NODEJS' },
+    { label: 'Python', value: 'PYTHON' },
+    { label: 'Java', value: 'JAVA' },
+    { label: 'Spring Boot', value: 'SPRINGBOOT' },
+    { label: 'Django', value: 'DJANGO' },
+    { label: 'MongoDB', value: 'MONGODB' },
+    { label: 'PostgreSQL', value: 'POSTGRESQL' },
     { label: 'Other', value: 'Other' },
   ];
 
@@ -366,6 +368,7 @@ export class StudentFormComponent {
   newSoftSkill = '';
   newLanguage = '';
   newProjectTechnology = '';
+  projectTechnologyValues: Record<number, string | null> = {};
 
   setNewTechnicalSkillSkill(value: string): void {
     this.newTechnicalSkill = { ...this.newTechnicalSkill, skill: value };
@@ -568,6 +571,33 @@ export class StudentFormComponent {
     this.newProjectTechnology = '';
   }
 
+  getProjectTechnologyValue(projectIndex: number): string | null {
+    return this.projectTechnologyValues[projectIndex] ?? null;
+  }
+
+  onProjectTechnologySelected(projectIndex: number, selectedTech: string): void {
+    if (!selectedTech || !selectedTech.trim()) {
+      return;
+    }
+    const project = this.value.projects[projectIndex];
+    if (!project) {
+      return;
+    }
+    const tech = selectedTech.trim();
+    // Check if technology already exists
+    if (project.technologiesUsed.includes(tech)) {
+      // Reset dropdown even if already exists
+      this.projectTechnologyValues[projectIndex] = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    const nextTechs = uniqueStrings([...(project.technologiesUsed ?? []), tech]);
+    this.patchProjectAt(projectIndex, { technologiesUsed: nextTechs });
+    // Reset dropdown after adding
+    this.projectTechnologyValues[projectIndex] = null;
+    this.cdr.markForCheck();
+  }
+
   removeProjectTechnologyAt(projectIndex: number, techIndex: number): void {
     const project = this.value.projects[projectIndex];
     if (!project) {
@@ -663,7 +693,6 @@ export class StudentFormComponent {
           this.value.email.trim().length > 0 &&
           this.value.address.trim().length > 0 &&
           this.value.profileSummary.trim().length > 0 &&
-          this.value.about.trim().length > 0 &&
           !!this.value.photoFiles &&
           this.value.photoFiles.length > 0
         );
@@ -693,7 +722,6 @@ export class StudentFormComponent {
       this.value.email.trim().length > 0 &&
       this.value.address.trim().length > 0 &&
       this.value.profileSummary.trim().length > 0 &&
-      this.value.about.trim().length > 0 &&
       !!this.value.photoFiles &&
       this.value.photoFiles.length > 0 &&
       this.isEducationValid() &&

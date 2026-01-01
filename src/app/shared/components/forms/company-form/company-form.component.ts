@@ -50,6 +50,8 @@ export class CompanyFormComponent {
   @Output() cancelled = new EventEmitter<void>();
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
 
+  submitAttempted = false;
+
   get isReviewMode(): boolean {
     return this.mode === 'review';
   }
@@ -130,11 +132,34 @@ export class CompanyFormComponent {
     return index === this.value.keyPeople.length - 1;
   }
 
+  isAdminPhoneInvalid(): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    const phone = this.value.adminPhone.trim();
+    if (phone.length === 0) {
+      return true;
+    }
+    // Check if phone is exactly 10 digits
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
+  }
+
+  isAdminPhoneNotTenDigits(): boolean {
+    const phone = this.value.adminPhone.trim();
+    if (phone.length === 0) {
+      return false;
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
+  }
+
   submit(): void {
     // In review mode, use the explicit Approve/Reject buttons instead of form submit.
     if (this.isReviewMode) {
       return;
     }
+    this.submitAttempted = true;
     this.submitted.emit(this.value);
   }
 

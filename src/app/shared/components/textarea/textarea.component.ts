@@ -17,8 +17,19 @@ export class TextareaComponent {
   @Input() required = false;
   @Input() invalid = false;
   @Input() id: string | null = null;
+  @Input() maxlength: number | null = null;
+  @Input() showCharCount = false;
 
   @Output() valueChange = new EventEmitter<string>();
+
+  get currentLength(): number {
+    return this.value?.length || 0;
+  }
+
+  get remainingChars(): number {
+    if (!this.maxlength) return 0;
+    return Math.max(0, this.maxlength - this.currentLength);
+  }
 
   private static nextId = 0;
   private readonly autoId = `app-textarea-${TextareaComponent.nextId++}`;

@@ -8,18 +8,26 @@
     </label>
   }
 
-  <textarea
-    class="control"
-    [class.invalid]="invalid"
-    [id]="controlId"
-    [disabled]="disabled"
-    [rows]="rows"
-    [attr.required]="required ? '' : null"
-    [attr.aria-required]="required"
-    [placeholder]="placeholder"
-    [value]="value"
-    (input)="onInput(getValue($event))"
-  ></textarea>
+  <div class="textarea-wrapper">
+    <textarea
+      class="control"
+      [class.invalid]="invalid"
+      [id]="controlId"
+      [disabled]="disabled"
+      [rows]="rows"
+      [attr.required]="required ? '' : null"
+      [attr.aria-required]="required"
+      [attr.maxlength]="maxlength"
+      [placeholder]="placeholder"
+      [value]="value"
+      (input)="onInput(getValue($event))"
+    ></textarea>
+    @if (showCharCount && maxlength) {
+      <div class="char-count" [class.char-count-warning]="remainingChars < 50">
+        {{ currentLength }}/{{ maxlength }}
+      </div>
+    }
+  </div>
 </div>
 
 

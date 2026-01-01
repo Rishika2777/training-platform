@@ -9,6 +9,9 @@ import {
   ApiResponseStudentRegistrationResponse,
   StudentCompleteRegistrationRequest,
   StudentUpdateRequest,
+  ApiResponsePageAlumniResponse,
+  ApiResponseBatchmateResponse,
+  ApiResponsePlacedStudentsResponse,
 } from '../models/student.models';
 
 /**
@@ -91,6 +94,64 @@ export class StudentApiService {
   deleteStudent(studentId: string): Observable<void> {
     const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.DELETE, { studentId }));
     return this.http.delete<unknown>(url).pipe(map(() => void 0));
+  }
+
+  /**
+   * GET /students/{studentId}/alumni
+   * Fetch alumni from student database (paginated)
+   */
+  getAlumniForStudent(
+    studentId: string,
+    yearOfPassing: string,
+    page = 1,
+    limit = 12,
+  ): Observable<ApiResponsePageAlumniResponse> {
+    const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.ALUMNI, { studentId });
+    const url = this.buildUrl(endpoint);
+    const params = new HttpParams()
+      .set('yearOfPassing', yearOfPassing)
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    console.log('StudentApiService: getAlumniForStudent - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponsePageAlumniResponse>(url, { params });
+  }
+
+  /**
+   * GET /batchmates/{studentId}/batchmates
+   * Get batchmates (same batch and section)
+   */
+  getBatchmates(
+    studentId: string,
+    page = 1,
+    limit = 12,
+  ): Observable<ApiResponseBatchmateResponse> {
+    const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.BATCHMATES, { studentId });
+    const url = this.buildUrl(endpoint);
+    const params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());
+    console.log('StudentApiService: getBatchmates - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponseBatchmateResponse>(url, { params });
+  }
+
+  /**
+   * GET /placed-students
+   * Fetch placed students (paginated)
+   */
+  getPlacedStudents(
+    page = 1,
+    limit = 4,
+    companyName?: string,
+    batch?: string,
+  ): Observable<ApiResponsePlacedStudentsResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.STUDENT.PLACED_STUDENTS);
+    let params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());
+    if (companyName) {
+      params = params.set('companyName', companyName);
+    }
+    if (batch) {
+      params = params.set('batch', batch);
+    }
+    console.log('StudentApiService: getPlacedStudents - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponsePlacedStudentsResponse>(url, { params });
   }
 
   private buildUrl(endpoint: string): string {

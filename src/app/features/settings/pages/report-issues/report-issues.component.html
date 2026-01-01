@@ -21,6 +21,7 @@
               [required]="true"
               [invalid]="!!(reportForm.get('issueType')?.invalid && reportForm.get('issueType')?.touched)"
               (valueChange)="reportForm.patchValue({ issueType: $event })"
+              [autocomplete]="true"
             />
             <app-input
               label="Heading"
@@ -54,6 +55,7 @@
               [required]="true"
               [invalid]="!!(reportForm.get('priority')?.invalid && reportForm.get('priority')?.touched)"
               (valueChange)="reportForm.patchValue({ priority: $event })"
+              [autocomplete]="true"
             />
             <app-input
               label="Attachments (Optional)"

@@ -11,7 +11,7 @@
 
 .grid {
   display: grid;
-  gap: 22px 34px;
+  gap: 22px 35px;
 }
 
 .grid-3 {
@@ -36,7 +36,7 @@
 .key-person-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 22px 34px;
+  gap: 22px 35px;
   align-items: end;
 }
 
@@ -85,22 +85,51 @@
   justify-content: center;
 }
 
+.app-form-field-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-input-error {
+  margin-top: var(--space-xs);
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .grid-3 {
     grid-template-columns: 1fr;
+    gap: 16px 0;
   }
 
   .grid-2 {
     grid-template-columns: 1fr;
+    gap: 16px 0;
   }
 
   .key-person-row {
     grid-template-columns: 1fr;
+    gap: 16px 0;
     align-items: stretch;
   }
 
   .key-person-actions {
     justify-content: flex-start;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions app-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .form {
+    gap: 20px;
   }
 }
 

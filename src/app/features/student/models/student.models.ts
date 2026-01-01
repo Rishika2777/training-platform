@@ -169,6 +169,91 @@ export interface ApiResponseStudentProfileResponse {
   timestamp?: string;
 }
 
+export interface AlumniResponse {
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  profilePhotoUrl?: string;
+  designation?: string;
+  companyName?: string;
+  yearOfPassing?: string;
+}
+
+export interface BatchmateResponse {
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  profilePhotoUrl?: string;
+  batch?: string;
+  yearOfPassing?: string;
+}
+
+export interface PlacedStudentResponse {
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  batch?: string;
+  companyName?: string;
+  designation?: string;
+  lpa?: string;
+}
+
+export interface PageAlumniResponse {
+  totalPages?: number;
+  totalElements?: number;
+  first?: boolean;
+  last?: boolean;
+  size?: number;
+  content?: AlumniResponse[];
+  number?: number;
+  numberOfElements?: number;
+  empty?: boolean;
+}
+
+export interface PagePlacedStudentResponse {
+  totalPages?: number;
+  totalElements?: number;
+  first?: boolean;
+  last?: boolean;
+  size?: number;
+  content?: PlacedStudentResponse[];
+  number?: number;
+  numberOfElements?: number;
+  empty?: boolean;
+}
+
+export interface ApiResponsePageAlumniResponse {
+  success?: boolean;
+  message?: string;
+  data?: PageAlumniResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface ApiResponseBatchmateResponse {
+  success?: boolean;
+  message?: string;
+  data?: BatchmateResponse[];
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface ApiResponsePlacedStudentsResponse {
+  success?: boolean;
+  message?: string;
+  data?: PagePlacedStudentResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 function mapGenderToApi(gender: string | null): 'MALE' | 'FEMALE' | 'OTHER' {
   if (gender === 'male') return 'MALE';
   if (gender === 'female') return 'FEMALE';
@@ -249,7 +334,7 @@ export function mapStudentFormValueToRegisterRequest(
     // File uploads are not wired to backend yet; send filename if chosen, else empty.
     profilePhotoUrl: toTrimmedString(formValue.photoFiles?.item(0)?.name),
     address: toTrimmedString(formValue.address),
-    about: toTrimmedString(formValue.about || formValue.profileSummary),
+    about: toTrimmedString(formValue.profileSummary),
   };
 
   // Find the most recent education (by yearOfPassing) or use the first one

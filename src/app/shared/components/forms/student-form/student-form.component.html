@@ -42,15 +42,20 @@
         </div>
 
         <div class="app-form-row">
-  <app-input
-            label="Date of Birth"
-            [required]="true"
-            [invalid]="isDobInvalid()"
-            type="date"
-            [value]="value.dateOfBirth"
-            (valueChange)="patch({ dateOfBirth: $event })"
-            [disabled]="submitting || isReviewMode"
-          />
+          <div class="app-form-field-wrapper">
+            <app-input
+              label="Date of Birth"
+              [required]="true"
+              [invalid]="isDobInvalid()"
+              type="date"
+              [value]="value.dateOfBirth"
+              (valueChange)="patch({ dateOfBirth: $event })"
+              [disabled]="submitting || isReviewMode"
+            />
+            @if (submitAttempted && isDobTooYoung()) {
+              <div class="app-input-error">Date of birth must be at least 15 years ago.</div>
+            }
+          </div>
 
           <app-dropdown
             label="Gender"
@@ -59,49 +64,39 @@
             [items]="genderItems"
             [value]="value.gender"
             (valueChange)="patch({ gender: $event })"
-    [disabled]="submitting || isReviewMode"
-  />
-
-          <app-input
-            label="Mobile No."
-            [required]="true"
-            [invalid]="isMobileInvalid()"
-            type="tel"
-            [value]="value.mobile"
-            (valueChange)="patch({ mobile: $event })"
             [disabled]="submitting || isReviewMode"
+            [autocomplete]="true"
           />
-        </div>
 
-        @if (submitAttempted && isDobTooYoung()) {
-          <div class="app-form-row">
-            <div class="app-form-col-full">
-              <div class="app-input-error">Date of birth must be at least 15 years ago.</div>
-            </div>
-          </div>
-        }
-
-        @if (submitAttempted && isMobileNotTenDigits()) {
-          <div class="app-form-row">
-            <div class="app-form-col-full">
+          <div class="app-form-field-wrapper">
+            <app-input
+              label="Mobile No."
+              [required]="true"
+              [invalid]="isMobileInvalid()"
+              type="tel"
+              [value]="value.mobile"
+              (valueChange)="patch({ mobile: $event })"
+              [disabled]="submitting || isReviewMode"
+            />
+            @if (submitAttempted && isMobileNotTenDigits()) {
               <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
-            </div>
+            }
           </div>
-        }
+        </div>
 
         <div class="app-form-row app-form-row-textarea">
           <div class="app-form-col-textarea">
-  <app-input
-    label="Email"
+            <app-input
+              label="Email"
               [required]="true"
               [invalid]="isRequiredInvalidText(value.email)"
-    type="email"
-    [value]="value.email"
-    (valueChange)="patch({ email: $event })"
+              type="email"
+              [value]="value.email"
+              (valueChange)="patch({ email: $event })"
               [disabled]="submitting || isReviewMode || emailLocked"
-  />
+            />
           </div>
-          <div class="app-form-col-textarea">
+          <div class="app-form-col-textarea app-form-col-address">
             <app-textarea
               label="Address"
               [required]="true"
@@ -110,12 +105,14 @@
               [value]="value.address"
               (valueChange)="patch({ address: $event })"
               [disabled]="submitting || isReviewMode"
+              [maxlength]="500"
+              [showCharCount]="true"
             />
           </div>
         </div>
 
-        <div class="app-form-row app-form-row-textarea">
-          <div class="app-form-col-textarea">
+        <div class="app-form-row">
+          <div class="app-form-col-full">
             <app-textarea
             label="Profile Summary"
             [required]="true"
@@ -124,18 +121,9 @@
             [value]="value.profileSummary"
             (valueChange)="patch({ profileSummary: $event })"
             [disabled]="submitting || isReviewMode"
+            [maxlength]="2000"
+            [showCharCount]="true"
             />
-          </div>
-          <div class="app-form-col-textarea">
-  <app-textarea
-    label="About"
-    [required]="true"
-    [invalid]="isRequiredInvalidText(value.about)"
-    [rows]="4"
-    [value]="value.about"
-    (valueChange)="patch({ about: $event })"
-    [disabled]="submitting || isReviewMode"
-  />
           </div>
         </div>
       </div>
@@ -156,6 +144,7 @@
                 [value]="edu.qualification"
                 (valueChange)="patchEducationAt($index, { qualification: $event })"
                 [disabled]="submitting || isReviewMode"
+                [autocomplete]="true"
               />
               <app-dropdown
                 label="Institution Name"
@@ -165,6 +154,7 @@
                 [value]="edu.institution"
                 (valueChange)="patchEducationAt($index, { institution: $event })"
                 [disabled]="submitting || isReviewMode"
+                [autocomplete]="true"
               />
               <app-dropdown
                 label="Degree"
@@ -174,6 +164,7 @@
                 [value]="edu.degree"
                 (valueChange)="patchEducationAt($index, { degree: $event })"
                 [disabled]="submitting || isReviewMode"
+                [autocomplete]="true"
               />
             </div>
 
@@ -186,12 +177,13 @@
                 [value]="edu.specialization"
                 (valueChange)="patchEducationAt($index, { specialization: $event })"
                 [disabled]="submitting || isReviewMode"
+                [autocomplete]="true"
               />
-              <app-dropdown
+              <app-input
                 label="Year Of Passing"
+                type="date"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'yearOfPassing')"
-                [items]="yearOfPassingItems"
                 [value]="edu.yearOfPassing"
                 (valueChange)="patchEducationAt($index, { yearOfPassing: $event })"
                 [disabled]="submitting || isReviewMode"
@@ -259,6 +251,7 @@
                 [value]="newTechnicalSkill.skill"
                 (valueChange)="setNewTechnicalSkillSkill($event)"
                 [disabled]="submitting"
+                [autocomplete]="true"
               />
               <app-input
                 label="Proficiency (out of 10)"
@@ -266,6 +259,8 @@
                 [value]="newTechnicalSkill.proficiency"
                 (valueChange)="setNewTechnicalSkillProficiency($event)"
                 [disabled]="submitting"
+                [min]="'1'"
+                [max]="'10'"
               />
               <div class="app-form-action-col mini-btns">
                 <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addTechnicalSkill()" />
@@ -290,11 +285,12 @@
           @if (!isReviewMode) {
             <div class="app-form-row app-form-row-skill-add-one">
               <app-dropdown
-                label="Soft Skill"
                 [items]="softSkillItems"
                 [value]="newSoftSkill"
                 (valueChange)="newSoftSkill = $event"
                 [disabled]="submitting"
+                placeholder="Select Soft Skill"
+                [autocomplete]="true"
               />
               <div class="app-form-action-col mini-btns">
                 <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addSoftSkill()" />
@@ -318,11 +314,12 @@
           @if (!isReviewMode) {
             <div class="app-form-row app-form-row-skill-add-one">
               <app-dropdown
-                label="Language"
                 [items]="languageItems"
                 [value]="newLanguage"
                 (valueChange)="newLanguage = $event"
                 [disabled]="submitting"
+                placeholder="Select Language"
+                [autocomplete]="true"
               />
               <div class="app-form-action-col mini-btns">
                 <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addLanguage()" />
@@ -350,6 +347,7 @@
               [value]="value.workPreferences.jobRolesInterested"
               (valueChange)="setWorkPreferenceField('jobRolesInterested', $event)"
               [disabled]="submitting || isReviewMode"
+              [autocomplete]="true"
             />
             <app-dropdown
               label="Preferred Location"
@@ -357,6 +355,7 @@
               [value]="value.workPreferences.preferredLocation"
               (valueChange)="setWorkPreferenceField('preferredLocation', $event)"
               [disabled]="submitting || isReviewMode"
+              [autocomplete]="true"
             />
             <app-input
               label="Availability To Start"
@@ -434,6 +433,7 @@
                 [value]="exp.role"
                 (valueChange)="patchWorkExperienceAt($index, { role: $event })"
                 [disabled]="submitting || isReviewMode"
+                [autocomplete]="true"
               />
               <app-input
                 label="Start Date"
@@ -482,15 +482,17 @@
         <div class="app-form-section">
           <h3 class="app-form-section-title">Project Details</h3>
           @for (proj of value.projects; track $index; let projIndex = $index) {
-            <div class="app-form-row">
-              <app-input
-                label="Project Name"
-                type="text"
-                [value]="proj.projectName"
-                (valueChange)="patchProjectAt(projIndex, { projectName: $event })"
-                [disabled]="submitting || isReviewMode"
-              />
-              <div class="app-form-col-full">
+            <div class="app-form-row app-form-row-textarea app-form-row-project">
+              <div class="app-form-col-textarea">
+                <app-input
+                  label="Project Name"
+                  type="text"
+                  [value]="proj.projectName"
+                  (valueChange)="patchProjectAt(projIndex, { projectName: $event })"
+                  [disabled]="submitting || isReviewMode"
+                />
+              </div>
+              <div class="app-form-col-textarea">
                 <app-textarea
                   label="Description"
                   [rows]="4"
@@ -501,24 +503,16 @@
               </div>
             </div>
             @if (!isReviewMode) {
-              <div class="app-form-row app-form-row-skill-add-one">
+              <div class="app-form-row">
                 <app-dropdown
                   label="Technologies Used"
                   [items]="projectTechnologyItems"
-                  [value]="newProjectTechnology"
-                  (valueChange)="newProjectTechnology = $event"
+                  [value]="getProjectTechnologyValue(projIndex)"
+                  (valueChange)="onProjectTechnologySelected(projIndex, $event)"
                   [disabled]="submitting"
+                  placeholder="Select Technology"
+                  [autocomplete]="true"
                 />
-                <div class="app-form-action-col mini-btns">
-                  <app-button
-                    class="mini-btn"
-                    type="button"
-                    variant="outline"
-                    label="Add"
-                    [disabled]="submitting"
-                    (buttonClick)="addProjectTechnologyAt(projIndex)"
-                  />
-                </div>
               </div>
             }
             @if (proj.technologiesUsed.length > 0) {
@@ -652,6 +646,7 @@
             [value]="value.additional.heardAboutPortal"
             (valueChange)="setAdditionalField('heardAboutPortal', $event)"
             [disabled]="submitting || isReviewMode"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Would you like to receive job alerts via email/SMS?"
@@ -661,6 +656,7 @@
             [value]="value.additional.jobAlertsVia"
             (valueChange)="setAdditionalField('jobAlertsVia', $event)"
             [disabled]="submitting || isReviewMode"
+            [autocomplete]="true"
           />
           <div></div>
         </div>

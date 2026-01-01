@@ -58,6 +58,7 @@
           [value]="value.designation"
           [disabled]="submitting"
           (valueChange)="patch({ designation: $event })"
+          [autocomplete]="true"
         />
       </div>
 
@@ -69,6 +70,7 @@
           [value]="value.department"
           [disabled]="submitting"
           (valueChange)="patch({ department: $event })"
+          [autocomplete]="true"
         />
       </div>
 
@@ -80,6 +82,7 @@
           [value]="value.specialization"
           [disabled]="submitting"
           (valueChange)="patch({ specialization: $event })"
+          [autocomplete]="true"
         />
       </div>
 
@@ -91,6 +94,7 @@
           [value]="value.yearsOfExperience"
           [disabled]="submitting"
           (valueChange)="patch({ yearsOfExperience: $event })"
+          [autocomplete]="true"
         />
       </div>
 

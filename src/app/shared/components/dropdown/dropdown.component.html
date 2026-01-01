@@ -8,23 +8,95 @@
     </label>
   }
 
-  <div class="select-wrapper">
-    <select
-      [id]="selectId"
-      class="control"
-      [class.invalid]="invalid"
-      [disabled]="disabled"
-      [value]="value ?? ''"
-      [attr.required]="required ? '' : null"
-      [attr.aria-required]="required"
-      (change)="onSelect(getValue($event))"
-    >
-      <option value="" disabled>{{ placeholder }}</option>
-      @for (item of items; track item.value) {
-        <option [value]="item.value">{{ item.label }}</option>
+  @if (autocomplete) {
+    <!-- Autocomplete Dropdown -->
+    <div class="autocomplete-wrapper" [class.invalid]="invalid">
+      <div class="input-wrapper">
+        <input
+          #inputElement
+          [id]="selectId"
+          type="text"
+          class="control autocomplete-input"
+          [class.invalid]="invalid"
+          [disabled]="disabled"
+          [attr.required]="required ? '' : null"
+          [attr.aria-required]="required"
+          [placeholder]="placeholder"
+          [value]="searchTerm"
+          (input)="onInputChange($event)"
+          (focus)="onInputFocus()"
+          (blur)="onInputBlur($event)"
+        />
+        @if (isLoading) {
+          <div class="loading-indicator">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+          </div>
+        }
+        @if (!isLoading && selectedItem) {
+          <button
+            type="button"
+            class="clear-button"
+            (click)="clearSelection()"
+            [disabled]="disabled"
+            tabindex="-1"
+            aria-label="Clear selection"
+          >
+            <i class="fa-solid fa-times"></i>
+          </button>
+        }
+        @if (!isLoading && !selectedItem) {
+          <div class="dropdown-icon">
+            <i class="fa-solid fa-chevron-down"></i>
+          </div>
+        }
+      </div>
+
+      @if (isDropdownOpen && (filteredItems.length > 0 || isLoading)) {
+        <div #dropdownMenu class="dropdown-menu">
+          @if (isLoading) {
+            <div class="dropdown-item loading-item">
+              <i class="fa-solid fa-spinner fa-spin"></i>
+              <span>Loading...</span>
+            </div>
+          } @else {
+            @for (item of filteredItems; track item.value) {
+              <div
+                class="dropdown-item"
+                [class.selected]="selectedItem?.value === item.value"
+                (mousedown)="selectItem(item)"
+                role="option"
+                [attr.aria-selected]="selectedItem?.value === item.value"
+              >
+                {{ item.label }}
+              </div>
+            }
+          }
+        </div>
       }
-    </select>
-  </div>
+      @if (isDropdownOpen && !isLoading && filteredItems.length === 0 && searchTerm.length >= minSearchLength) {
+        <div #dropdownMenu class="dropdown-menu">
+          <div class="dropdown-item no-results">No results found</div>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- Legacy Select Dropdown -->
+    <div class="select-wrapper">
+      <select
+        [id]="selectId"
+        class="control"
+        [class.invalid]="invalid"
+        [disabled]="disabled"
+        [value]="value ?? ''"
+        [attr.required]="required ? '' : null"
+        [attr.aria-required]="required"
+        (change)="onSelect(getValue($event))"
+      >
+        <option value="" disabled>{{ placeholder }}</option>
+        @for (item of items; track item.value) {
+          <option [value]="item.value">{{ item.label }}</option>
+        }
+      </select>
+    </div>
+  }
 </div>
-
-

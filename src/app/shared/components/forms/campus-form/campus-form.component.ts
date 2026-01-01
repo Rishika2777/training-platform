@@ -94,8 +94,33 @@ export class CampusFormComponent {
     if (field === 'campusLogoFiles') {
       return !this.value.campusLogoFiles || this.value.campusLogoFiles.length === 0;
     }
+    if (field === 'adminPhone') {
+      return this.isAdminPhoneInvalid();
+    }
     const raw = this.value[field];
     return typeof raw !== 'string' || raw.trim().length === 0;
+  }
+
+  isAdminPhoneInvalid(): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    const phone = this.value.adminPhone.trim();
+    if (phone.length === 0) {
+      return true;
+    }
+    // Check if phone is exactly 10 digits
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
+  }
+
+  isAdminPhoneNotTenDigits(): boolean {
+    const phone = this.value.adminPhone.trim();
+    if (phone.length === 0) {
+      return false;
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
   }
 
   private isFormValid(): boolean {

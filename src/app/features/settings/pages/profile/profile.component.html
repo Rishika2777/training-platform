@@ -29,15 +29,20 @@
             [invalid]="!!(profileForm.get('email')?.invalid && profileForm.get('email')?.touched)"
             (valueChange)="profileForm.patchValue({ email: $event })"
           />
-          <app-input
-            label="Phone Number"
-            type="tel"
-            placeholder="Enter your phone number"
-            [value]="profileForm.get('phone')?.value || ''"
-            [required]="true"
-            [invalid]="!!(profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched)"
-            (valueChange)="profileForm.patchValue({ phone: $event })"
-          />
+          <div class="app-form-field-wrapper">
+            <app-input
+              label="Phone Number"
+              type="tel"
+              placeholder="Enter your phone number"
+              [value]="profileForm.get('phone')?.value || ''"
+              [required]="true"
+              [invalid]="isPhoneInvalid()"
+              (valueChange)="profileForm.patchValue({ phone: $event }); profileForm.get('phone')?.markAsTouched()"
+            />
+            @if (isPhoneNotTenDigits()) {
+              <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
+            }
+          </div>
           <app-textarea
             label="Bio (Optional)"
             placeholder="Tell us about yourself"

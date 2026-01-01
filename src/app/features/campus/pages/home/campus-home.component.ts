@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { CampusProspectusComponent } from '../upload-prospectus/campus-prospectus.component';
@@ -14,6 +14,8 @@ import { CampusCourseFormComponent } from '../course-form/course-form.component'
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { CampusApiService } from '../../services/campus-api.service';
+import { StudentApiService } from '../../../student/services/student-api.service';
+import { catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-campus-home',
@@ -32,9 +34,10 @@ import { CampusApiService } from '../../services/campus-api.service';
   templateUrl: './campus-home.component.html',
   styleUrl: './campus-home.component.css',
 })
-export class CampusHomeComponent {
+export class CampusHomeComponent implements OnInit {
   readonly modalService = inject(ModalService);
   private readonly campusApi = inject(CampusApiService);
+  private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
 
@@ -61,12 +64,8 @@ export class CampusHomeComponent {
     { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/login-hero-image.png' },
   ];
 
-  readonly placedStudents: readonly PersonCard[] = [
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/login-news-image.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-institution.png' },
-  ];
+  readonly placedStudents = signal<readonly PersonCard[]>([]);
+  loadingPlacedStudents = signal(false);
 
   readonly alumni: readonly PersonCard[] = [
     { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/login-news-image.png' },
@@ -104,9 +103,7 @@ export class CampusHomeComponent {
     return totalPages(this.currentBatch.length, this.peoplePageSize);
   }
 
-  get placedStudentsTotalPages(): number {
-    return totalPages(this.placedStudents.length, this.peoplePageSize);
-  }
+  placedStudentsTotalPages = signal(1);
 
   get alumniTotalPages(): number {
     return totalPages(this.alumni.length, this.peoplePageSize);
@@ -117,7 +114,62 @@ export class CampusHomeComponent {
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
-    return slicePage(this.placedStudents, this.placedStudentsPage, this.peoplePageSize);
+    return slicePage(this.placedStudents(), this.placedStudentsPage, this.peoplePageSize);
+  }
+
+  ngOnInit(): void {
+    this.loadPlacedStudents();
+  }
+
+  loadPlacedStudents(): void {
+    this.loadingPlacedStudents.set(true);
+    this.studentApiService
+      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('Error loading placed students:', error);
+          this.loadingPlacedStudents.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingPlacedStudents.set(false);
+          if (response?.success && response.data) {
+            const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
+            this.placedStudents.set(items);
+            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+          }
+        },
+        error: (error) => {
+          console.error('Placed students subscription error:', error);
+          this.loadingPlacedStudents.set(false);
+        },
+      });
+  }
+
+  onPlacedStudentsPageChange(page: number): void {
+    this.placedStudentsPage = page;
+    this.loadPlacedStudents();
+  }
+
+  private mapPlacedStudentToPersonCard(item: {
+    firstName?: string;
+    lastName?: string;
+    studentName?: string;
+    profilePhotoUrl?: string;
+    batch?: string;
+    companyName?: string;
+    designation?: string;
+  }): PersonCard {
+    // Use studentName if available, otherwise fall back to firstName + lastName
+    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
+    const subtitle = [item.batch, item.companyName].filter(Boolean).join(' ') || '';
+    return {
+      name,
+      subtitle,
+      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+    };
   }
 
   alumniPageItems(): readonly PersonCard[] {
@@ -217,6 +269,8 @@ export class CampusHomeComponent {
             this.submittingPlacedStudents = false;
             if (response?.success) {
               this.closeModal();
+              // Reload placed students after adding a new one
+              this.loadPlacedStudents();
               }
               // Safe change detection - won't crash if component is destroyed
               try {

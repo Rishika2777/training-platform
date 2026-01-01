@@ -18,6 +18,10 @@
       [required]="required"
       [invalid]="invalid"
       (valueChange)="onDropdownChange($event)"
+      [autocomplete]="autocomplete"
+      [apiFetchFn]="apiFetchFn"
+      [debounceTime]="debounceTime"
+      [minSearchLength]="minSearchLength"
     />
     <button
       type="button"
