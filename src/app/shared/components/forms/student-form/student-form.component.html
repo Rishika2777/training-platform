@@ -125,6 +125,17 @@
             [showCharCount]="true"
             />
           </div>
+          <div class="app-form-col-textarea">
+  <app-textarea
+    label="About"
+    [required]="true"
+    [invalid]="isRequiredInvalidText(value.about)"
+    [rows]="4"
+    [value]="value.about"
+    (valueChange)="patch({ about: $event })"
+    [disabled]="submitting || isReviewMode"
+  />
+          </div>
         </div>
       </div>
     }
@@ -343,6 +354,8 @@
           <div class="app-form-row">
             <app-dropdown
               label="Job Roles of Interest"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.jobRolesInterested)"
               [items]="jobRolesItems"
               [value]="value.workPreferences.jobRolesInterested"
               (valueChange)="setWorkPreferenceField('jobRolesInterested', $event)"
@@ -351,6 +364,8 @@
             />
             <app-dropdown
               label="Preferred Location"
+              [required]="true"
+              [invalid]="isRequiredInvalidText(value.workPreferences.preferredLocation)"
               [items]="preferredLocationItems"
               [value]="value.workPreferences.preferredLocation"
               (valueChange)="setWorkPreferenceField('preferredLocation', $event)"

@@ -21,6 +21,11 @@
   width: 100%;
 }
 
+.asterisk {
+  margin-left: 6px;
+  color: var(--color-error);
+}
+
 .control {
   width: 100%;
   border: 2px solid var(--color-secondary);

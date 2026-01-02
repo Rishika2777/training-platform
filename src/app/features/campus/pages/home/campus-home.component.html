@@ -231,6 +231,17 @@
   />
 </app-modal>
 
+<!-- Faculty Detail Modal -->
+<app-modal
+  [visible]="isFacultyDetailModalOpen()"
+  title=""
+  size="sm"
+  (closed)="handleFacultyDetailClose()"
+  modalClass="faculty-detail-modal"
+>
+  <app-campus-faculty-detail [faculty]="selectedFaculty()" (closed)="handleFacultyDetailClose()" />
+</app-modal>
+
 <!-- Course Form Modal -->
 <app-modal
   [visible]="isCourseFormModalOpen()"
@@ -240,7 +251,7 @@
 >
   <app-campus-course-form
     [submitting]="submittingCourseForm"
-    (submitted)="handleCourseFormSubmit($event); closeModal()"
+    (submitted)="handleCourseFormSubmit($event)"
   />
 </app-modal>
 

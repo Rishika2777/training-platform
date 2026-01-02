@@ -106,6 +106,22 @@ export class CampusApiService {
     );
   }
 
+  /**
+   * POST /dashboard/courses
+   * Add a course.
+   */
+  addCourse(request: AddCourseRequest): Observable<AddCourseResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COURSE);
+    return this.http.post<unknown>(url, request).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as AddCourseResponse;
+        }
+        return null;
+      })
+    );
+  }
+
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const resolved = resolvePathParams(endpoint, params);
 
@@ -263,6 +279,31 @@ export interface AddCompanyVisitedResponse {
   success: boolean;
   message: string;
   data: AddCompanyVisitedResponseData;
+  error: string;
+}
+
+export interface AddCourseRequest {
+  courseName: string;
+  courseDuration: string;
+  seatsAvailable: string;
+  description: string;
+}
+
+export interface AddCourseResponseData {
+  id?: string;
+  campusId?: string;
+  courseName?: string;
+  courseDuration?: string;
+  seatsAvailable?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AddCourseResponse {
+  success: boolean;
+  message: string;
+  data: AddCourseResponseData;
   error: string;
 }
 

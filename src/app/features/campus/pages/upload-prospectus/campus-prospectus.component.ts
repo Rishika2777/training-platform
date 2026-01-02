@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputWithFileComponent } from '../../../../shared/components/input-with-file/input-with-file.component';
-import { DropdownWithFileComponent } from '../../../../shared/components/dropdown-with-file/dropdown-with-file.component';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 
 export interface ProspectusUploadFormValue {
   campus: string;
@@ -14,7 +14,7 @@ export interface ProspectusUploadFormValue {
 @Component({
   selector: 'app-campus-prospectus',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, InputWithFileComponent, DropdownWithFileComponent],
+  imports: [CommonModule, ButtonComponent, InputWithFileComponent, DropdownComponent],
   templateUrl: './campus-prospectus.component.html',
   styleUrl: './campus-prospectus.component.css',
 })

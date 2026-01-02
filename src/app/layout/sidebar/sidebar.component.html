@@ -41,7 +41,7 @@
           </div>
           <div class="faculties-list">
             @for (faculty of displayedFaculty; track faculty.imageUrl) {
-              <div class="faculty-item">
+              <div class="faculty-item" (click)="onFacultyClick(faculty)" role="button" tabindex="0" (keydown.enter)="onFacultyClick(faculty)" (keydown.space)="onFacultyClick(faculty); $event.preventDefault()">
                 <img class="faculty-avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
                 <div class="faculty-name">{{ faculty.name }}</div>
               </div>

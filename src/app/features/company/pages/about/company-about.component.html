@@ -1,8 +1,278 @@
-<section class="page">
-  <h2>About company</h2>
-  <app-card title="Overview">
-    <p>Placeholder for company about page.</p>
-  </app-card>
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <h1 class="hero-heading">Empowering the Future Through Knowledge, Creativity, and Innovation</h1>
+    <div class="hero-buttons">
+            <app-button label="Join Community" variant="secondary" (buttonClick)="onJoinCommunity()" />
+            <app-button label="Read More" variant="secondary" (buttonClick)="onReadMore()" />
+    </div>
+  </div>
 </section>
 
+<!-- Engagement Metrics -->
+<section class="engagement-metrics">
+  <p>{{ promotions }} Promotions, {{ followers }} Followers - The Journey Thrives!</p>
+</section>
 
+<!-- Company Insights -->
+<section class="company-insights">
+  <div class="container">
+    <h2 class="section-heading">Company Insights</h2>
+    <div class="insights-content">
+      <div class="insights-image">
+        <img src="/assets/images/company-building.jpg" alt="Company Building" />
+      </div>
+      <div class="insights-text">
+        <p>
+          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+          standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+          make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+          typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset
+          sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus
+          PageMaker including versions of Lorem Ipsum.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Vision & Achievement Metrics -->
+<section class="vision-section">
+  <div class="container">
+    <h2 class="section-heading">Our Vision & Achievement Metrics</h2>
+    <div class="vision-content">
+      <blockquote class="vision-quote">
+        "Our vision is to provide cutting-edge educational solutions that drive innovation, foster creativity, and enable
+        individuals to unlock their fullest potential. We are committed to shaping the future by creating learning
+        environments where growth, collaboration, and success are limitless."
+      </blockquote>
+      <div class="achievement-graph">
+        <div class="graph-container">
+          <div class="graph-placeholder">
+            <div class="graph-line"></div>
+            <div class="graph-shade"></div>
+          </div>
+          <button class="graph-more-btn">More</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Target Campus for Placement Drives -->
+<section class="campus-section">
+  <div class="container">
+    <h2 class="section-heading">Target Campus for Placement Drives</h2>
+    <app-carousel
+      type="pagination"
+      [currentPage]="currentCampusPage()"
+      [totalPages]="Math.ceil(campuses.length / 5)"
+      [maxVisible]="5"
+      (pageChange)="onCampusPageChange($event)"
+    >
+      <div class="campus-grid">
+        @for (campus of campuses; track $index) {
+          <div class="campus-card">
+            <img [src]="campus.image" [alt]="campus.name" />
+            <p class="campus-name">{{ campus.name }}</p>
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </div>
+</section>
+
+<!-- Core Team Members -->
+<section class="team-section">
+  <div class="container">
+    <h2 class="section-heading">Core Team Members</h2>
+    <div class="ceo-profile">
+      <img [src]="ceo.image" [alt]="ceo.name" class="ceo-image" />
+      <h3 class="ceo-name">{{ ceo.name }}</h3>
+      <p class="ceo-designation">{{ ceo.designation }}</p>
+    </div>
+    <app-carousel
+      type="pagination"
+      [currentPage]="currentTeamPage()"
+      [totalPages]="Math.ceil(teamMembers.length / 7)"
+      [maxVisible]="7"
+      (pageChange)="onTeamPageChange($event)"
+    >
+      <div class="team-grid">
+        @for (member of teamMembers; track $index) {
+          <div class="team-member">
+            <img [src]="member.image" [alt]="member.name" />
+            <p class="member-name">{{ member.name }}</p>
+            <p class="member-designation">{{ member.designation }}</p>
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </div>
+</section>
+
+<!-- Benefits Section -->
+<section class="benefits-section">
+  <div class="container">
+    <h2 class="section-heading">Benefits we provide</h2>
+    <div class="benefits-top">
+      <div class="benefit-stat">
+        <div class="progress-circle">
+          <div class="progress-value">{{ internToJobRate }}%</div>
+          <svg class="progress-ring" width="200" height="200">
+            <circle
+              class="progress-ring-circle"
+              stroke="#f4a261"
+              stroke-width="20"
+              fill="transparent"
+              r="80"
+              cx="100"
+              cy="100"
+              [style.stroke-dasharray]="(internToJobRate / 100) * 502.4 + ' 502.4'"
+            />
+          </svg>
+        </div>
+        <p class="stat-label">Intern-to-Job Rate</p>
+      </div>
+      <div class="benefit-stat">
+        <div class="salary-range">
+          <p class="salary-label">Starting Salary Range</p>
+          <div class="salary-visual">
+            <div class="salary-bar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="benefits-list">
+      @for (benefit of benefits; track $index) {
+        <div class="benefit-item" [class.open]="benefit.isOpen">
+          <button class="benefit-header" (click)="toggleBenefit($index)">
+            <span class="benefit-icon">{{ benefit.icon }}</span>
+            <span class="benefit-title">{{ benefit.title }}</span>
+            <span class="benefit-chevron">▼</span>
+          </button>
+          @if (benefit.isOpen) {
+            <div class="benefit-content">
+              <p>Details about {{ benefit.title }} will be displayed here.</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Our Clients -->
+<section class="clients-section">
+  <div class="container">
+    <h2 class="section-heading">Our clients</h2>
+    <app-carousel
+      type="pagination"
+      [currentPage]="currentClientPage()"
+      [totalPages]="Math.ceil(clients.length / 8)"
+      [maxVisible]="8"
+      (pageChange)="onClientPageChange($event)"
+    >
+      <div class="clients-grid">
+        @for (client of clients; track $index) {
+          <div class="client-logo">
+            <img [src]="client.logo" alt="Client Logo" />
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </div>
+</section>
+
+<!-- Testimonial Section -->
+<section class="testimonial-section">
+  <div class="container">
+    <h2 class="testimonial-heading">Your Voice, Our Strength</h2>
+    <app-carousel
+      type="pagination"
+      [currentPage]="currentTestimonialPage()"
+      [totalPages]="testimonials.length"
+      [maxVisible]="1"
+      (pageChange)="onTestimonialPageChange($event)"
+    >
+      <div class="testimonial-content">
+        @for (testimonial of testimonials; track $index) {
+          <div class="testimonial-item">
+            <p class="testimonial-quote">"{{ testimonial.quote }}"</p>
+            <div class="testimonial-author">
+              <img [src]="testimonial.image" [alt]="testimonial.author" />
+              <p class="author-name">{{ testimonial.author }}</p>
+            </div>
+          </div>
+        }
+      </div>
+    </app-carousel>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="company-footer">
+  <div class="container">
+    <div class="footer-content">
+      <div class="footer-contact">
+        <h3 class="footer-heading">Get In Touch</h3>
+        <div class="contact-item">
+          <i class="fa-solid fa-envelope"></i>
+          <span>clavrit@gmail.com</span>
+        </div>
+        <div class="contact-item">
+          <i class="fa-solid fa-phone"></i>
+          <span>+91 987-654-3210</span>
+        </div>
+        <div class="contact-item">
+          <i class="fa-solid fa-location-dot"></i>
+          <span>113, 1st Main Road, 3rd Phase, JP Nagar, Bangalore - 560078</span>
+        </div>
+      </div>
+      <div class="footer-feedback">
+        <p class="feedback-intro">
+          Your input is valuable in recognizing accomplishments and guiding improvement. Let us know your insights on this
+          student's progress, abilities, and highlights using the form below!
+        </p>
+        <div class="feedback-form">
+          <p class="feedback-question">Would you recommend promoting this company based on their performance and potential?</p>
+          <div class="recommendation-buttons">
+            <button
+              type="button"
+              class="recommendation-btn"
+              [class.active]="feedbackForm.recommendation === 'yes'"
+              (click)="feedbackForm.recommendation = 'yes'"
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              class="recommendation-btn"
+              [class.active]="feedbackForm.recommendation === 'no'"
+              (click)="feedbackForm.recommendation = 'no'"
+            >
+              No
+            </button>
+          </div>
+          <app-input
+            label="Name"
+            type="text"
+            placeholder="Enter your name"
+            [value]="feedbackForm.name"
+            (valueChange)="feedbackForm.name = $event"
+          />
+          <app-textarea
+            label="Speak your mind about Clavrit!"
+            placeholder="Write your feedback here..."
+            [value]="feedbackForm.feedback"
+            (valueChange)="feedbackForm.feedback = $event"
+            [rows]="5"
+          />
+          <app-button label="send" variant="secondary" type="submit" (buttonClick)="submitFeedback()" />
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom"></div>
+</footer>

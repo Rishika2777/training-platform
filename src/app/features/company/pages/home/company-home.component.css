@@ -309,6 +309,28 @@
   opacity: 0.9;
 }
 
+/* Client Form Modal Styling */
+:host ::ng-deep .client-form-modal .close {
+  background: #f4a261;
+  color: var(--color-white);
+}
+
+:host ::ng-deep .client-form-modal .close:hover {
+  background: #e76f51;
+  opacity: 1;
+}
+
+/* Preferred Campus Form Modal Styling */
+:host ::ng-deep .preferred-campus-form-modal .close {
+  background: #f4a261;
+  color: var(--color-white);
+}
+
+:host ::ng-deep .preferred-campus-form-modal .close:hover {
+  background: #e76f51;
+  opacity: 1;
+}
+
 @media (max-width: 980px) {
   .grid {
     grid-template-columns: 1fr;

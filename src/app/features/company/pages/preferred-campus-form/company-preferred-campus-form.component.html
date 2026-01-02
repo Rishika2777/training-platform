@@ -1,0 +1,64 @@
+<form class="preferred-campus-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
+  <div class="form-row">
+    <div class="file-input-wrapper">
+      <div class="field-label">
+        Upload photo
+      </div>
+      <div class="file-input-container">
+        <app-input
+          type="text"
+          [value]="photoName || 'Select photo file'"
+          [disabled]="true"
+          [invalid]="submitAttempted && !value.photo"
+          placeholder="Select photo file"
+        />
+        <button
+          type="button"
+          class="file-attach-btn"
+          (click)="triggerPhotoSelect()"
+          [disabled]="submitting"
+          [attr.aria-label]="'Select photo file'"
+        >
+          <i class="fa-solid fa-paperclip"></i>
+        </button>
+        <input
+          #photoFileInput
+          type="file"
+          accept="image/*"
+          style="display: none"
+          [disabled]="submitting"
+          (change)="onPhotoSelected($any($event.target).files)"
+        />
+      </div>
+      @if (submitAttempted && !value.photo) {
+        <span class="error-message">Photo is required</span>
+      }
+    </div>
+  </div>
+
+  <div class="form-row">
+    <app-input
+      label="Campus Name"
+      type="text"
+      [value]="value.campusName"
+      [disabled]="submitting"
+      [invalid]="submitAttempted && !value.campusName.trim()"
+      (valueChange)="patch({ campusName: $event })"
+      placeholder="Enter campus name"
+    />
+    @if (submitAttempted && !value.campusName.trim()) {
+      <span class="error-message">Campus name is required</span>
+    }
+  </div>
+
+  <div class="form-actions">
+    <app-button
+      type="submit"
+      label="Submit"
+      variant="primary"
+      [disabled]="submitting || !isFormValid()"
+      (buttonClick)="onButtonClick()"
+    />
+  </div>
+</form>
+

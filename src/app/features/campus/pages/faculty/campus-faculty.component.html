@@ -14,13 +14,34 @@
       </div>
 
       <div class="form-row">
-        <app-input
-          label="Upload Photo"
-          type="file"
-          accept="image/*"
-          [disabled]="submitting"
-          (filesSelected)="onPhotoSelected($event)"
-        />
+        <div class="file-input-wrapper">
+          <div class="field-label">Upload Photo</div>
+          <div class="file-input-container">
+            <app-input
+              type="text"
+              [value]="photoName || 'Select photo file'"
+              [disabled]="true"
+              placeholder="Select photo file"
+            />
+            <button
+              type="button"
+              class="file-attach-btn"
+              (click)="triggerPhotoSelect()"
+              [disabled]="submitting"
+              [attr.aria-label]="'Select photo file'"
+            >
+              <i class="fa-solid fa-paperclip"></i>
+            </button>
+            <input
+              #photoFileInput
+              type="file"
+              accept="image/*"
+              style="display: none"
+              [disabled]="submitting"
+              (change)="onPhotoSelected($any($event.target).files)"
+            />
+          </div>
+        </div>
       </div>
 
       <div class="form-row">
@@ -44,110 +65,141 @@
           (valueChange)="patch({ dateOfBirth: $event })"
         />
       </div>
+
+      <div class="form-row">
+        <app-input
+          label="Phone Number"
+          type="tel"
+          [value]="value.phoneNumber"
+          [disabled]="submitting"
+          [required]="true"
+          (valueChange)="patch({ phoneNumber: $event })"
+        />
+      </div>
     </div>
   </div>
 
   <div class="form-section">
     <h3 class="section-title">Professional Information</h3>
-    <div class="form-grid">
-      <div class="form-row">
-        <app-dropdown
-          label="Designation"
-          placeholder="Select Designation"
-          [items]="designationItems"
-          [value]="value.designation"
-          [disabled]="submitting"
-          (valueChange)="patch({ designation: $event })"
-          [autocomplete]="true"
-        />
-      </div>
-
-      <div class="form-row">
-        <app-dropdown
-          label="Department"
-          placeholder="Select Department"
-          [items]="departmentItems"
-          [value]="value.department"
-          [disabled]="submitting"
-          (valueChange)="patch({ department: $event })"
-          [autocomplete]="true"
-        />
-      </div>
-
-      <div class="form-row">
-        <app-dropdown
-          label="Specialization"
-          placeholder="Select Specialization"
-          [items]="specializationItems"
-          [value]="value.specialization"
-          [disabled]="submitting"
-          (valueChange)="patch({ specialization: $event })"
-          [autocomplete]="true"
-        />
-      </div>
-
-      <div class="form-row">
-        <app-dropdown
-          label="Years Of Experience"
-          placeholder="Select Experience"
-          [items]="experienceItems"
-          [value]="value.yearsOfExperience"
-          [disabled]="submitting"
-          (valueChange)="patch({ yearsOfExperience: $event })"
-          [autocomplete]="true"
-        />
-      </div>
-
-      <div class="form-row qualifications">
-        <div class="qualifications-header">
-          <span class="field-label">Qualifications</span>
+    @for (info of value.professionalInfo; track $index) {
+      <div class="professional-info-group">
+        @if (canRemoveProfessionalInfo()) {
           <button
             type="button"
-            class="add-btn-with-text"
-            (click)="addQualification()"
+            class="remove-btn"
+            (click)="removeProfessionalInfo($index)"
             [disabled]="submitting"
+            title="Remove this section"
+            [attr.aria-label]="'Remove professional information section ' + ($index + 1)"
           >
-            <span>Add</span>
-            <i class="fa-solid fa-plus"></i>
+            <i class="fa-solid fa-trash"></i>
           </button>
-        </div>
-        @for (qual of value.qualifications; track $index) {
-          <div class="input-field">
-            <app-input
-              type="text"
-              [value]="qual"
+        }
+        <div class="form-grid">
+          <div class="form-row">
+            <app-dropdown
+              label="Designation"
+              placeholder="Select Designation"
+              [items]="designationItems"
+              [value]="info.designation"
               [disabled]="submitting"
-              (valueChange)="updateQualification($index, $event)"
+              [required]="true"
+              (valueChange)="updateProfessionalInfo($index, 'designation', $event)"
             />
           </div>
-        }
-      </div>
 
-      <div class="form-row certificates">
-        <div class="certificates-header">
-          <span class="field-label">Certificates</span>
-          <button
-            type="button"
-            class="add-btn-with-text"
-            (click)="addCertificate()"
-            [disabled]="submitting"
-          >
-            <span>Add</span>
-            <i class="fa-solid fa-plus"></i>
-          </button>
-        </div>
-        @for (cert of value.certificates; track $index) {
-          <div class="input-field">
-            <app-input
-              type="text"
-              [value]="cert"
+          <div class="form-row">
+            <app-dropdown
+              label="Department"
+              placeholder="Select Department"
+              [items]="departmentItems"
+              [value]="info.department"
               [disabled]="submitting"
-              (valueChange)="updateCertificate($index, $event)"
+              [required]="true"
+              (valueChange)="updateProfessionalInfo($index, 'department', $event)"
             />
           </div>
-        }
+
+          <div class="form-row">
+            <app-dropdown
+              label="Specialization"
+              placeholder="Select Specialization"
+              [items]="specializationItems"
+              [value]="info.specialization"
+              [disabled]="submitting"
+              [required]="true"
+              (valueChange)="updateProfessionalInfo($index, 'specialization', $event)"
+            />
+          </div>
+
+          <div class="form-row">
+            <app-dropdown
+              label="Years Of Experience"
+              placeholder="Select Experience"
+              [items]="experienceItems"
+              [value]="info.yearsOfExperience"
+              [disabled]="submitting"
+              [required]="true"
+              (valueChange)="updateProfessionalInfo($index, 'yearsOfExperience', $event)"
+            />
+          </div>
+
+          <div class="form-row">
+            <app-input
+              label="Qualifications"
+              type="text"
+              [value]="info.qualifications"
+              [disabled]="submitting"
+              (valueChange)="updateProfessionalInfo($index, 'qualifications', $event)"
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="file-input-wrapper">
+              <div class="field-label">Certificates</div>
+              <div class="file-input-container">
+                <app-input
+                  type="text"
+                  [value]="getCertificateName($index) || 'Select certificate file'"
+                  [disabled]="true"
+                  placeholder="Select certificate file"
+                />
+                <button
+                  type="button"
+                  class="file-attach-btn"
+                  (click)="triggerCertificateSelect($index)"
+                  [disabled]="submitting"
+                  [attr.aria-label]="'Select certificate file for section ' + ($index + 1)"
+                >
+                  <i class="fa-solid fa-paperclip"></i>
+                </button>
+                <input
+                  [id]="'certificate-file-input-' + $index"
+                  type="file"
+                  accept="image/*"
+                  style="display: none"
+                  [disabled]="submitting"
+                  (change)="onCertificateSelected($index, $any($event.target).files)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    }
+  </div>
+
+  <div class="add-professional-info">
+    <button
+      type="button"
+      class="add-btn-with-text"
+      (click)="addProfessionalInfo()"
+      [disabled]="submitting"
+      title="Add Professional Information"
+    >
+      <span>Add</span>
+      <i class="fa-solid fa-plus"></i>
+    </button>
   </div>
 
   <div class="form-actions">

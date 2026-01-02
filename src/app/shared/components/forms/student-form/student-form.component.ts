@@ -252,19 +252,36 @@ export class StudentFormComponent {
     { label: 'M.E.', value: 'M.E.' },
     { label: 'M.Sc', value: 'M.Sc' },
     { label: 'MBA', value: 'MBA' },
+    { label: 'MCA', value: 'MCA' },
     { label: 'Other', value: 'Other' },
   ];
 
   readonly specializationItems: readonly DropdownItem<string>[] = [
     { label: 'Computer Science', value: 'Computer Science' },
+    { label: 'Information Technology', value: 'Information Technology' },
     { label: 'Electrical Engineering', value: 'Electrical Engineering' },
     { label: 'Mechanical Engineering', value: 'Mechanical Engineering' },
     { label: 'Civil Engineering', value: 'Civil Engineering' },
-    { label: 'Information Technology', value: 'Information Technology' },
+    { label: 'Electronics', value: 'Electronics' },
+    { label: 'Mechanical', value: 'Mechanical' },
+    { label: 'Civil', value: 'Civil' },
+    { label: 'Electrical', value: 'Electrical' },
+    { label: 'Chemical', value: 'Chemical' },
+    { label: 'Aerospace', value: 'Aerospace' },
+    { label: 'Biotechnology', value: 'Biotechnology' },
     { label: 'Data Science', value: 'Data Science' },
     { label: 'Business Administration', value: 'Business Administration' },
     { label: 'Other', value: 'Other' },
   ];
+
+  readonly yearOfPassingItems: readonly DropdownItem<string>[] = (() => {
+    const currentYear = new Date().getFullYear();
+    const years: DropdownItem<string>[] = [];
+    for (let year = currentYear; year >= currentYear - 20; year--) {
+      years.push({ label: String(year), value: String(year) });
+    }
+    return years;
+  })();
 
   // Skills dropdown items
   readonly technicalSkillItems: readonly DropdownItem<string>[] = [
@@ -352,16 +369,6 @@ export class StudentFormComponent {
     { label: 'PostgreSQL', value: 'POSTGRESQL' },
     { label: 'Other', value: 'Other' },
   ];
-
-  get yearOfPassingItems(): readonly DropdownItem<string>[] {
-    const currentYear = new Date().getFullYear();
-    const years: DropdownItem<string>[] = [];
-    for (let i = 0; i <= 5; i++) {
-      const year = currentYear + i;
-      years.push({ label: year.toString(), value: year.toString() });
-    }
-    return years;
-  }
 
   // Draft inputs for tag-like lists
   newTechnicalSkill: StudentTechnicalSkillItem = { skill: '', proficiency: '' };
@@ -693,6 +700,7 @@ export class StudentFormComponent {
           this.value.email.trim().length > 0 &&
           this.value.address.trim().length > 0 &&
           this.value.profileSummary.trim().length > 0 &&
+          this.value.about.trim().length > 0 &&
           !!this.value.photoFiles &&
           this.value.photoFiles.length > 0
         );
@@ -722,6 +730,7 @@ export class StudentFormComponent {
       this.value.email.trim().length > 0 &&
       this.value.address.trim().length > 0 &&
       this.value.profileSummary.trim().length > 0 &&
+      this.value.about.trim().length > 0 &&
       !!this.value.photoFiles &&
       this.value.photoFiles.length > 0 &&
       this.isEducationValid() &&

@@ -204,9 +204,15 @@
 }
 
 .faculty-item {
-  display: grid;
-  gap: var(--space-xs);
-  justify-items: center;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.faculty-item:hover {
+  opacity: 0.8;
 }
 
 .faculty-avatar {
@@ -214,15 +220,17 @@
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid color-mix(in srgb, var(--color-secondary) 50%, white);
+  border: 3px solid #9b59b6;
+  flex-shrink: 0;
 }
 
 .faculty-name {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-white);
-  text-align: center;
-  line-height: 1.1;
+  text-align: left;
+  line-height: 1.2;
+  flex: 1;
 }
 
 .faculties-pagination {

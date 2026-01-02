@@ -11,13 +11,13 @@
   </div>
 
   <div class="form-row">
-    <app-dropdown-with-file
+    <app-dropdown
       label="Course"
+      placeholder="Select"
       [items]="courseItems"
       [value]="value.course"
       [disabled]="submitting"
       (valueChange)="patch({ course: $event })"
-      (fileSelected)="onCourseFileSelected($event)"
     />
   </div>
 

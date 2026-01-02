@@ -81,7 +81,12 @@
         </div>
 
         <div class="company-grid">
-          <button class="company-tile add" type="button" title="Add">
+          <button
+            class="company-tile add"
+            type="button"
+            title="Add"
+            (click)="modalService.openModal('company-client-form')"
+          >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
           @for (c of clients; track c.alt) {
@@ -113,7 +118,12 @@
         </div>
 
         <div class="company-grid">
-          <button class="company-tile add" type="button" title="Add">
+          <button
+            class="company-tile add"
+            type="button"
+            title="Add"
+            (click)="modalService.openModal('company-preferred-campus-form')"
+          >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
           @for (t of preferredCampuses; track t.alt) {
@@ -177,6 +187,34 @@
     <app-company-current-vacancy
       [submitting]="submittingCurrentVacancy"
       (submitted)="handleCurrentVacancySubmit($event); closeModal()"
+    />
+  </app-modal>
+
+  <!-- Client Form Modal -->
+  <app-modal
+    [visible]="isClientFormModalOpen()"
+    title="Clients Of Our Company"
+    size="md"
+    (closed)="closeModal()"
+    modalClass="client-form-modal"
+  >
+    <app-company-client-form
+      [submitting]="submittingClientForm"
+      (submitted)="handleClientFormSubmit($event); closeModal()"
+    />
+  </app-modal>
+
+  <!-- Preferred Campus Form Modal -->
+  <app-modal
+    [visible]="isPreferredCampusFormModalOpen()"
+    title="Preferred Campus"
+    size="md"
+    (closed)="closeModal()"
+    modalClass="preferred-campus-form-modal"
+  >
+    <app-company-preferred-campus-form
+      [submitting]="submittingPreferredCampusForm"
+      (submitted)="handlePreferredCampusFormSubmit($event); closeModal()"
     />
   </app-modal>
 </div>

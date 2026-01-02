@@ -1,0 +1,66 @@
+<form class="client-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
+  <div class="form-row">
+    <div class="file-input-wrapper">
+      <div class="field-label">
+        Logo
+        <span class="asterisk" aria-hidden="true">*</span>
+      </div>
+      <div class="file-input-container">
+        <app-input
+          type="text"
+          [value]="logoName || 'Select logo file'"
+          [disabled]="true"
+          [invalid]="submitAttempted && !value.logo"
+          placeholder="Select logo file"
+        />
+        <button
+          type="button"
+          class="file-attach-btn"
+          (click)="triggerLogoSelect()"
+          [disabled]="submitting"
+          [attr.aria-label]="'Select logo file'"
+        >
+          <i class="fa-solid fa-paperclip"></i>
+        </button>
+        <input
+          #logoFileInput
+          type="file"
+          accept="image/*"
+          style="display: none"
+          [disabled]="submitting"
+          (change)="onLogoSelected($any($event.target).files)"
+        />
+      </div>
+      @if (submitAttempted && !value.logo) {
+        <span class="error-message">Logo is required</span>
+      }
+    </div>
+  </div>
+
+  <div class="form-row">
+    <app-input
+      label="Client Name"
+      [required]="true"
+      type="text"
+      [value]="value.clientName"
+      [disabled]="submitting"
+      [invalid]="submitAttempted && !value.clientName.trim()"
+      (valueChange)="patch({ clientName: $event })"
+      placeholder="Enter client name"
+    />
+    @if (submitAttempted && !value.clientName.trim()) {
+      <span class="error-message">Client name is required</span>
+    }
+  </div>
+
+  <div class="form-actions">
+    <app-button
+      type="submit"
+      label="Submit"
+      variant="primary"
+      [disabled]="submitting || !isFormValid()"
+      (buttonClick)="onButtonClick()"
+    />
+  </div>
+</form>
+

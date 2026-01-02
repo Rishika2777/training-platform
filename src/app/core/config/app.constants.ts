@@ -153,6 +153,7 @@
       APPROVAL: '/campus/:campusId/approval',
       ADD_PLACED_STUDENT: '/dashboard/students/placed',
       ADD_COMPANY_VISITED: '/dashboard/companies/visited',
+      ADD_COURSE: '/dashboard/courses',
     },
     USERS: {
       BASE: '/users',

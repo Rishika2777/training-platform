@@ -6,6 +6,7 @@ export type ModalType =
   | 'placed-students'
   | 'courses'
   | 'faculty'
+  | 'faculty-detail'
   | 'course-form'
   | 'resume-upload'
   | 'career-checkin'
@@ -16,6 +17,8 @@ export type ModalType =
   | 'company-vision-performance'
   | 'company-benefits'
   | 'company-current-vacancy'
+  | 'company-client-form'
+  | 'company-preferred-campus-form'
   | null;
 
 @Injectable({ providedIn: 'root' })

@@ -10,10 +10,12 @@ import {
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent } from '../faculty/campus-faculty.component';
-import { CampusCourseFormComponent } from '../course-form/course-form.component';
+import { CampusCourseFormComponent, CourseFormValue } from '../course-form/course-form.component';
+import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { CampusApiService } from '../../services/campus-api.service';
+import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { catchError, of } from 'rxjs';
 
@@ -30,6 +32,7 @@ import { catchError, of } from 'rxjs';
     CampusCoursesComponent,
     CampusFacultyComponent,
     CampusCourseFormComponent,
+    CampusFacultyDetailComponent,
   ],
   templateUrl: './campus-home.component.html',
   styleUrl: './campus-home.component.css',
@@ -40,6 +43,7 @@ export class CampusHomeComponent implements OnInit {
   private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
+  readonly facultyDetailService = inject(FacultyDetailService);
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -47,7 +51,9 @@ export class CampusHomeComponent implements OnInit {
   readonly isPlacedStudentsModalOpen = computed(() => this.activeModal() === 'placed-students');
   readonly isCoursesModalOpen = computed(() => this.activeModal() === 'courses');
   readonly isFacultyModalOpen = computed(() => this.activeModal() === 'faculty');
+  readonly isFacultyDetailModalOpen = computed(() => this.activeModal() === 'faculty-detail');
   readonly isCourseFormModalOpen = computed(() => this.activeModal() === 'course-form');
+  readonly selectedFaculty = computed(() => this.facultyDetailService.selectedFaculty());
 
   submittingProspectus = false;
   submittingCompanies = false;
@@ -178,6 +184,11 @@ export class CampusHomeComponent implements OnInit {
 
   closeModal(): void {
     this.modalService.closeModal();
+    this.facultyDetailService.clearSelectedFaculty();
+  }
+
+  handleFacultyDetailClose(): void {
+    this.closeModal();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -348,20 +359,45 @@ export class CampusHomeComponent implements OnInit {
     this.closeModal();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleCourseFormSubmit(_value: unknown): void {
-    // API call will be implemented here
+  handleCourseFormSubmit(value: CourseFormValue): void {
+    if (!value.courseName.trim() || !value.courseDuration.trim() || !value.seatsAvailable.trim() || !value.description.trim()) {
+      this.submittingCourseForm = false;
+      return;
+    }
+
     this.submittingCourseForm = true;
-    // TODO: Call API service
-    // this.campusApi.addCourse(value).subscribe({
-    //   next: () => {
-    //     this.submittingCourseForm = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingCourseForm = false;
-    //   }
-    // });
+
+    const request = {
+      courseName: value.courseName.trim(),
+      courseDuration: value.courseDuration.trim(),
+      seatsAvailable: value.seatsAvailable.trim(),
+      description: value.description.trim(),
+    };
+
+    this.campusApi.addCourse(request).subscribe({
+      next: () => {
+        console.log('API Integration Working - Course Added Successfully');
+        this.submittingCourseForm = false;
+        this.notify.success('Course added successfully');
+        this.closeModal();
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Component might be destroyed, ignore
+        }
+      },
+      error: (err) => {
+        const errorMessage = err?.error?.message || err?.message || 'Failed to add course';
+        console.error('API Integration Failed -', errorMessage);
+        this.submittingCourseForm = false;
+        this.notify.error(errorMessage);
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 }
 

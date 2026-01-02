@@ -4,48 +4,68 @@
       <app-input
         label="Course Name"
         type="text"
+        [required]="true"
         [value]="value.courseName"
         [disabled]="submitting"
+        [invalid]="isInvalid('courseName')"
         (valueChange)="patch({ courseName: $event })"
       />
+      @if (submitAttempted && isInvalid('courseName')) {
+        <span class="error-message">Course name is required</span>
+      }
     </div>
 
     <div class="form-row">
       <app-input
         label="Course Duration"
         type="text"
+        [required]="true"
         [value]="value.courseDuration"
         [disabled]="submitting"
+        [invalid]="isInvalid('courseDuration')"
         placeholder="e.g., 3 yr"
         (valueChange)="patch({ courseDuration: $event })"
       />
+      @if (submitAttempted && isInvalid('courseDuration')) {
+        <span class="error-message">Course duration is required</span>
+      }
     </div>
 
     <div class="form-row">
       <app-input
         label="Seats Available"
         type="text"
+        [required]="true"
         [value]="value.seatsAvailable"
         [disabled]="submitting"
+        [invalid]="isInvalid('seatsAvailable')"
         placeholder="e.g., 30"
         (valueChange)="patch({ seatsAvailable: $event })"
       />
+      @if (submitAttempted && isInvalid('seatsAvailable')) {
+        <span class="error-message">Seats available is required</span>
+      }
     </div>
 
     <div class="form-row">
       <app-input
         label="Description"
         type="text"
+        [required]="true"
         [value]="value.description"
         [disabled]="submitting"
+        [invalid]="isInvalid('description')"
         placeholder="Enter course description"
         (valueChange)="patch({ description: $event })"
       />
+      @if (submitAttempted && isInvalid('description')) {
+        <span class="error-message">Description is required</span>
+      }
     </div>
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting || !isFormValid()" />
   </div>
 </form>
 

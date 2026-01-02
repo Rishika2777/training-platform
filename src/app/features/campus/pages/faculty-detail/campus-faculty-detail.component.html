@@ -1,0 +1,31 @@
+@if (faculty) {
+  <div class="faculty-detail-card">
+    <button type="button" class="close-btn" (click)="closeModal()" aria-label="Close faculty detail">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <div class="faculty-profile-section">
+      <img class="faculty-avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
+    </div>
+
+    <div class="faculty-info-section">
+      <h2 class="faculty-name">{{ faculty.name }}</h2>
+      <div class="faculty-designation">{{ faculty.designation }}</div>
+      <div class="faculty-department">{{ faculty.department }}</div>
+      <div class="faculty-qualifications">{{ faculty.qualifications }}</div>
+      <div class="faculty-experience">{{ faculty.experience }}</div>
+
+      <div class="faculty-contact">
+        <div class="contact-item">
+          <i class="fa-solid fa-envelope contact-icon"></i>
+          <span class="contact-text">{{ faculty.email }}</span>
+        </div>
+        <div class="contact-item">
+          <i class="fa-solid fa-phone contact-icon"></i>
+          <span class="contact-text">{{ faculty.phone }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
