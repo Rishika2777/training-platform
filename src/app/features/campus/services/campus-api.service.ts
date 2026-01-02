@@ -123,6 +123,154 @@ export class CampusApiService {
   }
 
   /**
+   * POST /api/v1/faculty
+   * Add a faculty member (multipart/form-data).
+   */
+  addFaculty(formData: FormData): Observable<AddFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    console.log('CampusApiService.addFaculty called');
+    console.log('Request URL:', url);
+    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
+    return this.http.post<unknown>(url, formData).pipe(
+      map((raw) => {
+        console.log('API Service - Add Faculty Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as AddFacultyResponse;
+        }
+        console.warn('API Service - Add Faculty Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty
+   * Get all faculty members.
+   */
+  getAllFaculties(): Observable<GetAllFacultiesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY);
+    console.log('CampusApiService.getAllFaculties called');
+    console.log('Request URL:', url);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Get All Faculties Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetAllFacultiesResponse;
+        }
+        console.warn('API Service - Get All Faculties Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/{facultyId}
+   * Get faculty by ID (for edit form).
+   */
+  getFacultyById(facultyId: string): Observable<GetFacultyByIdResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_BY_ID, { facultyId });
+    console.log('CampusApiService.getFacultyById called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Get Faculty By ID Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetFacultyByIdResponse;
+        }
+        console.warn('API Service - Get Faculty By ID Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/{facultyId}/profile
+   * Get faculty profile (detailed view).
+   */
+  getFacultyProfile(facultyId: string): Observable<GetFacultyProfileResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_PROFILE, { facultyId });
+    console.log('CampusApiService.getFacultyProfile called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Get Faculty Profile Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetFacultyProfileResponse;
+        }
+        console.warn('API Service - Get Faculty Profile Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * PUT /api/v1/faculty/{facultyId}
+   * Update faculty member (multipart/form-data).
+   */
+  updateFaculty(facultyId: string, formData: FormData): Observable<UpdateFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE_FACULTY, { facultyId });
+    console.log('CampusApiService.updateFaculty called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
+    return this.http.put<unknown>(url, formData).pipe(
+      map((raw) => {
+        console.log('API Service - Update Faculty Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as UpdateFacultyResponse;
+        }
+        console.warn('API Service - Update Faculty Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * DELETE /api/v1/faculty/{facultyId}
+   * Delete faculty member.
+   */
+  deleteFaculty(facultyId: string): Observable<DeleteFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_FACULTY, { facultyId });
+    console.log('CampusApiService.deleteFaculty called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.delete<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Delete Faculty Raw response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as DeleteFacultyResponse;
+        }
+        console.warn('API Service - Delete Faculty Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/check-email?email={email}
+   * Check if email already exists.
+   */
+  checkFacultyEmail(email: string): Observable<CheckEmailResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CHECK_FACULTY_EMAIL);
+    const params = new HttpParams().set('email', email);
+    console.log('CampusApiService.checkFacultyEmail called');
+    console.log('Request URL:', url);
+    console.log('Email:', email);
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('API Service - Check Email Raw response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as CheckEmailResponse;
+        }
+        console.warn('API Service - Check Email Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
    * POST /prospectus/upload
    * Upload prospectus files for campus and course.
    */
@@ -395,6 +543,121 @@ export interface AddCourseResponse {
   message: string;
   data: AddCourseResponseData;
   error: string;
+}
+
+export interface ProfessionalInfoRequest {
+  designation: string;
+  department: string;
+  specialization: string;
+  yearsOfExperience: string;
+  qualifications: string;
+  certificates: string; // base64 encoded file
+}
+
+export interface AddFacultyRequest {
+  fullName: string;
+  photo: string; // base64 encoded image
+  email: string;
+  dateOfBirth: string;
+  phoneNumber: string;
+  professionalInfo: ProfessionalInfoRequest[];
+}
+
+export interface AddFacultyResponseData {
+  id?: string;
+  campusId?: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  professionalInfo?: ProfessionalInfoRequest[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AddFacultyResponse {
+  success: boolean;
+  message: string;
+  data: AddFacultyResponseData;
+  error: string;
+}
+
+export interface FacultyListItem {
+  id?: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+}
+
+export interface GetAllFacultiesResponse {
+  success: boolean;
+  message: string | null;
+  data: FacultyListItem[];
+  error: string | null;
+}
+
+export interface GetFacultyByIdResponse {
+  success: boolean;
+  message: string | null;
+  data: AddFacultyResponseData;
+  error: string | null;
+}
+
+export interface GetFacultyProfileResponse {
+  success: boolean;
+  message: string | null;
+  data: FacultyProfileData;
+  error: string | null;
+}
+
+export interface FacultyProfileData {
+  id?: string;
+  campusId?: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  professionalInfo?: ProfessionalInfoResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProfessionalInfoResponse {
+  id?: string;
+  designation?: string;
+  department?: string;
+  specialization?: string;
+  yearsOfExperience?: string;
+  qualifications?: string;
+  certificateUrl?: string;
+}
+
+export interface UpdateFacultyResponse {
+  success: boolean;
+  message: string;
+  data: AddFacultyResponseData;
+  error: string;
+}
+
+export interface DeleteFacultyResponse {
+  success: boolean;
+  message: string;
+  data: null;
+  error: string | null;
+}
+
+export interface CheckEmailResponse {
+  success: boolean;
+  message: string;
+  data: {
+    exists: boolean;
+    email: string;
+  };
+  error: string | null;
 }
 
 export interface UploadProspectusRequest {

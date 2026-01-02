@@ -9,7 +9,7 @@ import {
 } from '../companies-visited/campus-companies-visited.component';
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
-import { CampusFacultyComponent } from '../faculty/campus-faculty.component';
+import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-faculty.component';
 import { CampusCourseFormComponent, CourseFormValue } from '../course-form/course-form.component';
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
@@ -327,20 +327,143 @@ export class CampusHomeComponent implements OnInit {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleFacultySubmit(_value: unknown): void {
-    // API call will be implemented here
+  handleFacultySubmit(value: FacultyFormValue): void {
+    // Validate required fields
+    if (
+      !value.fullName.trim() ||
+      !value.photo ||
+      !value.email.trim() ||
+      !value.dateOfBirth.trim() ||
+      !value.phoneNumber.trim()
+    ) {
+      this.submittingFaculty = false;
+      this.notify.error('Please fill all required fields');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value.email.trim())) {
+      this.submittingFaculty = false;
+      this.notify.error('Please enter a valid email address');
+      return;
+    }
+
+    // Validate professional info
+    if (!value.professionalInfo || value.professionalInfo.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Please add at least one professional information entry');
+      return;
+    }
+
+    // Validate each professional info entry
+    for (const info of value.professionalInfo) {
+      if (
+        !info.designation.trim() ||
+        !info.department.trim() ||
+        !info.specialization.trim() ||
+        !info.yearsOfExperience.trim()
+      ) {
+        this.submittingFaculty = false;
+        this.notify.error('Please fill all required fields in professional information');
+        return;
+      }
+    }
+
     this.submittingFaculty = true;
-    // TODO: Call API service
-    // this.campusApi.addFaculty(value).subscribe({
-    //   next: () => {
-    //     this.submittingFaculty = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingFaculty = false;
-    //   }
-    // });
+
+    // Prepare basic information JSON
+    const basicInformation = {
+      fullName: value.fullName.trim(),
+      email: value.email.trim(),
+      dateOfBirth: value.dateOfBirth.trim(),
+      phoneNumber: value.phoneNumber.trim(),
+    };
+
+    // Prepare professional information JSON (without file references)
+    const professionalInformation = value.professionalInfo.map((info) => ({
+      designation: info.designation.trim(),
+      department: info.department.trim(),
+      specialization: info.specialization.trim(),
+      yearsOfExperience: info.yearsOfExperience.trim(),
+      qualifications: info.qualifications.trim(),
+    }));
+
+    // Create FormData for multipart/form-data
+    const formData = new FormData();
+    formData.append('basicInformation', JSON.stringify(basicInformation));
+    formData.append('professionalInformation', JSON.stringify(professionalInformation));
+
+    // Add photo file if exists
+    if (value.photo) {
+      formData.append('photo', value.photo);
+      console.log('HomeComponent: Added photo file:', value.photo.name, 'Size:', value.photo.size);
+    }
+
+    // Add certificate files if exist
+    value.professionalInfo.forEach((info, index) => {
+      if (info.certificates) {
+        formData.append('certificates', info.certificates);
+        console.log(`HomeComponent: Added certificate file ${index}:`, info.certificates.name, 'Size:', info.certificates.size);
+      }
+    });
+
+    console.log('HomeComponent: Calling addFaculty API with FormData');
+    console.log('HomeComponent: Basic Information:', basicInformation);
+    console.log('HomeComponent: Professional Information:', professionalInformation);
+    console.log('HomeComponent: FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
+
+    this.campusApi.addFaculty(formData).subscribe({
+      next: (response) => {
+        console.log('HomeComponent: API Integration Working - Faculty Added Successfully');
+        console.log('HomeComponent: Response data:', response?.data);
+        console.log('HomeComponent: Response message:', response?.message);
+        this.submittingFaculty = false;
+        this.notify.success(response?.message || 'Faculty added successfully');
+        this.closeModal();
+
+        // Trigger refresh event for sidebar
+        console.log('HomeComponent: Dispatching facultyAdded event to refresh sidebar...');
+        window.dispatchEvent(new Event('facultyAdded'));
+
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Component might be destroyed, ignore
+        }
+      },
+      error: (err) => {
+        console.error('HomeComponent: API Integration Failed');
+        console.error('HomeComponent: Error object:', err);
+        console.error('HomeComponent: Error response:', err?.error);
+        
+        // Handle validation errors from backend
+        let errorMessage = 'Failed to add faculty';
+        if (err?.error?.message) {
+          errorMessage = err.error.message;
+        } else if (err?.error?.error) {
+          errorMessage = err.error.error;
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+
+        // Show field-specific validation errors if available
+        if (err?.error?.errors && typeof err.error.errors === 'object') {
+          const validationErrors = Object.entries(err.error.errors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          errorMessage = validationErrors || errorMessage;
+        }
+
+        this.submittingFaculty = false;
+        this.notify.error(errorMessage);
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 
   handleFacultyCancel(): void {

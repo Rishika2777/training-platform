@@ -51,8 +51,15 @@
           [value]="value.email"
           [disabled]="submitting"
           [required]="true"
+          [invalid]="emailExists || !!emailErrorMessage"
           (valueChange)="patch({ email: $event })"
         />
+        @if (checkingEmail) {
+          <span class="email-checking">Checking email...</span>
+        }
+        @if (emailErrorMessage) {
+          <span class="error-message">{{ emailErrorMessage }}</span>
+        }
       </div>
 
       <div class="form-row">
