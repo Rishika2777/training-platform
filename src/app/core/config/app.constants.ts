@@ -154,6 +154,12 @@
       ADD_PLACED_STUDENT: '/dashboard/students/placed',
       ADD_COMPANY_VISITED: '/dashboard/companies/visited',
       ADD_COURSE: '/dashboard/courses',
+      UPLOAD_PROSPECTUS: '/prospectus/upload',
+      GET_PROSPECTUS_BY_CAMPUS: '/prospectus/campus/:campusId',
+      GET_PROSPECTUS_BY_COURSE: '/prospectus/course/:courseId',
+      GET_PROSPECTUS_BY_ID: '/prospectus/:prospectusId',
+      DOWNLOAD_PROSPECTUS: '/prospectus/download',
+      DELETE_PROSPECTUS: '/prospectus/:prospectusId',
     },
     USERS: {
       BASE: '/users',

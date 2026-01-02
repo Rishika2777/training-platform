@@ -191,20 +191,8 @@ export class CampusHomeComponent implements OnInit {
     this.closeModal();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleProspectusSubmit(_value: unknown): void {
-    // API call will be implemented here
-    this.submittingProspectus = true;
-    // TODO: Call API service
-    // this.campusApi.uploadProspectus(value).subscribe({
-    //   next: () => {
-    //     this.submittingProspectus = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingProspectus = false;
-    //   }
-    // });
+  handleProspectusUploadSuccess(): void {
+    this.closeModal();
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
