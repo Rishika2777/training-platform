@@ -7,6 +7,8 @@ import { CompanySpecializationComponent } from '../specialization/company-specia
 import { CompanyVisionPerformanceComponent } from '../vision-performance/company-vision-performance.component';
 import { CompanyBenefitsComponent } from '../benefits/company-benefits.component';
 import { CompanyCurrentVacancyComponent } from '../current-vacancy/company-current-vacancy.component';
+import { CompanyClientFormComponent, ClientFormValue } from '../client-form/company-client-form.component';
+import { CompanyPreferredCampusFormComponent, PreferredCampusFormValue } from '../preferred-campus-form/company-preferred-campus-form.component';
 
 @Component({
   selector: 'app-company-home',
@@ -19,6 +21,8 @@ import { CompanyCurrentVacancyComponent } from '../current-vacancy/company-curre
     CompanyVisionPerformanceComponent,
     CompanyBenefitsComponent,
     CompanyCurrentVacancyComponent,
+    CompanyClientFormComponent,
+    CompanyPreferredCampusFormComponent,
   ],
   templateUrl: './company-home.component.html',
   styleUrl: './company-home.component.css',
@@ -31,11 +35,15 @@ export class CompanyHomeComponent {
   readonly isVisionPerformanceModalOpen = computed(() => this.activeModal() === 'company-vision-performance');
   readonly isBenefitsModalOpen = computed(() => this.activeModal() === 'company-benefits');
   readonly isCurrentVacancyModalOpen = computed(() => this.activeModal() === 'company-current-vacancy');
+  readonly isClientFormModalOpen = computed(() => this.activeModal() === 'company-client-form');
+  readonly isPreferredCampusFormModalOpen = computed(() => this.activeModal() === 'company-preferred-campus-form');
 
   submittingSpecialization = false;
   submittingVisionPerformance = false;
   submittingBenefits = false;
   submittingCurrentVacancy = false;
+  submittingClientForm = false;
+  submittingPreferredCampusForm = false;
   readonly announcementDate = 'January 7th, 2025';
 
   readonly keyPeople: readonly PersonCard[] = [
@@ -110,6 +118,18 @@ export class CompanyHomeComponent {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleCurrentVacancySubmit(_value: unknown): void {
     this.submittingCurrentVacancy = true;
+    // TODO: Call API service
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleClientFormSubmit(_value: ClientFormValue): void {
+    this.submittingClientForm = true;
+    // TODO: Call API service
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handlePreferredCampusFormSubmit(_value: PreferredCampusFormValue): void {
+    this.submittingPreferredCampusForm = true;
     // TODO: Call API service
   }
 }

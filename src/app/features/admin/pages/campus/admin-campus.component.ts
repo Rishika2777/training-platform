@@ -4,7 +4,7 @@ import { PaginationComponent } from '../../../../shared/components/pagination/pa
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { Campus, CampusApiService } from '../../../campus/services/campus-api.service';
+import { Campus, CampusApiService, CampusRegisterRequest } from '../../../campus/services/campus-api.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import {
   CampusFormComponent,
@@ -34,6 +34,7 @@ export class AdminCampusComponent implements OnInit {
   viewSubmitting = false;
   selectedCampusId: string | null = null;
   selectedCampusApprovalStatus: string | null = null;
+  isEditMode = false;
 
   showReviewModal = false;
   pendingReviewStatus: EnumLoginStatus | null = null;
@@ -135,8 +136,11 @@ export class AdminCampusComponent implements OnInit {
         if (!profile?.campusId && !profile?.id) {
           return;
         }
-         // Use userId for subsequent approval call (as requested). Fallback to the id we used to fetch.
-         this.selectedCampusId = profile.userId ?? userId ?? idToUse;
+         // Use actual campusId from the response for update operations
+         const actualCampusId = profile.campusId ?? profile.id;
+         if (actualCampusId) {
+           this.selectedCampusId = actualCampusId;
+         }
          this.selectedCampusApprovalStatus = profile.approvalStatus ?? null;
         this.viewValue = this.mapCampusToFormValue(profile);
         this.showViewModal = true;
@@ -152,6 +156,50 @@ export class AdminCampusComponent implements OnInit {
     this.showViewModal = false;
     this.selectedCampusId = null;
     this.selectedCampusApprovalStatus = null;
+    this.isEditMode = false;
+  }
+
+  toggleEditMode(): void {
+    this.isEditMode = !this.isEditMode;
+  }
+
+  handleFormSubmit(value: CampusFormValue): void {
+    if (!this.isEditMode || !this.selectedCampusId) {
+      return;
+    }
+
+    const updateRequest = this.mapFormValueToUpdateRequest(value);
+    this.viewSubmitting = true;
+
+    this.campusApi.updateCampusByAdmin(this.selectedCampusId, updateRequest).subscribe({
+      next: () => {
+        this.viewSubmitting = false;
+        this.isEditMode = false;
+        this.closeViewModal();
+        this.loadCampuses();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private mapFormValueToUpdateRequest(value: CampusFormValue): CampusRegisterRequest {
+    return {
+      campusName: value.campusName || '',
+      campusLogoUrl: value.campusLogoUrl || '',
+      campusRank: value.rank ? parseInt(value.rank, 10) : 0,
+      adminName: value.adminName || '',
+      adminEmail: value.adminEmail || '',
+      adminPhone: value.adminPhone || '',
+      adminDepartment: value.adminDept || '',
+      adminDesignation: value.adminDesignation || '',
+      websiteUrl: value.website || '',
+      aboutCampus: value.about || '',
+      campusAddress: value.address || '',
+    };
   }
 
   handleReviewAction(status: EnumLoginStatus): void {

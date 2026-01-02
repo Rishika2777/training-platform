@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { CampusProspectusComponent } from '../upload-prospectus/campus-prospectus.component';
@@ -10,10 +10,14 @@ import {
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent } from '../faculty/campus-faculty.component';
-import { CampusCourseFormComponent } from '../course-form/course-form.component';
+import { CampusCourseFormComponent, CourseFormValue } from '../course-form/course-form.component';
+import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { CampusApiService } from '../../services/campus-api.service';
+import { FacultyDetailService } from '../../services/faculty-detail.service';
+import { StudentApiService } from '../../../student/services/student-api.service';
+import { catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-campus-home',
@@ -28,15 +32,18 @@ import { CampusApiService } from '../../services/campus-api.service';
     CampusCoursesComponent,
     CampusFacultyComponent,
     CampusCourseFormComponent,
+    CampusFacultyDetailComponent,
   ],
   templateUrl: './campus-home.component.html',
   styleUrl: './campus-home.component.css',
 })
-export class CampusHomeComponent {
+export class CampusHomeComponent implements OnInit {
   readonly modalService = inject(ModalService);
   private readonly campusApi = inject(CampusApiService);
+  private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
+  readonly facultyDetailService = inject(FacultyDetailService);
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -44,7 +51,9 @@ export class CampusHomeComponent {
   readonly isPlacedStudentsModalOpen = computed(() => this.activeModal() === 'placed-students');
   readonly isCoursesModalOpen = computed(() => this.activeModal() === 'courses');
   readonly isFacultyModalOpen = computed(() => this.activeModal() === 'faculty');
+  readonly isFacultyDetailModalOpen = computed(() => this.activeModal() === 'faculty-detail');
   readonly isCourseFormModalOpen = computed(() => this.activeModal() === 'course-form');
+  readonly selectedFaculty = computed(() => this.facultyDetailService.selectedFaculty());
 
   submittingProspectus = false;
   submittingCompanies = false;
@@ -61,12 +70,8 @@ export class CampusHomeComponent {
     { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/login-hero-image.png' },
   ];
 
-  readonly placedStudents: readonly PersonCard[] = [
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/login-news-image.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { name: 'Name', subtitle: 'Batch Company', imageUrl: 'assets/images/landing-card-institution.png' },
-  ];
+  readonly placedStudents = signal<readonly PersonCard[]>([]);
+  loadingPlacedStudents = signal(false);
 
   readonly alumni: readonly PersonCard[] = [
     { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/login-news-image.png' },
@@ -104,9 +109,7 @@ export class CampusHomeComponent {
     return totalPages(this.currentBatch.length, this.peoplePageSize);
   }
 
-  get placedStudentsTotalPages(): number {
-    return totalPages(this.placedStudents.length, this.peoplePageSize);
-  }
+  placedStudentsTotalPages = signal(1);
 
   get alumniTotalPages(): number {
     return totalPages(this.alumni.length, this.peoplePageSize);
@@ -117,7 +120,62 @@ export class CampusHomeComponent {
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
-    return slicePage(this.placedStudents, this.placedStudentsPage, this.peoplePageSize);
+    return slicePage(this.placedStudents(), this.placedStudentsPage, this.peoplePageSize);
+  }
+
+  ngOnInit(): void {
+    this.loadPlacedStudents();
+  }
+
+  loadPlacedStudents(): void {
+    this.loadingPlacedStudents.set(true);
+    this.studentApiService
+      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('Error loading placed students:', error);
+          this.loadingPlacedStudents.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingPlacedStudents.set(false);
+          if (response?.success && response.data) {
+            const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
+            this.placedStudents.set(items);
+            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+          }
+        },
+        error: (error) => {
+          console.error('Placed students subscription error:', error);
+          this.loadingPlacedStudents.set(false);
+        },
+      });
+  }
+
+  onPlacedStudentsPageChange(page: number): void {
+    this.placedStudentsPage = page;
+    this.loadPlacedStudents();
+  }
+
+  private mapPlacedStudentToPersonCard(item: {
+    firstName?: string;
+    lastName?: string;
+    studentName?: string;
+    profilePhotoUrl?: string;
+    batch?: string;
+    companyName?: string;
+    designation?: string;
+  }): PersonCard {
+    // Use studentName if available, otherwise fall back to firstName + lastName
+    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
+    const subtitle = [item.batch, item.companyName].filter(Boolean).join(' ') || '';
+    return {
+      name,
+      subtitle,
+      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+    };
   }
 
   alumniPageItems(): readonly PersonCard[] {
@@ -126,22 +184,15 @@ export class CampusHomeComponent {
 
   closeModal(): void {
     this.modalService.closeModal();
+    this.facultyDetailService.clearSelectedFaculty();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleProspectusSubmit(_value: unknown): void {
-    // API call will be implemented here
-    this.submittingProspectus = true;
-    // TODO: Call API service
-    // this.campusApi.uploadProspectus(value).subscribe({
-    //   next: () => {
-    //     this.submittingProspectus = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingProspectus = false;
-    //   }
-    // });
+  handleFacultyDetailClose(): void {
+    this.closeModal();
+  }
+
+  handleProspectusUploadSuccess(): void {
+    this.closeModal();
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
@@ -217,6 +268,8 @@ export class CampusHomeComponent {
             this.submittingPlacedStudents = false;
             if (response?.success) {
               this.closeModal();
+              // Reload placed students after adding a new one
+              this.loadPlacedStudents();
               }
               // Safe change detection - won't crash if component is destroyed
               try {
@@ -294,20 +347,45 @@ export class CampusHomeComponent {
     this.closeModal();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleCourseFormSubmit(_value: unknown): void {
-    // API call will be implemented here
+  handleCourseFormSubmit(value: CourseFormValue): void {
+    if (!value.courseName.trim() || !value.courseDuration.trim() || !value.seatsAvailable.trim() || !value.description.trim()) {
+      this.submittingCourseForm = false;
+      return;
+    }
+
     this.submittingCourseForm = true;
-    // TODO: Call API service
-    // this.campusApi.addCourse(value).subscribe({
-    //   next: () => {
-    //     this.submittingCourseForm = false;
-    //     this.closeModal();
-    //   },
-    //   error: () => {
-    //     this.submittingCourseForm = false;
-    //   }
-    // });
+
+    const request = {
+      courseName: value.courseName.trim(),
+      courseDuration: value.courseDuration.trim(),
+      seatsAvailable: value.seatsAvailable.trim(),
+      description: value.description.trim(),
+    };
+
+    this.campusApi.addCourse(request).subscribe({
+      next: () => {
+        console.log('API Integration Working - Course Added Successfully');
+        this.submittingCourseForm = false;
+        this.notify.success('Course added successfully');
+        this.closeModal();
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Component might be destroyed, ignore
+        }
+      },
+      error: (err) => {
+        const errorMessage = err?.error?.message || err?.message || 'Failed to add course';
+        console.error('API Integration Failed -', errorMessage);
+        this.submittingCourseForm = false;
+        this.notify.error(errorMessage);
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 }
 

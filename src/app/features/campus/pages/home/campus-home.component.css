@@ -336,6 +336,19 @@
   gap: 6px;
 }
 
+/* Faculty Detail Modal - Hide header and adjust styling */
+:host ::ng-deep .faculty-detail-modal .panel {
+  grid-template-rows: 1fr;
+}
+
+:host ::ng-deep .faculty-detail-modal .header {
+  display: none;
+}
+
+:host ::ng-deep .faculty-detail-modal .body {
+  padding: 0;
+}
+
 @media (max-width: 980px) {
   .grid {
     grid-template-columns: 1fr;

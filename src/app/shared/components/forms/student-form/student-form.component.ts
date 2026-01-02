@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { DropdownComponent, DropdownItem } from '../../dropdown/dropdown.component';
 import { InputComponent } from '../../input/input.component';
@@ -69,7 +69,6 @@ export interface StudentFormValue {
   // Existing minimal fields used by current API call:
   fullName: string;
   email: string;
-  about: string;
 
   // Multi-step fields:
   firstName: string;
@@ -95,7 +94,6 @@ export function createEmptyStudentFormValue(seed?: Partial<StudentFormValue>): S
   const base: StudentFormValue = {
     fullName: '',
     email: '',
-    about: '',
 
     firstName: '',
     lastName: '',
@@ -185,6 +183,7 @@ export class StudentFormComponent {
   @Input() emailLocked = false;
   @Input() mode: 'create' | 'review' = 'create';
   @Input() approveDisabled = false;
+  @Input() isEditMode = false;
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
@@ -192,12 +191,27 @@ export class StudentFormComponent {
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
 
   readonly steps = ['Personal Info', 'Education', 'Skills & Experience', 'Additional'] as const;
+  
+  private readonly cdr = inject(ChangeDetectorRef);
   currentStep = 0;
   submitAttempted = false;
   private stepNavLocked = false;
 
   get isReviewMode(): boolean {
     return this.mode === 'review';
+  }
+
+  get isFieldsDisabled(): boolean {
+    return this.submitting || (this.isReviewMode && !this.isEditMode);
+  }
+
+  readonly yearOfPassingMin = '1900-01-01'; // Allow all past years - set to a very old date
+
+  get yearOfPassingMax(): string {
+    // Allow next 5 years from current year
+    const currentYear = new Date().getFullYear();
+    const maxYear = currentYear + 5;
+    return `${maxYear}-12-31`;
   }
 
   readonly genderItems: readonly DropdownItem<Gender>[] = [
@@ -221,8 +235,10 @@ export class StudentFormComponent {
     { label: 'Email & SMS', value: 'Email & SMS' },
   ];
 
+  // Education dropdown items
   readonly qualificationItems: readonly DropdownItem<string>[] = [
-   
+    { label: '10th', value: '10th' },
+    { label: '12th', value: '12th' },
     { label: 'Diploma', value: 'Diploma' },
     { label: 'Bachelor\'s Degree', value: 'Bachelor\'s Degree' },
     { label: 'Master\'s Degree', value: 'Master\'s Degree' },
@@ -230,14 +246,22 @@ export class StudentFormComponent {
     { label: 'Other', value: 'Other' },
   ];
 
+  readonly institutionItems: readonly DropdownItem<string>[] = [
+    { label: 'University of Technology', value: 'University of Technology' },
+    { label: 'State University', value: 'State University' },
+    { label: 'Private University', value: 'Private University' },
+    { label: 'Institute of Technology', value: 'Institute of Technology' },
+    { label: 'Other', value: 'Other' },
+  ];
+
   readonly degreeItems: readonly DropdownItem<string>[] = [
     { label: 'B.Tech', value: 'B.Tech' },
-    { label: 'B.E', value: 'B.E' },
+    { label: 'B.E.', value: 'B.E.' },
     { label: 'B.Sc', value: 'B.Sc' },
     { label: 'B.Com', value: 'B.Com' },
-    { label: 'B.A', value: 'B.A' },
+    { label: 'B.A.', value: 'B.A.' },
     { label: 'M.Tech', value: 'M.Tech' },
-    { label: 'M.E', value: 'M.E' },
+    { label: 'M.E.', value: 'M.E.' },
     { label: 'M.Sc', value: 'M.Sc' },
     { label: 'MBA', value: 'MBA' },
     { label: 'MCA', value: 'MCA' },
@@ -247,6 +271,9 @@ export class StudentFormComponent {
   readonly specializationItems: readonly DropdownItem<string>[] = [
     { label: 'Computer Science', value: 'Computer Science' },
     { label: 'Information Technology', value: 'Information Technology' },
+    { label: 'Electrical Engineering', value: 'Electrical Engineering' },
+    { label: 'Mechanical Engineering', value: 'Mechanical Engineering' },
+    { label: 'Civil Engineering', value: 'Civil Engineering' },
     { label: 'Electronics', value: 'Electronics' },
     { label: 'Mechanical', value: 'Mechanical' },
     { label: 'Civil', value: 'Civil' },
@@ -254,6 +281,8 @@ export class StudentFormComponent {
     { label: 'Chemical', value: 'Chemical' },
     { label: 'Aerospace', value: 'Aerospace' },
     { label: 'Biotechnology', value: 'Biotechnology' },
+    { label: 'Data Science', value: 'Data Science' },
+    { label: 'Business Administration', value: 'Business Administration' },
     { label: 'Other', value: 'Other' },
   ];
 
@@ -266,11 +295,99 @@ export class StudentFormComponent {
     return years;
   })();
 
+  // Skills dropdown items
+  readonly technicalSkillItems: readonly DropdownItem<string>[] = [
+    { label: 'JavaScript', value: 'JavaScript' },
+    { label: 'TypeScript', value: 'TypeScript' },
+    { label: 'Python', value: 'Python' },
+    { label: 'Java', value: 'Java' },
+    { label: 'C++', value: 'C++' },
+    { label: 'React', value: 'React' },
+    { label: 'Angular', value: 'Angular' },
+    { label: 'Node.js', value: 'Node.js' },
+    { label: 'SQL', value: 'SQL' },
+    { label: 'MongoDB', value: 'MongoDB' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly softSkillItems: readonly DropdownItem<string>[] = [
+    { label: 'Communication', value: 'Communication' },
+    { label: 'Leadership', value: 'Leadership' },
+    { label: 'Teamwork', value: 'Teamwork' },
+    { label: 'Problem Solving', value: 'Problem Solving' },
+    { label: 'Time Management', value: 'Time Management' },
+    { label: 'Adaptability', value: 'Adaptability' },
+    { label: 'Critical Thinking', value: 'Critical Thinking' },
+    { label: 'Creativity', value: 'Creativity' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly languageItems: readonly DropdownItem<string>[] = [
+    { label: 'English', value: 'English' },
+    { label: 'Hindi', value: 'Hindi' },
+    { label: 'Spanish', value: 'Spanish' },
+    { label: 'French', value: 'French' },
+    { label: 'German', value: 'German' },
+    { label: 'Mandarin', value: 'Mandarin' },
+    { label: 'Japanese', value: 'Japanese' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  // Work preferences dropdown items
+  readonly jobRolesItems: readonly DropdownItem<string>[] = [
+    { label: 'Software Developer', value: 'Software Developer' },
+    { label: 'Full Stack Developer', value: 'Full Stack Developer' },
+    { label: 'Frontend Developer', value: 'Frontend Developer' },
+    { label: 'Backend Developer', value: 'Backend Developer' },
+    { label: 'Data Scientist', value: 'Data Scientist' },
+    { label: 'DevOps Engineer', value: 'DevOps Engineer' },
+    { label: 'Product Manager', value: 'Product Manager' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  readonly preferredLocationItems: readonly DropdownItem<string>[] = [
+    { label: 'Mumbai', value: 'Mumbai' },
+    { label: 'Delhi', value: 'Delhi' },
+    { label: 'Bangalore', value: 'Bangalore' },
+    { label: 'Hyderabad', value: 'Hyderabad' },
+    { label: 'Chennai', value: 'Chennai' },
+    { label: 'Pune', value: 'Pune' },
+    { label: 'Kolkata', value: 'Kolkata' },
+    { label: 'Remote', value: 'Remote' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  // Work experience dropdown items
+  readonly workExperienceRoleItems: readonly DropdownItem<string>[] = [
+    { label: 'Software Developer', value: 'Software Developer' },
+    { label: 'Senior Software Developer', value: 'Senior Software Developer' },
+    { label: 'Software Engineer', value: 'Software Engineer' },
+    { label: 'Junior Developer', value: 'Junior Developer' },
+    { label: 'Intern', value: 'Intern' },
+    { label: 'Other', value: 'Other' },
+  ];
+
+  // Project technologies dropdown items
+  readonly projectTechnologyItems: readonly DropdownItem<string>[] = [
+    { label: 'React', value: 'REACT' },
+    { label: 'Angular', value: 'ANGULAR' },
+    { label: 'Vue.js', value: 'VUEJS' },
+    { label: 'Node.js', value: 'NODEJS' },
+    { label: 'Python', value: 'PYTHON' },
+    { label: 'Java', value: 'JAVA' },
+    { label: 'Spring Boot', value: 'SPRINGBOOT' },
+    { label: 'Django', value: 'DJANGO' },
+    { label: 'MongoDB', value: 'MONGODB' },
+    { label: 'PostgreSQL', value: 'POSTGRESQL' },
+    { label: 'Other', value: 'Other' },
+  ];
+
   // Draft inputs for tag-like lists
   newTechnicalSkill: StudentTechnicalSkillItem = { skill: '', proficiency: '' };
   newSoftSkill = '';
   newLanguage = '';
   newProjectTechnology = '';
+  projectTechnologyValues: Record<number, string | null> = {};
 
   setNewTechnicalSkillSkill(value: string): void {
     this.newTechnicalSkill = { ...this.newTechnicalSkill, skill: value };
@@ -317,7 +434,7 @@ export class StudentFormComponent {
   }
 
   patch(patch: Partial<StudentFormValue>): void {
-    if (this.isReviewMode) {
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     const next: StudentFormValue = { ...this.value, ...patch };
@@ -473,6 +590,33 @@ export class StudentFormComponent {
     this.newProjectTechnology = '';
   }
 
+  getProjectTechnologyValue(projectIndex: number): string | null {
+    return this.projectTechnologyValues[projectIndex] ?? null;
+  }
+
+  onProjectTechnologySelected(projectIndex: number, selectedTech: string): void {
+    if (!selectedTech || !selectedTech.trim()) {
+      return;
+    }
+    const project = this.value.projects[projectIndex];
+    if (!project) {
+      return;
+    }
+    const tech = selectedTech.trim();
+    // Check if technology already exists
+    if (project.technologiesUsed.includes(tech)) {
+      // Reset dropdown even if already exists
+      this.projectTechnologyValues[projectIndex] = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    const nextTechs = uniqueStrings([...(project.technologiesUsed ?? []), tech]);
+    this.patchProjectAt(projectIndex, { technologiesUsed: nextTechs });
+    // Reset dropdown after adding
+    this.projectTechnologyValues[projectIndex] = null;
+    this.cdr.markForCheck();
+  }
+
   removeProjectTechnologyAt(projectIndex: number, techIndex: number): void {
     const project = this.value.projects[projectIndex];
     if (!project) {
@@ -539,7 +683,7 @@ export class StudentFormComponent {
   }
 
   submit(): void {
-    if (this.isReviewMode) {
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     this.submitAttempted = true;
@@ -555,7 +699,8 @@ export class StudentFormComponent {
 
   private isCurrentStepValid(): boolean {
     switch (this.currentStep) {
-      case 0:
+      case 0: {
+        const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
         return (
           this.value.firstName.trim().length > 0 &&
           this.value.lastName.trim().length > 0 &&
@@ -563,13 +708,14 @@ export class StudentFormComponent {
           isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
           !!this.value.gender &&
           this.value.mobile.trim().length > 0 &&
+          mobileDigits.length === 10 &&
           this.value.email.trim().length > 0 &&
           this.value.address.trim().length > 0 &&
           this.value.profileSummary.trim().length > 0 &&
-          this.value.about.trim().length > 0 &&
           !!this.value.photoFiles &&
           this.value.photoFiles.length > 0
         );
+      }
       case 1:
         return this.isEducationValid();
       case 2:
@@ -583,6 +729,8 @@ export class StudentFormComponent {
 
   private isFormValid(): boolean {
     // Basic required checks; we can tighten once backend contract is confirmed.
+    const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
       this.value.firstName.trim().length > 0 &&
       this.value.lastName.trim().length > 0 &&
@@ -590,12 +738,11 @@ export class StudentFormComponent {
       isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
       !!this.value.gender &&
       this.value.mobile.trim().length > 0 &&
+      mobileDigits.length === 10 &&
       this.value.email.trim().length > 0 &&
       this.value.address.trim().length > 0 &&
       this.value.profileSummary.trim().length > 0 &&
-      this.value.about.trim().length > 0 &&
-      !!this.value.photoFiles &&
-      this.value.photoFiles.length > 0 &&
+      (isEditModeValidation || (!!this.value.photoFiles && this.value.photoFiles.length > 0)) &&
       this.isEducationValid() &&
       this.isWorkPreferencesValid() &&
       this.isAdditionalValid()
@@ -608,6 +755,28 @@ export class StudentFormComponent {
 
   isDobInvalid(): boolean {
     return this.submitAttempted && (this.value.dateOfBirth.trim().length === 0 || this.isDobTooYoung());
+  }
+
+  isMobileInvalid(): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    const mobile = this.value.mobile.trim();
+    if (mobile.length === 0) {
+      return true;
+    }
+    // Check if mobile is exactly 10 digits
+    const digitsOnly = mobile.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
+  }
+
+  isMobileNotTenDigits(): boolean {
+    const mobile = this.value.mobile.trim();
+    if (mobile.length === 0) {
+      return false;
+    }
+    const digitsOnly = mobile.replace(/\D/g, '');
+    return digitsOnly.length !== 10;
   }
 
   private isEducationValid(): boolean {
@@ -635,11 +804,10 @@ export class StudentFormComponent {
   }
 
   private isAdditionalValid(): boolean {
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
-      !!this.value.additional.govtIdProofFiles &&
-      this.value.additional.govtIdProofFiles.length > 0 &&
-      !!this.value.additional.resumeFiles &&
-      this.value.additional.resumeFiles.length > 0 &&
+      (isEditModeValidation || (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0)) &&
+      (isEditModeValidation || (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0)) &&
       this.value.additional.portfolioUrl.trim().length > 0 &&
       this.value.additional.offersInHand !== null &&
       this.value.additional.heardAboutPortal.trim().length > 0 &&

@@ -55,6 +55,7 @@ export class RegisterStudentComponent {
 
     this.submitting = true;
     const registerRequest = mapStudentFormValueToRegisterRequest(value, String(user.userId));
+    console.log('dadfadfa',registerRequest); 
     this.studentApi
       .registerStudent(registerRequest)
       .subscribe({

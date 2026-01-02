@@ -22,8 +22,8 @@
         <app-carousel
           type="pagination"
           [currentPage]="batchmatesPage"
-          [totalPages]="batchmatesTotalPages"
-          (pageChange)="batchmatesPage = $event"
+          [totalPages]="batchmatesTotalPages()"
+          (pageChange)="onBatchmatesPageChange($event)"
         >
           <div class="avatar-row">
             @for (p of batchmatesPageItems(); track p.imageUrl) {
@@ -85,8 +85,8 @@
         <app-carousel
           type="pagination"
           [currentPage]="placedStudentsPage"
-          [totalPages]="placedStudentsTotalPages"
-          (pageChange)="placedStudentsPage = $event"
+          [totalPages]="placedStudentsTotalPages()"
+          (pageChange)="onPlacedStudentsPageChange($event)"
         >
           <div class="avatar-row small">
             @for (p of placedStudentsPageItems(); track p.imageUrl) {
@@ -145,8 +145,8 @@
         <app-carousel
           type="pagination"
           [currentPage]="alumniPage"
-          [totalPages]="alumniTotalPages"
-          (pageChange)="alumniPage = $event"
+          [totalPages]="alumniTotalPages()"
+          (pageChange)="onAlumniPageChange($event)"
         >
           <div class="avatar-row small">
             @for (p of alumniPageItems(); track p.imageUrl) {

@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
@@ -43,6 +43,27 @@ export class CampusApiService {
   getCampusById(campusId: string): Observable<Campus | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
     return this.http.get<unknown>(url).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
+   * PUT /campus/{campusId}/update
+   * Updates campus profile.
+   * Swagger: requires email query parameter.
+   */
+  updateCampus(campusId: string, email: string, request: CampusRegisterRequest): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE, { campusId });
+    const params = new HttpParams().set('email', email);
+    return this.http.put<unknown>(url, request, { params }).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
+   * PUT /campus/admin/{campusId}
+   * Updates campus by ID (Admin only).
+   * Swagger: Admin endpoint, no query parameters required.
+   */
+  updateCampusByAdmin(campusId: string, request: CampusRegisterRequest): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE_BY_ADMIN, { campusId });
+    return this.http.put<unknown>(url, request).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
   }
 
   /**
@@ -100,6 +121,112 @@ export class CampusApiService {
       map((raw) => {
         if (raw && typeof raw === 'object' && 'data' in raw) {
           return raw as AddCompanyVisitedResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * POST /dashboard/courses
+   * Add a course.
+   */
+  addCourse(request: AddCourseRequest): Observable<AddCourseResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COURSE);
+    return this.http.post<unknown>(url, request).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as AddCourseResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * POST /prospectus/upload
+   * Upload prospectus files for campus and course.
+   */
+  uploadProspectus(request: UploadProspectusRequest): Observable<UploadProspectusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
+    return this.http.post<unknown>(url, request).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as UploadProspectusResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /prospectus/campus/{campusId}
+   * Get prospectuses by campus.
+   */
+  getProspectusByCampus(campusId: string): Observable<GetProspectusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId });
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetProspectusResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /prospectus/course/{courseId}
+   * Get prospectuses by course.
+   */
+  getProspectusByCourse(courseId: string): Observable<GetProspectusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { courseId });
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetProspectusResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /prospectus/{prospectusId}
+   * Get prospectus by ID.
+   */
+  getProspectusById(prospectusId: string): Observable<UploadProspectusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_ID, { prospectusId });
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as UploadProspectusResponse;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /prospectus/download
+   * Download prospectus by prospectusId (query parameter).
+   */
+  downloadProspectus(prospectusId: string): Observable<Blob> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DOWNLOAD_PROSPECTUS);
+    const params = new HttpParams().set('prospectusId', prospectusId);
+    return this.http.get(url, { params, responseType: 'blob' });
+  }
+
+  /**
+   * DELETE /prospectus/{prospectusId}
+   * Delete prospectus by ID.
+   */
+  deleteProspectus(prospectusId: string): Observable<DeleteProspectusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_PROSPECTUS, { prospectusId });
+    return this.http.delete<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as DeleteProspectusResponse;
         }
         return null;
       })
@@ -264,6 +391,78 @@ export interface AddCompanyVisitedResponse {
   message: string;
   data: AddCompanyVisitedResponseData;
   error: string;
+}
+
+export interface AddCourseRequest {
+  courseName: string;
+  courseDuration: string;
+  seatsAvailable: string;
+  description: string;
+}
+
+export interface AddCourseResponseData {
+  id?: string;
+  campusId?: string;
+  courseName?: string;
+  courseDuration?: string;
+  seatsAvailable?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AddCourseResponse {
+  success: boolean;
+  message: string;
+  data: AddCourseResponseData;
+  error: string;
+}
+
+export interface UploadProspectusRequest {
+  campusId: string;
+  courseId: string;
+  files: string[]; // base64 encoded files
+}
+
+export interface UploadProspectusResponseData {
+  id?: string;
+  campusId?: string;
+  courseId?: string;
+  fileUrls?: string[];
+  version?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UploadProspectusResponse {
+  success: boolean;
+  message: string;
+  data: UploadProspectusResponseData;
+  error: string;
+}
+
+export interface ProspectusData {
+  id?: string;
+  campusId?: string;
+  courseId?: string;
+  fileUrls?: string[];
+  version?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GetProspectusResponse {
+  success: boolean;
+  message: string | null;
+  data: ProspectusData[];
+  error: string | null;
+}
+
+export interface DeleteProspectusResponse {
+  success: boolean;
+  message: string;
+  data: null;
+  error: string | null;
 }
 
 interface ApiResponse<T> {

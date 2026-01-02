@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 type InputType = 'text' | 'email' | 'password' | 'number' | 'file' | 'url' | 'tel' | 'date';
 
 @Component({
   selector: 'app-input',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './input.component.html',
   styleUrl: './input.component.css',
 })
@@ -54,7 +54,32 @@ export class InputComponent implements OnChanges {
   }
 
   onInput(value: string): void {
-    this.valueChange.emit(value);
+    // For number inputs, ensure the value is properly captured
+    if (this.type === 'number') {
+      // Allow empty string or valid numbers
+      if (value === '' || !isNaN(Number(value))) {
+        this.valueChange.emit(value);
+      }
+    } else {
+      this.valueChange.emit(value);
+    }
+  }
+
+  onDateInputClick(event: Event, inputElement: HTMLInputElement): void {
+    if (this.type === 'date' && !this.disabled && inputElement) {
+      // Use setTimeout to ensure the click event completes and input is focused
+      setTimeout(() => {
+        // Check if showPicker is supported and available
+        if (typeof inputElement.showPicker === 'function') {
+          try {
+            inputElement.showPicker();
+          } catch {
+            // showPicker may throw an error if not user-initiated in some browsers
+            // In that case, the default click behavior will handle it
+          }
+        }
+      }, 10);
+    }
   }
 
   onFileChange(files: FileList | null): void {

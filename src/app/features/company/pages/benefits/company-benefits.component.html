@@ -12,6 +12,7 @@
         [disabled]="submitting"
         placeholder="Select rate"
         (valueChange)="updateField('internToJobRate', $event)"
+        [autocomplete]="true"
       />
       <app-dropdown
         label="Starting Salary Range"
@@ -20,6 +21,7 @@
         [disabled]="submitting"
         placeholder="Select salary range"
         (valueChange)="updateField('startingSalaryRange', $event)"
+        [autocomplete]="true"
       />
     </div>
 

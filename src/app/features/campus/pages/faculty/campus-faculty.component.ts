@@ -1,20 +1,25 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
+
+export interface ProfessionalInfo {
+  designation: string;
+  department: string;
+  specialization: string;
+  yearsOfExperience: string;
+  qualifications: string;
+  certificates: File | null;
+}
 
 export interface FacultyFormValue {
   fullName: string;
   photo: File | null;
   email: string;
   dateOfBirth: string;
-  designation: string;
-  department: string;
-  specialization: string;
-  yearsOfExperience: string;
-  qualifications: readonly string[];
-  certificates: readonly string[];
+  phoneNumber: string;
+  professionalInfo: readonly ProfessionalInfo[];
 }
 
 @Component({
@@ -25,18 +30,25 @@ export interface FacultyFormValue {
   styleUrl: './campus-faculty.component.css',
 })
 export class CampusFacultyComponent {
+  @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
+
   @Input() submitting = false;
   @Input() value: FacultyFormValue = {
     fullName: '',
     photo: null,
     email: '',
     dateOfBirth: '',
-    designation: '',
-    department: '',
-    specialization: '',
-    yearsOfExperience: '',
-    qualifications: [],
-    certificates: [],
+    phoneNumber: '',
+    professionalInfo: [
+      {
+        designation: '',
+        department: '',
+        specialization: '',
+        yearsOfExperience: '',
+        qualifications: '',
+        certificates: null,
+      },
+    ],
   };
 
   @Output() valueChange = new EventEmitter<FacultyFormValue>();
@@ -77,31 +89,62 @@ export class CampusFacultyComponent {
     this.valueChange.emit(next);
   }
 
+  triggerPhotoSelect(): void {
+    this.photoFileInput?.nativeElement?.click();
+  }
+
   onPhotoSelected(files: FileList | null): void {
     const file = files && files.length > 0 ? files.item(0) : null;
     this.patch({ photo: file });
   }
 
-  addQualification(): void {
-    const next: readonly string[] = [...this.value.qualifications, ''];
-    this.patch({ qualifications: next });
+  get photoName(): string {
+    return this.value.photo?.name ?? '';
   }
 
-  updateQualification(index: number, value: string): void {
-    const next = [...this.value.qualifications];
-    next[index] = value;
-    this.patch({ qualifications: next });
+  addProfessionalInfo(): void {
+    const newInfo: ProfessionalInfo = {
+      designation: '',
+      department: '',
+      specialization: '',
+      yearsOfExperience: '',
+      qualifications: '',
+      certificates: null,
+    };
+    const next: readonly ProfessionalInfo[] = [...this.value.professionalInfo, newInfo];
+    this.patch({ professionalInfo: next });
   }
 
-  addCertificate(): void {
-    const next: readonly string[] = [...this.value.certificates, ''];
-    this.patch({ certificates: next });
+  updateProfessionalInfo(index: number, field: keyof ProfessionalInfo, value: string | File | null): void {
+    const next = [...this.value.professionalInfo];
+    next[index] = { ...next[index], [field]: value };
+    this.patch({ professionalInfo: next });
   }
 
-  updateCertificate(index: number, value: string): void {
-    const next = [...this.value.certificates];
-    next[index] = value;
-    this.patch({ certificates: next });
+  triggerCertificateSelect(index: number): void {
+    const fileInput = document.getElementById(`certificate-file-input-${index}`) as HTMLInputElement;
+    fileInput?.click();
+  }
+
+  onCertificateSelected(index: number, files: FileList | null): void {
+    const file = files && files.length > 0 ? files.item(0) : null;
+    this.updateProfessionalInfo(index, 'certificates', file);
+  }
+
+  getCertificateName(index: number): string {
+    return this.value.professionalInfo[index]?.certificates?.name ?? '';
+  }
+
+  removeProfessionalInfo(index: number): void {
+    if (this.value.professionalInfo.length > 1) {
+      const next = [...this.value.professionalInfo];
+      next.splice(index, 1);
+      this.patch({ professionalInfo: next });
+    }
+  }
+
+  canRemoveProfessionalInfo(): boolean {
+    return this.value.professionalInfo.length > 1;
   }
 
   submit(): void {

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
-import { DropdownComponent, DropdownItem } from '../dropdown/dropdown.component';
+import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../dropdown/dropdown.component';
 
 @Component({
   selector: 'app-dropdown-with-file',
@@ -21,6 +21,10 @@ export class DropdownWithFileComponent<TValue extends string = string> {
   @Input() invalid = false;
   @Input() accept: string | null = null;
   @Input() fileInputId = '';
+  @Input() autocomplete = false;
+  @Input() apiFetchFn?: ApiFetchFunction<TValue>;
+  @Input() debounceTime = 300;
+  @Input() minSearchLength = 0;
 
   @Output() valueChange = new EventEmitter<TValue>();
   @Output() fileSelected = new EventEmitter<File | null>();

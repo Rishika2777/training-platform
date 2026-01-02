@@ -9,13 +9,23 @@
     style="display: none"
     (change)="onFileChange($any($event.target).files)"
   />
+  @if (label) {
+    <div class="field-label-wrapper">
+      <div class="field-label">
+        {{ label }}
+        @if (required) {
+          <span class="asterisk" aria-hidden="true">*</span>
+        }
+      </div>
+    </div>
+  }
   <div class="input-with-icon">
     <app-input
-      [label]="label"
+      [label]="''"
       type="text"
       [value]="value"
       [disabled]="disabled"
-      [required]="required"
+      [required]="false"
       [invalid]="invalid"
       (valueChange)="onTextChange($event)"
     />

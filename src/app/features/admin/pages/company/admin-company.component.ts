@@ -5,12 +5,17 @@ import { CardComponent, CardData } from '../../../../shared/components/card/card
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
-import { CompanyApiService, CompanyRegistrationResponse } from '../../../company/services/company-api.service';
+import {
+  CompanyApiService,
+  CompanyRegisterRequest,
+  CompanyRegistrationResponse,
+} from '../../../company/services/company-api.service';
 import {
   CompanyFormComponent,
   CompanyFormValue,
 } from '../../../../shared/components/forms/company-form/company-form.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 
 @Component({
   selector: 'app-admin-company',
@@ -23,6 +28,7 @@ export class AdminCompanyComponent implements OnInit {
   private readonly adminApi = inject(AdminApiService);
   private readonly companyApi = inject(CompanyApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly notify = inject(NotificationService);
   readonly announcementDate = 'January 7th, 2025';
 
   companies: CardData[] = [];
@@ -35,8 +41,10 @@ export class AdminCompanyComponent implements OnInit {
   showViewModal = false;
   viewSubmitting = false;
   selectedCompanyId: string | null = null;
+  selectedCompanyUserId: string | null = null;
   selectedCompanyApprovalStatus: string | null = null;
   viewValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
+  isEditMode = false;
 
   showReviewModal = false;
   pendingReviewStatus: EnumLoginStatus | null = null;
@@ -114,6 +122,7 @@ export class AdminCompanyComponent implements OnInit {
           return;
         }
         this.selectedCompanyId = profile.companyId;
+        this.selectedCompanyUserId = profile.userId ?? null;
         this.selectedCompanyApprovalStatus = profile.approvalStatus ?? null;
         this.viewValue = this.mapProfileToFormValue(profile);
         this.showViewModal = true;
@@ -128,8 +137,88 @@ export class AdminCompanyComponent implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedCompanyId = null;
+    this.selectedCompanyUserId = null;
     this.selectedCompanyApprovalStatus = null;
     this.viewValue = CompanyFormComponent.createEmptyValue();
+    this.isEditMode = false;
+  }
+
+  private reloadCompanyProfile(): void {
+    if (!this.selectedCompanyId) {
+      return;
+    }
+
+    this.viewSubmitting = true;
+    this.companyApi.getCompanyById(this.selectedCompanyId).subscribe({
+      next: (profile) => {
+        this.viewSubmitting = false;
+        if (!profile?.companyId) {
+          return;
+        }
+        // Update all the selected company data
+        this.selectedCompanyId = profile.companyId;
+        this.selectedCompanyUserId = profile.userId ?? null;
+        this.selectedCompanyApprovalStatus = profile.approvalStatus ?? null;
+        // Update form with fresh data
+        this.viewValue = this.mapProfileToFormValue(profile);
+        // Exit edit mode to show approve/reject buttons and hide update button
+        this.isEditMode = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  toggleEditMode(): void {
+    this.isEditMode = !this.isEditMode;
+  }
+
+  handleFormSubmit(value: CompanyFormValue): void {
+    if (!this.isEditMode || !this.selectedCompanyId || !this.selectedCompanyUserId) {
+      return;
+    }
+
+    const updateRequest = this.mapFormValueToUpdateRequest(value);
+    this.viewSubmitting = true;
+
+    this.companyApi.updateCompany(this.selectedCompanyId, this.selectedCompanyUserId, updateRequest).subscribe({
+      next: () => {
+        // Show success notification
+        this.notify.success('Company profile updated successfully');
+        // Reload the company profile to get updated data
+        this.reloadCompanyProfile();
+        // Reload companies list in background (don't wait for it)
+        this.loadCompanies();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private mapFormValueToUpdateRequest(value: CompanyFormValue): CompanyRegisterRequest {
+    return {
+      companyName: value.companyName || '',
+      companyLogoUrl: value.companyPhoto ? value.companyPhoto.name : undefined,
+      adminName: value.adminName || '',
+      adminDesignation: value.adminDesignation || '',
+      adminEmail: value.adminEmail || '',
+      adminPhone: value.adminPhone || '',
+      websiteUrl: value.companyWebsiteUrl || '',
+      otherWebsiteUrl: value.otherWebsiteUrl || '',
+      registerNumber: value.registerNumber || '',
+      keyPeople: value.keyPeople.map((p) => ({
+        name: p.name || '',
+        designation: p.designation || '',
+        photoUrl: p.photo ? p.photo.name : undefined,
+      })),
+      aboutCompany: value.aboutCompany || '',
+      companyAddress: value.companyAddress || '',
+    };
   }
 
   handleReviewAction(status: EnumLoginStatus): void {
@@ -233,8 +322,9 @@ export class AdminCompanyComponent implements OnInit {
     return {
       ...CompanyFormComponent.createEmptyValue(),
       companyName: profile.companyName ?? '',
-      // Uploads not wired here; keep null.
+      // Store photo URL from API response for display
       companyPhoto: null,
+      companyPhotoUrl: profile.companyLogoUrl ?? undefined,
       adminName: profile.adminName ?? '',
       adminDesignation: profile.adminDesignation ?? '',
       adminEmail: profile.adminEmail ?? profile.email ?? '',
@@ -248,6 +338,7 @@ export class AdminCompanyComponent implements OnInit {
               name: p.name ?? '',
               designation: p.designation ?? '',
               photo: null,
+              photoUrl: p.photoUrl ?? undefined,
             }))
           : [CompanyFormComponent.createEmptyKeyPerson()],
       aboutCompany,

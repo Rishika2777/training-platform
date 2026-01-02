@@ -8,6 +8,8 @@ import { RoleService } from '../../core/rbac/role.service';
 import { MenuItem } from '../../core/models/menu.model';
 import { AuthService } from '../../core/auth/auth.service';
 import { ModalService, ModalType } from '../../core/modal/modal.service';
+import { FacultyDetailService } from '../../features/campus/services/faculty-detail.service';
+import { FacultyDetailData } from '../../features/campus/pages/faculty-detail/campus-faculty-detail.component';
 
 @Component({
   selector: 'app-sidebar',
@@ -26,6 +28,7 @@ export class SidebarComponent {
   private readonly roles = inject(RoleService);
   private readonly auth = inject(AuthService);
   private readonly modalService = inject(ModalService);
+  private readonly facultyDetailService = inject(FacultyDetailService);
 
   @Input() collapsed = false;
 
@@ -66,6 +69,39 @@ export class SidebarComponent {
     { name: 'Amith Deshpande', imageUrl: 'assets/images/landing-card-company.png' },
   ];
 
+  private readonly facultyDetailData: Record<string, FacultyDetailData> = {
+    'Akshay Sharma': {
+      name: 'Akshay Sharma',
+      imageUrl: 'assets/images/login-news-image.png',
+      designation: 'Assistant Professor',
+      department: 'Department of Computer Science',
+      qualifications: 'Ph.D. in [Specialization], [University Name]',
+      experience: '15 years of teaching experience',
+      email: 'akshay.sharma@gmail.com',
+      phone: '+91 9870978541',
+    },
+    'Ankitha Wilson': {
+      name: 'Ankitha Wilson',
+      imageUrl: 'assets/images/landing-card-campus.png',
+      designation: 'Assistant Professor',
+      department: 'Department of Computer Science',
+      qualifications: 'Ph.D. in [Specialization], [University Name]',
+      experience: '12 years of teaching experience',
+      email: 'ankitha.wilson@gmail.com',
+      phone: '+91 9870978542',
+    },
+    'Amith Deshpande': {
+      name: 'Amith Deshpande',
+      imageUrl: 'assets/images/landing-card-company.png',
+      designation: 'Assistant Professor',
+      department: 'Department of Computer Science',
+      qualifications: 'Ph.D. in [Specialization], [University Name]',
+      experience: '10 years of teaching experience',
+      email: 'amith.deshpande@gmail.com',
+      phone: '+91 9870978543',
+    },
+  };
+
   facultyPage = 1;
   readonly facultyPageSize = 3;
 
@@ -88,6 +124,14 @@ export class SidebarComponent {
 
   onAddFacultyClick(): void {
     this.modalService.openModal('faculty');
+  }
+
+  onFacultyClick(faculty: FacultyCard): void {
+    const detailData = this.facultyDetailData[faculty.name];
+    if (detailData) {
+      this.facultyDetailService.setSelectedFaculty(detailData);
+      this.modalService.openModal('faculty-detail');
+    }
   }
 
   constructor() {

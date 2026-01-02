@@ -13,3 +13,66 @@
   justify-content: center;
   margin-top: 10px;
 }
+
+/* Orange borders for inputs and dropdowns */
+:host ::ng-deep .form-row app-input-with-file app-input .input-wrapper,
+:host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input {
+  border-color: #f4a261;
+}
+
+:host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input:focus {
+  border-color: #f4a261;
+  outline-color: #f4a261;
+}
+
+:host ::ng-deep .form-row app-dropdown .select-wrapper,
+:host ::ng-deep .form-row app-dropdown .select-wrapper select {
+  border-color: #f4a261;
+}
+
+:host ::ng-deep .form-row app-dropdown .select-wrapper select:focus {
+  border-color: #f4a261;
+  outline-color: #f4a261;
+}
+
+/* Input with file - gap and alignment */
+:host ::ng-deep .form-row app-input-with-file .input-with-icon {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+:host ::ng-deep .form-row app-input-with-file .input-with-icon app-input {
+  flex: 1;
+}
+
+:host ::ng-deep .form-row app-input-with-file .input-with-icon app-input .field {
+  margin: 0;
+}
+
+/* Icon button alignment */
+:host ::ng-deep .form-row app-input-with-file .icon-btn {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* Orange paperclip icon - only for Campus input field */
+:host ::ng-deep .form-row app-input-with-file .paperclip-icon {
+  color: #f4a261;
+  opacity: 1;
+}
+
+:host ::ng-deep .form-row app-input-with-file .paperclip-icon:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+/* Teal-green submit button */
+:host ::ng-deep .form-actions app-button button.primary {
+  background: #628a8e;
+  border-color: #628a8e;
+}
+
+:host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
+  background: #4a6d70;
+  border-color: #4a6d70;
+}

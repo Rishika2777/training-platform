@@ -38,6 +38,7 @@
         [value]="value.course"
         [disabled]="submitting"
         (valueChange)="patch({ course: $event })"
+        [autocomplete]="true"
       />
     </div>
 
@@ -48,6 +49,7 @@
         [value]="value.batch"
         [disabled]="submitting"
         (valueChange)="patch({ batch: $event })"
+        [autocomplete]="true"
       />
     </div>
 
@@ -68,6 +70,7 @@
         [value]="value.designation"
         [disabled]="submitting"
         (valueChange)="patch({ designation: $event })"
+        [autocomplete]="true"
       />
     </div>
 
@@ -78,6 +81,7 @@
         [value]="value.sector"
         [disabled]="submitting"
         (valueChange)="patch({ sector: $event })"
+        [autocomplete]="true"
       />
     </div>
   </div>

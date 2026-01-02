@@ -49,6 +49,21 @@ export class CompanyApiService {
   }
 
   /**
+   * PUT /company/{companyId}/update
+   * Updates company profile.
+   * Swagger: requires userId query parameter for ownership verification.
+   */
+  updateCompany(
+    companyId: string,
+    userId: string,
+    request: CompanyRegisterRequest,
+  ): Observable<CompanyRegistrationResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.UPDATE, { companyId }));
+    const params = new HttpParams().set('userId', userId);
+    return this.http.put<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
+  }
+
+  /**
    * PATCH /company/{companyId}/approvalStatus/update (Admin)
    * Swagger: requires `requesterUserType=ADMIN` query param.
    */

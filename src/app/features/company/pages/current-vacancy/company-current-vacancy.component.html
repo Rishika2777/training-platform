@@ -12,6 +12,7 @@
             [disabled]="submitting"
             placeholder="Select job title"
             (valueChange)="updateField('jobTitle', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Job Type"
@@ -20,6 +21,7 @@
             [disabled]="submitting"
             placeholder="Select job type"
             (valueChange)="updateField('jobType', $event)"
+            [autocomplete]="true"
           />
         </div>
 
@@ -31,6 +33,7 @@
             [disabled]="submitting"
             placeholder="Select duration"
             (valueChange)="updateField('contractDuration', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Job Location"
@@ -39,6 +42,7 @@
             [disabled]="submitting"
             placeholder="Select location"
             (valueChange)="updateField('jobLocation', $event)"
+            [autocomplete]="true"
           />
         </div>
 
@@ -75,6 +79,7 @@
             [disabled]="submitting"
             placeholder="Select department"
             (valueChange)="updateField('department', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="No. of Openings"
@@ -83,6 +88,7 @@
             [disabled]="submitting"
             placeholder="Select number"
             (valueChange)="updateField('numberOfOpenings', $event)"
+            [autocomplete]="true"
           />
         </div>
       </div>
@@ -100,6 +106,7 @@
             [disabled]="submitting"
             placeholder="Select qualification"
             (valueChange)="updateField('requiredQualifications', $event)"
+            [autocomplete]="true"
           />
           <app-dropdown
             label="Streams Eligible"
@@ -108,6 +115,7 @@
             [disabled]="submitting"
             placeholder="Select stream"
             (valueChange)="updateField('streamsEligible', $event)"
+            [autocomplete]="true"
           />
         </div>
 
@@ -119,6 +127,7 @@
             [disabled]="submitting"
             placeholder="Select year"
             (valueChange)="updateField('yearOfPassing', $event)"
+            [autocomplete]="true"
           />
           <app-input
             label="Minimum CGPA/percentage"

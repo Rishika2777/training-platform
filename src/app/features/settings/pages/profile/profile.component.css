@@ -1,0 +1,12 @@
+.app-form-field-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-input-error {
+  margin-top: var(--space-xs);
+  color: var(--color-error);
+  font-size: 14px;
+  font-weight: 600;
+}
+
