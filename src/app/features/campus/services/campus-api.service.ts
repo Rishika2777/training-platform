@@ -333,13 +333,61 @@ export class CampusApiService {
    * Upload prospectus files for campus and course.
    */
   uploadProspectus(request: UploadProspectusRequest): Observable<UploadProspectusResponse | null> {
+    console.log('🔵🔵🔵 CampusApiService: uploadProspectus METHOD CALLED 🔵🔵🔵');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
-    return this.http.post<unknown>(url, request).pipe(
+    
+    console.log('========== UPLOAD PROSPECTUS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
+    console.log('CampusApiService: Request data:', {
+      campusId: request.campusId,
+      courseId: request.courseId,
+      filesCount: request.files?.length || 0,
+      firstFilePreview: request.files?.[0]?.substring(0, 100) + '...' || 'N/A'
+    });
+    console.log('CampusApiService: HTTP Client:', this.http);
+    console.log('CampusApiService: About to make HTTP POST request...');
+    
+    const httpOptions = {
+      headers: { 'Content-Type': 'application/json' }
+    };
+    
+    console.log('CampusApiService: HTTP Options:', httpOptions);
+    console.log('CampusApiService: Making HTTP POST request to:', url);
+    console.log('CampusApiService: Request payload size:', JSON.stringify(request).length, 'bytes');
+    
+    const httpRequest = this.http.post<unknown>(url, request, httpOptions);
+    
+    console.log('CampusApiService: HTTP POST Observable created');
+    console.log('CampusApiService: Observable will execute when subscribed');
+    console.log('CampusApiService: Applying pipe operators...');
+    
+    return httpRequest.pipe(
       map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Upload Prospectus Response received ✅✅✅');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        console.log('CampusApiService: Response is object?', raw && typeof raw === 'object');
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as UploadProspectusResponse;
         }
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ Error in uploadProspectus:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -349,13 +397,45 @@ export class CampusApiService {
    * Get prospectuses by campus.
    */
   getProspectusByCampus(campusId: string): Observable<GetProspectusResponse | null> {
+    console.log('🔵🔵🔵 CampusApiService: getProspectusByCampus METHOD CALLED 🔵🔵🔵');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId });
+    
+    console.log('CampusApiService: ========== GET PROSPECTUS BY CAMPUS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS);
+    console.log('CampusApiService: Campus ID parameter:', campusId);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS.replace(':campusId', campusId));
+    console.log('CampusApiService: Making HTTP GET request...');
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Prospectus By Campus Response received ✅✅✅');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ Error in getProspectusByCampus:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -365,13 +445,45 @@ export class CampusApiService {
    * Get prospectuses by course.
    */
   getProspectusByCourse(courseId: string): Observable<GetProspectusResponse | null> {
+    console.log('🔵🔵🔵 CampusApiService: getProspectusByCourse METHOD CALLED 🔵🔵🔵');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { courseId });
+    
+    console.log('CampusApiService: ========== GET PROSPECTUS BY COURSE API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE);
+    console.log('CampusApiService: Course ID parameter:', courseId);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE.replace(':courseId', courseId));
+    console.log('CampusApiService: Making HTTP GET request...');
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Prospectus By Course Response received ✅✅✅');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ Error in getProspectusByCourse:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
