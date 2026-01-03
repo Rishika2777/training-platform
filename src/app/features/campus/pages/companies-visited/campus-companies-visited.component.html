@@ -1,4 +1,5 @@
-<form class="companies-visited-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
+<div class="companies-visited-container">
+  <form class="companies-visited-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
   <div class="form-row">
     <div class="file-input-wrapper">
       <div class="field-label">
@@ -10,7 +11,7 @@
       type="text"
       [value]="companyLogoName || 'Select logo file'"
       [disabled]="true"
-          [invalid]="submitAttempted && !value.companyLogo"
+      [invalid]="submitAttempted && !value.companyLogo"
       placeholder="Select logo file"
     />
         <button
@@ -63,4 +64,5 @@
     />
   </div>
 </form>
+</div>
 

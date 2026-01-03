@@ -112,20 +112,24 @@ export class CampusFacultyComponent {
       .subscribe({
         next: (response) => {
           this.checkingEmail = false;
-          if (response?.data) {
-            this.emailExists = response.data.exists;
+          // Swagger shows: data is boolean (false = available, true = exists)
+          // If data is true, email exists; if false, email is available
+          if (response?.data !== undefined) {
+            this.emailExists = response.data; // data is boolean directly
             if (this.emailExists) {
               this.emailErrorMessage = 'This email is already registered';
             } else {
               this.emailErrorMessage = '';
             }
-            console.log('FacultyComponent: Email check result:', response.data);
           }
         },
-        error: (err) => {
+         
+        error: () => {
           this.checkingEmail = false;
-          console.warn('FacultyComponent: Email check failed:', err);
-          // Don't show error for check, just log it
+          // Don't show error for email check - just disable validation
+          // User can still submit the form
+          this.emailExists = false;
+          this.emailErrorMessage = '';
         },
       });
   }
@@ -214,13 +218,44 @@ export class CampusFacultyComponent {
     return this.value.professionalInfo.length > 1;
   }
 
+  onFormSubmit(event: Event | MouseEvent): void {
+    if (event) {
+      event.preventDefault();
+      if ('stopPropagation' in event) {
+        event.stopPropagation();
+      }
+    }
+    console.log('FacultyComponent: ========== FORM SUBMIT EVENT TRIGGERED ==========');
+    console.log('FacultyComponent: Event:', event);
+    console.log('FacultyComponent: Event type:', event?.type || 'unknown');
+    this.submit();
+  }
+
   submit(): void {
+    console.log('FacultyComponent: ========== SUBMIT METHOD CALLED ==========');
+    console.log('FacultyComponent: Form value:', this.value);
+    console.log('FacultyComponent: Email exists?', this.emailExists);
+    console.log('FacultyComponent: Checking email?', this.checkingEmail);
+    console.log('FacultyComponent: Email error message:', this.emailErrorMessage);
+    console.log('FacultyComponent: Submitting flag:', this.submitting);
+    
     // Prevent submission if email already exists
     if (this.emailExists) {
-      console.warn('FacultyComponent: Cannot submit - email already exists');
+      console.warn('FacultyComponent: ⚠️ Cannot submit - email already exists');
+      console.warn('FacultyComponent: Email:', this.value.email);
       return;
     }
+    
+    // Prevent submission if email is being checked
+    if (this.checkingEmail) {
+      console.warn('FacultyComponent: ⚠️ Cannot submit - email check in progress');
+      return;
+    }
+    
+    console.log('FacultyComponent: ✅ All checks passed, emitting submitted event...');
+    console.log('FacultyComponent: Emitting value:', this.value);
     this.submitted.emit(this.value);
+    console.log('FacultyComponent: ✅ Event emitted successfully');
   }
 
   cancel(): void {

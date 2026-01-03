@@ -1,4 +1,4 @@
-<form class="faculty-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="faculty-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-section">
     <h3 class="section-title">Basic Information</h3>
     <div class="form-grid">
@@ -211,7 +211,7 @@
 
   <div class="form-actions">
     <app-button type="button" label="Cancel" variant="primary" [disabled]="submitting" (buttonClick)="cancel()" />
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="onFormSubmit($event)" />
   </div>
 </form>
 

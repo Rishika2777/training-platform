@@ -17,6 +17,8 @@ import { NotificationService } from '../../../../core/notifications/notification
 import { CampusApiService } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
+import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { API_ENDPOINTS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 
 @Component({
@@ -44,6 +46,7 @@ export class CampusHomeComponent implements OnInit {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
   readonly facultyDetailService = inject(FacultyDetailService);
+  private readonly authState = inject(AuthStateService);
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -328,18 +331,29 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleFacultySubmit(value: FacultyFormValue): void {
+    console.log('HomeComponent: ========== FORM SUBMIT TRIGGERED ==========');
+    console.log('HomeComponent: Form value received:', value);
+    console.log('HomeComponent: Current URL:', window.location.href);
+    console.log('HomeComponent: Current path:', window.location.pathname);
+    
     // Validate required fields
     if (
       !value.fullName.trim() ||
-      !value.photo ||
       !value.email.trim() ||
       !value.dateOfBirth.trim() ||
       !value.phoneNumber.trim()
     ) {
+      console.warn('HomeComponent: ⚠️ Validation failed - missing required fields');
+      console.warn('HomeComponent: fullName:', value.fullName.trim());
+      console.warn('HomeComponent: email:', value.email.trim());
+      console.warn('HomeComponent: dateOfBirth:', value.dateOfBirth.trim());
+      console.warn('HomeComponent: phoneNumber:', value.phoneNumber.trim());
       this.submittingFaculty = false;
       this.notify.error('Please fill all required fields');
       return;
     }
+    
+    console.log('HomeComponent: ✅ Basic validation passed');
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -370,61 +384,214 @@ export class CampusHomeComponent implements OnInit {
       }
     }
 
+    console.log('HomeComponent: ✅ All validations passed');
+    console.log('HomeComponent: Setting submittingFaculty = true');
     this.submittingFaculty = true;
+    console.log('HomeComponent: Proceeding to prepare request data...');
 
     // Prepare basic information JSON
-    const basicInformation = {
+    // Convert date format from input (YYYY-MM-DD) to API format (YYYY-MM-DD)
+    // The date input already provides YYYY-MM-DD format, but let's ensure it's correct
+    let dateOfBirth = value.dateOfBirth.trim();
+    
+        // If date is in MM/DD/YYYY format, convert to YYYY-MM-DD
+        if (dateOfBirth.includes('/')) {
+          const parts = dateOfBirth.split('/');
+          if (parts.length === 3) {
+            dateOfBirth = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+          }
+        }
+    
+    const basicInformation: {
+      fullName: string;
+      email: string;
+      dateOfBirth: string;
+      phoneNumber: string;
+      photo?: File | null;
+    } = {
       fullName: value.fullName.trim(),
       email: value.email.trim(),
-      dateOfBirth: value.dateOfBirth.trim(),
+      dateOfBirth: dateOfBirth,
       phoneNumber: value.phoneNumber.trim(),
     };
+    
+    // Note: Photo is not included in JSON request body
+    // If photo is required, backend should handle it separately or we need to use FormData
+    console.log('HomeComponent: Photo file present?', !!value.photo);
+    console.log('HomeComponent: Photo file name:', value.photo?.name || 'No photo');
 
     // Prepare professional information JSON (without file references)
-    const professionalInformation = value.professionalInfo.map((info) => ({
-      designation: info.designation.trim(),
-      department: info.department.trim(),
-      specialization: info.specialization.trim(),
-      yearsOfExperience: info.yearsOfExperience.trim(),
-      qualifications: info.qualifications.trim(),
-    }));
-
-    // Create FormData for multipart/form-data
-    const formData = new FormData();
-    formData.append('basicInformation', JSON.stringify(basicInformation));
-    formData.append('professionalInformation', JSON.stringify(professionalInformation));
-
-    // Add photo file if exists
-    if (value.photo) {
-      formData.append('photo', value.photo);
-      console.log('HomeComponent: Added photo file:', value.photo.name, 'Size:', value.photo.size);
-    }
-
-    // Add certificate files if exist
-    value.professionalInfo.forEach((info, index) => {
-      if (info.certificates) {
-        formData.append('certificates', info.certificates);
-        console.log(`HomeComponent: Added certificate file ${index}:`, info.certificates.name, 'Size:', info.certificates.size);
+    // API expects arrays for designation, department, specialization, yearsOfExperience, and qualifications
+    const professionalInformation = value.professionalInfo.map((info) => {
+      // Parse yearsOfExperience - handle ranges like "1-5", "6-10", "11-15", "16+"
+      const yearsExp = info.yearsOfExperience.trim();
+      let yearsExpNum = 0;
+      
+      if (yearsExp) {
+        // Handle range values like "1-5", "6-10", etc.
+        if (yearsExp.includes('-')) {
+          const parts = yearsExp.split('-');
+          if (parts.length === 2) {
+            // Take the maximum value from the range
+            const max = parseInt(parts[1].trim(), 10);
+            yearsExpNum = isNaN(max) ? 0 : max;
+          }
+        } else if (yearsExp.endsWith('+')) {
+          // Handle "16+" - take the minimum value
+          const min = parseInt(yearsExp.replace('+', '').trim(), 10);
+          yearsExpNum = isNaN(min) ? 0 : min;
+        } else {
+          // Direct number
+          const num = parseInt(yearsExp, 10);
+          yearsExpNum = isNaN(num) ? 0 : num;
+        }
       }
+      
+      // Parse yearsOfExperience - ensure it's a valid number
+      const yearsExpArray = yearsExpNum > 0 ? [yearsExpNum] : [];
+      
+      // Parse qualifications - split by comma or newline if multiple, otherwise single item array
+      const qualificationsStr = info.qualifications.trim();
+      const qualificationsArray = qualificationsStr
+        ? qualificationsStr.split(/[,\n]/).map(q => q.trim()).filter(q => q.length > 0)
+        : [];
+      
+      // Ensure all arrays have at least one value (backend might require non-empty arrays)
+      const designationArray = info.designation.trim() ? [info.designation.trim()] : [];
+      const departmentArray = info.department.trim() ? [info.department.trim()] : [];
+      const specializationArray = info.specialization.trim()
+        ? info.specialization.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0)
+        : [];
+      
+      console.log('HomeComponent: Professional Info Entry:', {
+        designation: designationArray,
+        department: departmentArray,
+        specialization: specializationArray,
+        yearsOfExperience: yearsExpArray,
+        qualifications: qualificationsArray
+      });
+      
+      return {
+        designation: designationArray,
+        department: departmentArray,
+        specialization: specializationArray,
+        yearsOfExperience: yearsExpArray,
+        qualifications: qualificationsArray,
+        // Note: certificates will be added as files separately in FormData
+        certificates: [], // Empty array - files will be added separately
+      };
     });
 
-    console.log('HomeComponent: Calling addFaculty API with FormData');
-    console.log('HomeComponent: Basic Information:', basicInformation);
-    console.log('HomeComponent: Professional Information:', professionalInformation);
-    console.log('HomeComponent: FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
+    // According to Swagger and Thunder: professionalInformation should be a SINGLE OBJECT
+    // Backend expects only ONE professionalInformation entry (not merged/multiple)
+    // If user has multiple entries, we'll use only the FIRST one (as per backend limitation)
+    let professionalInformationObj: {
+      designation: string[];
+      department: string[];
+      specialization: string[];
+      yearsOfExperience: number[];
+      qualifications: string[];
+      certificates?: string[]; // For file URLs if needed
+    };
 
-    this.campusApi.addFaculty(formData).subscribe({
+    if (professionalInformation.length === 0) {
+      // Empty object if no professional info
+      professionalInformationObj = {
+        designation: [],
+        department: [],
+        specialization: [],
+        yearsOfExperience: [],
+        qualifications: [],
+        certificates: [],
+      };
+    } else {
+      if (professionalInformation.length > 1) {
+        this.notify.warn('Only the first professional information entry will be saved.');
+      }
+      professionalInformationObj = professionalInformation[0];
+    }
+
+    // Prepare request data (JSON format - like Thunder/Postman)
+    const requestData = {
+      basicInformation,
+      professionalInformation: professionalInformationObj
+    };
+    
+    console.log('HomeComponent: ========== FINAL REQUEST DATA ==========');
+    console.log('HomeComponent: Complete request payload:', JSON.stringify(requestData, null, 2));
+    console.log('HomeComponent: Basic Info keys:', Object.keys(basicInformation));
+    console.log('HomeComponent: Professional Info keys:', Object.keys(professionalInformationObj));
+    console.log('HomeComponent: Professional Info values:', {
+      designation: professionalInformationObj.designation,
+      department: professionalInformationObj.department,
+      specialization: professionalInformationObj.specialization,
+      yearsOfExperience: professionalInformationObj.yearsOfExperience,
+      qualifications: professionalInformationObj.qualifications,
+      certificates: professionalInformationObj.certificates
+    });
+
+    // Check authentication
+    const token = this.authState.token();
+    
+    if (!token) {
+      this.submittingFaculty = false;
+      this.notify.error('Authentication required. Please login again.');
+      return;
+    }
+    
+    console.log('HomeComponent: ========== STARTING FACULTY POST API ==========');
+    console.log('HomeComponent: Request data:', JSON.stringify(requestData, null, 2));
+    console.log('HomeComponent: Basic Information:', JSON.stringify(basicInformation, null, 2));
+    console.log('HomeComponent: Professional Information:', JSON.stringify(professionalInformationObj, null, 2));
+    console.log('HomeComponent: Photo file:', value.photo ? `File: ${value.photo.name}, Size: ${value.photo.size} bytes, Type: ${value.photo.type}` : 'No photo');
+    console.log('HomeComponent: Token exists:', !!token);
+    console.log('HomeComponent: Token length:', token.length);
+    console.log('HomeComponent: Current URL before API call:', window.location.href);
+    console.log('HomeComponent: Endpoint:', API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    
+    // Prevent any navigation during API call
+    const currentPath = window.location.pathname;
+    console.log('HomeComponent: Current path:', currentPath);
+    
+    this.campusApi.addFaculty(requestData).subscribe({
       next: (response) => {
-        console.log('HomeComponent: API Integration Working - Faculty Added Successfully');
-        console.log('HomeComponent: Response data:', response?.data);
-        console.log('HomeComponent: Response message:', response?.message);
+        console.log('HomeComponent: ========== FACULTY POST API SUCCESS ==========');
+        console.log('HomeComponent: Response received:', response);
+        console.log('HomeComponent: Response type:', typeof response);
+        console.log('HomeComponent: Response is null?', response === null);
+        console.log('HomeComponent: Current URL after success:', window.location.href);
+        
+        // Check if response is null (API service returned null)
+        if (response === null) {
+          console.error('HomeComponent: ⚠️ Response is NULL - API might have returned unexpected format');
+          console.error('HomeComponent: But API call was successful (200 status)');
+          console.error('HomeComponent: This might mean backend returned different structure');
+          this.submittingFaculty = false;
+          this.notify.warn('Faculty might have been added, but response format was unexpected. Please refresh the page.');
+          this.closeModal();
+          // Still trigger refresh in case it was added
+          window.dispatchEvent(new Event('facultyAdded'));
+          return;
+        }
+        
         this.submittingFaculty = false;
-        this.notify.success(response?.message || 'Faculty added successfully');
-        this.closeModal();
+        const successMessage = response?.message || 'Faculty added successfully!';
+        console.log('HomeComponent: Success message:', successMessage);
+        console.log('HomeComponent: Response success:', response?.success);
+        console.log('HomeComponent: Response data:', response?.data);
+        
+        this.notify.success(successMessage);
+        
+        // Close modal after short delay to show success message
+        setTimeout(() => {
+          console.log('HomeComponent: Closing modal after success');
+          this.closeModal();
+        }, 500);
 
         // Trigger refresh event for sidebar
         console.log('HomeComponent: Dispatching facultyAdded event to refresh sidebar...');
         window.dispatchEvent(new Event('facultyAdded'));
+        console.log('HomeComponent: Event dispatched - sidebar should refresh now');
 
         try {
           this.cdr.detectChanges();
@@ -433,13 +600,31 @@ export class CampusHomeComponent implements OnInit {
         }
       },
       error: (err) => {
-        console.error('HomeComponent: API Integration Failed');
-        console.error('HomeComponent: Error object:', err);
+        console.error('HomeComponent: ========== FACULTY POST API ERROR ==========');
+        console.error('HomeComponent: Error status:', err?.status);
+        console.error('HomeComponent: Error URL:', err?.url);
         console.error('HomeComponent: Error response:', err?.error);
+        console.error('HomeComponent: Current URL after error:', window.location.href);
         
-        // Handle validation errors from backend
+        // Check token status after error
+        const tokenAfterError = this.authState.token();
+        console.error('HomeComponent: Token after error:', !!tokenAfterError);
+        console.error('HomeComponent: Token length:', tokenAfterError?.length || 0);
+        
+        this.submittingFaculty = false;
+        
         let errorMessage = 'Failed to add faculty';
-        if (err?.error?.message) {
+        if (err?.status === 401) {
+          errorMessage = 'Unauthorized: Your session has expired. Please login again.';
+          console.error('HomeComponent: ⚠️ 401 Error - BUT NOT REDIRECTING');
+          console.error('HomeComponent: ⚠️ Token still exists:', !!tokenAfterError);
+        } else if (err?.status === 403) {
+          errorMessage = 'Forbidden: You do not have permission to add faculty.';
+        } else if (err?.status === 502) {
+          errorMessage = 'Service temporarily unavailable. Please check your connection and try again.';
+        } else if (err?.status === 0) {
+          errorMessage = 'Network error: Unable to connect to server.';
+        } else if (err?.error?.message) {
           errorMessage = err.error.message;
         } else if (err?.error?.error) {
           errorMessage = err.error.error;
@@ -447,21 +632,29 @@ export class CampusHomeComponent implements OnInit {
           errorMessage = err.message;
         }
 
-        // Show field-specific validation errors if available
         if (err?.error?.errors && typeof err.error.errors === 'object') {
           const validationErrors = Object.entries(err.error.errors)
             .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
             .join('; ');
           errorMessage = validationErrors || errorMessage;
         }
-
-        this.submittingFaculty = false;
-        this.notify.error(errorMessage);
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Ignore
+        
+        console.error('HomeComponent: Showing error notification - NO REDIRECT');
+        console.error('HomeComponent: Modal will stay open');
+        console.error('HomeComponent: Current path after error:', window.location.pathname);
+        console.error('HomeComponent: Path changed?', window.location.pathname !== currentPath);
+        
+        // CRITICAL: Don't close modal, don't redirect, don't clear token
+        // Just show error and let user try again
+        
+        // Double-check: If path changed, log it (shouldn't happen)
+        if (window.location.pathname !== currentPath) {
+          console.error('HomeComponent: ⚠️⚠️⚠️ PATH CHANGED - REDIRECT DETECTED!');
+          console.error('HomeComponent: Old path:', currentPath);
+          console.error('HomeComponent: New path:', window.location.pathname);
         }
+        
+        this.notify.error(errorMessage);
       },
     });
   }

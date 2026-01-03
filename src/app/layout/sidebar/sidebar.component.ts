@@ -139,11 +139,13 @@ export class SidebarComponent implements OnInit {
    * Load faculties from API, fallback to static data on error
    */
   loadFaculties(): void {
+    console.log('SidebarComponent: ========== LOAD FACULTIES START ==========');
     console.log('SidebarComponent: Loading faculties from API...');
     this.loadingFaculties.set(true);
 
     this.campusApi.getAllFaculties().subscribe({
       next: (response) => {
+        console.log('SidebarComponent: ✅ GET All Faculties API Success');
         console.log('SidebarComponent: API response received:', response);
         this.loadingFaculties.set(false);
 
@@ -161,11 +163,20 @@ export class SidebarComponent implements OnInit {
           console.log('SidebarComponent: API returned empty data, using static fallback');
           this.faculty.set(this.staticFacultyData);
         }
+        console.log('SidebarComponent: ===========================================');
       },
       error: (err) => {
-        console.warn('SidebarComponent: API call failed, using static fallback. Error:', err);
+        console.warn('SidebarComponent: ========== GET ALL FACULTIES ERROR ==========');
+        console.warn('SidebarComponent: ⚠️ GET All Faculties API Failed');
+        console.warn('SidebarComponent: Error status:', err?.status);
+        console.warn('SidebarComponent: Error URL:', err?.url);
+        console.warn('SidebarComponent: Error message:', err?.message);
+        console.warn('SidebarComponent: This is a GET API error - NOT affecting POST API');
+        console.warn('SidebarComponent: Using static fallback data - page will work normally');
+        console.warn('SidebarComponent: ===========================================');
+        
         this.loadingFaculties.set(false);
-        // Fallback to static data on error
+        // Fallback to static data on error - page continues to work
         this.faculty.set(this.staticFacultyData);
       },
     });

@@ -1,38 +1,60 @@
+/* Companies Visited Container */
+.companies-visited-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
 .companies-visited-form {
-  display: grid;
-  gap: var(--space-xl);
-  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  align-items: center;
 }
 
 .form-row {
-  display: grid;
-  gap: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  align-items: stretch;
 }
 
 .file-input-wrapper {
-  display: grid;
-  gap: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
 .field-label {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: 700;
+  color: var(--color-text-primary, #334155);
   display: flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
 }
 
 .asterisk {
   color: var(--color-error);
   font-weight: 600;
+  margin-left: 4px;
 }
 
 .file-input-container {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-sm);
-  align-items: end;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .file-attach-btn {
@@ -40,22 +62,25 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border: 2px solid var(--color-secondary);
+  border: 2px solid #f4a261;
   border-radius: var(--radius-md);
   background: var(--color-white);
-  color: var(--color-secondary);
+  color: #f4a261;
   cursor: pointer;
   font-size: 18px;
   padding: 0;
   transition: all var(--transition-base);
   flex-shrink: 0;
+  align-self: center;
+  margin-left: 8px;
 }
 
 .file-attach-btn:hover:not(:disabled) {
-  background: var(--color-secondary);
+  background: #f4a261;
   color: var(--color-white);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+  opacity: 0.9;
 }
 
 .file-attach-btn:active:not(:disabled) {
@@ -78,8 +103,85 @@
 .form-actions {
   display: flex;
   justify-content: center;
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
+  align-items: center;
+  margin-top: 12px;
+  width: 100%;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Input field styling */
+:host ::ng-deep .file-input-container app-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+:host ::ng-deep .file-input-container app-input .field {
+  margin: 0;
+  width: 100%;
+}
+
+:host ::ng-deep .file-input-container app-input input {
+  width: 100%;
+  box-sizing: border-box;
+  border-color: #f4a261;
+}
+
+:host ::ng-deep .file-input-container app-input input:focus {
+  border-color: #f4a261;
+  outline-color: #f4a261;
+}
+
+/* Company Name input styling */
+:host ::ng-deep .form-row app-input {
+  width: 100%;
+}
+
+:host ::ng-deep .form-row app-input .field {
+  width: 100%;
+}
+
+:host ::ng-deep .form-row app-input input {
+  width: 100%;
+  box-sizing: border-box;
+  border-color: #f4a261;
+}
+
+:host ::ng-deep .form-row app-input input:focus {
+  border-color: #f4a261;
+  outline-color: #f4a261;
+}
+
+/* Submit button styling */
+:host ::ng-deep .form-actions app-button button.primary {
+  background: #628a8e;
+  border-color: #628a8e;
+}
+
+:host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
+  background: #4a6d70;
+  border-color: #4a6d70;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .companies-visited-container {
+    max-width: 100%;
+    padding: 0 4px;
+    gap: 24px;
+  }
+
+  .companies-visited-form {
+    gap: 24px;
+  }
+
+  .form-row {
+    gap: 10px;
+  }
+
+  .file-input-container {
+    gap: 8px;
+  }
 }
 

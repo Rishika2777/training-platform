@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, signal, SimpleChanges } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputWithFileComponent } from '../../../../shared/components/input-with-file/input-with-file.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
@@ -20,7 +20,7 @@ export interface ProspectusUploadFormValue {
   templateUrl: './campus-prospectus.component.html',
   styleUrl: './campus-prospectus.component.css',
 })
-export class CampusProspectusComponent {
+export class CampusProspectusComponent implements OnInit, OnChanges {
   private readonly campusApi = inject(CampusApiService);
   private readonly notify = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -40,6 +40,9 @@ export class CampusProspectusComponent {
   // Prospectus management state
   readonly prospectusList = signal<readonly ProspectusData[]>([]);
   loadingProspectus = signal(false);
+  
+  // Store actual campus ID separately (for API)
+  private actualCampusId = '';
 
   readonly courseItems = [
     { label: 'Course 1', value: 'course1' },
@@ -47,14 +50,54 @@ export class CampusProspectusComponent {
     { label: 'Course 3', value: 'course3' },
   ] as const;
 
+  ngOnInit(): void {
+    // Fetch prospectus list on component initialization if campus or course is already selected
+    this.loadProspectusListIfNeeded();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Watch for changes in campus or course and fetch prospectus list
+    if (changes['value'] && !changes['value'].firstChange) {
+      const prevValue = changes['value'].previousValue as ProspectusUploadFormValue;
+      const currentValue = changes['value'].currentValue as ProspectusUploadFormValue;
+      
+      // If campus or course changed, reload prospectus list
+      if (
+        (prevValue.campus !== currentValue.campus && currentValue.campus.trim()) ||
+        (prevValue.course !== currentValue.course && currentValue.course.trim())
+      ) {
+        this.loadProspectusListIfNeeded();
+      }
+    }
+  }
+
+  loadProspectusListIfNeeded(): void {
+    if (this.value.campus.trim()) {
+      this.getProspectusByCampus(this.value.campus.trim());
+    } else if (this.value.course.trim()) {
+      this.getProspectusByCourse(this.value.course.trim());
+    }
+  }
+
   patch(patch: Partial<ProspectusUploadFormValue>): void {
     const next: ProspectusUploadFormValue = { ...this.value, ...patch };
     this.value = next;
+    // Store actual campus ID when user types (not file name)
+    if (patch.campus !== undefined && !this.value.campusFile) {
+      this.actualCampusId = patch.campus;
+    }
     this.valueChange.emit(next);
   }
 
   onCampusFileSelected(file: File | null): void {
     this.patch({ campusFile: file });
+    // Show file name in the input field
+    if (file) {
+      this.patch({ campus: file.name });
+    } else {
+      // Restore actual campus ID if file is removed
+      this.patch({ campus: this.actualCampusId });
+    }
   }
 
   onCourseFileSelected(file: File | null): void {
@@ -84,7 +127,7 @@ export class CampusProspectusComponent {
         }
 
         const request = {
-          campusId: this.value.campus.trim(),
+          campusId: this.actualCampusId.trim() || this.value.campus.trim(),
           courseId: this.value.course.trim(),
           files: files,
         };
@@ -297,8 +340,8 @@ export class CampusProspectusComponent {
       next: (response) => {
         console.log('Prospectus deleted successfully:', response);
         this.notify.success(response?.message || 'Prospectus deleted successfully');
-        // Remove from list
-        this.prospectusList.update((list) => list.filter((p) => p.id !== prospectusId));
+        // Refresh prospectus list from server
+        this.loadProspectusListIfNeeded();
         try {
           this.cdr.detectChanges();
         } catch {
@@ -346,5 +389,34 @@ export class CampusProspectusComponent {
       this.value.course.trim().length > 0 &&
       this.value.courseFile !== null
     );
+  }
+
+  /**
+   * Format date for display
+   */
+  formatDate(dateString?: string): string {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'N/A';
+    }
+  }
+
+  /**
+   * Get file name from URL or use default
+   */
+  getFileName(prospectus: ProspectusData): string {
+    if (prospectus.fileUrls && prospectus.fileUrls.length > 0) {
+      const url = prospectus.fileUrls[0];
+      const fileName = url.split('/').pop() || url;
+      return fileName.length > 30 ? fileName.substring(0, 30) + '...' : fileName;
+    }
+    return `prospectus-${prospectus.id || 'file'}.pdf`;
   }
 }

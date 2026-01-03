@@ -44,5 +44,10 @@ export class InputWithFileComponent {
   get fileName(): string {
     return this.selectedFile?.name ?? '';
   }
+
+  get displayValue(): string {
+    // If file is selected, show file name, otherwise show the value (campus ID or text)
+    return this.selectedFile?.name ?? this.value;
+  }
 }
 

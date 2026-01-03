@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
 
 /**
@@ -124,21 +124,65 @@ export class CampusApiService {
 
   /**
    * POST /api/v1/faculty
-   * Add a faculty member (multipart/form-data).
+   * Add a faculty member (JSON body format - like Thunder/Postman)
    */
-  addFaculty(formData: FormData): Observable<AddFacultyResponse | null> {
+  addFaculty(data: { basicInformation: unknown; professionalInformation: unknown }): Observable<AddFacultyResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
-    console.log('CampusApiService.addFaculty called');
-    console.log('Request URL:', url);
-    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
-    return this.http.post<unknown>(url, formData).pipe(
+    
+    console.log('CampusApiService: ========== ADD FACULTY API CALL ==========');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    console.log('CampusApiService: Request data (full):', JSON.stringify(data, null, 2));
+    console.log('CampusApiService: Basic Information:', JSON.stringify(data.basicInformation, null, 2));
+    console.log('CampusApiService: Professional Information:', JSON.stringify(data.professionalInformation, null, 2));
+    console.log('CampusApiService: Content-Type: application/json');
+    console.log('CampusApiService: Request body type:', typeof data);
+    console.log('CampusApiService: Request body keys:', Object.keys(data));
+    
+    // Create headers object - Angular will merge with interceptor's Authorization header
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    console.log('CampusApiService: Headers being sent:', headers.keys());
+    
+    return this.http.post<unknown>(url, data, {
+      headers: headers
+    }).pipe(
       map((raw) => {
-        console.log('API Service - Add Faculty Raw response received:', raw);
-        if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as AddFacultyResponse;
+        console.log('CampusApiService: ✅ Response received:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        console.log('CampusApiService: Response keys:', raw && typeof raw === 'object' ? Object.keys(raw) : 'N/A');
+        
+        // Check if response has expected structure
+        if (raw && typeof raw === 'object') {
+          const response = raw as Record<string, unknown>;
+          console.log('CampusApiService: Response structure check:');
+          console.log('CampusApiService: - has success:', 'success' in response);
+          console.log('CampusApiService: - has message:', 'message' in response);
+          console.log('CampusApiService: - has data:', 'data' in response);
+          console.log('CampusApiService: - success value:', response['success']);
+          console.log('CampusApiService: - message value:', response['message']);
+          console.log('CampusApiService: - data value:', response['data']);
+          
+          // Accept response if it has 'data' field OR if success is true
+          if ('data' in response || (response['success'] === true)) {
+            console.log('CampusApiService: ✅ Response structure is valid');
+            return raw as AddFacultyResponse;
+          }
         }
-        console.warn('API Service - Add Faculty Response does not have expected structure');
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning null - this might cause issues');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ Error in addFaculty:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -149,16 +193,31 @@ export class CampusApiService {
    */
   getAllFaculties(): Observable<GetAllFacultiesResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY);
-    console.log('CampusApiService.getAllFaculties called');
-    console.log('Request URL:', url);
+    console.log('CampusApiService: ========== GET ALL FACULTIES API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Method: GET');
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('API Service - Get All Faculties Raw response received:', raw);
+        console.log('CampusApiService: ✅ GET All Faculties Response received:', raw);
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: Response structure is valid');
           return raw as GetAllFacultiesResponse;
         }
-        console.warn('API Service - Get All Faculties Response does not have expected structure');
+        console.warn('CampusApiService: ⚠️ GET All Faculties Response does not have expected structure');
+        console.warn('CampusApiService: Response type:', typeof raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ GET All Faculties API Error');
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        // Re-throw error so component can handle it
+        return throwError(() => error);
       })
     );
   }
@@ -255,17 +314,16 @@ export class CampusApiService {
   checkFacultyEmail(email: string): Observable<CheckEmailResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CHECK_FACULTY_EMAIL);
     const params = new HttpParams().set('email', email);
-    console.log('CampusApiService.checkFacultyEmail called');
-    console.log('Request URL:', url);
-    console.log('Email:', email);
+    
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('API Service - Check Email Raw response received:', raw);
-        if (raw && typeof raw === 'object') {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
           return raw as CheckEmailResponse;
         }
-        console.warn('API Service - Check Email Response does not have expected structure');
         return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
       })
     );
   }
@@ -653,10 +711,7 @@ export interface DeleteFacultyResponse {
 export interface CheckEmailResponse {
   success: boolean;
   message: string;
-  data: {
-    exists: boolean;
-    email: string;
-  };
+  data: boolean; // Swagger shows: data: false (boolean, not object)
   error: string | null;
 }
 

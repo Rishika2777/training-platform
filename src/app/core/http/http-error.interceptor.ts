@@ -85,6 +85,16 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
             return throwError(() => err);
           }
         }
+        
+        // IMPORTANT: For 401 errors on faculty API, don't clear token or redirect
+        // Let the component handle the error
+        if (err.status === 401 && req.url.includes('/faculty')) {
+          console.warn('httpErrorInterceptor: 401 on faculty API - NOT clearing token, NOT redirecting');
+          console.warn('httpErrorInterceptor: URL:', req.url);
+          console.warn('httpErrorInterceptor: Letting component handle error');
+          notifications.error(getErrorMessage(err));
+          return throwError(() => err);
+        }
       }
       
       notifications.error(getErrorMessage(err));
