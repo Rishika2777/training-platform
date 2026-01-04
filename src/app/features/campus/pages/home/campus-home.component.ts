@@ -561,43 +561,52 @@ export class CampusHomeComponent implements OnInit {
         console.log('HomeComponent: Response is null?', response === null);
         console.log('HomeComponent: Current URL after success:', window.location.href);
         
-        // Check if response is null (API service returned null)
-        if (response === null) {
-          console.error('HomeComponent: ⚠️ Response is NULL - API might have returned unexpected format');
-          console.error('HomeComponent: But API call was successful (200 status)');
-          console.error('HomeComponent: This might mean backend returned different structure');
-          this.submittingFaculty = false;
-          this.notify.warn('Faculty might have been added, but response format was unexpected. Please refresh the page.');
-          this.closeModal();
-          // Still trigger refresh in case it was added
-          window.dispatchEvent(new Event('facultyAdded'));
-          return;
-        }
-        
-        this.submittingFaculty = false;
-        const successMessage = response?.message || 'Faculty added successfully!';
-        console.log('HomeComponent: Success message:', successMessage);
-        console.log('HomeComponent: Response success:', response?.success);
-        console.log('HomeComponent: Response data:', response?.data);
-        
-        this.notify.success(successMessage);
-        
-        // Close modal after short delay to show success message
+        // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
-          console.log('HomeComponent: Closing modal after success');
-          this.closeModal();
-        }, 500);
+          // Check if response is null (API service returned null)
+          if (response === null) {
+            console.error('HomeComponent: ⚠️ Response is NULL - API might have returned unexpected format');
+            console.error('HomeComponent: But API call was successful (200 status)');
+            console.error('HomeComponent: This might mean backend returned different structure');
+            this.submittingFaculty = false;
+            this.notify.warn('Faculty might have been added, but response format was unexpected. Please refresh the page.');
+            this.closeModal();
+            // Still trigger refresh in case it was added
+            window.dispatchEvent(new Event('facultyAdded'));
+            
+            try {
+              this.cdr.detectChanges();
+            } catch {
+              // Component might be destroyed, ignore
+            }
+            return;
+          }
+          
+          this.submittingFaculty = false;
+          const successMessage = response?.message || 'Faculty added successfully!';
+          console.log('HomeComponent: Success message:', successMessage);
+          console.log('HomeComponent: Response success:', response?.success);
+          console.log('HomeComponent: Response data:', response?.data);
+          
+          this.notify.success(successMessage);
+          
+          // Close modal after short delay to show success message
+          setTimeout(() => {
+            console.log('HomeComponent: Closing modal after success');
+            this.closeModal();
+          }, 500);
 
-        // Trigger refresh event for sidebar
-        console.log('HomeComponent: Dispatching facultyAdded event to refresh sidebar...');
-        window.dispatchEvent(new Event('facultyAdded'));
-        console.log('HomeComponent: Event dispatched - sidebar should refresh now');
+          // Trigger refresh event for sidebar
+          console.log('HomeComponent: Dispatching facultyAdded event to refresh sidebar...');
+          window.dispatchEvent(new Event('facultyAdded'));
+          console.log('HomeComponent: Event dispatched - sidebar should refresh now');
 
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Component might be destroyed, ignore
-        }
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        }, 0);
       },
       error: (err) => {
         console.error('HomeComponent: ========== FACULTY POST API ERROR ==========');
@@ -611,50 +620,71 @@ export class CampusHomeComponent implements OnInit {
         console.error('HomeComponent: Token after error:', !!tokenAfterError);
         console.error('HomeComponent: Token length:', tokenAfterError?.length || 0);
         
-        this.submittingFaculty = false;
-        
-        let errorMessage = 'Failed to add faculty';
-        if (err?.status === 401) {
-          errorMessage = 'Unauthorized: Your session has expired. Please login again.';
-          console.error('HomeComponent: ⚠️ 401 Error - BUT NOT REDIRECTING');
-          console.error('HomeComponent: ⚠️ Token still exists:', !!tokenAfterError);
-        } else if (err?.status === 403) {
-          errorMessage = 'Forbidden: You do not have permission to add faculty.';
-        } else if (err?.status === 502) {
-          errorMessage = 'Service temporarily unavailable. Please check your connection and try again.';
-        } else if (err?.status === 0) {
-          errorMessage = 'Network error: Unable to connect to server.';
-        } else if (err?.error?.message) {
-          errorMessage = err.error.message;
-        } else if (err?.error?.error) {
-          errorMessage = err.error.error;
-        } else if (err?.message) {
-          errorMessage = err.message;
-        }
+        // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.submittingFaculty = false;
+          
+          let errorMessage = 'Failed to add faculty';
+          if (err?.status === 401) {
+            errorMessage = 'Unauthorized: Your session has expired. Please login again.';
+            console.error('HomeComponent: ⚠️ 401 Error - BUT NOT REDIRECTING');
+            console.error('HomeComponent: ⚠️ Token still exists:', !!tokenAfterError);
+          } else if (err?.status === 403) {
+            errorMessage = 'Forbidden: You do not have permission to add faculty.';
+          } else if (err?.status === 500) {
+            // Handle 500 Internal Server Error
+            if (err?.error?.error) {
+              errorMessage = err.error.error;
+            } else if (err?.error?.message) {
+              errorMessage = err.error.message;
+            } else {
+              errorMessage = 'Server error: An internal error occurred. Please check the request data and try again.';
+            }
+            console.error('HomeComponent: ⚠️ 500 Server Error - Check backend logs');
+            console.error('HomeComponent: Error details:', JSON.stringify(err?.error, null, 2));
+          } else if (err?.status === 502) {
+            errorMessage = 'Service temporarily unavailable. Please check your connection and try again.';
+          } else if (err?.status === 0) {
+            errorMessage = 'Network error: Unable to connect to server.';
+          } else if (err?.error?.message) {
+            errorMessage = err.error.message;
+          } else if (err?.error?.error) {
+            errorMessage = err.error.error;
+          } else if (err?.message) {
+            errorMessage = err.message;
+          }
 
-        if (err?.error?.errors && typeof err.error.errors === 'object') {
-          const validationErrors = Object.entries(err.error.errors)
-            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-            .join('; ');
-          errorMessage = validationErrors || errorMessage;
-        }
-        
-        console.error('HomeComponent: Showing error notification - NO REDIRECT');
-        console.error('HomeComponent: Modal will stay open');
-        console.error('HomeComponent: Current path after error:', window.location.pathname);
-        console.error('HomeComponent: Path changed?', window.location.pathname !== currentPath);
-        
-        // CRITICAL: Don't close modal, don't redirect, don't clear token
-        // Just show error and let user try again
-        
-        // Double-check: If path changed, log it (shouldn't happen)
-        if (window.location.pathname !== currentPath) {
-          console.error('HomeComponent: ⚠️⚠️⚠️ PATH CHANGED - REDIRECT DETECTED!');
-          console.error('HomeComponent: Old path:', currentPath);
-          console.error('HomeComponent: New path:', window.location.pathname);
-        }
-        
-        this.notify.error(errorMessage);
+          if (err?.error?.errors && typeof err.error.errors === 'object') {
+            const validationErrors = Object.entries(err.error.errors)
+              .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+              .join('; ');
+            errorMessage = validationErrors || errorMessage;
+          }
+          
+          console.error('HomeComponent: Showing error notification - NO REDIRECT');
+          console.error('HomeComponent: Modal will stay open');
+          console.error('HomeComponent: Current path after error:', window.location.pathname);
+          console.error('HomeComponent: Path changed?', window.location.pathname !== currentPath);
+          
+          // CRITICAL: Don't close modal, don't redirect, don't clear token
+          // Just show error and let user try again
+          
+          // Double-check: If path changed, log it (shouldn't happen)
+          if (window.location.pathname !== currentPath) {
+            console.error('HomeComponent: ⚠️⚠️⚠️ PATH CHANGED - REDIRECT DETECTED!');
+            console.error('HomeComponent: Old path:', currentPath);
+            console.error('HomeComponent: New path:', window.location.pathname);
+          }
+          
+          this.notify.error(errorMessage);
+          
+          // Trigger change detection after state update
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore if component is destroyed
+          }
+        }, 0);
       },
     });
   }

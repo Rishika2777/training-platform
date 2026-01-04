@@ -130,54 +130,61 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
     
     console.log('CampusApiService: ========== ADD FACULTY API CALL ==========');
-    console.log('CampusApiService: URL:', url);
-    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Method: POST');
     console.log('CampusApiService: Request data (full):', JSON.stringify(data, null, 2));
     console.log('CampusApiService: Basic Information:', JSON.stringify(data.basicInformation, null, 2));
     console.log('CampusApiService: Professional Information:', JSON.stringify(data.professionalInformation, null, 2));
-    console.log('CampusApiService: Content-Type: application/json');
-    console.log('CampusApiService: Request body type:', typeof data);
-    console.log('CampusApiService: Request body keys:', Object.keys(data));
     
     // Create headers object - Angular will merge with interceptor's Authorization header
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
     });
     
-    console.log('CampusApiService: Headers being sent:', headers.keys());
-    
     return this.http.post<unknown>(url, data, {
       headers: headers
     }).pipe(
       map((raw) => {
-        console.log('CampusApiService: ✅ Response received:', raw);
+        console.log('CampusApiService: ✅ POST Faculty Response received:', raw);
         console.log('CampusApiService: Response type:', typeof raw);
-        console.log('CampusApiService: Response keys:', raw && typeof raw === 'object' ? Object.keys(raw) : 'N/A');
         
-        // Check if response has expected structure
+        // Check if response has expected structure: { success, message, data: { basicInformation, professionalInformation }, error }
         if (raw && typeof raw === 'object') {
           const response = raw as Record<string, unknown>;
-          console.log('CampusApiService: Response structure check:');
-          console.log('CampusApiService: - has success:', 'success' in response);
-          console.log('CampusApiService: - has message:', 'message' in response);
-          console.log('CampusApiService: - has data:', 'data' in response);
-          console.log('CampusApiService: - success value:', response['success']);
-          console.log('CampusApiService: - message value:', response['message']);
-          console.log('CampusApiService: - data value:', response['data']);
           
-          // Accept response if it has 'data' field OR if success is true
-          if ('data' in response || (response['success'] === true)) {
-            console.log('CampusApiService: ✅ Response structure is valid');
-            return raw as AddFacultyResponse;
+          // Validate response structure matches expected format
+          if (
+            'success' in response &&
+            'message' in response &&
+            'data' in response &&
+            typeof response['data'] === 'object' &&
+            response['data'] !== null
+          ) {
+            const dataObj = response['data'] as Record<string, unknown>;
+            
+            // Check if data has basicInformation and professionalInformation
+            if (
+              'basicInformation' in dataObj &&
+              'professionalInformation' in dataObj &&
+              typeof dataObj['basicInformation'] === 'object' &&
+              typeof dataObj['professionalInformation'] === 'object'
+            ) {
+              console.log('CampusApiService: ✅ Response structure is valid');
+              console.log('CampusApiService: Success:', response['success']);
+              console.log('CampusApiService: Message:', response['message']);
+              return raw as AddFacultyResponse;
+            }
           }
         }
         
         console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
-        console.warn('CampusApiService: Returning null - this might cause issues');
+        console.warn('CampusApiService: Expected: { success, message, data: { basicInformation, professionalInformation }, error }');
         return null;
       }),
       catchError((error) => {
-        console.error('CampusApiService: ❌ Error in addFaculty:', error);
+        console.error('CampusApiService: ❌ POST Faculty API Error');
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         console.error('CampusApiService: Error message:', error?.message);
@@ -621,17 +628,25 @@ export interface AddFacultyRequest {
   professionalInfo: ProfessionalInfoRequest[];
 }
 
+export interface BasicInformationResponse {
+  fullName: string;
+  email: string;
+  dateOfBirth: string;
+  phoneNumber: string;
+}
+
+export interface ProfessionalInformationResponse {
+  designation: string[];
+  department: string[];
+  specialization: string[];
+  yearsOfExperience: number[];
+  qualifications: string[];
+  certificates: string[];
+}
+
 export interface AddFacultyResponseData {
-  id?: string;
-  campusId?: string;
-  fullName?: string;
-  photoUrl?: string;
-  email?: string;
-  dateOfBirth?: string;
-  phoneNumber?: string;
-  professionalInfo?: ProfessionalInfoRequest[];
-  createdAt?: string;
-  updatedAt?: string;
+  basicInformation: BasicInformationResponse;
+  professionalInformation: ProfessionalInformationResponse;
 }
 
 export interface AddFacultyResponse {
