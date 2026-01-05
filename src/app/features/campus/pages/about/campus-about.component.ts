@@ -7,9 +7,11 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
-import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData } from '../../services/campus-api.service';
+import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse } from '../../services/campus-api.service';
+import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 
@@ -49,6 +51,7 @@ export class CampusAboutComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly storage = inject(StorageService);
   private readonly authState = inject(AuthStateService);
+  private readonly notify = inject(NotificationService);
   readonly pageSize = 8;
 
   readonly activeModal = computed(() => this.modalService.activeModal());
@@ -65,6 +68,9 @@ export class CampusAboutComponent implements OnInit {
   // Campus Insights - About Campus Content
   readonly aboutCampusText = signal<string>('');
   readonly loadingAboutCampus = signal(false);
+  
+  // Prospectus Download
+  readonly downloadingProspectus = signal(false);
 
   ngOnInit(): void {
     this.loadRisingStars();
@@ -73,6 +79,7 @@ export class CampusAboutComponent implements OnInit {
     this.loadFaculties();
     this.loadTestimonials();
     this.loadResearch();
+    this.loadAlumni();
   }
 
   loadAboutCampus(): void {
@@ -460,35 +467,91 @@ export class CampusAboutComponent implements OnInit {
     }
   }
 
-  // Alumni
-  readonly alumni: readonly PersonCard[] = [
-    { id: '1', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '2', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '3', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '4', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '5', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-hero-image.png' },
-    { id: '6', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '7', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-  ];
-
+  // Alumni - API Integration
+  readonly alumni = signal<readonly PersonCard[]>([]);
+  readonly loadingAlumni = signal(false);
   alumniPage = 1;
   readonly alumniPageSize = 7;
-  get alumniTotalPages(): number {
-    return Math.max(1, Math.ceil(this.alumni.length / this.alumniPageSize));
+  readonly alumniTotalPages = signal(1);
+
+  loadAlumni(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      console.warn('CampusAboutComponent: No campusId found, cannot load alumni');
+      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
+      return;
+    }
+
+    console.log('CampusAboutComponent: Loading alumni for campusId:', campusId);
+    console.log('CampusAboutComponent: Page:', this.alumniPage, 'Size:', this.alumniPageSize);
+    
+    this.loadingAlumni.set(true);
+    
+    this.campusApi.getAlumni(campusId, this.alumniPage, this.alumniPageSize).pipe(
+      catchError((error) => {
+        console.error('CampusAboutComponent: Error loading alumni:', error);
+        this.loadingAlumni.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: ApiResponsePageAlumniResponse | null) => {
+        console.log('CampusAboutComponent: Alumni response received:', response);
+        this.loadingAlumni.set(false);
+        
+        if (response?.data?.content && Array.isArray(response.data.content)) {
+          const mappedAlumni = response.data.content.map((alumnus: AlumniResponse) => this.mapAlumniToPersonCard(alumnus));
+          this.alumni.set(mappedAlumni);
+          
+          const totalPages = response.data.totalPages ?? 0;
+          this.alumniTotalPages.set(Math.max(1, totalPages));
+          
+          console.log('CampusAboutComponent: Mapped alumni:', mappedAlumni.length);
+          console.log('CampusAboutComponent: Total pages:', totalPages);
+        } else {
+          console.warn('CampusAboutComponent: No content in response or invalid structure');
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+        }
+      },
+      error: (error) => {
+        console.error('CampusAboutComponent: Alumni subscription error:', error);
+        this.loadingAlumni.set(false);
+        this.alumni.set([]);
+        this.alumniTotalPages.set(1);
+      }
+    });
   }
+
+  private mapAlumniToPersonCard(alumnus: AlumniResponse): PersonCard {
+    return {
+      id: alumnus.studentId || alumnus.userId || '',
+      name: `${alumnus.firstName || ''} ${alumnus.lastName || ''}`.trim() || 'Name',
+      imageUrl: alumnus.profilePhotoUrl || 'assets/images/login-news-image.png',
+      designation: alumnus.designation,
+      company: alumnus.companyName,
+    };
+  }
+
   alumniPageItems(): readonly PersonCard[] {
-    return this.slicePage(this.alumni, this.alumniPage, this.alumniPageSize);
+    return this.alumni();
   }
 
   previousAlumni(): void {
     if (this.alumniPage > 1) {
       this.alumniPage--;
+      this.loadAlumni();
     }
   }
 
   nextAlumni(): void {
-    if (this.alumniPage < this.alumniTotalPages) {
+    if (this.alumniPage < this.alumniTotalPages()) {
       this.alumniPage++;
+      this.loadAlumni();
     }
   }
 
@@ -663,5 +726,127 @@ export class CampusAboutComponent implements OnInit {
       this.submittingVisitCampus = false;
       this.closeModal();
     }, 1000);
+  }
+
+  /**
+   * Download Prospectus Handler
+   * Fetches prospectuses for the campus and downloads the first available one
+   */
+  downloadProspectusHandler(): void {
+    console.log('🔵🔵🔵 CampusAboutComponent: downloadProspectusHandler() CALLED 🔵🔵🔵');
+    
+    // Check if already downloading
+    if (this.downloadingProspectus()) {
+      console.log('CampusAboutComponent: Download already in progress, ignoring request');
+      return;
+    }
+
+    // Get campusId from storage or auth state
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+
+    if (!campusId) {
+      console.error('❌ CampusAboutComponent: No campusId found, cannot download prospectus');
+      this.notify.error('Campus ID not found. Please login again to refresh your session.');
+      return;
+    }
+
+    console.log('✅ CampusAboutComponent: CampusId found:', campusId);
+    console.log('CampusAboutComponent: Fetching prospectuses for campus...');
+
+    this.downloadingProspectus.set(true);
+
+    // First, get prospectuses for the campus
+    this.campusApi.getProspectusByCampus(campusId).pipe(
+      catchError((error) => {
+        console.error('❌ CampusAboutComponent: Error fetching prospectuses:', error);
+        console.error('CampusAboutComponent: Error status:', error?.status);
+        console.error('CampusAboutComponent: Error message:', error?.message);
+        this.downloadingProspectus.set(false);
+        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus information';
+        this.notify.error(errorMessage);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: GetProspectusResponse | null) => {
+        console.log('✅✅✅ CampusAboutComponent: Prospectus response received ✅✅✅');
+        console.log('CampusAboutComponent: Response:', response);
+
+        if (!response) {
+          console.warn('⚠️ CampusAboutComponent: Response is null');
+          this.downloadingProspectus.set(false);
+          this.notify.error('Failed to fetch prospectus information');
+          return;
+        }
+
+        // Check if we have prospectus data
+        if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+          console.warn('⚠️ CampusAboutComponent: No prospectuses available for this campus');
+          this.downloadingProspectus.set(false);
+          this.notify.error('No prospectus available for this campus');
+          return;
+        }
+
+        // Get the first prospectus (or you could show a selection modal if multiple)
+        const firstProspectus = response.data[0];
+        const prospectusId = firstProspectus.id;
+
+        if (!prospectusId) {
+          console.error('❌ CampusAboutComponent: Prospectus ID is missing');
+          this.downloadingProspectus.set(false);
+          this.notify.error('Prospectus ID is missing');
+          return;
+        }
+
+        console.log('✅ CampusAboutComponent: Found prospectus with ID:', prospectusId);
+        console.log('CampusAboutComponent: Starting download...');
+
+        // Download the prospectus file
+        this.campusApi.downloadProspectus(prospectusId).subscribe({
+          next: (blob: Blob) => {
+            console.log('✅✅✅ CampusAboutComponent: Prospectus blob received ✅✅✅');
+            console.log('CampusAboutComponent: Blob size:', blob.size, 'bytes');
+            console.log('CampusAboutComponent: Blob type:', blob.type);
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Generate filename - use prospectus ID or default name
+            const fileName = `prospectus-${prospectusId}.pdf`;
+            link.download = fileName;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            
+            this.downloadingProspectus.set(false);
+            this.notify.success('Prospectus downloaded successfully');
+            console.log('✅ CampusAboutComponent: Prospectus downloaded successfully');
+          },
+          error: (error) => {
+            console.error('❌ CampusAboutComponent: Error downloading prospectus file:', error);
+            console.error('CampusAboutComponent: Error status:', error?.status);
+            console.error('CampusAboutComponent: Error message:', error?.message);
+            this.downloadingProspectus.set(false);
+            const errorMessage = error?.error?.message || error?.message || 'Failed to download prospectus file';
+            this.notify.error(errorMessage);
+          }
+        });
+      },
+      error: (error) => {
+        console.error('❌ CampusAboutComponent: Error in getProspectusByCampus subscription:', error);
+        this.downloadingProspectus.set(false);
+        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus';
+        this.notify.error(errorMessage);
+      }
+    });
   }
 }

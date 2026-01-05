@@ -20,7 +20,12 @@
     <div class="insights-content">
       <div class="insights-image">
         <img src="assets/images/landing-card-campus.png" alt="Campus" />
-        <app-button label="Download Prospectus" variant="primary" />
+        <app-button 
+          [label]="downloadingProspectus() ? 'Downloading...' : 'Download Prospectus'" 
+          variant="primary" 
+          [disabled]="downloadingProspectus()"
+          (buttonClick)="downloadProspectusHandler()" 
+        />
       </div>
       <div class="insights-text">
         @if (loadingAboutCampus()) {
@@ -276,27 +281,41 @@
   <!-- Our Alumni Community Section -->
   <section class="section alumni">
     <h2 class="section-title">Our Alumni Community</h2>
-    <div class="carousel-wrapper">
-      <button class="carousel-arrow left" (click)="previousAlumni()" [disabled]="alumniPage === 1">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages">
-        <div class="avatar-row">
-          @for (alumnus of alumniPageItems(); track alumnus.id) {
-            <div class="avatar-card">
-              <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
-              <div class="avatar-name">{{ alumnus.name }}</div>
-              <div class="avatar-sub">{{ alumnus.designation }}</div>
-              <div class="avatar-sub">{{ alumnus.company }}</div>
-            </div>
-          }
-        </div>
-      </app-carousel>
-      <button class="carousel-arrow right" (click)="nextAlumni()" [disabled]="alumniPage === alumniTotalPages">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
-</section>
+    @if (loadingAlumni()) {
+      <div class="loading-indicator">Loading...</div>
+    } @else {
+      <div class="carousel-wrapper">
+        <button 
+          class="carousel-arrow left" 
+          (click)="previousAlumni()" 
+          [disabled]="alumniPage === 1 || loadingAlumni()"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages()">
+          <div class="avatar-row">
+            @for (alumnus of alumniPageItems(); track alumnus.id) {
+              <div class="avatar-card">
+                <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
+                <div class="avatar-name">{{ alumnus.name }}</div>
+                <div class="avatar-sub">{{ alumnus.designation }}</div>
+                <div class="avatar-sub">{{ alumnus.company }}</div>
+              </div>
+            } @empty {
+              <div class="empty-state">No alumni found</div>
+            }
+          </div>
+        </app-carousel>
+        <button 
+          class="carousel-arrow right" 
+          (click)="nextAlumni()" 
+          [disabled]="alumniPage === alumniTotalPages() || loadingAlumni()"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    }
+  </section>
 
   <!-- Your Voice, Our Strength Section -->
   <section class="section testimonial">

@@ -174,6 +174,7 @@
       FACULTIES: '/public/landing/campus/:campusId/faculties',
       TESTIMONIALS: '/public/landing/campus/:campusId/testimonials',
       RESEARCH: '/public/landing/campus/:campusId/research',
+      ALUMNI: '/public/landing/campus/:campusId/alumni',
       ABOUT_SYNKUP: '/public/landing/about',
     },
     USERS: {

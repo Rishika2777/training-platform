@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
-import { ApiResponsePlacedStudentsResponse } from '../../student/models/student.models';
+import { ApiResponsePlacedStudentsResponse, ApiResponsePageAlumniResponse } from '../../student/models/student.models';
 
 /**
  * Placeholder for campus API calls.
@@ -816,6 +816,42 @@ export class CampusApiService {
       }),
       catchError((error) => {
         console.error('CampusApiService: Error in getResearch:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/alumni
+   * Get alumni community with pagination.
+   * Default 7 per page.
+   */
+  getAlumni(
+    campusId: string,
+    page = 1,
+    size = 7,
+  ): Observable<ApiResponsePageAlumniResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ALUMNI, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getAlumni called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Alumni response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as ApiResponsePageAlumniResponse;
+        }
+        console.warn('CampusApiService: Alumni response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getAlumni:', error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         console.error('CampusApiService: Error message:', error?.message);
