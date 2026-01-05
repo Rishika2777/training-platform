@@ -5,6 +5,7 @@ import { CardComponent, CardData } from '../../../../shared/components/card/card
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { Campus, CampusApiService, CampusRegisterRequest } from '../../../campus/services/campus-api.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import {
   CampusFormComponent,
@@ -21,6 +22,7 @@ import {
 export class AdminCampusComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly notify = inject(NotificationService);
   readonly announcementDate = 'January 7th, 2025';
 
   campuses: CardData[] = [];
@@ -33,6 +35,9 @@ export class AdminCampusComponent implements OnInit {
   showViewModal = false;
   viewSubmitting = false;
   selectedCampusId: string | null = null;
+  selectedCampusCardId: string | null = null; // Store original campus.id from CardData
+  selectedCampusApiId: string | null = null; // Store id from API response (e.g., "695aa2b47a36e910639a5829")
+  selectedCampusEmail: string | null = null;
   selectedCampusApprovalStatus: string | null = null;
   isEditMode = false;
 
@@ -129,6 +134,9 @@ export class AdminCampusComponent implements OnInit {
       return;
     }
 
+    // Store the original campus.id from CardData for approval status updates
+    this.selectedCampusCardId = campus.id ?? null;
+
     this.viewSubmitting = true;
     this.campusApi.getCampusById(idToUse).subscribe({
       next: (profile) => {
@@ -141,6 +149,12 @@ export class AdminCampusComponent implements OnInit {
          if (actualCampusId) {
            this.selectedCampusId = actualCampusId;
          }
+         // Store the id field from API response (e.g., "695aa2b47a36e910639a5829") for approval status updates
+         if (profile.id) {
+           this.selectedCampusApiId = profile.id;
+         }
+         // Store email for approval status updates
+         this.selectedCampusEmail = profile.email ?? profile.adminEmail ?? null;
          this.selectedCampusApprovalStatus = profile.approvalStatus ?? null;
         this.viewValue = this.mapCampusToFormValue(profile);
         this.showViewModal = true;
@@ -155,6 +169,9 @@ export class AdminCampusComponent implements OnInit {
   closeViewModal(): void {
     this.showViewModal = false;
     this.selectedCampusId = null;
+    this.selectedCampusCardId = null;
+    this.selectedCampusApiId = null;
+    this.selectedCampusEmail = null;
     this.selectedCampusApprovalStatus = null;
     this.isEditMode = false;
   }
@@ -164,19 +181,57 @@ export class AdminCampusComponent implements OnInit {
   }
 
   handleFormSubmit(value: CampusFormValue): void {
-    if (!this.isEditMode || !this.selectedCampusId) {
+    if (!this.isEditMode || !this.selectedCampusApiId) {
       return;
     }
 
     const updateRequest = this.mapFormValueToUpdateRequest(value);
     this.viewSubmitting = true;
 
-    this.campusApi.updateCampusByAdmin(this.selectedCampusId, updateRequest).subscribe({
+    this.campusApi.updateCampusByAdmin(this.selectedCampusApiId, updateRequest).subscribe({
       next: () => {
-        this.viewSubmitting = false;
-        this.isEditMode = false;
-        this.closeViewModal();
+        // Show success notification
+        this.notify.success('Campus profile updated successfully');
+        // Reload the campus profile to get updated data
+        this.reloadCampusProfile();
+        // Reload campuses list in background (don't wait for it)
         this.loadCampuses();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private reloadCampusProfile(): void {
+    if (!this.selectedCampusApiId) {
+      return;
+    }
+
+    this.viewSubmitting = true;
+    this.campusApi.getCampusById(this.selectedCampusApiId).subscribe({
+      next: (profile) => {
+        this.viewSubmitting = false;
+        if (!profile?.campusId && !profile?.id) {
+          return;
+        }
+        // Use actual campusId from the response for update operations
+        const actualCampusId = profile.campusId ?? profile.id;
+        if (actualCampusId) {
+          this.selectedCampusId = actualCampusId;
+        }
+        // Store the id field from API response
+        if (profile.id) {
+          this.selectedCampusApiId = profile.id;
+        }
+        // Store email for approval status updates
+        this.selectedCampusEmail = profile.email ?? profile.adminEmail ?? null;
+        this.selectedCampusApprovalStatus = profile.approvalStatus ?? null;
+        // Update form with fresh data
+        this.viewValue = this.mapCampusToFormValue(profile);
+        // Exit edit mode to show approve/reject buttons and hide update button
+        this.isEditMode = false;
         this.cdr.detectChanges();
       },
       error: () => {
@@ -203,7 +258,7 @@ export class AdminCampusComponent implements OnInit {
   }
 
   handleReviewAction(status: EnumLoginStatus): void {
-    if (!this.selectedCampusId) {
+    if (!this.selectedCampusApiId) {
       return;
     }
     if (status !== 'APPROVED' && status !== 'REJECTED') {
@@ -214,7 +269,7 @@ export class AdminCampusComponent implements OnInit {
   }
 
   confirmReviewAction(): void {
-    if (!this.selectedCampusId || !this.pendingReviewStatus) {
+    if (!this.selectedCampusApiId || !this.pendingReviewStatus) {
       return;
     }
     if (this.pendingReviewStatus !== 'APPROVED' && this.pendingReviewStatus !== 'REJECTED') {
@@ -229,7 +284,7 @@ export class AdminCampusComponent implements OnInit {
 
     // Show loading state and make API call
     this.viewSubmitting = true;
-    this.campusApi.updateCampusApprovalStatus(this.selectedCampusId, { approvalStatus: statusToSubmit }).subscribe({
+    this.campusApi.updateCampusApprovalStatus(this.selectedCampusApiId, { approvalStatus: statusToSubmit }).subscribe({
       next: () => {
         this.viewSubmitting = false;
         this.closeViewModal();
@@ -275,10 +330,11 @@ export class AdminCampusComponent implements OnInit {
 
   confirmDelete(): void {
     const campusId = this.selectedCampus?.userId ?? null;
-    console.log(campusId);
     if (campusId) {
       this.campusApi.deleteCampusByAdmin(campusId).subscribe({
         next: () => {
+          // Show success notification
+          this.notify.success('Campus deleted successfully');
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion
           if (this.displayedCampuses.length === 1 && this.currentPage > 1) {

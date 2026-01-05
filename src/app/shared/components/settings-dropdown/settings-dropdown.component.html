@@ -1,0 +1,24 @@
+@if (isOpen) {
+  <div class="settings-dropdown">
+    <div class="dropdown-header">
+      <h2 class="dropdown-title">Settings</h2>
+      <button class="close-btn" type="button" (click)="close()" aria-label="Close">×</button>
+    </div>
+
+    <div class="dropdown-body">
+      <div class="settings-list">
+        @for (option of options; track option.value) {
+          <button
+            class="settings-item"
+            type="button"
+            (click)="handleOptionClick(option.value)"
+          >
+            <span class="settings-label">{{ option.label }}</span>
+            <i class="fa-solid fa-angles-right settings-arrow"></i>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+

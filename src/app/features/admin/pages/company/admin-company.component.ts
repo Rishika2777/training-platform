@@ -280,6 +280,8 @@ export class AdminCompanyComponent implements OnInit {
     if (companyId) {
       this.companyApi.deleteCompany(companyId).subscribe({
         next: () => {
+          // Show success notification
+          this.notify.success('Company deleted successfully');
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion
           if (this.displayedCompanies.length === 1 && this.currentPage > 1) {

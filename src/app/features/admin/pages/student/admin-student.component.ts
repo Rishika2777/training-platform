@@ -144,7 +144,6 @@ export class AdminStudentComponent implements OnInit {
       next: (response) => {
         this.viewSubmitting = false;
         const data = response.data ?? {};
-        console.log('data', data);
         if (!isRecord(data)) {
           return;
         }
@@ -389,6 +388,8 @@ export class AdminStudentComponent implements OnInit {
     if (studentId) {
       this.studentApi.deleteStudent(studentId).subscribe({
         next: () => {
+          // Show success notification
+          this.notify.success('Student deleted successfully');
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion
           if (this.displayedStudents.length === 1 && this.currentPage > 1) {

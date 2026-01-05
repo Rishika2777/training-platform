@@ -1,0 +1,49 @@
+@if (isAdmin) {
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+    @if (!isEditMode()) {
+      <button
+        type="button"
+        class="edit-icon-btn"
+        (click)="toggleEditMode()"
+        title="Edit"
+        style="background: none; border: none; cursor: pointer; padding: 8px; color: #666;"
+      >
+        <i class="fa-solid fa-pencil" style="font-size: 18px;"></i>
+      </button>
+    }
+  </div>
+}
+@if (userType === 'STUDENT') {
+  <app-student-form
+    [mode]="isAdmin ? 'review' : 'create'"
+    [submitting]="viewSubmitting()"
+    [value]="studentViewValue"
+    [emailLocked]="true"
+    [isEditMode]="isEditMode()"
+    (submitted)="handleFormSubmit($event)"
+    (cancelled)="toggleEditMode()"
+  ></app-student-form>
+} @else if (userType === 'COMPANY') {
+  <app-company-form
+    title=""
+    [mode]="isAdmin ? 'review' : 'edit'"
+    [value]="companyViewValue"
+    [submitting]="viewSubmitting()"
+    [adminEmailLocked]="true"
+    [isEditMode]="isEditMode()"
+    (submitted)="handleFormSubmit($event)"
+    (cancelled)="toggleEditMode()"
+  />
+} @else if (userType === 'CAMPUS') {
+  <app-campus-form
+    title=""
+    [mode]="isAdmin ? 'review' : 'create'"
+    [value]="campusViewValue"
+    [submitting]="viewSubmitting()"
+    [adminEmailLocked]="true"
+    [isEditMode]="isEditMode()"
+    (submitted)="handleFormSubmit($event)"
+    (cancelled)="toggleEditMode()"
+  />
+}
+
