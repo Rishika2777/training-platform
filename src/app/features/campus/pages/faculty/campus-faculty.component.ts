@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
+import { CampusApiService } from '../../services/campus-api.service';
+import { debounceTime, distinctUntilChanged, Subject, switchMap, EMPTY } from 'rxjs';
 
 export interface ProfessionalInfo {
   designation: string;
@@ -30,9 +32,15 @@ export interface FacultyFormValue {
   styleUrl: './campus-faculty.component.css',
 })
 export class CampusFacultyComponent {
+  private readonly campusApi = inject(CampusApiService);
+  private readonly emailCheckSubject = new Subject<string>();
+
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
+  emailExists = false;
+  checkingEmail = false;
+  emailErrorMessage = '';
   @Input() value: FacultyFormValue = {
     fullName: '',
     photo: null,
@@ -83,10 +91,73 @@ export class CampusFacultyComponent {
     { label: '16+ years', value: '16+' },
   ];
 
+  constructor() {
+    // Setup email check with debounce
+    this.emailCheckSubject
+      .pipe(
+        debounceTime(500), // Wait 500ms after user stops typing
+        distinctUntilChanged(), // Only check if email changed
+        switchMap((email) => {
+          if (!email || !this.isValidEmail(email)) {
+            this.emailExists = false;
+            this.emailErrorMessage = '';
+            this.checkingEmail = false;
+            return EMPTY;
+          }
+          this.checkingEmail = true;
+          this.emailErrorMessage = '';
+          return this.campusApi.checkFacultyEmail(email);
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          this.checkingEmail = false;
+          // Swagger shows: data is boolean (false = available, true = exists)
+          // If data is true, email exists; if false, email is available
+          if (response?.data !== undefined) {
+            this.emailExists = response.data; // data is boolean directly
+            if (this.emailExists) {
+              this.emailErrorMessage = 'This email is already registered';
+            } else {
+              this.emailErrorMessage = '';
+            }
+          }
+        },
+         
+        error: () => {
+          this.checkingEmail = false;
+          // Don't show error for email check - just disable validation
+          // User can still submit the form
+          this.emailExists = false;
+          this.emailErrorMessage = '';
+        },
+      });
+  }
+
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
   patch(patch: Partial<FacultyFormValue>): void {
     const next: FacultyFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
+
+    // Check email when it changes
+    if (patch.email !== undefined) {
+      this.checkEmailExists(next.email);
+    }
+  }
+
+  checkEmailExists(email: string): void {
+    if (email && email.trim()) {
+      this.emailCheckSubject.next(email.trim());
+    } else {
+      this.emailExists = false;
+      this.emailErrorMessage = '';
+      this.checkingEmail = false;
+    }
   }
 
   triggerPhotoSelect(): void {
@@ -148,11 +219,39 @@ export class CampusFacultyComponent {
   }
 
   submit(): void {
+    console.log('FacultyComponent: ========== SUBMIT METHOD CALLED ==========');
+    console.log('FacultyComponent: Form value:', this.value);
+    console.log('FacultyComponent: Email exists?', this.emailExists);
+    console.log('FacultyComponent: Checking email?', this.checkingEmail);
+    console.log('FacultyComponent: Email error message:', this.emailErrorMessage);
+    console.log('FacultyComponent: Submitting flag:', this.submitting);
+    
+    // Prevent submission if email already exists
+    if (this.emailExists) {
+      console.warn('FacultyComponent: ⚠️ Cannot submit - email already exists');
+      console.warn('FacultyComponent: Email:', this.value.email);
+      return;
+    }
+    
+    // Prevent submission if email is being checked
+    if (this.checkingEmail) {
+      console.warn('FacultyComponent: ⚠️ Cannot submit - email check in progress');
+      return;
+    }
+    
+    console.log('FacultyComponent: ✅ All checks passed, emitting submitted event...');
+    console.log('FacultyComponent: Emitting value:', this.value);
     this.submitted.emit(this.value);
+    console.log('FacultyComponent: ✅ Event emitted successfully');
   }
 
   cancel(): void {
     this.cancelled.emit();
+  }
+
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    this.submit();
   }
 }
 

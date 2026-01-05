@@ -10,6 +10,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ModalService, ModalType } from '../../core/modal/modal.service';
 import { FacultyDetailService } from '../../features/campus/services/faculty-detail.service';
 import { FacultyDetailData } from '../../features/campus/pages/faculty-detail/campus-faculty-detail.component';
+import { CampusApiService } from '../../features/campus/services/campus-api.service';
+import { OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-sidebar',
@@ -21,7 +23,7 @@ import { FacultyDetailData } from '../../features/campus/pages/faculty-detail/ca
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css',
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit {
   private readonly menu = inject(MenuService);
   private readonly router = inject(Router);
   private readonly notifications = inject(NotificationService);
@@ -29,6 +31,7 @@ export class SidebarComponent {
   private readonly auth = inject(AuthService);
   private readonly modalService = inject(ModalService);
   private readonly facultyDetailService = inject(FacultyDetailService);
+  private readonly campusApi = inject(CampusApiService);
 
   @Input() collapsed = false;
 
@@ -63,11 +66,16 @@ export class SidebarComponent {
     return userType === 'CAMPUS' && path === '/campus/home';
   });
 
-  readonly faculty: readonly FacultyCard[] = [
+  // Static fallback data
+  private readonly staticFacultyData: readonly FacultyCard[] = [
     { name: 'Akshay Sharma', imageUrl: 'assets/images/login-news-image.png' },
     { name: 'Ankitha Wilson', imageUrl: 'assets/images/landing-card-campus.png' },
     { name: 'Amith Deshpande', imageUrl: 'assets/images/landing-card-company.png' },
   ];
+
+  // Faculty list from API or static fallback
+  readonly faculty = signal<readonly FacultyCard[]>(this.staticFacultyData);
+  loadingFaculties = signal(false);
 
   private readonly facultyDetailData: Record<string, FacultyDetailData> = {
     'Akshay Sharma': {
@@ -106,7 +114,7 @@ export class SidebarComponent {
   readonly facultyPageSize = 3;
 
   get facultyTotalPages(): number {
-    return Math.max(1, Math.ceil(this.faculty.length / this.facultyPageSize));
+    return Math.max(1, Math.ceil(this.faculty().length / this.facultyPageSize));
   }
 
   get facultyPageNumbers(): number[] {
@@ -115,7 +123,63 @@ export class SidebarComponent {
 
   get displayedFaculty(): readonly FacultyCard[] {
     const start = (this.facultyPage - 1) * this.facultyPageSize;
-    return this.faculty.slice(start, start + this.facultyPageSize);
+    return this.faculty().slice(start, start + this.facultyPageSize);
+  }
+
+  ngOnInit(): void {
+    this.loadFaculties();
+    // Listen for faculty refresh events
+    window.addEventListener('facultyAdded', () => {
+      console.log('SidebarComponent: Received facultyAdded event, refreshing list...');
+      this.loadFaculties();
+    });
+  }
+
+  /**
+   * Load faculties from API, fallback to static data on error
+   */
+  loadFaculties(): void {
+    console.log('SidebarComponent: ========== LOAD FACULTIES START ==========');
+    console.log('SidebarComponent: Loading faculties from API...');
+    this.loadingFaculties.set(true);
+
+    this.campusApi.getAllFaculties().subscribe({
+      next: (response) => {
+        console.log('SidebarComponent: ✅ GET All Faculties API Success');
+        console.log('SidebarComponent: API response received:', response);
+        this.loadingFaculties.set(false);
+
+        if (response?.data && response.data.length > 0) {
+          // Convert API data to FacultyCard format
+          const apiFacultyCards: FacultyCard[] = response.data.map((item) => ({
+            name: item.fullName || 'Unknown',
+            imageUrl: item.photoUrl || 'assets/images/login-news-image.png',
+          }));
+
+          console.log('SidebarComponent: Using API data, count:', apiFacultyCards.length);
+          console.log('SidebarComponent: Faculty names:', apiFacultyCards.map(f => f.name));
+          this.faculty.set(apiFacultyCards);
+        } else {
+          console.log('SidebarComponent: API returned empty data, using static fallback');
+          this.faculty.set(this.staticFacultyData);
+        }
+        console.log('SidebarComponent: ===========================================');
+      },
+      error: (err) => {
+        console.warn('SidebarComponent: ========== GET ALL FACULTIES ERROR ==========');
+        console.warn('SidebarComponent: ⚠️ GET All Faculties API Failed');
+        console.warn('SidebarComponent: Error status:', err?.status);
+        console.warn('SidebarComponent: Error URL:', err?.url);
+        console.warn('SidebarComponent: Error message:', err?.message);
+        console.warn('SidebarComponent: This is a GET API error - NOT affecting POST API');
+        console.warn('SidebarComponent: Using static fallback data - page will work normally');
+        console.warn('SidebarComponent: ===========================================');
+        
+        this.loadingFaculties.set(false);
+        // Fallback to static data on error - page continues to work
+        this.faculty.set(this.staticFacultyData);
+      },
+    });
   }
 
   onFacultyPageChange(page: number): void {

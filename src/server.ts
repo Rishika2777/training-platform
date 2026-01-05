@@ -52,7 +52,10 @@ function resolveUpstreamBase(reqPath: string): string | null {
     reqPath.startsWith('/api/v1/batchmates') ||
     reqPath.startsWith('/api/v1/placed-students')
       ? 'STUDENT'
-      : reqPath.startsWith('/api/v1/campus')
+      : reqPath.startsWith('/api/v1/campus') ||
+        reqPath.startsWith('/api/v1/faculty') ||
+        reqPath.startsWith('/api/v1/prospectus') ||
+        reqPath.startsWith('/api/v1/dashboard')
         ? 'CAMPUS'
         : reqPath.startsWith('/api/v1/company')
           ? 'COMPANY'
@@ -142,13 +145,16 @@ function loadDotEnvIfPresent(): void {
     const envPath = join(process.cwd(), '.env');
     const raw = readFileSync(envPath, 'utf8');
     const parsed = parseDotEnv(raw);
+    console.log('Loading .env file from:', envPath);
     for (const [k, v] of Object.entries(parsed)) {
       if (process.env[k] === undefined) {
         process.env[k] = v;
+        console.log(`Loaded env: ${k} = ${v}`);
       }
     }
-  } catch {
-    // no .env present (or unreadable) - ignore
+    console.log('CAMPUS_SERVICE_URL:', process.env['CAMPUS_SERVICE_URL']);
+  } catch (err) {
+    console.error('Failed to load .env file:', err);
   }
 }
 
@@ -198,10 +204,15 @@ app.use('/api/v1', async (req, res) => {
   const upstreamBase = resolveUpstreamBase(req.originalUrl);
   if (!upstreamBase) {
     setCorsHeaders(req, res);
+    console.error('❌ Upstream service URL not configured for:', req.originalUrl);
+    console.error('Available env vars:', {
+      CAMPUS_SERVICE_URL: process.env['CAMPUS_SERVICE_URL'],
+      SYNKUP_CAMPUS_API_BASE_URL: process.env['SYNKUP_CAMPUS_API_BASE_URL'],
+    });
     res.status(502).json({
       success: false,
       message:
-        'Upstream service URL not configured. Set STUDENT_SERVICE_URL (and others) on the server environment.',
+        'Upstream service URL not configured. Set CAMPUS_SERVICE_URL (and others) on the server environment.',
     });
     return;
   }

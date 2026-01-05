@@ -1,23 +1,33 @@
 .prospectus-form {
-  display: grid;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  align-items: center;
 }
 
 .form-row {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  align-items: stretch;
 }
 
 .form-actions {
   display: flex;
   justify-content: center;
-  margin-top: 10px;
+  align-items: center;
+  margin-top: 12px;
+  width: 100%;
 }
 
 /* Orange borders for inputs and dropdowns */
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper,
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input {
   border-color: #f4a261;
+  width: 100%;
 }
 
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input:focus {
@@ -28,6 +38,7 @@
 :host ::ng-deep .form-row app-dropdown .select-wrapper,
 :host ::ng-deep .form-row app-dropdown .select-wrapper select {
   border-color: #f4a261;
+  width: 100%;
 }
 
 :host ::ng-deep .form-row app-dropdown .select-wrapper select:focus {
@@ -35,25 +46,77 @@
   outline-color: #f4a261;
 }
 
+/* Ensure labels are properly aligned */
+:host ::ng-deep .form-row app-input-with-file .field-label-wrapper,
+:host ::ng-deep .form-row app-dropdown .field-label-wrapper {
+  width: 100%;
+  text-align: left;
+}
+
 /* Input with file - gap and alignment */
+:host ::ng-deep .form-row app-input-with-file {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+:host ::ng-deep .form-row app-input-with-file .input-with-file-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 :host ::ng-deep .form-row app-input-with-file .input-with-icon {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
+  width: 100%;
+  justify-content: space-between;
 }
 
 :host ::ng-deep .form-row app-input-with-file .input-with-icon app-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 :host ::ng-deep .form-row app-input-with-file .input-with-icon app-input .field {
   margin: 0;
+  width: 100%;
+}
+
+:host ::ng-deep .form-row app-input-with-file .input-with-icon app-input input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Icon button alignment */
 :host ::ng-deep .form-row app-input-with-file .icon-btn {
   align-self: center;
   flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-left: 8px;
+}
+
+/* Dropdown alignment */
+:host ::ng-deep .form-row app-dropdown {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+:host ::ng-deep .form-row app-dropdown .select-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .form-row app-dropdown select {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Orange paperclip icon - only for Campus input field */
@@ -75,4 +138,270 @@
 :host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
   background: #4a6d70;
   border-color: #4a6d70;
+
+}
+
+/* Prospectus Container */
+.prospectus-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+/* Prospectus List Section */
+.prospectus-list-section {
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.list-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: 1px solid #d5dee9;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #628a8e;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #628a8e;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-btn i {
+  font-size: 14px;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  color: #64748b;
+}
+
+.loading-state i {
+  font-size: 24px;
+  color: #628a8e;
+}
+
+.loading-state span {
+  font-size: 14px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.empty-state i {
+  font-size: 48px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 16px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 0;
+}
+
+.empty-state span {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+/* Prospectus List */
+.prospectus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prospectus-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.prospectus-item:hover {
+  border-color: #628a8e;
+  box-shadow: 0 2px 4px rgba(98, 138, 142, 0.1);
+}
+
+.prospectus-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.prospectus-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #fee2e2;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.prospectus-icon i {
+  font-size: 20px;
+  color: #dc2626;
+}
+
+.prospectus-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.prospectus-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prospectus-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.prospectus-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.action-btn i {
+  font-size: 12px;
+}
+
+.download-btn {
+  background: #628a8e;
+  color: #ffffff;
+}
+
+.download-btn:hover {
+  background: #4a6d70;
+  opacity: 0.9;
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  opacity: 0.9;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .prospectus-container {
+    max-width: 100%;
+    padding: 0 4px;
+    gap: 24px;
+  }
+
+  .prospectus-form {
+    gap: 24px;
+  }
+
+  .form-row {
+    gap: 10px;
+  }
+
+  .prospectus-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .prospectus-actions {
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .prospectus-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
 }

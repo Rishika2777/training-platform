@@ -1,7 +1,8 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
+import { ApiResponsePlacedStudentsResponse } from '../../student/models/student.models';
 
 /**
  * Placeholder for campus API calls.
@@ -112,6 +113,28 @@ export class CampusApiService {
   }
 
   /**
+   * GET /dashboard/students/placed
+   * Fetch placed students for campus (paginated)
+   */
+  getPlacedStudents(
+    page = 1,
+    limit = 4,
+    companyName?: string,
+    batch?: string,
+  ): Observable<ApiResponsePlacedStudentsResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PLACED_STUDENTS);
+    let params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());
+    if (companyName) {
+      params = params.set('companyName', companyName);
+    }
+    if (batch) {
+      params = params.set('batch', batch);
+    }
+    console.log('CampusApiService: getPlacedStudents - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponsePlacedStudentsResponse>(url, { params });
+  }
+
+  /**
    * POST /dashboard/companies/visited
    * Add a company visited.
    */
@@ -144,17 +167,352 @@ export class CampusApiService {
   }
 
   /**
+   * POST /api/v1/faculty
+   * Add a faculty member (JSON body format - like Thunder/Postman)
+   */
+  addFaculty(data: { basicInformation: unknown; professionalInformation: unknown }): Observable<AddFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    
+    console.log('CampusApiService: ========== ADD FACULTY API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.ADD_FACULTY);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Method: POST');
+    console.log('CampusApiService: Request data (full):', JSON.stringify(data, null, 2));
+    console.log('CampusApiService: Basic Information:', JSON.stringify(data.basicInformation, null, 2));
+    console.log('CampusApiService: Professional Information:', JSON.stringify(data.professionalInformation, null, 2));
+    
+    // Create headers object - Angular will merge with interceptor's Authorization header
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, data, {
+      headers: headers
+    }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅ POST Faculty Response received:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        
+        // Check if response has expected structure: { success, message, data: { basicInformation, professionalInformation }, error }
+        if (raw && typeof raw === 'object') {
+          const response = raw as Record<string, unknown>;
+          
+          // Validate response structure matches expected format
+          if (
+            'success' in response &&
+            'message' in response &&
+            'data' in response &&
+            typeof response['data'] === 'object' &&
+            response['data'] !== null
+          ) {
+            const dataObj = response['data'] as Record<string, unknown>;
+            
+            // Check if data has basicInformation and professionalInformation
+            if (
+              'basicInformation' in dataObj &&
+              'professionalInformation' in dataObj &&
+              typeof dataObj['basicInformation'] === 'object' &&
+              typeof dataObj['professionalInformation'] === 'object'
+            ) {
+              console.log('CampusApiService: ✅ Response structure is valid');
+              console.log('CampusApiService: Success:', response['success']);
+              console.log('CampusApiService: Message:', response['message']);
+              return raw as AddFacultyResponse;
+            }
+          }
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Expected: { success, message, data: { basicInformation, professionalInformation }, error }');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ POST Faculty API Error');
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty
+   * Get all faculty members.
+   */
+  getAllFaculties(): Observable<GetAllFacultiesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY);
+    console.log('CampusApiService: ========== GET ALL FACULTIES API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Method: GET');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅ GET All Faculties Response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: Response structure is valid');
+          return raw as GetAllFacultiesResponse;
+        }
+        console.warn('CampusApiService: ⚠️ GET All Faculties Response does not have expected structure');
+        console.warn('CampusApiService: Response type:', typeof raw);
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ GET All Faculties API Error');
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        // Re-throw error so component can handle it
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/{facultyId}
+   * Get faculty by ID (for edit form).
+   */
+  getFacultyById(facultyId: string): Observable<GetFacultyByIdResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_BY_ID, { facultyId });
+    console.log('CampusApiService.getFacultyById called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Get Faculty By ID Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetFacultyByIdResponse;
+        }
+        console.warn('API Service - Get Faculty By ID Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/{facultyId}/profile
+   * Get faculty profile (detailed view).
+   */
+  getFacultyProfile(facultyId: string): Observable<GetFacultyProfileResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_PROFILE, { facultyId });
+    console.log('CampusApiService.getFacultyProfile called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Get Faculty Profile Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as GetFacultyProfileResponse;
+        }
+        console.warn('API Service - Get Faculty Profile Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * PUT /api/v1/faculty/{facultyId}
+   * Update faculty member (multipart/form-data).
+   */
+  updateFaculty(facultyId: string, formData: FormData): Observable<UpdateFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE_FACULTY, { facultyId });
+    console.log('CampusApiService.updateFaculty called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? `[File: ${value.name}, size: ${value.size}]` : value]));
+    return this.http.put<unknown>(url, formData).pipe(
+      map((raw) => {
+        console.log('API Service - Update Faculty Raw response received:', raw);
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as UpdateFacultyResponse;
+        }
+        console.warn('API Service - Update Faculty Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * DELETE /api/v1/faculty/{facultyId}
+   * Delete faculty member.
+   */
+  deleteFaculty(facultyId: string): Observable<DeleteFacultyResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_FACULTY, { facultyId });
+    console.log('CampusApiService.deleteFaculty called');
+    console.log('Request URL:', url);
+    console.log('Faculty ID:', facultyId);
+    return this.http.delete<unknown>(url).pipe(
+      map((raw) => {
+        console.log('API Service - Delete Faculty Raw response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as DeleteFacultyResponse;
+        }
+        console.warn('API Service - Delete Faculty Response does not have expected structure');
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /api/v1/faculty/check-email?email={email}
+   * Check if email already exists.
+   */
+  checkFacultyEmail(email: string): Observable<CheckEmailResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CHECK_FACULTY_EMAIL);
+    const params = new HttpParams().set('email', email);
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && 'data' in raw) {
+          return raw as CheckEmailResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/meta/sectors
+   * Get sectors for dropdown (e.g., "Consulting", "Finance", "IT Services", "Product Companies")
+   * Response format: { success: true, message: null, data: string[], error: null }
+   */
+  getSectors(): Observable<string[]> {
+    console.log('🔵🔵🔵 CampusApiService: getSectors METHOD CALLED 🔵🔵🔵');
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_SECTORS);
+    
+    console.log('CampusApiService: ========== GET SECTORS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_SECTORS);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    console.log('CampusApiService: ⚠️ This should appear in Network tab with full response and headers');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Sectors Response received ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        // Response format: { success: true, message: null, data: string[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: Response structure:', {
+            hasSuccess: 'success' in response,
+            hasData: 'data' in response,
+            hasMessage: 'message' in response,
+            hasError: 'error' in response,
+            success: response.success,
+            dataType: typeof response.data,
+            dataIsArray: Array.isArray(response.data),
+          });
+          
+          if (response.success && Array.isArray(response.data)) {
+            const sectors = response.data as string[];
+            console.log('CampusApiService: ✅ Sectors array extracted successfully');
+            console.log('CampusApiService: Sectors:', JSON.stringify(sectors, null, 2));
+            console.log('CampusApiService: Sectors count:', sectors.length);
+            return sectors;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure issue:');
+            console.warn('CampusApiService:   - success:', response.success);
+            console.warn('CampusApiService:   - data type:', typeof response.data);
+            console.warn('CampusApiService:   - data is array:', Array.isArray(response.data));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not an object:', raw);
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning empty array');
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ERROR IN GET SECTORS ❌❌❌');
+        console.error('CampusApiService: Error type:', typeof error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error statusText:', error?.statusText);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response body:', JSON.stringify(error?.error, null, 2));
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * POST /prospectus/upload
    * Upload prospectus files for campus and course.
    */
   uploadProspectus(request: UploadProspectusRequest): Observable<UploadProspectusResponse | null> {
+    console.log('🔵🔵🔵 CampusApiService: uploadProspectus METHOD CALLED 🔵🔵🔵');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
-    return this.http.post<unknown>(url, request).pipe(
+    
+    console.log('========== UPLOAD PROSPECTUS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
+    console.log('CampusApiService: ⚠️ IMPORTANT: campusId and courseId are DIFFERENT values');
+    console.log('CampusApiService: Request payload details:');
+    console.log('CampusApiService:   - campusId:', request.campusId, '(type:', typeof request.campusId, ')');
+    console.log('CampusApiService:   - courseId:', request.courseId, '(type:', typeof request.courseId, ')');
+    console.log('CampusApiService:   - filesCount:', request.files?.length || 0);
+    console.log('CampusApiService:   - firstFilePreview:', request.files?.[0]?.substring(0, 100) + '...' || 'N/A');
+    console.log('CampusApiService: Complete request object:', JSON.stringify({
+      campusId: request.campusId,
+      courseId: request.courseId,
+      filesCount: request.files?.length || 0
+    }, null, 2));
+    console.log('CampusApiService: HTTP Client:', this.http);
+    console.log('CampusApiService: About to make HTTP POST request...');
+    
+    const httpOptions = {
+      headers: { 'Content-Type': 'application/json' }
+    };
+    
+    console.log('CampusApiService: HTTP Options:', httpOptions);
+    console.log('CampusApiService: Making HTTP POST request to:', url);
+    console.log('CampusApiService: Request payload size:', JSON.stringify(request).length, 'bytes');
+    
+    const httpRequest = this.http.post<unknown>(url, request, httpOptions);
+    
+    console.log('CampusApiService: HTTP POST Observable created');
+    console.log('CampusApiService: Observable will execute when subscribed');
+    console.log('CampusApiService: Applying pipe operators...');
+    
+    return httpRequest.pipe(
       map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Upload Prospectus Response received ✅✅✅');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        console.log('CampusApiService: Response is object?', raw && typeof raw === 'object');
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as UploadProspectusResponse;
         }
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌ Error in uploadProspectus:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -164,13 +522,45 @@ export class CampusApiService {
    * Get prospectuses by campus.
    */
   getProspectusByCampus(campusId: string): Observable<GetProspectusResponse | null> {
+    console.log('CampusApiService: getProspectusByCampus METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId });
+    
+    console.log('CampusApiService: ========== GET PROSPECTUS BY CAMPUS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS);
+    console.log('CampusApiService: Campus ID parameter:', campusId);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS.replace(':campusId', campusId));
+    console.log('CampusApiService: Making HTTP GET request...');
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService: Get Prospectus By Campus Response received ');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService:  Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService:  Error in getProspectusByCampus:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -180,13 +570,45 @@ export class CampusApiService {
    * Get prospectuses by course.
    */
   getProspectusByCourse(courseId: string): Observable<GetProspectusResponse | null> {
+    console.log(' CampusApiService: getProspectusByCourse METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { courseId });
+    
+    console.log('CampusApiService: ========== GET PROSPECTUS BY COURSE API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE);
+    console.log('CampusApiService: Course ID parameter:', courseId);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE.replace(':courseId', courseId));
+    console.log('CampusApiService: Making HTTP GET request...');
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService:  Get Prospectus By Course Response received ');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService: Response structure does not match expected format');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService:  Error in getProspectusByCourse:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response:', error?.error);
+        return throwError(() => error);
       })
     );
   }
@@ -416,6 +838,126 @@ export interface AddCourseResponse {
   message: string;
   data: AddCourseResponseData;
   error: string;
+}
+
+export interface ProfessionalInfoRequest {
+  designation: string;
+  department: string;
+  specialization: string;
+  yearsOfExperience: string;
+  qualifications: string;
+  certificates: string; // base64 encoded file
+}
+
+export interface AddFacultyRequest {
+  fullName: string;
+  photo: string; // base64 encoded image
+  email: string;
+  dateOfBirth: string;
+  phoneNumber: string;
+  professionalInfo: ProfessionalInfoRequest[];
+}
+
+export interface BasicInformationResponse {
+  fullName: string;
+  email: string;
+  dateOfBirth: string;
+  phoneNumber: string;
+}
+
+export interface ProfessionalInformationResponse {
+  designation: string[];
+  department: string[];
+  specialization: string[];
+  yearsOfExperience: number[];
+  qualifications: string[];
+  certificates: string[];
+}
+
+export interface AddFacultyResponseData {
+  basicInformation: BasicInformationResponse;
+  professionalInformation: ProfessionalInformationResponse;
+}
+
+export interface AddFacultyResponse {
+  success: boolean;
+  message: string;
+  data: AddFacultyResponseData;
+  error: string;
+}
+
+export interface FacultyListItem {
+  id?: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+}
+
+export interface GetAllFacultiesResponse {
+  success: boolean;
+  message: string | null;
+  data: FacultyListItem[];
+  error: string | null;
+}
+
+export interface GetFacultyByIdResponse {
+  success: boolean;
+  message: string | null;
+  data: AddFacultyResponseData;
+  error: string | null;
+}
+
+export interface GetFacultyProfileResponse {
+  success: boolean;
+  message: string | null;
+  data: FacultyProfileData;
+  error: string | null;
+}
+
+export interface FacultyProfileData {
+  id?: string;
+  campusId?: string;
+  fullName?: string;
+  photoUrl?: string;
+  email?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  professionalInfo?: ProfessionalInfoResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProfessionalInfoResponse {
+  id?: string;
+  designation?: string;
+  department?: string;
+  specialization?: string;
+  yearsOfExperience?: string;
+  qualifications?: string;
+  certificateUrl?: string;
+}
+
+export interface UpdateFacultyResponse {
+  success: boolean;
+  message: string;
+  data: AddFacultyResponseData;
+  error: string;
+}
+
+export interface DeleteFacultyResponse {
+  success: boolean;
+  message: string;
+  data: null;
+  error: string | null;
+}
+
+export interface CheckEmailResponse {
+  success: boolean;
+  message: string;
+  data: boolean; // Swagger shows: data: false (boolean, not object)
+  error: string | null;
 }
 
 export interface UploadProspectusRequest {

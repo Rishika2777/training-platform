@@ -175,10 +175,12 @@
 <app-modal
   [visible]="isProspectusModalOpen()"
   title="Upload Prospectus"
+  size="sm"
   (closed)="closeModal()"
 >
   <app-campus-prospectus
     [submitting]="submittingProspectus"
+    (submitted)="handleProspectusSubmit($event)"
     (uploadSuccess)="handleProspectusUploadSuccess()"
   />
 </app-modal>
@@ -187,6 +189,7 @@
 <app-modal
   [visible]="isCompaniesModalOpen()"
   title="Companies Visited"
+  size="sm"
   (closed)="closeModal()"
 >
   <app-campus-companies-visited

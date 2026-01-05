@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, OnInit, Output, signal, ViewChild } from '@angular/core';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
+import { CampusApiService } from '../../services/campus-api.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 
 export interface PlacedStudentsFormValue {
   studentName: string;
@@ -20,7 +22,10 @@ export interface PlacedStudentsFormValue {
   templateUrl: './campus-placed-students.component.html',
   styleUrl: './campus-placed-students.component.css',
 })
-export class CampusPlacedStudentsComponent {
+export class CampusPlacedStudentsComponent implements OnInit {
+  private readonly campusApi = inject(CampusApiService);
+  private readonly notify = inject(NotificationService);
+
   @ViewChild('studentPhotoFileInput') studentPhotoFileInput!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
@@ -55,11 +60,78 @@ export class CampusPlacedStudentsComponent {
     { label: 'Tech Lead', value: 'tech-lead' },
   ] as const;
 
-  readonly sectorItems = [
-    { label: 'IT', value: 'it' },
-    { label: 'Finance', value: 'finance' },
-    { label: 'Healthcare', value: 'healthcare' },
-  ] as const;
+  // Sector items - loaded from API (GET /dashboard/meta/sectors)
+  // API returns: { success: true, data: ["Consulting", "Finance", "IT Services", "Product Companies"], error: null }
+  readonly sectorItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingSectors = signal(false);
+
+  ngOnInit(): void {
+    console.log('CampusPlacedStudentsComponent: Component initialized, fetching sectors from API...');
+    this.loadSectors();
+  }
+
+  /**
+   * Load sectors from API
+   * GET /dashboard/meta/sectors
+   * Response: { success: true, data: ["Consulting", "Finance", "IT Services", "Product Companies"], error: null }
+   * 
+   * IMPORTANT: Sectors are ONLY loaded from backend API, no static/hardcoded values
+   */
+  loadSectors(): void {
+    console.log('CampusPlacedStudentsComponent: ========== LOADING SECTORS FROM API ==========');
+    console.log('CampusPlacedStudentsComponent: API Endpoint: GET /dashboard/meta/sectors');
+    console.log('CampusPlacedStudentsComponent: This will fetch sectors from backend');
+    
+    this.loadingSectors.set(true);
+    
+    this.campusApi.getSectors().subscribe({
+      next: (sectors) => {
+        console.log('CampusPlacedStudentsComponent: ✅✅✅ SECTORS API SUCCESS ✅✅✅');
+        console.log('CampusPlacedStudentsComponent: Raw sectors array from API:', sectors);
+        console.log('CampusPlacedStudentsComponent: Sectors count:', sectors.length);
+        console.log('CampusPlacedStudentsComponent: Sectors received:', JSON.stringify(sectors, null, 2));
+        
+        // Convert string array to dropdown items format: { label: string, value: string }
+        // API returns: ["Consulting", "Finance", "IT Services", "Product Companies"]
+        const sectorDropdownItems = sectors
+          .filter(sector => sector && typeof sector === 'string' && sector.trim() !== '' && sector !== 'string')
+          .map(sector => ({
+            label: sector.trim(),
+            value: sector.trim(), // Use the same value as label (e.g., "Finance", "IT Services", "Consulting")
+          }));
+        
+        console.log('CampusPlacedStudentsComponent: Converted to dropdown items format:');
+        console.log('CampusPlacedStudentsComponent: Dropdown items:', JSON.stringify(sectorDropdownItems, null, 2));
+        
+        if (sectorDropdownItems.length > 0) {
+          this.sectorItems.set(sectorDropdownItems);
+          console.log('CampusPlacedStudentsComponent: ✅ Sectors loaded successfully from API:', sectorDropdownItems.length, 'items');
+          console.log('CampusPlacedStudentsComponent: Sector dropdown will now show:', sectorDropdownItems.map(s => s.label).join(', '));
+        } else {
+          console.warn('CampusPlacedStudentsComponent: ⚠️ No valid sectors found in API response');
+          console.warn('CampusPlacedStudentsComponent: Sector dropdown will be empty');
+          this.sectorItems.set([]);
+        }
+        
+        this.loadingSectors.set(false);
+      },
+      error: (err) => {
+        console.error('CampusPlacedStudentsComponent: ❌❌❌ ERROR LOADING SECTORS FROM API ❌❌❌');
+        console.error('CampusPlacedStudentsComponent: Error status:', err?.status);
+        console.error('CampusPlacedStudentsComponent: Error URL:', err?.url);
+        console.error('CampusPlacedStudentsComponent: Error message:', err?.message);
+        console.error('CampusPlacedStudentsComponent: Error response:', err?.error);
+        console.error('CampusPlacedStudentsComponent: ⚠️ Sector dropdown will be empty - API call failed');
+        
+        // Set empty array - no fallback values
+        this.sectorItems.set([]);
+        this.loadingSectors.set(false);
+        
+        // Show error notification to user
+        this.notify.error('Failed to load sectors. Please refresh the page or contact support.');
+      },
+    });
+  }
 
   patch(patch: Partial<PlacedStudentsFormValue>): void {
     const next: PlacedStudentsFormValue = { ...this.value, ...patch };
