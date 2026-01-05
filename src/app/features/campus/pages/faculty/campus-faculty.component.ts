@@ -15,15 +15,6 @@ export interface ProfessionalInfo {
   certificates: File | null;
 }
 
-export interface ProfessionalInfo {
-  designation: string;
-  department: string;
-  specialization: string;
-  yearsOfExperience: string;
-  qualifications: string;
-  certificates: File | null;
-}
-
 export interface FacultyFormValue {
   fullName: string;
   photo: File | null;
@@ -256,6 +247,11 @@ export class CampusFacultyComponent {
 
   cancel(): void {
     this.cancelled.emit();
+  }
+
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    this.submit();
   }
 }
 

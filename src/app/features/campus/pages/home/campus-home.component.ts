@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject, OnInit, signal, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { CampusProspectusComponent, ProspectusUploadFormValue } from '../upload-prospectus/campus-prospectus.component';
@@ -11,20 +10,15 @@ import {
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-faculty.component';
-import { CampusCourseFormComponent, CourseFormValue, CourseFormValue } from '../course-form/course-form.component';
-import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
+import { CampusCourseFormComponent, CourseFormValue } from '../course-form/course-form.component';
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { CampusApiService } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
-import { catchError, of } from 'rxjs';
-import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
-import { API_ENDPOINTS, STORAGE_KEYS } from '../../../../core/config/app.constants';
-import { StorageService } from '../../../../core/storage/storage.service';
+import { API_ENDPOINTS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 
 @Component({
@@ -51,9 +45,8 @@ export class CampusHomeComponent implements OnInit {
   private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
-  private readonly studentApiService = inject(StudentApiService);
-  private readonly cdr = inject(ChangeDetectorRef);
-  private readonly notify = inject(NotificationService);
+  private readonly facultyDetailService = inject(FacultyDetailService);
+  private readonly authState = inject(AuthStateService);
   
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -130,62 +123,7 @@ export class CampusHomeComponent implements OnInit {
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
-    return slicePage(this.placedStudents()(), this.placedStudentsPage, this.peoplePageSize);
-  }
-
-  ngOnInit(): void {
-    this.loadPlacedStudents();
-  }
-
-  loadPlacedStudents(): void {
-    this.loadingPlacedStudents.set(true);
-    this.studentApiService
-      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
-      .pipe(
-        catchError((error) => {
-          console.error('Error loading placed students:', error);
-          this.loadingPlacedStudents.set(false);
-          return of(null);
-        }),
-      )
-      .subscribe({
-        next: (response) => {
-          this.loadingPlacedStudents.set(false);
-          if (response?.success && response.data) {
-            const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
-            this.placedStudents.set(items);
-            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
-          }
-        },
-        error: (error) => {
-          console.error('Placed students subscription error:', error);
-          this.loadingPlacedStudents.set(false);
-        },
-      });
-  }
-
-  onPlacedStudentsPageChange(page: number): void {
-    this.placedStudentsPage = page;
-    this.loadPlacedStudents();
-  }
-
-  private mapPlacedStudentToPersonCard(item: {
-    firstName?: string;
-    lastName?: string;
-    studentName?: string;
-    profilePhotoUrl?: string;
-    batch?: string;
-    companyName?: string;
-    designation?: string;
-  }): PersonCard {
-    // Use studentName if available, otherwise fall back to firstName + lastName
-    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    const subtitle = [item.batch, item.companyName].filter(Boolean).join(' ') || '';
-    return {
-      name,
-      subtitle,
-      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
-    };
+    return slicePage(this.placedStudents(), this.placedStudentsPage, this.peoplePageSize);
   }
 
   ngOnInit(): void {
@@ -300,6 +238,12 @@ export class CampusHomeComponent implements OnInit {
 
   handleProspectusUploadSuccess(): void {
     this.closeModal();
+  }
+
+  handleProspectusSubmit(value: ProspectusUploadFormValue): void {
+    // Prospectus submission is handled by the prospectus component itself
+    // This handler is just for the event binding
+    console.log('CampusHomeComponent: Prospectus submit event received:', value);
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
