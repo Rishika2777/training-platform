@@ -2,6 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
+import { ApiResponsePlacedStudentsResponse } from '../../student/models/student.models';
 
 /**
  * Placeholder for campus API calls.
@@ -88,6 +89,28 @@ export class CampusApiService {
         return null;
       })
     );
+  }
+
+  /**
+   * GET /dashboard/students/placed
+   * Fetch placed students for campus (paginated)
+   */
+  getPlacedStudents(
+    page = 1,
+    limit = 4,
+    companyName?: string,
+    batch?: string,
+  ): Observable<ApiResponsePlacedStudentsResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PLACED_STUDENTS);
+    let params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());
+    if (companyName) {
+      params = params.set('companyName', companyName);
+    }
+    if (batch) {
+      params = params.set('batch', batch);
+    }
+    console.log('CampusApiService: getPlacedStudents - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponsePlacedStudentsResponse>(url, { params });
   }
 
   /**
@@ -329,6 +352,75 @@ export class CampusApiService {
   }
 
   /**
+   * GET /dashboard/meta/sectors
+   * Get sectors for dropdown (e.g., "Consulting", "Finance", "IT Services", "Product Companies")
+   * Response format: { success: true, message: null, data: string[], error: null }
+   */
+  getSectors(): Observable<string[]> {
+    console.log('🔵🔵🔵 CampusApiService: getSectors METHOD CALLED 🔵🔵🔵');
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_SECTORS);
+    
+    console.log('CampusApiService: ========== GET SECTORS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_SECTORS);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    console.log('CampusApiService: ⚠️ This should appear in Network tab with full response and headers');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Sectors Response received ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        // Response format: { success: true, message: null, data: string[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: Response structure:', {
+            hasSuccess: 'success' in response,
+            hasData: 'data' in response,
+            hasMessage: 'message' in response,
+            hasError: 'error' in response,
+            success: response.success,
+            dataType: typeof response.data,
+            dataIsArray: Array.isArray(response.data),
+          });
+          
+          if (response.success && Array.isArray(response.data)) {
+            const sectors = response.data as string[];
+            console.log('CampusApiService: ✅ Sectors array extracted successfully');
+            console.log('CampusApiService: Sectors:', JSON.stringify(sectors, null, 2));
+            console.log('CampusApiService: Sectors count:', sectors.length);
+            return sectors;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure issue:');
+            console.warn('CampusApiService:   - success:', response.success);
+            console.warn('CampusApiService:   - data type:', typeof response.data);
+            console.warn('CampusApiService:   - data is array:', Array.isArray(response.data));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not an object:', raw);
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning empty array');
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ERROR IN GET SECTORS ❌❌❌');
+        console.error('CampusApiService: Error type:', typeof error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error statusText:', error?.statusText);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response body:', JSON.stringify(error?.error, null, 2));
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * POST /prospectus/upload
    * Upload prospectus files for campus and course.
    */
@@ -341,12 +433,17 @@ export class CampusApiService {
     console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
     console.log('CampusApiService: Final URL:', url);
     console.log('CampusApiService: Full URL will be:', this.baseUrl + API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
-    console.log('CampusApiService: Request data:', {
+    console.log('CampusApiService: ⚠️ IMPORTANT: campusId and courseId are DIFFERENT values');
+    console.log('CampusApiService: Request payload details:');
+    console.log('CampusApiService:   - campusId:', request.campusId, '(type:', typeof request.campusId, ')');
+    console.log('CampusApiService:   - courseId:', request.courseId, '(type:', typeof request.courseId, ')');
+    console.log('CampusApiService:   - filesCount:', request.files?.length || 0);
+    console.log('CampusApiService:   - firstFilePreview:', request.files?.[0]?.substring(0, 100) + '...' || 'N/A');
+    console.log('CampusApiService: Complete request object:', JSON.stringify({
       campusId: request.campusId,
       courseId: request.courseId,
-      filesCount: request.files?.length || 0,
-      firstFilePreview: request.files?.[0]?.substring(0, 100) + '...' || 'N/A'
-    });
+      filesCount: request.files?.length || 0
+    }, null, 2));
     console.log('CampusApiService: HTTP Client:', this.http);
     console.log('CampusApiService: About to make HTTP POST request...');
     

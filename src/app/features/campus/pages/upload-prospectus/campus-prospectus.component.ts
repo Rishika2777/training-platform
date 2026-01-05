@@ -60,12 +60,15 @@ export class CampusProspectusComponent implements OnInit, OnChanges {
     return /^\d+$/.test(trimmed);
   }
 
-  // Course items - using numeric IDs as per API requirement
+  // Course items - using text values like "BCA", "MCA", etc.
   // Note: These should be fetched from API in production
   readonly courseItems = [
-    { label: 'Course 1', value: '54' },
-    { label: 'Course 2', value: '75' },
-    { label: 'Course 3', value: '100' },
+    { label: 'BCA', value: 'BCA' },
+    { label: 'MCA', value: 'MCA' },
+    { label: 'B.Tech', value: 'B.Tech' },
+    { label: 'M.Tech', value: 'M.Tech' },
+    { label: 'MBA', value: 'MBA' },
+    { label: 'BBA', value: 'BBA' },
   ] as const;
 
   ngOnInit(): void {
@@ -293,97 +296,23 @@ export class CampusProspectusComponent implements OnInit, OnChanges {
       console.log(`ProspectusComponent: File ${index + 1}:`, file?.name || 'null', 'Size:', file?.size || 'N/A');
     });
 
-    console.log('ProspectusComponent: Converting', filesToConvert.length, 'file(s) to base64...');
-    this.submitting = true;
+    // Prepare form value with correct campus ID (ensure it's the numeric ID, not file name)
+    const formValueToEmit: ProspectusUploadFormValue = {
+      campus: campusId, // Use the validated campus ID
+      campusFile: this.value.campusFile,
+      course: courseId,
+      courseFile: this.value.courseFile,
+    };
 
-    // Convert all files to base64
-    Promise.all(filesToConvert.map(file => this.convertFileToBase64(file)))
-      .then((base64Files) => {
-        console.log('ProspectusComponent: ✅ File conversion completed');
-        console.log('ProspectusComponent: Base64 files count:', base64Files.length);
-        console.log('ProspectusComponent: Base64 file lengths:', base64Files.map(f => f.length));
-        
-        const files = base64Files.filter(f => f.length > 0);
+    console.log('ProspectusComponent: Emitting submitted event with form value:', JSON.stringify({
+      campus: formValueToEmit.campus,
+      course: formValueToEmit.course,
+      campusFile: formValueToEmit.campusFile?.name || 'null',
+      courseFile: formValueToEmit.courseFile?.name || 'null'
+    }));
 
-        if (files.length === 0) {
-          console.error('ProspectusComponent: ❌ No valid files after conversion');
-          this.submitting = false;
-          this.notify.error('Failed to process files. Please try again.');
-          return;
-        }
-
-        const request = {
-          campusId: campusId,
-          courseId: courseId,
-          files: files,
-        };
-
-        console.log('ProspectusComponent: ========== CALLING UPLOAD PROSPECTUS API ==========');
-        console.log('ProspectusComponent: Request data:', {
-          campusId: request.campusId,
-          courseId: request.courseId,
-          filesCount: request.files.length,
-          firstFileLength: request.files[0]?.length || 0
-        });
-        console.log('ProspectusComponent: About to call campusApi.uploadProspectus()...');
-        console.log('ProspectusComponent: campusApi service:', this.campusApi);
-        console.log('ProspectusComponent: Request object:', JSON.stringify({
-          campusId: request.campusId,
-          courseId: request.courseId,
-          filesCount: request.files.length
-        }));
-
-        console.log('ProspectusComponent: 🔵 Creating Observable subscription...');
-        const subscription = this.campusApi.uploadProspectus(request);
-        console.log('ProspectusComponent: 🔵 Observable created:', subscription);
-        console.log('ProspectusComponent: 🔵 Subscribing to Observable...');
-        
-        subscription.subscribe({
-          next: (response) => {
-            console.log('ProspectusComponent: ✅ UPLOAD SUCCESS ==========');
-            console.log('ProspectusComponent: Response:', response);
-            this.submitting = false;
-            this.notify.success(response?.message || 'Prospectus uploaded successfully');
-            this.uploadSuccess.emit();
-            // Refresh prospectus list
-            if (campusId) {
-              this.getProspectusByCampus(campusId);
-            } else if (courseId && this.isValidId(courseId)) {
-              this.getProspectusByCourse(courseId);
-            }
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Ignore
-            }
-          },
-          error: (err) => {
-            const errorMessage = err?.error?.message || err?.message || 'Failed to upload prospectus';
-            console.error('ProspectusComponent: ❌ UPLOAD ERROR ==========');
-            console.error('ProspectusComponent: Error:', err);
-            console.error('ProspectusComponent: Error Status:', err?.status);
-            console.error('ProspectusComponent: Error Message:', errorMessage);
-            this.submitting = false;
-            this.notify.error(errorMessage);
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Ignore
-            }
-          },
-        });
-      })
-      .catch((error) => {
-        console.error('ProspectusComponent: ❌ FILE CONVERSION ERROR ==========');
-        console.error('ProspectusComponent: Error:', error);
-        this.submitting = false;
-        this.notify.error('Failed to process files. Please try again.');
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      });
+    // Emit submitted event to parent - parent will handle submitting state and API call
+    this.submitted.emit(formValueToEmit);
   }
 
   /**

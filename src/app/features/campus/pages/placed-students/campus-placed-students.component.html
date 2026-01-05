@@ -77,9 +77,9 @@
     <div class="form-row">
       <app-dropdown
         label="Sector"
-        [items]="sectorItems"
+        [items]="sectorItems()"
         [value]="value.sector"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingSectors()"
         (valueChange)="patch({ sector: $event })"
         [autocomplete]="true"
       />
