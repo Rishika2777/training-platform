@@ -649,7 +649,7 @@ export class CampusHomeComponent implements OnInit {
         
         // Double-check: If path changed, log it (shouldn't happen)
         if (window.location.pathname !== currentPath) {
-          console.error('HomeComponent: ⚠️⚠️⚠️ PATH CHANGED - REDIRECT DETECTED!');
+          console.error('HomeComponent: PATH CHANGED - REDIRECT DETECTED!');
           console.error('HomeComponent: Old path:', currentPath);
           console.error('HomeComponent: New path:', window.location.pathname);
         }
