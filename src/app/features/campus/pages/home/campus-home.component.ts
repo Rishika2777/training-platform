@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject, OnInit, signal, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
@@ -11,11 +11,15 @@ import {
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusCoursesComponent } from '../courses/campus-courses.component';
 import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-faculty.component';
-import { CampusCourseFormComponent, CourseFormValue } from '../course-form/course-form.component';
+import { CampusCourseFormComponent, CourseFormValue, CourseFormValue } from '../course-form/course-form.component';
+import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { CampusApiService } from '../../services/campus-api.service';
+import { FacultyDetailService } from '../../services/faculty-detail.service';
+import { StudentApiService } from '../../../student/services/student-api.service';
+import { catchError, of } from 'rxjs';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -47,11 +51,10 @@ export class CampusHomeComponent implements OnInit {
   private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
-  readonly facultyDetailService = inject(FacultyDetailService);
-  private readonly authState = inject(AuthStateService);
-  private readonly storage = inject(StorageService);
-  private readonly router = inject(Router);
-
+  private readonly studentApiService = inject(StudentApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly notify = inject(NotificationService);
+  
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
   readonly isCompaniesModalOpen = computed(() => this.activeModal() === 'companies-visited');
@@ -127,7 +130,62 @@ export class CampusHomeComponent implements OnInit {
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
-    return slicePage(this.placedStudents(), this.placedStudentsPage, this.peoplePageSize);
+    return slicePage(this.placedStudents()(), this.placedStudentsPage, this.peoplePageSize);
+  }
+
+  ngOnInit(): void {
+    this.loadPlacedStudents();
+  }
+
+  loadPlacedStudents(): void {
+    this.loadingPlacedStudents.set(true);
+    this.studentApiService
+      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('Error loading placed students:', error);
+          this.loadingPlacedStudents.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingPlacedStudents.set(false);
+          if (response?.success && response.data) {
+            const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
+            this.placedStudents.set(items);
+            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+          }
+        },
+        error: (error) => {
+          console.error('Placed students subscription error:', error);
+          this.loadingPlacedStudents.set(false);
+        },
+      });
+  }
+
+  onPlacedStudentsPageChange(page: number): void {
+    this.placedStudentsPage = page;
+    this.loadPlacedStudents();
+  }
+
+  private mapPlacedStudentToPersonCard(item: {
+    firstName?: string;
+    lastName?: string;
+    studentName?: string;
+    profilePhotoUrl?: string;
+    batch?: string;
+    companyName?: string;
+    designation?: string;
+  }): PersonCard {
+    // Use studentName if available, otherwise fall back to firstName + lastName
+    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
+    const subtitle = [item.batch, item.companyName].filter(Boolean).join(' ') || '';
+    return {
+      name,
+      subtitle,
+      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+    };
   }
 
   ngOnInit(): void {
@@ -238,303 +296,6 @@ export class CampusHomeComponent implements OnInit {
 
   handleFacultyDetailClose(): void {
     this.closeModal();
-  }
-
-  handleProspectusSubmit(value: ProspectusUploadFormValue): void {
-    console.log('🚀🚀🚀 CampusHomeComponent: ========== PROSPECTUS SUBMIT CALLED ========== 🚀🚀🚀');
-    console.log('CampusHomeComponent: Current URL:', window.location.href);
-    console.log('CampusHomeComponent: Current Path:', window.location.pathname);
-    console.log('CampusHomeComponent: Form value:', JSON.stringify({
-      campus: value.campus,
-      course: value.course,
-      campusFile: value.campusFile?.name || 'null',
-      courseFile: value.courseFile?.name || 'null'
-    }, null, 2));
-    console.log('CampusHomeComponent: Starting validation and API call...');
-    console.log('CampusHomeComponent: ⚠️ NO REDIRECT SHOULD HAPPEN UNTIL API RESPONSE');
-    
-    // Show loading feedback immediately
-    this.submittingProspectus = true;
-    this.notify.info('Uploading prospectus... Please wait. Check console for API details.');
-    
-    // Get Campus ID automatically from auth state or storage
-    // Campus ID is automatically generated by backend and stored in auth state
-    console.log('CampusHomeComponent: ========== VALIDATION STEP 1: GET CAMPUS ID ==========');
-    
-    // Try to get campus ID from multiple sources (priority order):
-    // 1. From user profile (profileServiceId)
-    // 2. From storage (CAMPUS_ID)
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    
-    console.log('CampusHomeComponent: Current user:', currentUser);
-    console.log('CampusHomeComponent: Campus ID from user.profileServiceId:', campusIdFromUser);
-    console.log('CampusHomeComponent: Campus ID from storage:', campusIdFromStorage);
-    
-    const campusId = (campusIdFromUser || campusIdFromStorage || '').toString().trim();
-    
-    if (!campusId || campusId === '') {
-      console.error('CampusHomeComponent: ❌❌❌ CAMPUS ID NOT FOUND ❌❌❌');
-      console.error('CampusHomeComponent: ⚠️ Campus ID should be automatically available from auth state');
-      console.error('CampusHomeComponent: ⚠️ API CALL WILL NOT HAPPEN - Campus ID missing');
-      console.error('CampusHomeComponent: ⚠️ NO NETWORK REQUEST WILL APPEAR - Please login again');
-      this.submittingProspectus = false;
-      this.notify.error('Campus ID not found. Please login again to refresh your session.');
-      return;
-    }
-    
-    console.log('CampusHomeComponent: ✅ Campus ID retrieved automatically:', campusId);
-    console.log('CampusHomeComponent: Campus ID type:', typeof campusId);
-
-    // Validate Course - Course can be text values like "BCA", "MCA", etc.
-    console.log('CampusHomeComponent: ========== VALIDATION STEP 2: COURSE ==========');
-    const courseId = value.course.trim();
-    console.log('CampusHomeComponent: Course value from form:', courseId);
-    console.log('CampusHomeComponent: Course type:', typeof courseId);
-    
-    if (!courseId || courseId === '') {
-      console.error('CampusHomeComponent: ❌❌❌ VALIDATION FAILED - COURSE IS REQUIRED ❌❌❌');
-      console.error('CampusHomeComponent: ⚠️ API CALL WILL NOT HAPPEN - Validation failed');
-      console.error('CampusHomeComponent: ⚠️ NO NETWORK REQUEST WILL APPEAR - Select a course first');
-      this.submittingProspectus = false;
-      this.notify.error('Please select a course from the dropdown.');
-      return;
-    }
-    console.log('CampusHomeComponent: ✅ Valid Course selected:', courseId);
-
-    // Collect all files (both campusFile and courseFile are prospectus files)
-    console.log('CampusHomeComponent: ========== VALIDATION STEP 3: FILES ==========');
-    const filesToConvert: File[] = [];
-    if (value.campusFile) {
-      filesToConvert.push(value.campusFile);
-      console.log('CampusHomeComponent: Campus file found:', value.campusFile.name);
-    }
-    if (value.courseFile) {
-      filesToConvert.push(value.courseFile);
-      console.log('CampusHomeComponent: Course file found:', value.courseFile.name);
-    }
-
-    if (filesToConvert.length === 0) {
-      console.error('CampusHomeComponent: ❌❌❌ VALIDATION FAILED - NO FILES SELECTED ❌❌❌');
-      console.error('CampusHomeComponent: ⚠️ API CALL WILL NOT HAPPEN - Validation failed');
-      console.error('CampusHomeComponent: ⚠️ NO NETWORK REQUEST WILL APPEAR - Select a file first');
-      this.submittingProspectus = false;
-      this.notify.error('Please select at least one prospectus file to upload');
-      return;
-    }
-    console.log('CampusHomeComponent: ✅ Files found:', filesToConvert.length);
-    
-    console.log('CampusHomeComponent: ========== ✅ ALL VALIDATIONS PASSED! ==========');
-    console.log('CampusHomeComponent: Campus ID:', campusId);
-    console.log('CampusHomeComponent: Course ID:', courseId);
-    console.log('CampusHomeComponent: Files to upload:', filesToConvert.length);
-    filesToConvert.forEach((file, index) => {
-      console.log(`CampusHomeComponent: File ${index + 1}: ${file.name} (${file.size} bytes, ${file.type})`);
-    });
-    console.log('CampusHomeComponent: Proceeding to file conversion...');
-
-    // Convert all files to base64
-    console.log('CampusHomeComponent: ========== STEP 1: FILE CONVERSION ==========');
-    console.log('CampusHomeComponent: Starting file to base64 conversion...');
-    console.log('CampusHomeComponent: Files to convert:', filesToConvert.length);
-    
-    filesToConvert.forEach((file, index) => {
-      console.log(`CampusHomeComponent: Converting file ${index + 1}: ${file.name}, size: ${file.size}, type: ${file.type}`);
-    });
-    
-    Promise.all(filesToConvert.map((file, index) => {
-      console.log(`CampusHomeComponent: Starting conversion for file ${index + 1}: ${file.name}`);
-      return this.convertFileToBase64(file).then((base64) => {
-        console.log(`CampusHomeComponent: ✅ File ${index + 1} converted, base64 length: ${base64?.length || 0}`);
-        return base64;
-      }).catch((err) => {
-        console.error(`CampusHomeComponent: ❌ File ${index + 1} conversion failed:`, err);
-        throw err;
-      });
-    }))
-      .then((base64Files) => {
-        console.log('CampusHomeComponent: ========== STEP 2: FILE CONVERSION COMPLETED ==========');
-        console.log('CampusHomeComponent: ✅ All files converted successfully');
-        console.log('CampusHomeComponent: Base64 files count:', base64Files.length);
-        base64Files.forEach((base64, index) => {
-          console.log(`CampusHomeComponent: Base64 file ${index + 1} length: ${base64?.length || 0}`);
-        });
-        
-        // Filter out empty base64 strings
-        const files = base64Files.filter(f => f && f.length > 0);
-        console.log('CampusHomeComponent: Valid files after filtering:', files.length);
-
-        if (files.length === 0) {
-          console.error('CampusHomeComponent: ❌❌❌ NO VALID FILES AFTER CONVERSION ❌❌❌');
-          console.error('CampusHomeComponent: ⚠️ API CALL WILL NOT HAPPEN - File conversion failed');
-          this.submittingProspectus = false;
-          this.notify.error('Failed to process files. Please try again.');
-          return;
-        }
-
-        // Prepare request according to API specification
-        // IMPORTANT: campusId and courseId are DIFFERENT - don't mix them up!
-        console.log('CampusHomeComponent: ========== STEP 3: PREPARING API REQUEST ==========');
-        console.log('CampusHomeComponent: ⚠️ IMPORTANT: campusId and courseId are DIFFERENT values');
-        console.log('CampusHomeComponent: Campus ID (from Campus field):', campusId);
-        console.log('CampusHomeComponent: Course ID (from Course dropdown):', courseId);
-        console.log('CampusHomeComponent: Files count:', files.length);
-        
-        const request = {
-          campusId: campusId,  // From Campus input field (e.g., "88")
-          courseId: courseId,  // From Course dropdown (e.g., "54", "75", "100")
-          files: files, // Array of base64 strings
-        };
-
-        console.log('CampusHomeComponent: ✅ Request object created with correct IDs:');
-        console.log('CampusHomeComponent:   - campusId:', request.campusId, '(type:', typeof request.campusId, ')');
-        console.log('CampusHomeComponent:   - courseId:', request.courseId, '(type:', typeof request.courseId, ')');
-        console.log('CampusHomeComponent:   - filesCount:', request.files.length);
-        console.log('CampusHomeComponent:   - firstFileLength:', request.files[0]?.length || 0);
-        console.log('CampusHomeComponent:   - firstFilePreview:', request.files[0]?.substring(0, 50) + '...' || 'N/A');
-
-        console.log('CampusHomeComponent: ========== STEP 4: CALLING API SERVICE ==========');
-        console.log('CampusHomeComponent: About to call campusApi.uploadProspectus()...');
-        console.log('CampusHomeComponent: ⚠️⚠️⚠️ THIS SHOULD APPEAR IN NETWORK TAB AS POST /prospectus/upload ⚠️⚠️⚠️');
-
-        // Make the API call - this should appear in Network tab
-        const apiCall = this.campusApi.uploadProspectus(request);
-        console.log('CampusHomeComponent: ✅ API Observable created successfully');
-        console.log('CampusHomeComponent: Observable type:', typeof apiCall);
-        console.log('CampusHomeComponent: About to subscribe to Observable...');
-        
-        console.log('CampusHomeComponent: ========== STEP 5: SUBSCRIBING TO API ==========');
-        console.log('CampusHomeComponent: ⚠️⚠️⚠️ NETWORK REQUEST SHOULD START NOW - CHECK NETWORK TAB! ⚠️⚠️⚠️');
-        
-        apiCall.subscribe({
-          next: (response) => {
-            console.log('CampusHomeComponent: ✅✅✅ UPLOAD PROSPECTUS API SUCCESS ✅✅✅');
-            console.log('CampusHomeComponent: Full Response:', JSON.stringify(response, null, 2));
-            console.log('CampusHomeComponent: Response success:', response?.success);
-            console.log('CampusHomeComponent: Response message:', response?.message);
-            console.log('CampusHomeComponent: Response data:', response?.data);
-            console.log('CampusHomeComponent: API Status: 201 Created');
-            console.log('CampusHomeComponent: ✅✅✅ API IS WORKING CORRECTLY ✅✅✅');
-            
-            this.submittingProspectus = false;
-            
-            if (response === null) {
-              console.warn('CampusHomeComponent: ⚠️ Response is NULL but API call was successful (HTTP 200/201)');
-              this.notify.warn('Prospectus might have been uploaded, but response format was unexpected. Check console for details.');
-              this.closeModal();
-              // Don't redirect immediately - let user see the result
-              return;
-            }
-            
-            // Show success message with API status
-            const successMessage = response?.message || 'Prospectus uploaded successfully!';
-            console.log('CampusHomeComponent: Success message:', successMessage);
-            this.notify.success(`${successMessage} (API Status: 201)`);
-            
-            // Close modal but DON'T redirect immediately
-            // Let user see the success message first
-            this.closeModal();
-            
-            // Only redirect to login after a longer delay (5 seconds) so user can see the result
-            setTimeout(() => {
-              console.log('CampusHomeComponent: Redirecting to login page after 5 seconds...');
-              void this.router.navigateByUrl('/login');
-            }, 5000);
-            
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Component might be destroyed, ignore
-            }
-          },
-          error: (err) => {
-            console.error('CampusHomeComponent: ❌❌❌ UPLOAD PROSPECTUS API ERROR ❌❌❌');
-            console.error('CampusHomeComponent: ========== ERROR DETAILS ==========');
-            console.error('CampusHomeComponent: Error Status Code:', err?.status);
-            console.error('CampusHomeComponent: Error Status Text:', err?.statusText);
-            console.error('CampusHomeComponent: Error URL:', err?.url);
-            console.error('CampusHomeComponent: Full Error Object:', err);
-            console.error('CampusHomeComponent: Error Response Body:', JSON.stringify(err?.error, null, 2));
-            console.error('CampusHomeComponent: ====================================');
-            
-            // Determine if this is a backend or frontend issue
-            if (!err?.status) {
-              console.error('CampusHomeComponent: ⚠️ NO HTTP STATUS - This might be a network/frontend issue');
-              console.error('CampusHomeComponent: Check network tab, CORS, or connection');
-            } else if (err.status === 400) {
-              console.error('CampusHomeComponent: ⚠️ 400 Bad Request - Backend validation error');
-              console.error('CampusHomeComponent: This is a BACKEND validation issue');
-            } else if (err.status === 401) {
-              console.error('CampusHomeComponent: ⚠️ 401 Unauthorized - Authentication issue');
-              console.error('CampusHomeComponent: Token might be expired or invalid');
-            } else if (err.status === 500) {
-              console.error('CampusHomeComponent: ⚠️ 500 Internal Server Error - Backend server issue');
-            } else {
-              console.error('CampusHomeComponent: ⚠️ HTTP Error:', err.status);
-            }
-            
-            this.submittingProspectus = false;
-            
-            // Handle validation errors from backend
-            // API error structure: { success: false, message: "Validation failed", data: { campusId: "...", file: "...", courseId: "..." }, error: null }
-            let errorMessage = `Failed to upload prospectus (Status: ${err?.status || 'Unknown'})`;
-            
-            // Priority 1: Check for detailed validation errors in data object
-            if (err?.error?.data && typeof err.error.data === 'object') {
-              const validationErrors = err.error.data;
-              const errorMessages = Object.values(validationErrors)
-                .filter(msg => msg && typeof msg === 'string') as string[];
-              if (errorMessages.length > 0) {
-                errorMessage = errorMessages.join('. ');
-                console.log('CampusHomeComponent: Using detailed validation errors:', errorMessage);
-                console.log('CampusHomeComponent: ⚠️ BACKEND VALIDATION ERROR - Check your input values');
-              }
-            }
-            
-            // Priority 2: Use error message from backend
-            if (errorMessage.includes('Status:') && err?.error?.message) {
-              errorMessage = `${err.error.message} (Status: ${err?.status})`;
-            }
-            
-            // Priority 3: Use generic error message
-            if (errorMessage.includes('Status: Unknown') && err?.message) {
-              errorMessage = `${err.message} (Status: ${err?.status || 'Network Error'})`;
-            }
-            
-            console.error('CampusHomeComponent: Final Error Message to show:', errorMessage);
-            console.error('CampusHomeComponent: ⚠️ API CALL FAILED - Check console above for details');
-            
-            // Show error notification
-            this.notify.error(errorMessage);
-            
-            // DON'T redirect on error - let user see the error and try again
-            // Modal stays open so user can fix and retry
-            
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Ignore
-            }
-          },
-        });
-      })
-      .catch((error) => {
-        console.error('CampusHomeComponent: ========== ❌❌❌ FILE CONVERSION ERROR ❌❌❌ ==========');
-        console.error('CampusHomeComponent: Error type:', typeof error);
-        console.error('CampusHomeComponent: Error:', error);
-        console.error('CampusHomeComponent: Error message:', error?.message);
-        console.error('CampusHomeComponent: Error stack:', error?.stack);
-        console.error('CampusHomeComponent: ⚠️ API CALL WILL NOT HAPPEN - File conversion failed');
-        console.error('CampusHomeComponent: ⚠️ NO NETWORK REQUEST WILL APPEAR - Fix file conversion first');
-        this.submittingProspectus = false;
-        this.notify.error('Failed to process files. Please check console for details.');
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      });
   }
 
   handleProspectusUploadSuccess(): void {
@@ -649,6 +410,8 @@ export class CampusHomeComponent implements OnInit {
                 console.log('CampusHomeComponent: Response data:', response?.data);
                 this.notify.success(response?.message || 'Placed student added successfully');
                 this.closeModal();
+              // Reload placed students after adding a new one
+              this.loadPlacedStudents();
                 // Reset to page 1 to see the newest students first
                 console.log('CampusHomeComponent: Resetting to page 1 and reloading placed students...');
                 this.placedStudentsPage = 1;

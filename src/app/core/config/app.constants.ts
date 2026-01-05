@@ -148,6 +148,8 @@
       REGISTER: '/campus/register',
       GET_ALL: '/campus/getAll',
       BY_ID: '/campus/:campusId',
+      UPDATE: '/campus/:campusId/update',
+      UPDATE_BY_ADMIN: '/campus/admin/:campusId',
       // Swagger: DELETE /campus/admin/{campusId}
       DELETE: '/campus/admin/:campusId',
       APPROVAL: '/campus/:campusId/approval',

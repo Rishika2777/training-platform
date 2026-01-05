@@ -9,11 +9,13 @@ import { StudentApiService } from '../../../student/services/student-api.service
 import { StudentProfileResponse } from '../../../student/models/student.models';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 import {
   createEmptyStudentFormValue,
   StudentFormComponent,
   StudentFormValue,
 } from '../../../../shared/components/forms/student-form/student-form.component';
+import { mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
 
 @Component({
   selector: 'app-admin-student',
@@ -34,6 +36,7 @@ export class AdminStudentComponent implements OnInit {
   private readonly studentApi = inject(StudentApiService);
   private readonly auth = inject(AuthService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly notify = inject(NotificationService);
   readonly announcementDate = 'January 7th, 2025';
 
   students: CardData[] = [];
@@ -47,8 +50,10 @@ export class AdminStudentComponent implements OnInit {
   viewSubmitting = false;
   selectedStudentId: string | null = null;
   selectedStudentUserId: string | null = null;
+  selectedStudentProjectUserId: string | null = null; // userId from projects array
   selectedStudentApprovalStatus: string | null = null;
   viewValue: StudentFormValue = createEmptyStudentFormValue();
+  isEditMode = false;
 
   showReviewModal = false;
   pendingReviewStatus: EnumLoginStatus | null = null;
@@ -66,46 +71,6 @@ export class AdminStudentComponent implements OnInit {
     this.students = [];
     this.displayedStudents = [];
     
-    // this.adminApi.getUsersByType('STUDENT').subscribe({
-    //   next: (users: UserResponse[]) => {
-    //     try {
-    //       if (users && Array.isArray(users) && users.length > 0) {
-    //         this.students = users.map((user) => {
-    //           const cardData: CardData = {
-    //             id: user.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
-    //             name: user.email?.split('@')[0] ?? 'Student Name',
-    //             imageUrl: 'assets/images/login-news-image.png',
-    //             secondaryInfo: 'Campus Name',
-    //             email: user.email ?? 'student@example.com',
-    //             userId: user.userId,
-    //           };
-    //           return cardData;
-    //         });
-    //         this.totalPages = Math.max(1, Math.ceil(this.students.length / this.itemsPerPage));
-    //         this.currentPage = 1;
-    //         this.updateDisplayedStudents();
-    //       } else {
-    //         this.students = [];
-    //         this.displayedStudents = [];
-    //         this.totalPages = 1;
-    //       }
-    //     } catch {
-    //       this.students = [];
-    //       this.displayedStudents = [];
-    //       this.totalPages = 1;
-    //     }
-    //     this.isLoading = false;
-    //     this.cdr.detectChanges();
-    //   },
-    //   error: () => {
-    //     this.students = [];
-    //     this.displayedStudents = [];
-    //     this.totalPages = 1;
-    //     this.isLoading = false;
-    //     this.cdr.detectChanges();
-    //   },
-    // });
-
     this.studentApi.getAllStudents('ADMIN').subscribe({
       next: (response) => {
         try {
@@ -184,6 +149,15 @@ export class AdminStudentComponent implements OnInit {
         }
         this.selectedStudentApprovalStatus = readString(data, 'approvalStatus') || null;
         this.selectedStudentUserId = readString(data, 'userId') || null;
+        // Update selectedStudentId with the actual studentId from the response
+        const actualStudentId = readString(data, 'studentId');
+        if (actualStudentId) {
+          this.selectedStudentId = actualStudentId;
+        }
+        // Extract userId from projects array (use this for update requests)
+        const projects = readRecordArray(data, 'projects');
+        const projectUserId = projects.length > 0 ? readString(projects[0], 'userId') : null;
+        this.selectedStudentProjectUserId = projectUserId || null;
         this.viewValue = this.mapFullProfileToFormValue(data);
         this.showViewModal = true;
         this.cdr.detectChanges();
@@ -199,8 +173,159 @@ export class AdminStudentComponent implements OnInit {
     this.viewSubmitting = false;
     this.selectedStudentId = null;
     this.selectedStudentUserId = null;
+    this.selectedStudentProjectUserId = null;
     this.selectedStudentApprovalStatus = null;
     this.viewValue = createEmptyStudentFormValue();
+    this.isEditMode = false;
+  }
+
+  private reloadStudentProfile(): void {
+    if (!this.selectedStudentId) {
+      return;
+    }
+
+    const requesterUserId = toUserIdString(this.auth.getCurrentUser()?.userId);
+    if (!requesterUserId) {
+      this.viewSubmitting = false;
+      return;
+    }
+
+    this.viewSubmitting = true;
+    this.studentApi.getStudentFullProfile(this.selectedStudentId, requesterUserId, 'ADMIN').subscribe({
+      next: (response) => {
+        this.viewSubmitting = false;
+        const data = response.data ?? {};
+        if (!isRecord(data)) {
+          return;
+        }
+        // Update all the selected student data
+        this.selectedStudentApprovalStatus = readString(data, 'approvalStatus') || null;
+        this.selectedStudentUserId = readString(data, 'userId') || null;
+        const actualStudentId = readString(data, 'studentId');
+        if (actualStudentId) {
+          this.selectedStudentId = actualStudentId;
+        }
+        // Extract userId from projects array
+        const projects = readRecordArray(data, 'projects');
+        const projectUserId = projects.length > 0 ? readString(projects[0], 'userId') : null;
+        this.selectedStudentProjectUserId = projectUserId || null;
+        // Update form with fresh data
+        this.viewValue = this.mapFullProfileToFormValue(data);
+        // Exit edit mode to show approve/reject buttons and hide update button
+        this.isEditMode = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.viewSubmitting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  toggleEditMode(): void {
+    this.isEditMode = !this.isEditMode;
+  }
+
+  handleFormSubmit(value: StudentFormValue): void {
+    if (!this.isEditMode || !this.selectedStudentId) {
+      return;
+    }
+
+    const updateRequest = this.mapFormValueToUpdateRequest(value);
+    this.viewSubmitting = true;
+
+    // Use userId from the root data object (data.userId) for the query parameter
+    // Use studentId from the root data object (data.studentId) for the path parameter
+    if (!this.selectedStudentUserId) {
+      console.error('Cannot update student: userId is missing');
+      this.viewSubmitting = false;
+      return;
+    }
+    this.studentApi
+      .updateStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, updateRequest)
+      .subscribe({
+        next: () => {
+          // Show success notification
+          this.notify.success('Student profile updated successfully');
+          // Reload the student profile to get updated data
+          this.reloadStudentProfile();
+          // Reload students list in background (don't wait for it)
+          this.loadStudents();
+        },
+        error: () => {
+          this.viewSubmitting = false;
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  private mapFormValueToUpdateRequest(value: StudentFormValue): Record<string, unknown> {
+    // Use the userId from the projects array (if available), otherwise fallback to root userId
+    // The projects array contains the correct userId format that should be used for updates
+    const userIdToUse = this.selectedStudentProjectUserId || this.selectedStudentUserId || undefined;
+    const registerRequest = mapStudentFormValueToRegisterRequest(value, userIdToUse);
+    
+    // Flatten the nested structure to match backend's expected flat structure for updates
+    const { personalInfo, educationDetails, skillsAndExperience, additionalInfo } = registerRequest;
+    const { skills, projects } = skillsAndExperience;
+    
+    // Flatten projects arrays
+    const projectNames = projects.map((p) => p.projectName).filter(Boolean);
+    const projectDescriptions = projects.map((p) => p.description).filter(Boolean);
+    const technologiesUsed = projects.flatMap((p) => p.technologiesUsed).filter(Boolean);
+    
+    // Combine all into a flat structure
+    return {
+      // Personal info fields
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
+      gender: personalInfo.gender,
+      dateOfBirth: personalInfo.dateOfBirth,
+      phoneNumber: personalInfo.phoneNumber,
+      profilePhotoUrl: personalInfo.profilePhotoUrl || '',
+      rank: '', // Rank field expected by backend but not in form
+      address: personalInfo.address || '',
+      about: personalInfo.about || '',
+      email: personalInfo.email,
+      
+      // Education details
+      qualifications: educationDetails.qualifications,
+      institutionName: educationDetails.institutionName,
+      degrees: educationDetails.degrees,
+      specializations: educationDetails.specializations,
+      yearOfPassing: educationDetails.yearOfPassing || '',
+      certificates: educationDetails.certificates || [],
+      cgpa: educationDetails.cgpa || '',
+      
+      // Skills
+      technicalSkills: skills.technicalSkills,
+      softSkills: skills.softSkills,
+      proficiencyLevel: skills.proficiencyLevel || '',
+      languagesKnown: skills.languagesKnown,
+      jobRolesOfInterest: skills.jobRolesOfInterest,
+      preferredLocation: skills.preferredLocation,
+      availability: skills.availability,
+      expectedSalary: skills.expectedSalary || '',
+      employmentType: skills.employmentType,
+      companyName: skills.companyName || '',
+      role: skills.role || '',
+      startDate: skills.startDate || '',
+      endDate: skills.endDate || '',
+      currentlyWorking: skills.currentlyWorking || false,
+      
+      // Projects (flattened)
+      projectNames: projectNames,
+      description: projectDescriptions.length > 0 ? projectDescriptions[0] : '', // Backend expects single description
+      technologiesUsed: technologiesUsed,
+      
+      // Additional info
+      govtIdProofUrl: additionalInfo.govtIdProofUrl || '',
+      portfolioUrl: additionalInfo.portfolioUrl || '',
+      resumeUrl: additionalInfo.resumeUrl || '',
+      otherWebsites: additionalInfo.otherWebsites || [],
+      offersInHand: additionalInfo.offersInHand || false,
+      jobAlertPreference: additionalInfo.jobAlertPreference || 'NONE',
+    };
   }
 
   handleReviewAction(status: EnumLoginStatus): void {
@@ -263,6 +388,8 @@ export class AdminStudentComponent implements OnInit {
     if (studentId) {
       this.studentApi.deleteStudent(studentId).subscribe({
         next: () => {
+          // Show success notification
+          this.notify.success('Student deleted successfully');
           this.closeDeleteModal();
           // Reset to first page if current page might be empty after deletion
           if (this.displayedStudents.length === 1 && this.currentPage > 1) {
@@ -380,7 +507,6 @@ export class AdminStudentComponent implements OnInit {
       fullName: [firstName, lastName].filter(Boolean).join(' ').trim(),
       email: email || '',
       mobile: phoneNumber,
-      about,
       profileSummary: about,
       address: address || '',
       dateOfBirth,

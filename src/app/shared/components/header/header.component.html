@@ -49,9 +49,16 @@
           (seePrevious)="onSeePreviousNotifications()"
         />
       </div>
-      <a class="icon" title="Settings" [routerLink]="['/settings']">
-        <i class="fa-solid fa-gear" aria-hidden="true"></i>
-      </a>
+      <div class="settings-wrapper">
+        <button class="icon" type="button" title="Settings" (click)="toggleSettings($event)">
+          <i class="fa-solid fa-gear" aria-hidden="true"></i>
+        </button>
+        <app-settings-dropdown
+          [isOpen]="settingsOpen()"
+          (closed)="closeSettings()"
+          (optionSelected)="handleSettingsOption($event)"
+        />
+      </div>
 
       @if (isAuthenticated()) {
         <button class="icon" type="button" title="Logout" (click)="logout()">
@@ -61,5 +68,30 @@
     </div>
   }
 </header>
+
+<!-- Edit Profile Modal -->
+@if (selectedOption() === 'edit-profile') {
+  <app-modal
+    [visible]="true"
+    title="Edit Profile"
+    size="lg"
+    (closed)="closeOptionModal()"
+  >
+    <app-edit-profile-modal (closed)="closeOptionModal()" />
+  </app-modal>
+}
+
+<!-- Change Password Modal -->
+@if (selectedOption() === 'password') {
+  <app-modal
+    [visible]="true"
+    title="Change Password"
+    size="sm"
+    (closed)="closeOptionModal()"
+  >
+    <app-change-password (closed)="closeOptionModal()" />
+  </app-modal>
+}
+
 
 

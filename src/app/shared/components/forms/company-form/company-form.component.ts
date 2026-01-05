@@ -9,11 +9,13 @@ export interface KeyPersonValue {
   name: string;
   designation: string;
   photo: File | null;
+  photoUrl?: string; // URL from API response
 }
 
 export interface CompanyFormValue {
   companyName: string;
   companyPhoto: File | null;
+  companyPhotoUrl?: string; // URL from API response
 
   adminName: string;
   adminDesignation: string;
@@ -43,6 +45,7 @@ export class CompanyFormComponent {
   @Input() submitting = false;
   @Input() adminEmailLocked = false;
   @Input() approveDisabled = false;
+  @Input() isEditMode = false;
   @Input() value: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   @Output() valueChange = new EventEmitter<CompanyFormValue>();
@@ -56,14 +59,19 @@ export class CompanyFormComponent {
     return this.mode === 'review';
   }
 
+  get isFieldsDisabled(): boolean {
+    return this.submitting || (this.isReviewMode && !this.isEditMode);
+  }
+
   static createEmptyKeyPerson(): KeyPersonValue {
-    return { name: '', designation: '', photo: null };
+    return { name: '', designation: '', photo: null, photoUrl: undefined };
   }
 
   static createEmptyValue(): CompanyFormValue {
     return {
       companyName: '',
       companyPhoto: null,
+      companyPhotoUrl: undefined,
 
       adminName: '',
       adminDesignation: '',
@@ -82,27 +90,45 @@ export class CompanyFormComponent {
   }
 
   patch(patch: Partial<CompanyFormValue>): void {
+    if (this.isReviewMode && !this.isEditMode) {
+      return;
+    }
     const next: CompanyFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
   }
 
   get companyPhotoPlaceholder(): string {
-    return this.value.companyPhoto?.name ?? 'Upload Photo';
+    if (this.value.companyPhoto?.name) {
+      return this.value.companyPhoto.name;
+    }
+    if (this.value.companyPhotoUrl) {
+      return 'Photo uploaded';
+    }
+    return 'Upload Photo';
   }
 
   keyPersonPhotoPlaceholder(index: number): string {
-    return this.value.keyPeople[index]?.photo?.name ?? 'Upload Photo';
+    const person = this.value.keyPeople[index];
+    if (person?.photo?.name) {
+      return person.photo.name;
+    }
+    if (person?.photoUrl) {
+      return 'Photo uploaded';
+    }
+    return 'Upload Photo';
   }
 
   onCompanyPhotoSelected(files: FileList): void {
     const file = this.pickFirstFile(files);
-    this.patch({ companyPhoto: file });
+    // Clear URL when new file is selected
+    this.patch({ companyPhoto: file, companyPhotoUrl: undefined });
   }
 
   onKeyPersonPhotoSelected(index: number, files: FileList): void {
     const file = this.pickFirstFile(files);
-    this.patchKeyPerson(index, { photo: file });
+    // Clear URL when new file is selected
+    this.patchKeyPerson(index, { photo: file, photoUrl: undefined });
   }
 
   addKeyPerson(): void {
@@ -156,7 +182,8 @@ export class CompanyFormComponent {
 
   submit(): void {
     // In review mode, use the explicit Approve/Reject buttons instead of form submit.
-    if (this.isReviewMode) {
+    // But allow submission when edit mode is enabled.
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     this.submitAttempted = true;

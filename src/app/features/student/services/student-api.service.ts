@@ -68,7 +68,7 @@ export class StudentApiService {
     request: StudentUpdateRequest,
   ): Observable<ApiResponseStudentProfileResponse> {
     const url = this.buildUrl(resolvePathParams(API_ENDPOINTS.STUDENT.UPDATE_FULL_PROFILE, { studentId }));
-    const params = new HttpParams().set('studentId', studentIdForQuery);
+    const params = new HttpParams().set('userId', studentIdForQuery);
     return this.http.patch<ApiResponseStudentProfileResponse>(url, request, { params });
   }
 

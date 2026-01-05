@@ -47,6 +47,27 @@ export class CampusApiService {
   }
 
   /**
+   * PUT /campus/{campusId}/update
+   * Updates campus profile.
+   * Swagger: requires email query parameter.
+   */
+  updateCampus(campusId: string, email: string, request: CampusRegisterRequest): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE, { campusId });
+    const params = new HttpParams().set('email', email);
+    return this.http.put<unknown>(url, request, { params }).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
+   * PUT /campus/admin/{campusId}
+   * Updates campus by ID (Admin only).
+   * Swagger: Admin endpoint, no query parameters required.
+   */
+  updateCampusByAdmin(campusId: string, request: CampusRegisterRequest): Observable<Campus | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE_BY_ADMIN, { campusId });
+    return this.http.put<unknown>(url, request).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
    * PUT /campus/{campusId}/approval (Admin)
    */
   updateCampusApprovalStatus(
@@ -501,7 +522,7 @@ export class CampusApiService {
    * Get prospectuses by campus.
    */
   getProspectusByCampus(campusId: string): Observable<GetProspectusResponse | null> {
-    console.log('🔵🔵🔵 CampusApiService: getProspectusByCampus METHOD CALLED 🔵🔵🔵');
+    console.log('CampusApiService: getProspectusByCampus METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId });
     
     console.log('CampusApiService: ========== GET PROSPECTUS BY CAMPUS API CALL ==========');
@@ -514,7 +535,7 @@ export class CampusApiService {
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: ✅✅✅ Get Prospectus By Campus Response received ✅✅✅');
+        console.log('CampusApiService: Get Prospectus By Campus Response received ');
         console.log('CampusApiService: Raw response:', raw);
         console.log('CampusApiService: Response type:', typeof raw);
         if (raw && typeof raw === 'object') {
@@ -527,14 +548,14 @@ export class CampusApiService {
           }
         }
         if (raw && typeof raw === 'object' && 'data' in raw) {
-          console.log('CampusApiService: ✅ Response structure is valid');
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
-        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService:  Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
-        console.error('CampusApiService: ❌ Error in getProspectusByCampus:', error);
+        console.error('CampusApiService:  Error in getProspectusByCampus:', error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         console.error('CampusApiService: Error message:', error?.message);
@@ -549,7 +570,7 @@ export class CampusApiService {
    * Get prospectuses by course.
    */
   getProspectusByCourse(courseId: string): Observable<GetProspectusResponse | null> {
-    console.log('🔵🔵🔵 CampusApiService: getProspectusByCourse METHOD CALLED 🔵🔵🔵');
+    console.log(' CampusApiService: getProspectusByCourse METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { courseId });
     
     console.log('CampusApiService: ========== GET PROSPECTUS BY COURSE API CALL ==========');
@@ -562,7 +583,7 @@ export class CampusApiService {
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: ✅✅✅ Get Prospectus By Course Response received ✅✅✅');
+        console.log('CampusApiService:  Get Prospectus By Course Response received ');
         console.log('CampusApiService: Raw response:', raw);
         console.log('CampusApiService: Response type:', typeof raw);
         if (raw && typeof raw === 'object') {
@@ -575,14 +596,14 @@ export class CampusApiService {
           }
         }
         if (raw && typeof raw === 'object' && 'data' in raw) {
-          console.log('CampusApiService: ✅ Response structure is valid');
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
-        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
-        console.error('CampusApiService: ❌ Error in getProspectusByCourse:', error);
+        console.error('CampusApiService:  Error in getProspectusByCourse:', error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         console.error('CampusApiService: Error message:', error?.message);

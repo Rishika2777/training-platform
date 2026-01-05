@@ -12,7 +12,7 @@
         type="text"
         [value]="value.campusName"
         (valueChange)="patch({ campusName: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
 
       <app-input
@@ -21,7 +21,7 @@
         [invalid]="isInvalid('campusLogoFiles')"
         type="file"
         (filesSelected)="patch({ campusLogoFiles: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
 
       <app-input
@@ -31,7 +31,7 @@
         type="number"
         [value]="value.rank"
         (valueChange)="patch({ rank: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
     </div>
 
@@ -43,7 +43,7 @@
         type="text"
         [value]="value.adminName"
         (valueChange)="patch({ adminName: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
 
       <app-input
@@ -53,7 +53,7 @@
         type="email"
         [value]="value.adminEmail"
         (valueChange)="patch({ adminEmail: $event })"
-        [disabled]="submitting || isReviewMode || adminEmailLocked"
+        [disabled]="isFieldsDisabled || adminEmailLocked"
       />
 
       <div class="app-form-field-wrapper">
@@ -64,7 +64,7 @@
           type="tel"
           [value]="value.adminPhone"
           (valueChange)="patch({ adminPhone: $event })"
-          [disabled]="submitting || isReviewMode"
+          [disabled]="isFieldsDisabled"
         />
         @if (submitAttempted && isAdminPhoneNotTenDigits()) {
           <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
@@ -80,7 +80,7 @@
         type="text"
         [value]="value.adminDept"
         (valueChange)="patch({ adminDept: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
 
       <app-input
@@ -90,7 +90,7 @@
         type="text"
         [value]="value.adminDesignation"
         (valueChange)="patch({ adminDesignation: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
 
       <app-input
@@ -101,7 +101,7 @@
         placeholder="https://example.com"
         [value]="value.website"
         (valueChange)="patch({ website: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
     </div>
 
@@ -114,7 +114,7 @@
           [rows]="4"
           [value]="value.about"
           (valueChange)="patch({ about: $event })"
-          [disabled]="submitting || isReviewMode"
+          [disabled]="isFieldsDisabled"
           [maxlength]="2000"
           [showCharCount]="true"
         />
@@ -128,7 +128,7 @@
           [rows]="4"
           [value]="value.address"
           (valueChange)="patch({ address: $event })"
-          [disabled]="submitting || isReviewMode"
+          [disabled]="isFieldsDisabled"
           [maxlength]="500"
           [showCharCount]="true"
         />
@@ -136,16 +136,7 @@
     </div>
 
     <div class="app-form-actions">
-      @if (!isReviewMode) {
-        <app-button
-          type="button"
-          variant="outline"
-          label="Cancel"
-          [disabled]="submitting"
-          (buttonClick)="cancelled.emit()"
-        />
-        <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
-      } @else {
+      @if (isReviewMode && !isEditMode) {
         <div style="display: flex; gap: 12px; justify-content: center; align-items: center;">
           <app-button
             type="button"
@@ -162,6 +153,24 @@
             (buttonClick)="approve()"
           />
         </div>
+      } @else if (isReviewMode && isEditMode) {
+        <app-button
+          type="button"
+          variant="outline"
+          label="Cancel"
+          [disabled]="submitting"
+          (buttonClick)="cancelled.emit()"
+        />
+        <app-button type="submit" variant="primary" label="Update" [disabled]="submitting" />
+      } @else {
+        <app-button
+          type="button"
+          variant="outline"
+          label="Cancel"
+          [disabled]="submitting"
+          (buttonClick)="cancelled.emit()"
+        />
+        <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
       }
     </div>
   </form>

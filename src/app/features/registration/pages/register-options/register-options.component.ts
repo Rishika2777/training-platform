@@ -79,6 +79,7 @@ export class RegisterOptionsComponent {
         },
         error: () => {
           this.submitting = false;
+          this.cdr.detectChanges();
         },
       });
   }

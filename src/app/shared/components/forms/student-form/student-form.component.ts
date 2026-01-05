@@ -69,7 +69,6 @@ export interface StudentFormValue {
   // Existing minimal fields used by current API call:
   fullName: string;
   email: string;
-  about: string;
 
   // Multi-step fields:
   firstName: string;
@@ -95,7 +94,6 @@ export function createEmptyStudentFormValue(seed?: Partial<StudentFormValue>): S
   const base: StudentFormValue = {
     fullName: '',
     email: '',
-    about: '',
 
     firstName: '',
     lastName: '',
@@ -185,6 +183,7 @@ export class StudentFormComponent {
   @Input() emailLocked = false;
   @Input() mode: 'create' | 'review' = 'create';
   @Input() approveDisabled = false;
+  @Input() isEditMode = false;
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
@@ -200,6 +199,19 @@ export class StudentFormComponent {
 
   get isReviewMode(): boolean {
     return this.mode === 'review';
+  }
+
+  get isFieldsDisabled(): boolean {
+    return this.submitting || (this.isReviewMode && !this.isEditMode);
+  }
+
+  readonly yearOfPassingMin = '1900-01-01'; // Allow all past years - set to a very old date
+
+  get yearOfPassingMax(): string {
+    // Allow next 5 years from current year
+    const currentYear = new Date().getFullYear();
+    const maxYear = currentYear + 5;
+    return `${maxYear}-12-31`;
   }
 
   readonly genderItems: readonly DropdownItem<Gender>[] = [
@@ -422,7 +434,7 @@ export class StudentFormComponent {
   }
 
   patch(patch: Partial<StudentFormValue>): void {
-    if (this.isReviewMode) {
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     const next: StudentFormValue = { ...this.value, ...patch };
@@ -671,7 +683,7 @@ export class StudentFormComponent {
   }
 
   submit(): void {
-    if (this.isReviewMode) {
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     this.submitAttempted = true;
@@ -700,7 +712,6 @@ export class StudentFormComponent {
           this.value.email.trim().length > 0 &&
           this.value.address.trim().length > 0 &&
           this.value.profileSummary.trim().length > 0 &&
-          this.value.about.trim().length > 0 &&
           !!this.value.photoFiles &&
           this.value.photoFiles.length > 0
         );
@@ -719,6 +730,7 @@ export class StudentFormComponent {
   private isFormValid(): boolean {
     // Basic required checks; we can tighten once backend contract is confirmed.
     const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
       this.value.firstName.trim().length > 0 &&
       this.value.lastName.trim().length > 0 &&
@@ -730,9 +742,7 @@ export class StudentFormComponent {
       this.value.email.trim().length > 0 &&
       this.value.address.trim().length > 0 &&
       this.value.profileSummary.trim().length > 0 &&
-      this.value.about.trim().length > 0 &&
-      !!this.value.photoFiles &&
-      this.value.photoFiles.length > 0 &&
+      (isEditModeValidation || (!!this.value.photoFiles && this.value.photoFiles.length > 0)) &&
       this.isEducationValid() &&
       this.isWorkPreferencesValid() &&
       this.isAdditionalValid()
@@ -794,11 +804,10 @@ export class StudentFormComponent {
   }
 
   private isAdditionalValid(): boolean {
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
-      !!this.value.additional.govtIdProofFiles &&
-      this.value.additional.govtIdProofFiles.length > 0 &&
-      !!this.value.additional.resumeFiles &&
-      this.value.additional.resumeFiles.length > 0 &&
+      (isEditModeValidation || (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0)) &&
+      (isEditModeValidation || (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0)) &&
       this.value.additional.portfolioUrl.trim().length > 0 &&
       this.value.additional.offersInHand !== null &&
       this.value.additional.heardAboutPortal.trim().length > 0 &&
@@ -872,5 +881,4 @@ function parseDateInput(value: string): Date | null {
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
-
 

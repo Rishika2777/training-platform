@@ -17,8 +17,6 @@ import { studentRoutes } from './features/student/student.routes';
 
 import { companyRoutes } from './features/company/company.routes';
 
-import { settingsRoutes } from './features/settings/settings.routes';
-
 interface RouteData {
   requiredRoles?: UserRole[];
 }
@@ -63,14 +61,6 @@ export const routes: Routes = [
     canMatch: [authGuard, roleGuard],
     data: { requiredRoles: ['COMPANY_ADMIN'] satisfies UserRole[] } satisfies RouteData,
     children: companyRoutes,
-  },
-
-  // Settings (all authenticated users)
-  {
-    path: 'settings',
-    component: DashboardLayoutComponent,
-    canMatch: [authGuard],
-    children: settingsRoutes,
   },
 
   // fallback

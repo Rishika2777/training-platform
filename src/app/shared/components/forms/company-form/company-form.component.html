@@ -8,7 +8,7 @@
       label="Company Name"
       [value]="value.companyName"
       (valueChange)="patch({ companyName: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
 
     <app-input
@@ -16,7 +16,7 @@
       type="file"
       accept="image/*"
       [placeholder]="companyPhotoPlaceholder"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
       (filesSelected)="onCompanyPhotoSelected($event)"
     />
 
@@ -24,14 +24,14 @@
       label="Admin Name"
       [value]="value.adminName"
       (valueChange)="patch({ adminName: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
 
     <app-input
       label="Admin Designation"
       [value]="value.adminDesignation"
       (valueChange)="patch({ adminDesignation: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
 
     <app-input
@@ -39,7 +39,7 @@
       type="email"
       [value]="value.adminEmail"
       (valueChange)="patch({ adminEmail: $event })"
-      [disabled]="submitting || adminEmailLocked || isReviewMode"
+      [disabled]="isFieldsDisabled || adminEmailLocked"
     />
 
     <div class="app-form-field-wrapper">
@@ -50,7 +50,7 @@
         [invalid]="isAdminPhoneInvalid()"
         [value]="value.adminPhone"
         (valueChange)="patch({ adminPhone: $event })"
-        [disabled]="submitting || isReviewMode"
+        [disabled]="isFieldsDisabled"
       />
       @if (submitAttempted && isAdminPhoneNotTenDigits()) {
         <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
@@ -62,7 +62,7 @@
       type="url"
       [value]="value.companyWebsiteUrl"
       (valueChange)="patch({ companyWebsiteUrl: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
 
     <app-input
@@ -70,14 +70,14 @@
       type="url"
       [value]="value.otherWebsiteUrl"
       (valueChange)="patch({ otherWebsiteUrl: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
 
     <app-input
       label="Register Number"
       [value]="value.registerNumber"
       (valueChange)="patch({ registerNumber: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
     />
   </div>
 
@@ -91,7 +91,7 @@
             [label]="$index === 0 ? 'Name' : ''"
             [value]="person.name"
             (valueChange)="patchKeyPerson($index, { name: $event })"
-            [disabled]="submitting || isReviewMode"
+            [disabled]="isFieldsDisabled"
           />
 
           <app-input
@@ -99,7 +99,7 @@
             type="file"
             accept="image/*"
             [placeholder]="keyPersonPhotoPlaceholder($index)"
-            [disabled]="submitting || isReviewMode"
+            [disabled]="isFieldsDisabled"
             (filesSelected)="onKeyPersonPhotoSelected($index, $event)"
           />
 
@@ -107,7 +107,7 @@
             [label]="$index === 0 ? 'Designation' : ''"
             [value]="person.designation"
             (valueChange)="patchKeyPerson($index, { designation: $event })"
-            [disabled]="submitting || isReviewMode"
+            [disabled]="isFieldsDisabled"
           />
 
           @if (!isReviewMode) {
@@ -148,7 +148,7 @@
       [rows]="4"
       [value]="value.aboutCompany"
       (valueChange)="patch({ aboutCompany: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
       [maxlength]="2000"
       [showCharCount]="true"
     />
@@ -158,18 +158,14 @@
       [rows]="4"
       [value]="value.companyAddress"
       (valueChange)="patch({ companyAddress: $event })"
-      [disabled]="submitting || isReviewMode"
+      [disabled]="isFieldsDisabled"
       [maxlength]="500"
       [showCharCount]="true"
     />
   </div>
 
   <div class="actions actions-center">
-    @if (mode === 'edit') {
-      <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
-    }
-
-    @if (mode === 'review') {
+    @if (mode === 'review' && !isEditMode) {
       <div style="display: flex; gap: 12px; justify-content: center; align-items: center;">
         <app-button
           type="button"
@@ -186,7 +182,13 @@
           (buttonClick)="approve()"
         />
       </div>
+    } @else if (mode === 'review' && isEditMode) {
+      <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
+      <app-button type="submit" variant="primary" label="Update" [disabled]="submitting" />
     } @else {
+      @if (mode === 'edit') {
+        <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
+      }
       <app-button
         type="submit"
         variant="primary"

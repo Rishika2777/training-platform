@@ -38,6 +38,7 @@ export class CampusFormComponent {
   @Input() mode: 'create' | 'review' = 'create';
   @Input() adminEmailLocked = false;
   @Input() approveDisabled = false;
+  @Input() isEditMode = false;
 
   @Input() value: CampusFormValue = {
     campusName: '',
@@ -68,7 +69,14 @@ export class CampusFormComponent {
     return this.mode === 'review';
   }
 
+  get isFieldsDisabled(): boolean {
+    return this.submitting || (this.isReviewMode && !this.isEditMode);
+  }
+
   patch(patch: Partial<CampusFormValue>): void {
+    if (this.isReviewMode && !this.isEditMode) {
+      return;
+    }
     const next: CampusFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
@@ -124,9 +132,10 @@ export class CampusFormComponent {
   }
 
   private isFormValid(): boolean {
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
       !this.isInvalid('campusName') &&
-      !this.isInvalid('campusLogoFiles') &&
+      (isEditModeValidation || !this.isInvalid('campusLogoFiles')) &&
       !this.isInvalid('rank') &&
       !this.isInvalid('adminName') &&
       !this.isInvalid('adminEmail') &&
@@ -141,7 +150,8 @@ export class CampusFormComponent {
 
   submit(): void {
     // In review mode, use explicit Approve/Reject buttons instead of form submit validation.
-    if (this.isReviewMode) {
+    // But allow submission when edit mode is enabled.
+    if (this.isReviewMode && !this.isEditMode) {
       return;
     }
     this.submitAttempted = true;

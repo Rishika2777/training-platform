@@ -138,6 +138,7 @@
 :host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
   background: #4a6d70;
   border-color: #4a6d70;
+
 }
 
 /* Prospectus Container */

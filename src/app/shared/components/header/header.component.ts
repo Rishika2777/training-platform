@@ -6,6 +6,10 @@ import { MenuService } from '../../../core/menu/menu.service';
 import { RoleService } from '../../../core/rbac/role.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotificationsDropdownComponent, NotificationItem } from '../notifications-dropdown/notifications-dropdown.component';
+import { SettingsDropdownComponent, SettingsOption } from '../settings-dropdown/settings-dropdown.component';
+import { ModalComponent } from '../modal/modal.component';
+import { EditProfileModalComponent } from '../../../features/settings/modals/edit-profile/edit-profile-modal.component';
+import { ChangePasswordComponent } from '../../../features/settings/modals/change-password/change-password.component';
 
 function isSimpleHeaderRoute(path: string): boolean {
   return (
@@ -27,7 +31,15 @@ function titleFromPath(path: string): string {
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, NotificationsDropdownComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    NotificationsDropdownComponent,
+    SettingsDropdownComponent,
+    ModalComponent,
+    EditProfileModalComponent,
+    ChangePasswordComponent,
+  ],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
 })
@@ -45,6 +57,8 @@ export class AppHeaderComponent {
   readonly isSimpleHeader = computed(() => isSimpleHeaderRoute(this.path()));
   readonly isAuthenticated = computed(() => this.roles.isAuthenticated());
   readonly notificationsOpen = signal(false);
+  readonly settingsOpen = signal(false);
+  readonly selectedOption = signal<SettingsOption | null>(null);
 
   readonly notifications: readonly NotificationItem[] = [
     {
@@ -84,10 +98,6 @@ export class AppHeaderComponent {
   readonly pageTitle = computed(() => {
     const path = this.path();
 
-    if (path.startsWith('/settings')) {
-      return 'Settings';
-    }
-
     const all = this.menu.allMenuItems();
     const exact = all.find((i) => i.route === path);
     if (exact) {
@@ -108,13 +118,27 @@ export class AppHeaderComponent {
   }
 
   private handleDocumentClick(event: Event): void {
-    if (this.notificationsOpen() && event.target instanceof HTMLElement) {
+    if (event.target instanceof HTMLElement) {
       const target = event.target;
-      const dropdown = target.closest('app-notifications-dropdown');
-      const bellButton = target.closest('.notifications-wrapper button');
       
-      if (!dropdown && !bellButton) {
-        this.closeNotifications();
+      // Handle notifications dropdown
+      if (this.notificationsOpen()) {
+        const dropdown = target.closest('app-notifications-dropdown');
+        const bellButton = target.closest('.notifications-wrapper button');
+        
+        if (!dropdown && !bellButton) {
+          this.closeNotifications();
+        }
+      }
+      
+      // Handle settings dropdown
+      if (this.settingsOpen()) {
+        const dropdown = target.closest('app-settings-dropdown');
+        const settingsButton = target.closest('.settings-wrapper button');
+        
+        if (!dropdown && !settingsButton) {
+          this.closeSettings();
+        }
       }
     }
   }
@@ -166,6 +190,24 @@ export class AppHeaderComponent {
       next: () => void this.router.navigateByUrl('/'),
       error: () => void this.router.navigateByUrl('/'),
     });
+  }
+
+  toggleSettings(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.settingsOpen.set(!this.settingsOpen());
+  }
+
+  closeSettings(): void {
+    this.settingsOpen.set(false);
+  }
+
+  handleSettingsOption(option: SettingsOption): void {
+    this.selectedOption.set(option);
+  }
+
+  closeOptionModal(): void {
+    this.selectedOption.set(null);
   }
 
   private currentPath(): string {

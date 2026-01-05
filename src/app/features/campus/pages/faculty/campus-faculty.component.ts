@@ -15,6 +15,15 @@ export interface ProfessionalInfo {
   certificates: File | null;
 }
 
+export interface ProfessionalInfo {
+  designation: string;
+  department: string;
+  specialization: string;
+  yearsOfExperience: string;
+  qualifications: string;
+  certificates: File | null;
+}
+
 export interface FacultyFormValue {
   fullName: string;
   photo: File | null;
@@ -216,19 +225,6 @@ export class CampusFacultyComponent {
 
   canRemoveProfessionalInfo(): boolean {
     return this.value.professionalInfo.length > 1;
-  }
-
-  onFormSubmit(event: Event | MouseEvent): void {
-    if (event) {
-      event.preventDefault();
-      if ('stopPropagation' in event) {
-        event.stopPropagation();
-      }
-    }
-    console.log('FacultyComponent: ========== FORM SUBMIT EVENT TRIGGERED ==========');
-    console.log('FacultyComponent: Event:', event);
-    console.log('FacultyComponent: Event type:', event?.type || 'unknown');
-    this.submit();
   }
 
   submit(): void {

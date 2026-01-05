@@ -79,6 +79,19 @@
     size="lg"
     (closed)="closeViewModal()"
   >
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
+      @if (!isEditMode) {
+        <button
+          type="button"
+          class="edit-icon-btn"
+          (click)="toggleEditMode()"
+          title="Edit Company"
+          style="background: none; border: none; cursor: pointer; padding: 8px; color: #666;"
+        >
+          <i class="fa-solid fa-pencil" style="font-size: 18px;"></i>
+        </button>
+      }
+    </div>
     <app-company-form
       title=""
       mode="review"
@@ -86,8 +99,10 @@
       [submitting]="viewSubmitting"
       [adminEmailLocked]="true"
       [approveDisabled]="isSelectedCompanyApproved"
+      [isEditMode]="isEditMode"
       (reviewAction)="handleReviewAction($event)"
-      (cancelled)="closeViewModal()"
+      (submitted)="handleFormSubmit($event)"
+      (cancelled)="toggleEditMode()"
     />
   </app-modal>
 
