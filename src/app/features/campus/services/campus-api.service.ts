@@ -43,7 +43,30 @@ export class CampusApiService {
    */
   getCampusById(campusId: string): Observable<Campus | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
-    return this.http.get<unknown>(url).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+    
+    console.log('🔵🔵🔵 CampusApiService: getCampusById() CALLED 🔵🔵🔵');
+    console.log('CampusApiService: CampusId parameter:', campusId);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.BY_ID);
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('✅✅✅ CampusApiService: getCampusById RAW RESPONSE ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        const unwrapped = unwrapApiResponse<Campus>(raw);
+        console.log('CampusApiService: After unwrapApiResponse:', JSON.stringify(unwrapped, null, 2));
+        console.log('CampusApiService: Has aboutCampus?', unwrapped && 'aboutCampus' in unwrapped);
+        if (unwrapped) {
+          console.log('CampusApiService: aboutCampus value:', unwrapped.aboutCampus);
+        }
+        
+        return unwrapped;
+      })
+    );
   }
 
   /**
@@ -627,6 +650,210 @@ export class CampusApiService {
     );
   }
 
+  /**
+   * GET /public/landing/campus/{campusId}/rising-stars
+   * Get rising stars (current students not placed) with pagination.
+   * Default 8 per page.
+   */
+  getRisingStars(
+    campusId: string,
+    page = 1,
+    size = 8,
+  ): Observable<RisingStarsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.RISING_STARS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getRisingStars called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Rising Stars response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as RisingStarsResponse;
+        }
+        console.warn('CampusApiService: Rising Stars response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getRisingStars:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/success-stories
+   * Get success stories (placed students) with pagination.
+   * Default 6 per page.
+   */
+  getSuccessStories(
+    campusId: string,
+    page = 1,
+    size = 6,
+  ): Observable<SuccessStoriesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.SUCCESS_STORIES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getSuccessStories called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Success Stories response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as SuccessStoriesResponse;
+        }
+        console.warn('CampusApiService: Success Stories response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getSuccessStories:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/faculties
+   * Get faculty members with pagination.
+   * Default 6 per page.
+   */
+  getFaculties(
+    campusId: string,
+    page = 1,
+    size = 6,
+  ): Observable<FacultiesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.FACULTIES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getFaculties called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Faculties response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as FacultiesResponse;
+        }
+        console.warn('CampusApiService: Faculties response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getFaculties:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/testimonials
+   * Get student testimonials/reviews with pagination.
+   * Default 5 per page.
+   */
+  getTestimonials(
+    campusId: string,
+    page = 1,
+    size = 5,
+  ): Observable<TestimonialsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.TESTIMONIALS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getTestimonials called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Testimonials response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as TestimonialsResponse;
+        }
+        console.warn('CampusApiService: Testimonials response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getTestimonials:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/research
+   * Get research and innovation information.
+   */
+  getResearch(campusId: string): Observable<ResearchResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.RESEARCH, { campusId });
+    
+    console.log('CampusApiService: getResearch called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: CampusId:', campusId);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Research response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as ResearchResponse;
+        }
+        console.warn('CampusApiService: Research response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getResearch:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/about
+   * Get About Synkup content.
+   * Retrieves the About Synkup content displayed on the landing page.
+   */
+  getAboutSynkup(): Observable<AboutSynkupResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ABOUT_SYNKUP);
+    
+    console.log('CampusApiService: getAboutSynkup called');
+    console.log('CampusApiService: URL:', url);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: About Synkup response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as AboutSynkupResponse;
+        }
+        console.warn('CampusApiService: About Synkup response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getAboutSynkup:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const resolved = resolvePathParams(endpoint, params);
 
@@ -969,6 +1196,210 @@ export interface DeleteProspectusResponse {
   message: string;
   data: null;
   error: string | null;
+}
+
+export interface RisingStarData {
+  id?: string;
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  batch?: string;
+  courseId?: string;
+  courseName?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface RisingStarsResponse {
+  pageSize?: number;
+  sort?: {
+    sorted?: boolean;
+    empty?: boolean;
+    unsorted?: boolean;
+  };
+  sorted?: boolean;
+  empty?: boolean;
+  unsorted?: boolean;
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+  last?: boolean;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  size?: number;
+  number?: number;
+  numberOfElements?: number;
+  content?: RisingStarData[];
+  error?: string | null;
+}
+
+export interface SuccessStoryData {
+  id?: string;
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  batch?: string;
+  companyName?: string;
+  company?: string;
+  designation?: string;
+  lpa?: string;
+  placementDate?: string;
+  courseId?: string;
+  courseName?: string;
+}
+
+export interface SuccessStoriesResponse {
+  pageSize?: number;
+  sort?: {
+    sorted?: boolean;
+    empty?: boolean;
+    unsorted?: boolean;
+  };
+  sorted?: boolean;
+  empty?: boolean;
+  unsorted?: boolean;
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+  last?: boolean;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  size?: number;
+  number?: number;
+  numberOfElements?: number;
+  content?: SuccessStoryData[];
+  error?: string | null;
+}
+
+export interface FacultyData {
+  id?: string;
+  facultyId?: string;
+  userId?: string;
+  fullName?: string;
+  name?: string;
+  photoUrl?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  designation?: string;
+  department?: string;
+  email?: string;
+  phoneNumber?: string;
+  specialization?: string;
+  yearsOfExperience?: string;
+  qualifications?: string;
+}
+
+export interface FacultiesResponse {
+  pageSize?: number;
+  sort?: {
+    sorted?: boolean;
+    empty?: boolean;
+    unsorted?: boolean;
+  };
+  sorted?: boolean;
+  empty?: boolean;
+  unsorted?: boolean;
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+  last?: boolean;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  size?: number;
+  number?: number;
+  numberOfElements?: number;
+  content?: FacultyData[];
+  error?: string | null;
+}
+
+export interface TestimonialData {
+  id?: string;
+  studentId?: string;
+  userId?: string;
+  studentName?: string;
+  name?: string;
+  fullName?: string;
+  testimonial?: string;
+  review?: string;
+  text?: string;
+  quote?: string;
+  photoUrl?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TestimonialsResponse {
+  message?: string | null;
+  data?: {
+    content?: TestimonialData[];
+    pageable?: {
+      pageNumber?: number;
+      pageSize?: number;
+      sort?: {
+        sorted?: boolean;
+        empty?: boolean;
+        unsorted?: boolean;
+      };
+      offset?: number;
+      paged?: boolean;
+      unpaged?: boolean;
+    };
+    last?: boolean;
+    totalElements?: number;
+    totalPages?: number;
+    first?: boolean;
+    size?: number;
+    number?: number;
+    sort?: {
+      sorted?: boolean;
+      empty?: boolean;
+      unsorted?: boolean;
+    };
+    numberOfElements?: number;
+  };
+  error?: string | null;
+}
+
+export interface ResearchData {
+  researchInfo?: string;
+  description?: string;
+}
+
+export interface ResearchResponse {
+  success?: boolean;
+  message?: string | null;
+  data?: ResearchData;
+  error?: string | null;
+}
+
+export interface AboutSynkupData {
+  id?: string | null;
+  title?: string;
+  content?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  active?: boolean;
+}
+
+export interface AboutSynkupResponse {
+  success?: boolean;
+  message?: string | null;
+  data?: AboutSynkupData;
+  error?: string | null;
 }
 
 interface ApiResponse<T> {

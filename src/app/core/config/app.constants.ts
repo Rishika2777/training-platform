@@ -169,6 +169,12 @@
       GET_PROSPECTUS_BY_ID: '/prospectus/:prospectusId',
       DOWNLOAD_PROSPECTUS: '/prospectus/download',
       DELETE_PROSPECTUS: '/prospectus/:prospectusId',
+      RISING_STARS: '/public/landing/campus/:campusId/rising-stars',
+      SUCCESS_STORIES: '/public/landing/campus/:campusId/success-stories',
+      FACULTIES: '/public/landing/campus/:campusId/faculties',
+      TESTIMONIALS: '/public/landing/campus/:campusId/testimonials',
+      RESEARCH: '/public/landing/campus/:campusId/research',
+      ABOUT_SYNKUP: '/public/landing/about',
     },
     USERS: {
       BASE: '/users',
