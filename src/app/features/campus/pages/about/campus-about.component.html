@@ -194,30 +194,38 @@
   <!-- Courses We Provide Section -->
   <section class="section courses-provide">
     <h2 class="section-title">Courses we Provide</h2>
-    <div class="carousel-wrapper">
-      <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <div class="courses-carousel">
-        @for (course of coursesPageItems(); track course.id) {
-          <div class="course-card">
-            <div class="course-card-top">
-              <div class="course-code">{{ course.name }}</div>
-              <div class="course-details">
-                <span>Seats: {{ course.seats }}</span>
-                <span>Duration: {{ course.duration }}</span>
+    @if (loadingCourses()) {
+      <div class="loading-state">Loading courses...</div>
+    } @else {
+      <div class="carousel-wrapper">
+        <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1 || loadingCourses()">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="courses-carousel">
+          @if (coursesPageItems().length === 0) {
+            <div class="empty-state">No courses found</div>
+          } @else {
+            @for (course of coursesPageItems(); track course.id) {
+              <div class="course-card">
+                <div class="course-card-top">
+                  <div class="course-code">{{ course.name }}</div>
+                  <div class="course-details">
+                    <span>Seats: {{ course.seats }}</span>
+                    <span>Duration: {{ course.duration }}</span>
+                  </div>
+                </div>
+                <div class="course-card-bottom">
+                  <app-button label="Applications" variant="primary" />
+                </div>
               </div>
-            </div>
-            <div class="course-card-bottom">
-              <app-button label="Applications" variant="primary" />
-            </div>
-          </div>
-        }
+            }
+          }
+        </div>
+        <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages() || loadingCourses()">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
-      <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
+    }
   </section>
 
   <!-- Placement Highlights Section -->

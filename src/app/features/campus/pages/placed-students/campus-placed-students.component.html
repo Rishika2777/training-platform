@@ -34,9 +34,9 @@
     <div class="form-row">
       <app-dropdown
         label="Course"
-        [items]="courseItems"
+        [items]="courseItems()"
         [value]="value.course"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingCourses()"
         (valueChange)="patch({ course: $event })"
         [autocomplete]="true"
       />
@@ -45,9 +45,9 @@
     <div class="form-row">
       <app-dropdown
         label="Batch"
-        [items]="batchItems"
+        [items]="batchItems()"
         [value]="value.batch"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingBatches()"
         (valueChange)="patch({ batch: $event })"
         [autocomplete]="true"
       />
@@ -66,9 +66,9 @@
     <div class="form-row">
       <app-dropdown
         label="Designation"
-        [items]="designationItems"
+        [items]="designationItems()"
         [value]="value.designation"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingDesignations()"
         (valueChange)="patch({ designation: $event })"
         [autocomplete]="true"
       />

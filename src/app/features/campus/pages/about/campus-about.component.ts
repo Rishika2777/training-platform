@@ -7,7 +7,7 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
-import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse } from '../../services/campus-api.service';
+import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, CourseData } from '../../services/campus-api.service';
 import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -80,6 +80,7 @@ export class CampusAboutComponent implements OnInit {
     this.loadTestimonials();
     this.loadResearch();
     this.loadAlumni();
+    this.loadCourses();
   }
 
   loadAboutCampus(): void {
@@ -333,32 +334,107 @@ export class CampusAboutComponent implements OnInit {
     }
   }
 
-  // Courses
-  readonly courses: readonly CourseCard[] = [
-    { id: '1', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '2', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '3', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '4', name: 'BCA', seats: 30, duration: '3 yr' },
-  ];
-
+  // Courses - API Integration
+  readonly courses = signal<readonly CourseCard[]>([]);
+  readonly loadingCourses = signal(false);
   coursePage = 1;
   readonly coursePageSize = 4;
-  get coursesTotalPages(): number {
-    return Math.max(1, Math.ceil(this.courses.length / this.coursePageSize));
+  readonly coursesTotalPages = signal(1);
+
+  loadCourses(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      console.warn('CampusAboutComponent: No campusId found in storage or auth state, cannot load courses');
+      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
+      return;
+    }
+
+    console.log('CampusAboutComponent: Loading courses for campusId:', campusId);
+    console.log('CampusAboutComponent: Page:', this.coursePage, 'Size:', this.coursePageSize);
+    
+    this.loadingCourses.set(true);
+    
+    this.campusApi.getCourses(campusId, this.coursePage, this.coursePageSize).pipe(
+      catchError((error) => {
+        console.error('CampusAboutComponent: Error loading courses:', error);
+        this.loadingCourses.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response) => {
+        console.log('CampusAboutComponent: Courses response received:', response);
+        this.loadingCourses.set(false);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          const mappedCourses = response.content.map((course) => this.mapCourseDataToCourseCard(course));
+          this.courses.set(mappedCourses);
+          
+          const totalPages = response.totalPages ?? 0;
+          this.coursesTotalPages.set(Math.max(1, totalPages));
+          
+          console.log('CampusAboutComponent: Mapped courses:', mappedCourses.length);
+          console.log('CampusAboutComponent: Total pages:', totalPages);
+        } else {
+          console.warn('CampusAboutComponent: No content in response or invalid structure');
+          this.courses.set([]);
+          this.coursesTotalPages.set(1);
+        }
+      },
+      error: (error) => {
+        console.error('CampusAboutComponent: Courses subscription error:', error);
+        this.loadingCourses.set(false);
+        this.courses.set([]);
+        this.coursesTotalPages.set(1);
+      }
+    });
   }
+
+  private mapCourseDataToCourseCard(course: CourseData): CourseCard {
+    // Parse seats from seatsAvailable string or use seats number
+    let seats = 0;
+    if (course.seats !== undefined) {
+      seats = course.seats;
+    } else if (course.seatsAvailable) {
+      const parsed = parseInt(course.seatsAvailable, 10);
+      if (!isNaN(parsed)) {
+        seats = parsed;
+      }
+    }
+
+    // Use courseName or name, fallback to empty string
+    const courseName = course.courseName || course.name || '';
+    
+    // Use courseDuration or duration, fallback to empty string
+    const duration = course.courseDuration || course.duration || '';
+
+    return {
+      id: course.id || course.courseId || '',
+      name: courseName,
+      seats: seats,
+      duration: duration,
+    };
+  }
+
   coursesPageItems(): readonly CourseCard[] {
-    return this.slicePage(this.courses, this.coursePage, this.coursePageSize);
+    return this.courses();
   }
 
   previousCourse(): void {
     if (this.coursePage > 1) {
       this.coursePage--;
+      this.loadCourses();
     }
   }
 
   nextCourse(): void {
-    if (this.coursePage < this.coursesTotalPages) {
+    if (this.coursePage < this.coursesTotalPages()) {
       this.coursePage++;
+      this.loadCourses();
     }
   }
 

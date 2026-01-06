@@ -14,26 +14,46 @@
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Current Batch</div>
-          <button class="panel-icon" type="button" title="Filter">
-            <i class="fa-solid fa-filter" aria-hidden="true"></i>
-          </button>
+          @if (batches().length > 0) {
+            <select 
+              class="batch-select" 
+              [value]="selectedBatch() || ''"
+              (change)="onBatchSelect($any($event.target).value)"
+              [disabled]="loadingBatches() || loadingCurrentBatch()"
+              title="Select Batch"
+            >
+              @for (batch of batches(); track batch) {
+                <option [value]="batch">{{ batch }}</option>
+              }
+            </select>
+          } @else if (loadingBatches()) {
+            <span class="loading-text">Loading batches...</span>
+          }
         </div>
 
-        <app-carousel
-          type="pagination"
-          [currentPage]="currentBatchPage"
-          [totalPages]="currentBatchTotalPages"
-          (pageChange)="currentBatchPage = $event"
-        >
-          <div class="avatar-row">
-            @for (p of currentBatchPageItems(); track p.imageUrl) {
-              <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
-                <div class="avatar-name">{{ p.name }}</div>
-              </div>
-            }
-          </div>
-        </app-carousel>
+        @if (loadingCurrentBatch()) {
+          <div class="loading-state">Loading students...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="currentBatchPage"
+            [totalPages]="currentBatchTotalPages()"
+            (pageChange)="onCurrentBatchPageChange($event)"
+          >
+            <div class="avatar-row">
+              @if (currentBatchPageItems().length === 0) {
+                <div class="empty-state">No students found for this batch</div>
+              } @else {
+                @for (p of currentBatchPageItems(); track p.imageUrl) {
+                  <div class="avatar-card">
+                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <div class="avatar-name">{{ p.name }}</div>
+                  </div>
+                }
+              }
+            </div>
+          </app-carousel>
+        }
       </section>
 
       <div class="composer">

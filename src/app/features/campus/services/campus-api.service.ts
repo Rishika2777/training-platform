@@ -137,6 +137,80 @@ export class CampusApiService {
   }
 
   /**
+   * GET /dashboard/students/batches
+   * Get all batches for the campus.
+   * Returns list of all available batches.
+   */
+  getAllBatches(): Observable<BatchesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_BATCHES);
+    
+    console.log('CampusApiService: getAllBatches called');
+    console.log('CampusApiService: URL:', url);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Batches response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as BatchesResponse;
+        }
+        console.warn('CampusApiService: Batches response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getAllBatches:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/students/batch
+   * Get students by batch with pagination.
+   * Maximum 6 students per page. Supports sorting by name, batch, or performance.
+   */
+  getStudentsByBatch(
+    batch: string,
+    page = 1,
+    size = 6,
+    sortBy?: string,
+  ): Observable<StudentsByBatchResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_STUDENTS_BY_BATCH);
+    let params = new HttpParams()
+      .set('batch', batch)
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    if (sortBy) {
+      params = params.set('sortBy', sortBy);
+    }
+    
+    console.log('CampusApiService: getStudentsByBatch called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Students by batch response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as StudentsByBatchResponse;
+        }
+        console.warn('CampusApiService: Students by batch response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getStudentsByBatch:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * POST /dashboard/companies/visited
    * Add a company visited.
    */
@@ -431,6 +505,213 @@ export class CampusApiService {
       }),
       catchError((error) => {
         console.error('CampusApiService: ❌❌❌ ERROR IN GET SECTORS ❌❌❌');
+        console.error('CampusApiService: Error type:', typeof error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error statusText:', error?.statusText);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response body:', JSON.stringify(error?.error, null, 2));
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/meta/designations
+   * Get designations for dropdown.
+   * Response format: { success: true, message: null, data: string[], error: null }
+   */
+  getDesignations(): Observable<string[]> {
+    console.log('🔵🔵🔵 CampusApiService: getDesignations METHOD CALLED 🔵🔵🔵');
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_DESIGNATIONS);
+    
+    console.log('CampusApiService: ========== GET DESIGNATIONS API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_DESIGNATIONS);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    console.log('CampusApiService: ⚠️ This should appear in Network tab with full response and headers');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Designations Response received ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        // Response format: { success: true, message: null, data: string[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: Response structure:', {
+            hasSuccess: 'success' in response,
+            hasData: 'data' in response,
+            hasMessage: 'message' in response,
+            hasError: 'error' in response,
+            success: response.success,
+            dataType: typeof response.data,
+            dataIsArray: Array.isArray(response.data),
+          });
+          
+          if (response.success && Array.isArray(response.data)) {
+            const designations = response.data as string[];
+            console.log('CampusApiService: ✅ Designations array extracted successfully');
+            console.log('CampusApiService: Designations:', JSON.stringify(designations, null, 2));
+            console.log('CampusApiService: Designations count:', designations.length);
+            return designations;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure issue:');
+            console.warn('CampusApiService:   - success:', response.success);
+            console.warn('CampusApiService:   - data type:', typeof response.data);
+            console.warn('CampusApiService:   - data is array:', Array.isArray(response.data));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not an object:', raw);
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning empty array');
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ERROR IN GET DESIGNATIONS ❌❌❌');
+        console.error('CampusApiService: Error type:', typeof error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error statusText:', error?.statusText);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response body:', JSON.stringify(error?.error, null, 2));
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/meta/courses
+   * Get courses for dropdown (e.g., "BCA", "MCA", "B.Tech")
+   * Response format: { success: true, message: null, data: string[], error: null }
+   */
+  getCoursesForDropdown(): Observable<string[]> {
+    console.log('🔵🔵🔵 CampusApiService: getCoursesForDropdown METHOD CALLED 🔵🔵🔵');
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COURSES);
+    
+    console.log('CampusApiService: ========== GET COURSES FOR DROPDOWN API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_COURSES);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    console.log('CampusApiService: ⚠️ This should appear in Network tab with full response and headers');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Courses For Dropdown Response received ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        // Response format: { success: true, message: null, data: string[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: Response structure:', {
+            hasSuccess: 'success' in response,
+            hasData: 'data' in response,
+            hasMessage: 'message' in response,
+            hasError: 'error' in response,
+            success: response.success,
+            dataType: typeof response.data,
+            dataIsArray: Array.isArray(response.data),
+          });
+          
+          if (response.success && Array.isArray(response.data)) {
+            const courses = response.data as string[];
+            console.log('CampusApiService: ✅ Courses array extracted successfully');
+            console.log('CampusApiService: Courses:', JSON.stringify(courses, null, 2));
+            console.log('CampusApiService: Courses count:', courses.length);
+            return courses;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure issue:');
+            console.warn('CampusApiService:   - success:', response.success);
+            console.warn('CampusApiService:   - data type:', typeof response.data);
+            console.warn('CampusApiService:   - data is array:', Array.isArray(response.data));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not an object:', raw);
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning empty array');
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ERROR IN GET COURSES FOR DROPDOWN ❌❌❌');
+        console.error('CampusApiService: Error type:', typeof error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error statusText:', error?.statusText);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error response body:', JSON.stringify(error?.error, null, 2));
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/meta/batches
+   * Get batches for dropdown (e.g., "2023", "2024")
+   * Response format: { success: true, message: null, data: string[], error: null }
+   */
+  getBatchesForDropdown(): Observable<string[]> {
+    console.log('🔵🔵🔵 CampusApiService: getBatchesForDropdown METHOD CALLED 🔵🔵🔵');
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_BATCHES);
+    
+    console.log('CampusApiService: ========== GET BATCHES FOR DROPDOWN API CALL ==========');
+    console.log('CampusApiService: Base URL:', this.baseUrl);
+    console.log('CampusApiService: Endpoint:', API_ENDPOINTS.CAMPUS.GET_BATCHES);
+    console.log('CampusApiService: Final URL:', url);
+    console.log('CampusApiService: Making HTTP GET request...');
+    console.log('CampusApiService: ⚠️ This should appear in Network tab with full response and headers');
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Get Batches For Dropdown Response received ✅✅✅');
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response:', JSON.stringify(raw, null, 2));
+        
+        // Response format: { success: true, message: null, data: string[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: Response structure:', {
+            hasSuccess: 'success' in response,
+            hasData: 'data' in response,
+            hasMessage: 'message' in response,
+            hasError: 'error' in response,
+            success: response.success,
+            dataType: typeof response.data,
+            dataIsArray: Array.isArray(response.data),
+          });
+          
+          if (response.success && Array.isArray(response.data)) {
+            const batches = response.data as string[];
+            console.log('CampusApiService: ✅ Batches array extracted successfully');
+            console.log('CampusApiService: Batches:', JSON.stringify(batches, null, 2));
+            console.log('CampusApiService: Batches count:', batches.length);
+            return batches;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure issue:');
+            console.warn('CampusApiService:   - success:', response.success);
+            console.warn('CampusApiService:   - data type:', typeof response.data);
+            console.warn('CampusApiService:   - data is array:', Array.isArray(response.data));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not an object:', raw);
+        }
+        
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
+        console.warn('CampusApiService: Returning empty array');
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ERROR IN GET BATCHES FOR DROPDOWN ❌❌❌');
         console.error('CampusApiService: Error type:', typeof error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error statusText:', error?.statusText);
@@ -852,6 +1133,42 @@ export class CampusApiService {
       }),
       catchError((error) => {
         console.error('CampusApiService: Error in getAlumni:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/courses
+   * Get courses offered with pagination.
+   * Default 4 per page.
+   */
+  getCourses(
+    campusId: string,
+    page = 1,
+    size = 4,
+  ): Observable<CoursesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.COURSES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getCourses called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Courses response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as CoursesResponse;
+        }
+        console.warn('CampusApiService: Courses response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getCourses:', error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         console.error('CampusApiService: Error message:', error?.message);
@@ -1436,6 +1753,104 @@ export interface AboutSynkupResponse {
   message?: string | null;
   data?: AboutSynkupData;
   error?: string | null;
+}
+
+export interface CourseData {
+  id?: string;
+  courseId?: string;
+  campusId?: string;
+  courseName?: string;
+  name?: string;
+  courseDuration?: string;
+  duration?: string;
+  seatsAvailable?: string;
+  seats?: number;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CoursesResponse {
+  sort?: {
+    sorted?: boolean;
+    empty?: boolean;
+    unsorted?: boolean;
+  };
+  sorted?: boolean;
+  empty?: boolean;
+  unsorted?: boolean;
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+  last?: boolean;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  size?: number;
+  number?: number;
+  numberOfElements?: number;
+  content?: CourseData[];
+  error?: string | null;
+}
+
+export interface BatchesResponse {
+  success: boolean;
+  message: string | null;
+  data: string[];
+  error: string | null;
+}
+
+export interface StudentByBatchData {
+  id?: string;
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  batch?: string;
+  courseId?: string;
+  courseName?: string;
+  email?: string;
+  phone?: string;
+  rollNumber?: string;
+}
+
+export interface StudentsByBatchResponse {
+  success: boolean;
+  message: string | null;
+  data: {
+    content?: StudentByBatchData[];
+    pageable?: {
+      pageNumber?: number;
+      pageSize?: number;
+      sort?: {
+        sorted?: boolean;
+        empty?: boolean;
+        unsorted?: boolean;
+      };
+      offset?: number;
+      paged?: boolean;
+      unpaged?: boolean;
+    };
+    offset?: number;
+    paged?: boolean;
+    unpaged?: boolean;
+    last?: boolean;
+    totalElements?: number;
+    totalPages?: number;
+    first?: boolean;
+    size?: number;
+    number?: number;
+    sort?: {
+      sorted?: boolean;
+      empty?: boolean;
+      unsorted?: boolean;
+    };
+    numberOfElements?: number;
+  };
+  error: string | null;
 }
 
 interface ApiResponse<T> {
