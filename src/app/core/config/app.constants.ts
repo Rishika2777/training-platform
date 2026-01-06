@@ -181,6 +181,7 @@
       RESEARCH: '/public/landing/campus/:campusId/research',
       ALUMNI: '/public/landing/campus/:campusId/alumni',
       COURSES: '/public/landing/campus/:campusId/courses',
+      PLACEMENT_INSIGHTS: '/public/landing/campus/:campusId/placement-insights',
       ABOUT_SYNKUP: '/public/landing/about',
     },
     USERS: {

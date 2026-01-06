@@ -234,13 +234,19 @@
       <div class="placement-chart-card">
         <h3 class="chart-title">Placement Chart</h3>
         <div class="placement-bar-chart">
-          @for (year of placementYears; track year) {
-            <div class="placement-bar-item">
-              <div class="placement-year">{{ year }}</div>
-              <div class="placement-bars">
-                <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
+          @if (loadingPlacementInsights()) {
+            <div class="loading-state">Loading placement data...</div>
+          } @else {
+            @for (year of placementYears(); track year) {
+              <div class="placement-bar-item">
+                <div class="placement-year">{{ year }}</div>
+                <div class="placement-bars">
+                  <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
+                </div>
               </div>
-            </div>
+            } @empty {
+              <div class="empty-state">No placement data available</div>
+            }
           }
         </div>
       </div>

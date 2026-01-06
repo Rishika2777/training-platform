@@ -1178,6 +1178,43 @@ export class CampusApiService {
   }
 
   /**
+   * GET /public/landing/campus/{campusId}/placement-insights
+   * Get placement insights.
+   * Gets placement statistics and companies with pagination. Default 9 companies per page.
+   */
+  getPlacementInsights(
+    campusId: string,
+    page = 1,
+    size = 9,
+  ): Observable<PlacementInsightsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.PLACEMENT_INSIGHTS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    console.log('CampusApiService: getPlacementInsights called');
+    console.log('CampusApiService: URL:', url);
+    console.log('CampusApiService: CampusId:', campusId);
+    console.log('CampusApiService: Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: Placement Insights response received:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as PlacementInsightsResponse;
+        }
+        console.warn('CampusApiService: Placement Insights response does not have expected structure');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error in getPlacementInsights:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error message:', error?.message);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * GET /public/landing/about
    * Get About Synkup content.
    * Retrieves the About Synkup content displayed on the landing page.
@@ -1790,6 +1827,24 @@ export interface CoursesResponse {
   number?: number;
   numberOfElements?: number;
   content?: CourseData[];
+  error?: string | null;
+}
+
+export interface YearlyTrend {
+  year?: string;
+  placedCount?: number;
+  totalStudents?: number;
+}
+
+export interface PlacementInsightsData {
+  placementPercentage?: number;
+  yearlyTrends?: YearlyTrend[];
+}
+
+export interface PlacementInsightsResponse {
+  success?: boolean;
+  message?: string | null;
+  data?: PlacementInsightsData;
   error?: string | null;
 }
 

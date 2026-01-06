@@ -7,7 +7,7 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
-import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, CourseData } from '../../services/campus-api.service';
+import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, CourseData, PlacementInsightsResponse, YearlyTrend } from '../../services/campus-api.service';
 import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -81,6 +81,7 @@ export class CampusAboutComponent implements OnInit {
     this.loadResearch();
     this.loadAlumni();
     this.loadCourses();
+    this.loadPlacementInsights();
   }
 
   loadAboutCampus(): void {
@@ -438,10 +439,27 @@ export class CampusAboutComponent implements OnInit {
     }
   }
 
-  // Placement Years
-  readonly placementYears = ['2024', '2023', '2022', '2021', '2020'];
+  // Placement Insights - API Integration
+  readonly placementInsights = signal<YearlyTrend[]>([]);
+  readonly loadingPlacementInsights = signal(false);
+  readonly placementPercentage = signal<number>(0);
+
+  // Placement Years - Will be populated from API, fallback to hardcoded
+  readonly placementYears = signal<string[]>(['2024', '2023', '2022', '2021', '2020']);
 
   getPlacementValue(year: string): number {
+    // First try to use API data
+    const insights = this.placementInsights();
+    if (insights && insights.length > 0) {
+      const yearData = insights.find(trend => trend.year === year);
+      if (yearData && yearData.totalStudents && yearData.totalStudents > 0) {
+        // Calculate percentage: (placedCount / totalStudents) * 100
+        const percentage = Math.round(((yearData.placedCount || 0) / yearData.totalStudents) * 100);
+        return percentage;
+      }
+    }
+
+    // Fallback to hardcoded values if API data not available
     const values: Record<string, number> = {
       '2024': 85,
       '2023': 80,
@@ -461,6 +479,72 @@ export class CampusAboutComponent implements OnInit {
       '2020': 'var(--color-secondary)',
     };
     return colors[year] || 'var(--color-secondary)';
+  }
+
+  loadPlacementInsights(): void {
+    // Try multiple sources for campusId
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      console.warn('CampusAboutComponent: No campusId found, cannot load placement insights');
+      return;
+    }
+
+    console.log('CampusAboutComponent: Loading placement insights for campusId:', campusId);
+    this.loadingPlacementInsights.set(true);
+    
+    this.campusApi.getPlacementInsights(campusId, 1, 9).pipe(
+      catchError((error) => {
+        console.error('CampusAboutComponent: Error loading placement insights:', error);
+        this.loadingPlacementInsights.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: PlacementInsightsResponse | null) => {
+        console.log('CampusAboutComponent: Placement Insights response received:', response);
+        this.loadingPlacementInsights.set(false);
+        
+        if (response?.success && response.data) {
+          // Store placement percentage
+          if (response.data.placementPercentage !== undefined) {
+            this.placementPercentage.set(response.data.placementPercentage);
+          }
+          
+          // Store yearly trends
+          if (response.data.yearlyTrends && response.data.yearlyTrends.length > 0) {
+            this.placementInsights.set(response.data.yearlyTrends);
+            
+            // Extract years from yearlyTrends and sort descending (newest first)
+            const years = response.data.yearlyTrends
+              .map(trend => trend.year)
+              .filter((year): year is string => !!year)
+              .sort((a, b) => b.localeCompare(a));
+            
+            if (years.length > 0) {
+              this.placementYears.set(years);
+            }
+            
+            console.log('CampusAboutComponent: Placement insights loaded successfully');
+            console.log('CampusAboutComponent: Years:', years);
+            console.log('CampusAboutComponent: Placement percentage:', response.data.placementPercentage);
+          } else {
+            console.warn('CampusAboutComponent: No yearly trends in response');
+            // Keep fallback years
+          }
+        } else {
+          console.warn('CampusAboutComponent: No placement insights data in response');
+          // Keep fallback years
+        }
+      },
+      error: (error) => {
+        console.error('CampusAboutComponent: Placement insights subscription error:', error);
+        this.loadingPlacementInsights.set(false);
+        // Keep fallback years on error
+      }
+    });
   }
 
   // Faculties - API Integration
