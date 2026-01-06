@@ -8,6 +8,7 @@ export type ModalType =
   | 'faculty'
   | 'faculty-detail'
   | 'course-form'
+  | 'visit-campus'
   | 'resume-upload'
   | 'career-checkin'
   | 'learning-pathway'

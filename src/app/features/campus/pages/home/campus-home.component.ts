@@ -14,7 +14,7 @@ import { CampusCourseFormComponent, CourseFormValue } from '../course-form/cours
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { CampusApiService } from '../../services/campus-api.service';
+import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -65,13 +65,15 @@ export class CampusHomeComponent implements OnInit {
   submittingCourseForm = false;
   readonly announcementDate = 'January 7th, 2025';
 
-  readonly currentBatch: readonly PersonCard[] = [
-    { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/login-news-image.png' },
-    { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/landing-card-campus.png' },
-    { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/landing-card-company.png' },
-    { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/landing-card-institution.png' },
-    { name: 'Name(Cs)', subtitle: 'Name(Cs)', imageUrl: 'assets/images/login-hero-image.png' },
-  ];
+  // Current Batch - API Integration
+  readonly currentBatch = signal<readonly PersonCard[]>([]);
+  readonly loadingCurrentBatch = signal(false);
+  readonly batches = signal<string[]>([]);
+  readonly loadingBatches = signal(false);
+  selectedBatch = signal<string | null>(null);
+  currentBatchPage = 1;
+  readonly currentBatchPageSize = 6;
+  readonly currentBatchTotalPages = signal(1);
 
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   loadingPlacedStudents = signal(false);
@@ -104,13 +106,8 @@ export class CampusHomeComponent implements OnInit {
 
   // Carousel / pagination state (shared component usage)
   readonly peoplePageSize = 6;
-  currentBatchPage = 1;
   placedStudentsPage = 1;
   alumniPage = 1;
-
-  get currentBatchTotalPages(): number {
-    return totalPages(this.currentBatch.length, this.peoplePageSize);
-  }
 
   placedStudentsTotalPages = signal(1);
 
@@ -119,7 +116,7 @@ export class CampusHomeComponent implements OnInit {
   }
 
   currentBatchPageItems(): readonly PersonCard[] {
-    return slicePage(this.currentBatch, this.currentBatchPage, this.peoplePageSize);
+    return this.currentBatch();
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
@@ -128,6 +125,7 @@ export class CampusHomeComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPlacedStudents();
+    this.loadBatches();
   }
 
   loadPlacedStudents(): void {
@@ -194,6 +192,146 @@ export class CampusHomeComponent implements OnInit {
   onPlacedStudentsPageChange(page: number): void {
     this.placedStudentsPage = page;
     this.loadPlacedStudents();
+  }
+
+  // Current Batch - API Integration
+  loadBatches(): void {
+    console.log('CampusHomeComponent: ========== LOADING BATCHES ==========');
+    this.loadingBatches.set(true);
+    
+    this.campusApi.getAllBatches().pipe(
+      catchError((error) => {
+        console.error('CampusHomeComponent: ❌ Error loading batches:', error);
+        console.error('CampusHomeComponent: Error status:', error?.status);
+        console.error('CampusHomeComponent: Error URL:', error?.url);
+        this.loadingBatches.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: BatchesResponse | null) => {
+        console.log('CampusHomeComponent: ✅ GET BATCHES API RESPONSE RECEIVED');
+        console.log('CampusHomeComponent: Response:', response);
+        this.loadingBatches.set(false);
+        
+        if (response?.success && Array.isArray(response.data)) {
+          console.log('CampusHomeComponent: ✅ Batches loaded successfully');
+          console.log('CampusHomeComponent: Batches:', response.data);
+          this.batches.set(response.data);
+          
+          // Auto-select first batch if available and no batch is selected
+          if (response.data.length > 0 && !this.selectedBatch()) {
+            const firstBatch = response.data[0];
+            console.log('CampusHomeComponent: Auto-selecting first batch:', firstBatch);
+            this.selectedBatch.set(firstBatch);
+            this.loadStudentsByBatch(firstBatch);
+          } else if (this.selectedBatch()) {
+            // Reload students for currently selected batch
+            this.loadStudentsByBatch(this.selectedBatch()!);
+          }
+        } else {
+          console.warn('CampusHomeComponent: ⚠️ No batches found or invalid response');
+          this.batches.set([]);
+        }
+      },
+      error: (error) => {
+        console.error('CampusHomeComponent: ❌ Batches subscription error:', error);
+        this.loadingBatches.set(false);
+        this.batches.set([]);
+      }
+    });
+  }
+
+  loadStudentsByBatch(batch: string): void {
+    if (!batch) {
+      console.warn('CampusHomeComponent: No batch provided, cannot load students');
+      return;
+    }
+
+    console.log('CampusHomeComponent: ========== LOADING STUDENTS BY BATCH ==========');
+    console.log('CampusHomeComponent: Batch:', batch);
+    console.log('CampusHomeComponent: Current page:', this.currentBatchPage);
+    console.log('CampusHomeComponent: Page size:', this.currentBatchPageSize);
+    
+    this.loadingCurrentBatch.set(true);
+    
+    this.campusApi.getStudentsByBatch(batch, this.currentBatchPage, this.currentBatchPageSize).pipe(
+      catchError((error) => {
+        console.error('CampusHomeComponent: ❌ Error loading students by batch:', error);
+        console.error('CampusHomeComponent: Error status:', error?.status);
+        console.error('CampusHomeComponent: Error URL:', error?.url);
+        this.loadingCurrentBatch.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: StudentsByBatchResponse | null) => {
+        console.log('CampusHomeComponent: ✅ GET STUDENTS BY BATCH API RESPONSE RECEIVED');
+        console.log('CampusHomeComponent: Response:', response);
+        this.loadingCurrentBatch.set(false);
+        
+        if (response?.success && response.data) {
+          console.log('CampusHomeComponent: ✅ Students loaded successfully');
+          console.log('CampusHomeComponent: Total pages:', response.data.totalPages);
+          console.log('CampusHomeComponent: Total elements:', response.data.totalElements);
+          
+          const rawItems = response.data.content || [];
+          console.log('CampusHomeComponent: Raw items before mapping:', rawItems);
+          console.log('CampusHomeComponent: Raw items count:', rawItems.length);
+          
+          const items = rawItems.map((item) => this.mapStudentByBatchToPersonCard(item));
+          console.log('CampusHomeComponent: Mapped items:', items);
+          console.log('CampusHomeComponent: Mapped items count:', items.length);
+          
+          this.currentBatch.set(items);
+          this.currentBatchTotalPages.set(response.data.totalPages || 1);
+          
+          console.log('CampusHomeComponent: ✅ Current batch list updated');
+          console.log('CampusHomeComponent: Current batch signal:', this.currentBatch());
+        } else {
+          console.warn('CampusHomeComponent: ⚠️ No students found or invalid response');
+          this.currentBatch.set([]);
+          this.currentBatchTotalPages.set(1);
+        }
+      },
+      error: (error) => {
+        console.error('CampusHomeComponent: ❌ Students by batch subscription error:', error);
+        this.loadingCurrentBatch.set(false);
+        this.currentBatch.set([]);
+        this.currentBatchTotalPages.set(1);
+      }
+    });
+  }
+
+  private mapStudentByBatchToPersonCard(student: StudentByBatchData): PersonCard {
+    const name = student.studentName || 
+                 [student.firstName, student.lastName].filter(Boolean).join(' ') || 
+                 'Unknown';
+    const subtitle = student.batch || '';
+    const imageUrl = student.profilePhotoUrl || 
+                     student.imageUrl || 
+                     'assets/images/login-news-image.png';
+    
+    return {
+      name,
+      subtitle,
+      imageUrl,
+    };
+  }
+
+  onCurrentBatchPageChange(page: number): void {
+    if (page !== this.currentBatchPage && page >= 1) {
+      this.currentBatchPage = page;
+      const selectedBatch = this.selectedBatch();
+      if (selectedBatch) {
+        this.loadStudentsByBatch(selectedBatch);
+      }
+    }
+  }
+
+  onBatchSelect(batch: string): void {
+    console.log('CampusHomeComponent: Batch selected:', batch);
+    this.selectedBatch.set(batch);
+    this.currentBatchPage = 1; // Reset to first page when batch changes
+    this.loadStudentsByBatch(batch);
   }
 
   private mapPlacedStudentToPersonCard(item: {

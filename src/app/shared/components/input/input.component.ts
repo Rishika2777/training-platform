@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
-type InputType = 'text' | 'email' | 'password' | 'number' | 'file' | 'url' | 'tel' | 'date';
+type InputType = 'text' | 'email' | 'password' | 'number' | 'file' | 'url' | 'tel' | 'date' | 'time';
 
 @Component({
   selector: 'app-input',
