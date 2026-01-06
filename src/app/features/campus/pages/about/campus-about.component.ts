@@ -85,89 +85,43 @@ export class CampusAboutComponent implements OnInit {
   }
 
   loadAboutCampus(): void {
-    console.log('🔵🔵🔵 CampusAboutComponent: loadAboutCampus() CALLED 🔵🔵🔵');
-    
     // Try multiple sources for campusId (correct sources only)
     // 1. From storage
     const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    console.log('CampusAboutComponent: CampusId from storage:', campusIdFromStorage);
     
     // 2. From auth state (user profile) - profileServiceId contains campusId
     const currentUser = this.authState.user();
     const campusIdFromUser = currentUser?.profileServiceId;
-    console.log('CampusAboutComponent: Current user:', currentUser);
-    console.log('CampusAboutComponent: CampusId from user.profileServiceId:', campusIdFromUser);
     
     // Use the first available campusId (only from correct sources)
     const campusId = campusIdFromUser || campusIdFromStorage || null;
-    console.log('CampusAboutComponent: Final campusId to use:', campusId);
     
     if (!campusId) {
-      console.warn('❌ CampusAboutComponent: No campusId found in storage or auth state');
-      console.warn('CampusAboutComponent: Storage campusId:', campusIdFromStorage);
-      console.warn('CampusAboutComponent: Auth state campusId:', campusIdFromUser);
-      console.warn('CampusAboutComponent: User object:', currentUser);
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
     
-    console.log('✅ CampusAboutComponent: CampusId found:', campusId);
-
-    console.log('✅ CampusAboutComponent: CampusId found:', campusId);
-    console.log('CampusAboutComponent: Making API call to getCampusById...');
-    console.log('CampusAboutComponent: API Endpoint will be: GET /campus/' + campusId);
-    
     this.loadingAboutCampus.set(true);
-    console.log('CampusAboutComponent: Loading state set to true');
 
     this.campusApi.getCampusById(campusId).pipe(
-      catchError((error) => {
-        console.error('❌❌❌ CampusAboutComponent: API ERROR in pipe ❌❌❌');
-        console.error('CampusAboutComponent: Error object:', error);
-        console.error('CampusAboutComponent: Error status:', error?.status);
-        console.error('CampusAboutComponent: Error statusText:', error?.statusText);
-        console.error('CampusAboutComponent: Error URL:', error?.url);
-        console.error('CampusAboutComponent: Error message:', error?.message);
-        console.error('CampusAboutComponent: Error response:', error?.error);
+      catchError(() => {
         this.loadingAboutCampus.set(false);
         return of(null);
       })
     ).subscribe({
       next: (campus) => {
-        console.log('✅✅✅ CampusAboutComponent: API RESPONSE RECEIVED ✅✅✅');
-        console.log('CampusAboutComponent: Full campus object:', JSON.stringify(campus, null, 2));
-        console.log('CampusAboutComponent: Campus type:', typeof campus);
-        console.log('CampusAboutComponent: Campus is null?', campus === null);
-        console.log('CampusAboutComponent: Campus is undefined?', campus === undefined);
-        
         this.loadingAboutCampus.set(false);
-        console.log('CampusAboutComponent: Loading state set to false');
         
         if (campus) {
-          console.log('CampusAboutComponent: Campus object exists');
-          console.log('CampusAboutComponent: Has aboutCampus property?', 'aboutCampus' in campus);
-          console.log('CampusAboutComponent: aboutCampus value:', campus.aboutCampus);
-          console.log('CampusAboutComponent: aboutCampus type:', typeof campus.aboutCampus);
-          console.log('CampusAboutComponent: aboutCampus length:', campus.aboutCampus?.length);
-          
           if (campus.aboutCampus) {
-            console.log('✅ CampusAboutComponent: aboutCampus found! Setting text...');
             this.aboutCampusText.set(campus.aboutCampus);
-            console.log('✅ CampusAboutComponent: aboutCampusText signal updated with:', campus.aboutCampus);
-            console.log('✅ CampusAboutComponent: Current aboutCampusText() value:', this.aboutCampusText());
           } else {
-            console.warn('⚠️ CampusAboutComponent: aboutCampus field is empty or null');
-            console.warn('CampusAboutComponent: All campus properties:', Object.keys(campus));
             this.aboutCampusText.set('');
           }
         } else {
-          console.warn('⚠️ CampusAboutComponent: Campus object is null or undefined');
           this.aboutCampusText.set('');
         }
       },
-      error: (error) => {
-        console.error('❌❌❌ CampusAboutComponent: SUBSCRIPTION ERROR ❌❌❌');
-        console.error('CampusAboutComponent: Error in subscribe error handler:', error);
+      error: () => {
         this.loadingAboutCampus.set(false);
         this.aboutCampusText.set('');
       }
@@ -182,25 +136,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found in storage or auth state, cannot load rising stars');
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading rising stars for campusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.risingStarsPage, 'Size:', this.pageSize);
     
     this.loadingRisingStars.set(true);
     
     this.campusApi.getRisingStars(campusId, this.risingStarsPage, this.pageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading rising stars:', error);
+      catchError(() => {
         this.loadingRisingStars.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response) => {
-        console.log('CampusAboutComponent: Rising stars response received:', response);
         this.loadingRisingStars.set(false);
         
         if (response && response.content && Array.isArray(response.content)) {
@@ -209,17 +156,12 @@ export class CampusAboutComponent implements OnInit {
           
           const totalPages = response.totalPages ?? 0;
           this.risingStarsTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped rising stars:', mappedStars.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.risingStars.set([]);
           this.risingStarsTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Rising stars subscription error:', error);
+      error: () => {
         this.loadingRisingStars.set(false);
         this.risingStars.set([]);
         this.risingStarsTotalPages.set(1);
@@ -262,25 +204,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found, cannot load success stories');
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading success stories for campusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.successStoryPage, 'Size:', this.successStoryPageSize);
     
     this.loadingSuccessStories.set(true);
     
     this.campusApi.getSuccessStories(campusId, this.successStoryPage, this.successStoryPageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading success stories:', error);
+      catchError(() => {
         this.loadingSuccessStories.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response) => {
-        console.log('CampusAboutComponent: Success stories response received:', response);
         this.loadingSuccessStories.set(false);
         
         if (response && response.content && Array.isArray(response.content)) {
@@ -289,17 +224,12 @@ export class CampusAboutComponent implements OnInit {
           
           const totalPages = response.totalPages ?? 0;
           this.successStoriesTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped success stories:', mappedStories.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.successStories.set([]);
           this.successStoriesTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Success stories subscription error:', error);
+      error: () => {
         this.loadingSuccessStories.set(false);
         this.successStories.set([]);
         this.successStoriesTotalPages.set(1);
@@ -350,25 +280,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found in storage or auth state, cannot load courses');
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading courses for campusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.coursePage, 'Size:', this.coursePageSize);
     
     this.loadingCourses.set(true);
     
     this.campusApi.getCourses(campusId, this.coursePage, this.coursePageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading courses:', error);
+      catchError(() => {
         this.loadingCourses.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response) => {
-        console.log('CampusAboutComponent: Courses response received:', response);
         this.loadingCourses.set(false);
         
         if (response && response.content && Array.isArray(response.content)) {
@@ -377,17 +300,12 @@ export class CampusAboutComponent implements OnInit {
           
           const totalPages = response.totalPages ?? 0;
           this.coursesTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped courses:', mappedCourses.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.courses.set([]);
           this.coursesTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Courses subscription error:', error);
+      error: () => {
         this.loadingCourses.set(false);
         this.courses.set([]);
         this.coursesTotalPages.set(1);
@@ -489,22 +407,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found, cannot load placement insights');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading placement insights for campusId:', campusId);
+    
     this.loadingPlacementInsights.set(true);
     
     this.campusApi.getPlacementInsights(campusId, 1, 9).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading placement insights:', error);
+      catchError(() => {
         this.loadingPlacementInsights.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: PlacementInsightsResponse | null) => {
-        console.log('CampusAboutComponent: Placement Insights response received:', response);
         this.loadingPlacementInsights.set(false);
         
         if (response?.success && response.data) {
@@ -526,23 +440,11 @@ export class CampusAboutComponent implements OnInit {
             if (years.length > 0) {
               this.placementYears.set(years);
             }
-            
-            console.log('CampusAboutComponent: Placement insights loaded successfully');
-            console.log('CampusAboutComponent: Years:', years);
-            console.log('CampusAboutComponent: Placement percentage:', response.data.placementPercentage);
-          } else {
-            console.warn('CampusAboutComponent: No yearly trends in response');
-            // Keep fallback years
           }
-        } else {
-          console.warn('CampusAboutComponent: No placement insights data in response');
-          // Keep fallback years
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Placement insights subscription error:', error);
+      error: () => {
         this.loadingPlacementInsights.set(false);
-        // Keep fallback years on error
       }
     });
   }
@@ -562,25 +464,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found, cannot load faculties');
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading faculties for campusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.facultiesPage, 'Size:', this.facultiesPageSize);
     
     this.loadingFaculties.set(true);
     
     this.campusApi.getFaculties(campusId, this.facultiesPage, this.facultiesPageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading faculties:', error);
+      catchError(() => {
         this.loadingFaculties.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: FacultiesResponse | null) => {
-        console.log('CampusAboutComponent: Faculties response received:', response);
         this.loadingFaculties.set(false);
         
         if (response && response.content && Array.isArray(response.content)) {
@@ -589,17 +484,12 @@ export class CampusAboutComponent implements OnInit {
           
           const totalPages = response.totalPages ?? 0;
           this.facultiesTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped faculties:', mappedFaculties.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.faculties.set([]);
           this.facultiesTotalPages.set(1);
         }
       },
-      error: (error: unknown) => {
-        console.error('CampusAboutComponent: Faculties subscription error:', error);
+      error: () => {
         this.loadingFaculties.set(false);
         this.faculties.set([]);
         this.facultiesTotalPages.set(1);
@@ -642,25 +532,18 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
     
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found, cannot load alumni');
-      console.warn('CampusAboutComponent: ⚠️ Backend issue - campusId not available. Please check backend.');
       return;
     }
-
-    console.log('CampusAboutComponent: Loading alumni for campusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.alumniPage, 'Size:', this.alumniPageSize);
     
     this.loadingAlumni.set(true);
     
     this.campusApi.getAlumni(campusId, this.alumniPage, this.alumniPageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading alumni:', error);
+      catchError(() => {
         this.loadingAlumni.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: ApiResponsePageAlumniResponse | null) => {
-        console.log('CampusAboutComponent: Alumni response received:', response);
         this.loadingAlumni.set(false);
         
         if (response?.data?.content && Array.isArray(response.data.content)) {
@@ -669,17 +552,12 @@ export class CampusAboutComponent implements OnInit {
           
           const totalPages = response.data.totalPages ?? 0;
           this.alumniTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped alumni:', mappedAlumni.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.alumni.set([]);
           this.alumniTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Alumni subscription error:', error);
+      error: () => {
         this.loadingAlumni.set(false);
         this.alumni.set([]);
         this.alumniTotalPages.set(1);
@@ -730,22 +608,15 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
 
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId available for testimonials');
       this.testimonials.set([]);
       this.testimonialsTotalPages.set(1);
       return;
     }
 
-    console.log('🔵🔵🔵 CampusAboutComponent: loadTestimonials() CALLED 🔵🔵🔵');
-    console.log('CampusAboutComponent: CampusId:', campusId);
-    console.log('CampusAboutComponent: Page:', this.testimonialPage);
-    console.log('CampusAboutComponent: PageSize:', this.testimonialPageSize);
-
     this.loadingTestimonials.set(true);
 
     this.campusApi.getTestimonials(campusId, this.testimonialPage, this.testimonialPageSize).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading testimonials:', error);
+      catchError(() => {
         this.loadingTestimonials.set(false);
         this.testimonials.set([]);
         this.testimonialsTotalPages.set(1);
@@ -753,29 +624,21 @@ export class CampusAboutComponent implements OnInit {
       })
     ).subscribe({
       next: (response: TestimonialsResponse | null) => {
-        console.log('✅✅✅ CampusAboutComponent: loadTestimonials RESPONSE ✅✅✅');
-        console.log('CampusAboutComponent: Response:', response);
         this.loadingTestimonials.set(false);
 
         if (response?.data?.content && Array.isArray(response.data.content)) {
           const testimonialsData = response.data.content;
-          console.log('CampusAboutComponent: Testimonials data:', testimonialsData);
           
           this.testimonials.set(testimonialsData);
           
           const totalPages = response.data.totalPages ?? 0;
           this.testimonialsTotalPages.set(Math.max(1, totalPages));
-          
-          console.log('CampusAboutComponent: Mapped testimonials:', testimonialsData.length);
-          console.log('CampusAboutComponent: Total pages:', totalPages);
         } else {
-          console.warn('CampusAboutComponent: No content in response or invalid structure');
           this.testimonials.set([]);
           this.testimonialsTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Error in loadTestimonials subscription:', error);
+      error: () => {
         this.loadingTestimonials.set(false);
         this.testimonials.set([]);
         this.testimonialsTotalPages.set(1);
@@ -818,44 +681,29 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
 
     if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId available for research');
       this.researchData.set(null);
       return;
     }
 
-    console.log('🔵🔵🔵 CampusAboutComponent: loadResearch() CALLED 🔵🔵🔵');
-    console.log('CampusAboutComponent: CampusId:', campusId);
-
     this.loadingResearch.set(true);
 
     this.campusApi.getResearch(campusId).pipe(
-      catchError((error) => {
-        console.error('CampusAboutComponent: Error loading research:', error);
+      catchError(() => {
         this.loadingResearch.set(false);
         this.researchData.set(null);
         return of(null);
       })
     ).subscribe({
       next: (response: ResearchResponse | null) => {
-        console.log('✅✅✅ CampusAboutComponent: loadResearch RESPONSE ✅✅✅');
-        console.log('CampusAboutComponent: Response:', response);
         this.loadingResearch.set(false);
 
         if (response?.data) {
-          const researchInfo = response.data;
-          console.log('CampusAboutComponent: Research data:', researchInfo);
-          
-          this.researchData.set(researchInfo);
-          
-          console.log('CampusAboutComponent: Research info:', researchInfo.researchInfo);
-          console.log('CampusAboutComponent: Research description:', researchInfo.description);
+          this.researchData.set(response.data);
         } else {
-          console.warn('CampusAboutComponent: No data in response or invalid structure');
           this.researchData.set(null);
         }
       },
-      error: (error) => {
-        console.error('CampusAboutComponent: Error in loadResearch subscription:', error);
+      error: () => {
         this.loadingResearch.set(false);
         this.researchData.set(null);
       }
@@ -893,11 +741,8 @@ export class CampusAboutComponent implements OnInit {
    * Fetches prospectuses for the campus and downloads the first available one
    */
   downloadProspectusHandler(): void {
-    console.log('🔵🔵🔵 CampusAboutComponent: downloadProspectusHandler() CALLED 🔵🔵🔵');
-    
     // Check if already downloading
     if (this.downloadingProspectus()) {
-      console.log('CampusAboutComponent: Download already in progress, ignoring request');
       return;
     }
 
@@ -908,22 +753,15 @@ export class CampusAboutComponent implements OnInit {
     const campusId = campusIdFromUser || campusIdFromStorage || null;
 
     if (!campusId) {
-      console.error('❌ CampusAboutComponent: No campusId found, cannot download prospectus');
       this.notify.error('Campus ID not found. Please login again to refresh your session.');
       return;
     }
-
-    console.log('✅ CampusAboutComponent: CampusId found:', campusId);
-    console.log('CampusAboutComponent: Fetching prospectuses for campus...');
 
     this.downloadingProspectus.set(true);
 
     // First, get prospectuses for the campus
     this.campusApi.getProspectusByCampus(campusId).pipe(
       catchError((error) => {
-        console.error('❌ CampusAboutComponent: Error fetching prospectuses:', error);
-        console.error('CampusAboutComponent: Error status:', error?.status);
-        console.error('CampusAboutComponent: Error message:', error?.message);
         this.downloadingProspectus.set(false);
         const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus information';
         this.notify.error(errorMessage);
@@ -931,11 +769,7 @@ export class CampusAboutComponent implements OnInit {
       })
     ).subscribe({
       next: (response: GetProspectusResponse | null) => {
-        console.log('✅✅✅ CampusAboutComponent: Prospectus response received ✅✅✅');
-        console.log('CampusAboutComponent: Response:', response);
-
         if (!response) {
-          console.warn('⚠️ CampusAboutComponent: Response is null');
           this.downloadingProspectus.set(false);
           this.notify.error('Failed to fetch prospectus information');
           return;
@@ -943,7 +777,6 @@ export class CampusAboutComponent implements OnInit {
 
         // Check if we have prospectus data
         if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-          console.warn('⚠️ CampusAboutComponent: No prospectuses available for this campus');
           this.downloadingProspectus.set(false);
           this.notify.error('No prospectus available for this campus');
           return;
@@ -954,22 +787,14 @@ export class CampusAboutComponent implements OnInit {
         const prospectusId = firstProspectus.id;
 
         if (!prospectusId) {
-          console.error('❌ CampusAboutComponent: Prospectus ID is missing');
           this.downloadingProspectus.set(false);
           this.notify.error('Prospectus ID is missing');
           return;
         }
 
-        console.log('✅ CampusAboutComponent: Found prospectus with ID:', prospectusId);
-        console.log('CampusAboutComponent: Starting download...');
-
         // Download the prospectus file
         this.campusApi.downloadProspectus(prospectusId).subscribe({
           next: (blob: Blob) => {
-            console.log('✅✅✅ CampusAboutComponent: Prospectus blob received ✅✅✅');
-            console.log('CampusAboutComponent: Blob size:', blob.size, 'bytes');
-            console.log('CampusAboutComponent: Blob type:', blob.type);
-
             // Create download link
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -989,12 +814,8 @@ export class CampusAboutComponent implements OnInit {
             
             this.downloadingProspectus.set(false);
             this.notify.success('Prospectus downloaded successfully');
-            console.log('✅ CampusAboutComponent: Prospectus downloaded successfully');
           },
           error: (error) => {
-            console.error('❌ CampusAboutComponent: Error downloading prospectus file:', error);
-            console.error('CampusAboutComponent: Error status:', error?.status);
-            console.error('CampusAboutComponent: Error message:', error?.message);
             this.downloadingProspectus.set(false);
             const errorMessage = error?.error?.message || error?.message || 'Failed to download prospectus file';
             this.notify.error(errorMessage);
@@ -1002,7 +823,6 @@ export class CampusAboutComponent implements OnInit {
         });
       },
       error: (error) => {
-        console.error('❌ CampusAboutComponent: Error in getProspectusByCampus subscription:', error);
         this.downloadingProspectus.set(false);
         const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus';
         this.notify.error(errorMessage);

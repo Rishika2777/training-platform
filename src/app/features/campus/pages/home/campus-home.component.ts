@@ -18,7 +18,6 @@ import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBa
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
-import { API_ENDPOINTS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 
 @Component({
@@ -129,61 +128,27 @@ export class CampusHomeComponent implements OnInit {
   }
 
   loadPlacedStudents(): void {
-    console.log('CampusHomeComponent: ========== LOADING PLACED STUDENTS ==========');
-    console.log('CampusHomeComponent: Current page:', this.placedStudentsPage);
-    console.log('CampusHomeComponent: Page size:', this.peoplePageSize);
     this.loadingPlacedStudents.set(true);
     this.studentApiService
       .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
       .pipe(
-        catchError((error) => {
-          console.error('CampusHomeComponent: ❌ Error loading placed students:', error);
-          console.error('CampusHomeComponent: Error status:', error?.status);
-          console.error('CampusHomeComponent: Error URL:', error?.url);
+        catchError(() => {
           this.loadingPlacedStudents.set(false);
           return of(null);
         }),
       )
       .subscribe({
         next: (response) => {
-          console.log('CampusHomeComponent: ✅ GET PLACED STUDENTS API RESPONSE RECEIVED');
-          console.log('CampusHomeComponent: Response:', response);
-          console.log('CampusHomeComponent: Response success:', response?.success);
-          console.log('CampusHomeComponent: Response data:', response?.data);
-          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
-          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
-          
           this.loadingPlacedStudents.set(false);
           if (response?.success && response.data) {
-            console.log('CampusHomeComponent: ✅ Response is successful and has data');
-            console.log('CampusHomeComponent: Total pages:', response.data.totalPages);
-            console.log('CampusHomeComponent: Total elements:', response.data.totalElements);
-            
             const rawItems = response.data.content || [];
-            console.log('CampusHomeComponent: Raw items before mapping:', rawItems);
-            console.log('CampusHomeComponent: Raw items count:', rawItems.length);
-            
-            const items = rawItems.map((item) => {
-              console.log('CampusHomeComponent: Mapping item:', item);
-              return this.mapPlacedStudentToPersonCard(item);
-            });
-            
-            console.log('CampusHomeComponent: Mapped items:', items);
-            console.log('CampusHomeComponent: Mapped items count:', items.length);
+            const items = rawItems.map((item) => this.mapPlacedStudentToPersonCard(item));
             
             this.placedStudents.set(items);
             this.placedStudentsTotalPages.set(response.data.totalPages || 1);
-            
-            console.log('CampusHomeComponent: ✅ Placed students list updated');
-            console.log('CampusHomeComponent: Current placed students signal:', this.placedStudents());
-          } else {
-            console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
-            console.warn('CampusHomeComponent: Response success:', response?.success);
-            console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
           }
         },
-        error: (error) => {
-          console.error('CampusHomeComponent: ❌ Placed students subscription error:', error);
+        error: () => {
           this.loadingPlacedStudents.set(false);
         },
       });
@@ -196,32 +161,23 @@ export class CampusHomeComponent implements OnInit {
 
   // Current Batch - API Integration
   loadBatches(): void {
-    console.log('CampusHomeComponent: ========== LOADING BATCHES ==========');
     this.loadingBatches.set(true);
     
     this.campusApi.getAllBatches().pipe(
-      catchError((error) => {
-        console.error('CampusHomeComponent: ❌ Error loading batches:', error);
-        console.error('CampusHomeComponent: Error status:', error?.status);
-        console.error('CampusHomeComponent: Error URL:', error?.url);
+      catchError(() => {
         this.loadingBatches.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: BatchesResponse | null) => {
-        console.log('CampusHomeComponent: ✅ GET BATCHES API RESPONSE RECEIVED');
-        console.log('CampusHomeComponent: Response:', response);
         this.loadingBatches.set(false);
         
         if (response?.success && Array.isArray(response.data)) {
-          console.log('CampusHomeComponent: ✅ Batches loaded successfully');
-          console.log('CampusHomeComponent: Batches:', response.data);
           this.batches.set(response.data);
           
           // Auto-select first batch if available and no batch is selected
           if (response.data.length > 0 && !this.selectedBatch()) {
             const firstBatch = response.data[0];
-            console.log('CampusHomeComponent: Auto-selecting first batch:', firstBatch);
             this.selectedBatch.set(firstBatch);
             this.loadStudentsByBatch(firstBatch);
           } else if (this.selectedBatch()) {
@@ -229,12 +185,10 @@ export class CampusHomeComponent implements OnInit {
             this.loadStudentsByBatch(this.selectedBatch()!);
           }
         } else {
-          console.warn('CampusHomeComponent: ⚠️ No batches found or invalid response');
           this.batches.set([]);
         }
       },
-      error: (error) => {
-        console.error('CampusHomeComponent: ❌ Batches subscription error:', error);
+      error: () => {
         this.loadingBatches.set(false);
         this.batches.set([]);
       }
@@ -243,57 +197,32 @@ export class CampusHomeComponent implements OnInit {
 
   loadStudentsByBatch(batch: string): void {
     if (!batch) {
-      console.warn('CampusHomeComponent: No batch provided, cannot load students');
       return;
     }
-
-    console.log('CampusHomeComponent: ========== LOADING STUDENTS BY BATCH ==========');
-    console.log('CampusHomeComponent: Batch:', batch);
-    console.log('CampusHomeComponent: Current page:', this.currentBatchPage);
-    console.log('CampusHomeComponent: Page size:', this.currentBatchPageSize);
     
     this.loadingCurrentBatch.set(true);
     
     this.campusApi.getStudentsByBatch(batch, this.currentBatchPage, this.currentBatchPageSize).pipe(
-      catchError((error) => {
-        console.error('CampusHomeComponent: ❌ Error loading students by batch:', error);
-        console.error('CampusHomeComponent: Error status:', error?.status);
-        console.error('CampusHomeComponent: Error URL:', error?.url);
+      catchError(() => {
         this.loadingCurrentBatch.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: StudentsByBatchResponse | null) => {
-        console.log('CampusHomeComponent: ✅ GET STUDENTS BY BATCH API RESPONSE RECEIVED');
-        console.log('CampusHomeComponent: Response:', response);
         this.loadingCurrentBatch.set(false);
         
         if (response?.success && response.data) {
-          console.log('CampusHomeComponent: ✅ Students loaded successfully');
-          console.log('CampusHomeComponent: Total pages:', response.data.totalPages);
-          console.log('CampusHomeComponent: Total elements:', response.data.totalElements);
-          
           const rawItems = response.data.content || [];
-          console.log('CampusHomeComponent: Raw items before mapping:', rawItems);
-          console.log('CampusHomeComponent: Raw items count:', rawItems.length);
-          
           const items = rawItems.map((item) => this.mapStudentByBatchToPersonCard(item));
-          console.log('CampusHomeComponent: Mapped items:', items);
-          console.log('CampusHomeComponent: Mapped items count:', items.length);
           
           this.currentBatch.set(items);
           this.currentBatchTotalPages.set(response.data.totalPages || 1);
-          
-          console.log('CampusHomeComponent: ✅ Current batch list updated');
-          console.log('CampusHomeComponent: Current batch signal:', this.currentBatch());
         } else {
-          console.warn('CampusHomeComponent: ⚠️ No students found or invalid response');
           this.currentBatch.set([]);
           this.currentBatchTotalPages.set(1);
         }
       },
-      error: (error) => {
-        console.error('CampusHomeComponent: ❌ Students by batch subscription error:', error);
+      error: () => {
         this.loadingCurrentBatch.set(false);
         this.currentBatch.set([]);
         this.currentBatchTotalPages.set(1);
@@ -328,7 +257,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   onBatchSelect(batch: string): void {
-    console.log('CampusHomeComponent: Batch selected:', batch);
     this.selectedBatch.set(batch);
     this.currentBatchPage = 1; // Reset to first page when batch changes
     this.loadStudentsByBatch(batch);
@@ -354,10 +282,6 @@ export class CampusHomeComponent implements OnInit {
       subtitle,
       imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
     };
-    console.log('CampusHomeComponent: Mapped item to PersonCard:', {
-      original: { studentName: item.studentName, companyName: item.companyName, placementCompanyId: item.placementCompanyId, batch: item.batch },
-      mapped: result
-    });
     return result;
   }
 
@@ -378,10 +302,10 @@ export class CampusHomeComponent implements OnInit {
     this.closeModal();
   }
 
-  handleProspectusSubmit(value: ProspectusUploadFormValue): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handleProspectusSubmit(_value: ProspectusUploadFormValue): void {
     // Prospectus submission is handled by the prospectus component itself
     // This handler is just for the event binding
-    console.log('CampusHomeComponent: Prospectus submit event received:', value);
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
@@ -402,7 +326,6 @@ export class CampusHomeComponent implements OnInit {
 
         this.campusApi.addCompanyVisited(request).subscribe({
           next: () => {
-            console.log('API Integration Working - Company Visited Added Successfully');
             this.submittingCompanies = false;
             this.notify.success('Company visited added successfully');
             this.closeModal();
@@ -414,7 +337,6 @@ export class CampusHomeComponent implements OnInit {
           },
           error: (err) => {
             const errorMessage = err?.error?.message || err?.message || 'Failed to add company visited';
-            console.error('API Integration Failed -', errorMessage);
             this.submittingCompanies = false;
             this.notify.error(errorMessage);
             try {
@@ -426,7 +348,6 @@ export class CampusHomeComponent implements OnInit {
         });
       })
       .catch(() => {
-        console.error('API Integration Failed - Error converting file to base64');
         setTimeout(() => {
           this.submittingCompanies = false;
           this.cdr.detectChanges();
@@ -435,26 +356,11 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
-    console.log('CampusHomeComponent: ========== PLACED STUDENTS SUBMIT CALLED ==========');
-    console.log('CampusHomeComponent: Form value:', {
-      studentName: value.studentName,
-      course: value.course,
-      batch: value.batch,
-      placementCompany: value.placementCompany,
-      designation: value.designation,
-      sector: value.sector,
-      hasPhoto: !!value.studentPhoto,
-      photoName: value.studentPhoto?.name || 'null'
-    });
-    
     this.submittingPlacedStudents = true;
 
     // Convert File to base64 string
     this.convertFileToBase64(value.studentPhoto)
       .then((photoBase64) => {
-        console.log('CampusHomeComponent: ✅ File conversion completed');
-        console.log('CampusHomeComponent: Photo base64 length:', photoBase64?.length || 0);
-        
         const request = {
           studentName: value.studentName,
           photo: photoBase64 || '',
@@ -465,59 +371,30 @@ export class CampusHomeComponent implements OnInit {
           sector: value.sector,
         };
 
-        console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
-        console.log('CampusHomeComponent: Request payload:', {
-          studentName: request.studentName,
-          courseId: request.courseId,
-          batch: request.batch,
-          placementCompanyId: request.placementCompanyId,
-          designation: request.designation,
-          sector: request.sector,
-          photoLength: request.photo.length
-        });
-        console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed');
-
         this.campusApi.addPlacedStudent(request).subscribe({
           next: (response) => {
-            console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
-            console.log('CampusHomeComponent: Response:', response);
-            console.log('CampusHomeComponent: Response success:', response?.success);
-            console.log('CampusHomeComponent: Response message:', response?.message);
-            
             // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
             setTimeout(() => {
               this.submittingPlacedStudents = false;
               if (response?.success) {
-                console.log('CampusHomeComponent: ✅ Placed student added successfully');
-                console.log('CampusHomeComponent: Response data:', response?.data);
                 this.notify.success(response?.message || 'Placed student added successfully');
                 this.closeModal();
-              // Reload placed students after adding a new one
-              this.loadPlacedStudents();
                 // Reset to page 1 to see the newest students first
-                console.log('CampusHomeComponent: Resetting to page 1 and reloading placed students...');
                 this.placedStudentsPage = 1;
                 // Reload placed students after adding a new one
                 this.loadPlacedStudents();
               } else {
-                console.warn('CampusHomeComponent: ⚠️ Response success is false');
                 this.notify.warn(response?.message || 'Placed student might not have been added');
               }
               // Safe change detection - won't crash if component is destroyed
               try {
                 this.cdr.detectChanges();
-              } catch (e) {
+              } catch {
                 // Component might be destroyed, ignore
-                console.warn('Change detection skipped:', e);
               }
             }, 0);
           },
-          error: (err) => {
-            console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
-            console.error('CampusHomeComponent: Error status:', err?.status);
-            console.error('CampusHomeComponent: Error URL:', err?.url);
-            console.error('CampusHomeComponent: Error response:', err?.error);
-            
+          error: () => {
             // HTTP interceptor will show error notification to user
             // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
             setTimeout(() => {
@@ -525,16 +402,14 @@ export class CampusHomeComponent implements OnInit {
               // Safe change detection - won't crash if component is destroyed
               try {
                 this.cdr.detectChanges();
-              } catch (e) {
+              } catch {
                 // Component might be destroyed, ignore
-                console.warn('Change detection skipped:', e);
               }
             }, 0);
           },
         });
       })
-      .catch((err) => {
-        console.error('CampusHomeComponent: ❌ Error converting file to base64:', err);
+      .catch(() => {
         // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           this.submittingPlacedStudents = false;
@@ -565,11 +440,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleFacultySubmit(value: FacultyFormValue): void {
-    console.log('HomeComponent: ========== FORM SUBMIT TRIGGERED ==========');
-    console.log('HomeComponent: Form value received:', value);
-    console.log('HomeComponent: Current URL:', window.location.href);
-    console.log('HomeComponent: Current path:', window.location.pathname);
-    
     // Validate required fields
     if (
       !value.fullName.trim() ||
@@ -577,17 +447,10 @@ export class CampusHomeComponent implements OnInit {
       !value.dateOfBirth.trim() ||
       !value.phoneNumber.trim()
     ) {
-      console.warn('HomeComponent: ⚠️ Validation failed - missing required fields');
-      console.warn('HomeComponent: fullName:', value.fullName.trim());
-      console.warn('HomeComponent: email:', value.email.trim());
-      console.warn('HomeComponent: dateOfBirth:', value.dateOfBirth.trim());
-      console.warn('HomeComponent: phoneNumber:', value.phoneNumber.trim());
       this.submittingFaculty = false;
       this.notify.error('Please fill all required fields');
       return;
     }
-    
-    console.log('HomeComponent: ✅ Basic validation passed');
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -618,10 +481,7 @@ export class CampusHomeComponent implements OnInit {
       }
     }
 
-    console.log('HomeComponent: ✅ All validations passed');
-    console.log('HomeComponent: Setting submittingFaculty = true');
     this.submittingFaculty = true;
-    console.log('HomeComponent: Proceeding to prepare request data...');
 
     // Prepare basic information JSON
     // Convert date format from input (YYYY-MM-DD) to API format (YYYY-MM-DD)
@@ -651,8 +511,6 @@ export class CampusHomeComponent implements OnInit {
     
     // Note: Photo is not included in JSON request body
     // If photo is required, backend should handle it separately or we need to use FormData
-    console.log('HomeComponent: Photo file present?', !!value.photo);
-    console.log('HomeComponent: Photo file name:', value.photo?.name || 'No photo');
 
     // Prepare professional information JSON (without file references)
     // API expects arrays for designation, department, specialization, yearsOfExperience, and qualifications
@@ -696,14 +554,6 @@ export class CampusHomeComponent implements OnInit {
       const specializationArray = info.specialization.trim()
         ? info.specialization.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0)
         : [];
-      
-      console.log('HomeComponent: Professional Info Entry:', {
-        designation: designationArray,
-        department: departmentArray,
-        specialization: specializationArray,
-        yearsOfExperience: yearsExpArray,
-        qualifications: qualificationsArray
-      });
       
       return {
         designation: designationArray,
@@ -750,19 +600,6 @@ export class CampusHomeComponent implements OnInit {
       basicInformation,
       professionalInformation: professionalInformationObj
     };
-    
-    console.log('HomeComponent: ========== FINAL REQUEST DATA ==========');
-    console.log('HomeComponent: Complete request payload:', JSON.stringify(requestData, null, 2));
-    console.log('HomeComponent: Basic Info keys:', Object.keys(basicInformation));
-    console.log('HomeComponent: Professional Info keys:', Object.keys(professionalInformationObj));
-    console.log('HomeComponent: Professional Info values:', {
-      designation: professionalInformationObj.designation,
-      department: professionalInformationObj.department,
-      specialization: professionalInformationObj.specialization,
-      yearsOfExperience: professionalInformationObj.yearsOfExperience,
-      qualifications: professionalInformationObj.qualifications,
-      certificates: professionalInformationObj.certificates
-    });
 
     // Check authentication
     const token = this.authState.token();
@@ -773,35 +610,12 @@ export class CampusHomeComponent implements OnInit {
       return;
     }
     
-    console.log('HomeComponent: ========== STARTING FACULTY POST API ==========');
-    console.log('HomeComponent: Request data:', JSON.stringify(requestData, null, 2));
-    console.log('HomeComponent: Basic Information:', JSON.stringify(basicInformation, null, 2));
-    console.log('HomeComponent: Professional Information:', JSON.stringify(professionalInformationObj, null, 2));
-    console.log('HomeComponent: Photo file:', value.photo ? `File: ${value.photo.name}, Size: ${value.photo.size} bytes, Type: ${value.photo.type}` : 'No photo');
-    console.log('HomeComponent: Token exists:', !!token);
-    console.log('HomeComponent: Token length:', token.length);
-    console.log('HomeComponent: Current URL before API call:', window.location.href);
-    console.log('HomeComponent: Endpoint:', API_ENDPOINTS.CAMPUS.ADD_FACULTY);
-    
-    // Prevent any navigation during API call
-    const currentPath = window.location.pathname;
-    console.log('HomeComponent: Current path:', currentPath);
-    
     this.campusApi.addFaculty(requestData).subscribe({
       next: (response) => {
-        console.log('HomeComponent: ========== FACULTY POST API SUCCESS ==========');
-        console.log('HomeComponent: Response received:', response);
-        console.log('HomeComponent: Response type:', typeof response);
-        console.log('HomeComponent: Response is null?', response === null);
-        console.log('HomeComponent: Current URL after success:', window.location.href);
-        
         // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           // Check if response is null (API service returned null)
           if (response === null) {
-            console.error('HomeComponent: ⚠️ Response is NULL - API might have returned unexpected format');
-            console.error('HomeComponent: But API call was successful (200 status)');
-            console.error('HomeComponent: This might mean backend returned different structure');
             this.submittingFaculty = false;
             this.notify.warn('Faculty might have been added, but response format was unexpected. Please refresh the page.');
             this.closeModal();
@@ -818,22 +632,16 @@ export class CampusHomeComponent implements OnInit {
           
           this.submittingFaculty = false;
           const successMessage = response?.message || 'Faculty added successfully!';
-          console.log('HomeComponent: Success message:', successMessage);
-          console.log('HomeComponent: Response success:', response?.success);
-          console.log('HomeComponent: Response data:', response?.data);
           
           this.notify.success(successMessage);
           
           // Close modal after short delay to show success message
           setTimeout(() => {
-            console.log('HomeComponent: Closing modal after success');
             this.closeModal();
           }, 500);
 
           // Trigger refresh event for sidebar
-          console.log('HomeComponent: Dispatching facultyAdded event to refresh sidebar...');
           window.dispatchEvent(new Event('facultyAdded'));
-          console.log('HomeComponent: Event dispatched - sidebar should refresh now');
 
           try {
             this.cdr.detectChanges();
@@ -843,17 +651,6 @@ export class CampusHomeComponent implements OnInit {
         }, 0);
       },
       error: (err) => {
-        console.error('HomeComponent: ========== FACULTY POST API ERROR ==========');
-        console.error('HomeComponent: Error status:', err?.status);
-        console.error('HomeComponent: Error URL:', err?.url);
-        console.error('HomeComponent: Error response:', err?.error);
-        console.error('HomeComponent: Current URL after error:', window.location.href);
-        
-        // Check token status after error
-        const tokenAfterError = this.authState.token();
-        console.error('HomeComponent: Token after error:', !!tokenAfterError);
-        console.error('HomeComponent: Token length:', tokenAfterError?.length || 0);
-        
         // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           this.submittingFaculty = false;
@@ -861,8 +658,6 @@ export class CampusHomeComponent implements OnInit {
           let errorMessage = 'Failed to add faculty';
           if (err?.status === 401) {
             errorMessage = 'Unauthorized: Your session has expired. Please login again.';
-            console.error('HomeComponent: ⚠️ 401 Error - BUT NOT REDIRECTING');
-            console.error('HomeComponent: ⚠️ Token still exists:', !!tokenAfterError);
           } else if (err?.status === 403) {
             errorMessage = 'Forbidden: You do not have permission to add faculty.';
           } else if (err?.status === 500) {
@@ -874,8 +669,6 @@ export class CampusHomeComponent implements OnInit {
             } else {
               errorMessage = 'Server error: An internal error occurred. Please check the request data and try again.';
             }
-            console.error('HomeComponent: ⚠️ 500 Server Error - Check backend logs');
-            console.error('HomeComponent: Error details:', JSON.stringify(err?.error, null, 2));
           } else if (err?.status === 502) {
             errorMessage = 'Service temporarily unavailable. Please check your connection and try again.';
           } else if (err?.status === 0) {
@@ -895,20 +688,8 @@ export class CampusHomeComponent implements OnInit {
             errorMessage = validationErrors || errorMessage;
           }
           
-          console.error('HomeComponent: Showing error notification - NO REDIRECT');
-          console.error('HomeComponent: Modal will stay open');
-          console.error('HomeComponent: Current path after error:', window.location.pathname);
-          console.error('HomeComponent: Path changed?', window.location.pathname !== currentPath);
-          
           // CRITICAL: Don't close modal, don't redirect, don't clear token
           // Just show error and let user try again
-          
-          // Double-check: If path changed, log it (shouldn't happen)
-          if (window.location.pathname !== currentPath) {
-            console.error('HomeComponent: ⚠️⚠️⚠️ PATH CHANGED - REDIRECT DETECTED!');
-            console.error('HomeComponent: Old path:', currentPath);
-            console.error('HomeComponent: New path:', window.location.pathname);
-          }
           
           this.notify.error(errorMessage);
           
@@ -944,7 +725,6 @@ export class CampusHomeComponent implements OnInit {
 
     this.campusApi.addCourse(request).subscribe({
       next: () => {
-        console.log('API Integration Working - Course Added Successfully');
         this.submittingCourseForm = false;
         this.notify.success('Course added successfully');
         this.closeModal();
@@ -956,7 +736,6 @@ export class CampusHomeComponent implements OnInit {
       },
       error: (err) => {
         const errorMessage = err?.error?.message || err?.message || 'Failed to add course';
-        console.error('API Integration Failed -', errorMessage);
         this.submittingCourseForm = false;
         this.notify.error(errorMessage);
         try {

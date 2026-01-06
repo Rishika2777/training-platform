@@ -81,24 +81,16 @@ export class CampusVisitCampusComponent {
   onFormSubmit(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    console.log('Visit Campus Form ngSubmit triggered - onFormSubmit called');
-    console.log('Submitting flag:', this.submitting);
-    console.log('Current form value:', this.value);
     this.submit();
   }
 
   onButtonClickDirect(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    console.log('=== BUTTON CLICKED DIRECTLY ===');
-    console.log('Submitting flag:', this.submitting);
-    console.log('Current form value:', this.value);
     this.submit();
   }
 
   submit(): void {
-    console.log('=== CampusVisitCampusComponent.submit() called ===');
-    console.log('Emitting submitted event with value:', this.value);
     this.submitted.emit(this.value);
   }
 
