@@ -128,6 +128,9 @@ export class CampusHomeComponent implements OnInit {
   }
 
   loadPlacedStudents(): void {
+    console.log('CampusHomeComponent: ========== LOADING PLACED STUDENTS ==========');
+    console.log('CampusHomeComponent: Current page:', this.placedStudentsPage);
+    console.log('CampusHomeComponent: Page size:', this.peoplePageSize);
     this.loadingPlacedStudents.set(true);
     this.studentApiService
       .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
@@ -139,6 +142,13 @@ export class CampusHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
+          console.log('CampusHomeComponent: ✅ GET PLACED STUDENTS API RESPONSE RECEIVED');
+          console.log('CampusHomeComponent: Response:', response);
+          console.log('CampusHomeComponent: Response success:', response?.success);
+          console.log('CampusHomeComponent: Response data:', response?.data);
+          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
+          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
+          
           this.loadingPlacedStudents.set(false);
           if (response?.success && response.data) {
             const rawItems = response.data.content || [];
@@ -146,6 +156,13 @@ export class CampusHomeComponent implements OnInit {
             
             this.placedStudents.set(items);
             this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+            
+            console.log('CampusHomeComponent: ✅ Placed students list updated');
+            console.log('CampusHomeComponent: Current placed students signal:', this.placedStudents());
+          } else {
+            console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
+            console.warn('CampusHomeComponent: Response success:', response?.success);
+            console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
           }
         },
         error: () => {
@@ -356,11 +373,26 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
+    console.log('CampusHomeComponent: ========== PLACED STUDENTS SUBMIT CALLED ==========');
+    console.log('CampusHomeComponent: Form value:', {
+      studentName: value.studentName,
+      course: value.course,
+      batch: value.batch,
+      placementCompany: value.placementCompany,
+      designation: value.designation,
+      sector: value.sector,
+      hasPhoto: !!value.studentPhoto,
+      photoName: value.studentPhoto?.name || 'null'
+    });
+    
     this.submittingPlacedStudents = true;
 
     // Convert File to base64 string
     this.convertFileToBase64(value.studentPhoto)
       .then((photoBase64) => {
+        console.log('CampusHomeComponent: ✅ File conversion completed');
+        console.log('CampusHomeComponent: Photo base64 length:', photoBase64?.length || 0);
+        
         const request = {
           studentName: value.studentName,
           photo: photoBase64 || '',
@@ -371,8 +403,25 @@ export class CampusHomeComponent implements OnInit {
           sector: value.sector,
         };
 
+        console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
+        console.log('CampusHomeComponent: Request payload:', {
+          studentName: request.studentName,
+          courseId: request.courseId,
+          batch: request.batch,
+          placementCompanyId: request.placementCompanyId,
+          designation: request.designation,
+          sector: request.sector,
+          photoLength: request.photo.length
+        });
+        console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed');
+
         this.campusApi.addPlacedStudent(request).subscribe({
           next: (response) => {
+            console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
+            console.log('CampusHomeComponent: Response:', response);
+            console.log('CampusHomeComponent: Response success:', response?.success);
+            console.log('CampusHomeComponent: Response message:', response?.message);
+            
             // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
             setTimeout(() => {
               this.submittingPlacedStudents = false;
@@ -394,7 +443,12 @@ export class CampusHomeComponent implements OnInit {
               }
             }, 0);
           },
-          error: () => {
+          error: (err) => {
+            console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
+            console.error('CampusHomeComponent: Error status:', err?.status);
+            console.error('CampusHomeComponent: Error URL:', err?.url);
+            console.error('CampusHomeComponent: Error response:', err?.error);
+            
             // HTTP interceptor will show error notification to user
             // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
             setTimeout(() => {

@@ -493,6 +493,7 @@ export class CampusApiService {
    * Upload prospectus files for campus and course.
    */
   uploadProspectus(request: UploadProspectusRequest): Observable<UploadProspectusResponse | null> {
+    console.log('🔵🔵🔵 CampusApiService: uploadProspectus METHOD CALLED 🔵🔵🔵');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
     
     const httpOptions = {
@@ -501,9 +502,19 @@ export class CampusApiService {
     
     return this.http.post<unknown>(url, request, httpOptions).pipe(
       map((raw) => {
+        console.log('CampusApiService: ✅✅✅ Upload Prospectus Response received ✅✅✅');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        console.log('CampusApiService: Response is object?', raw && typeof raw === 'object');
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as UploadProspectusResponse;
         }
+        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
@@ -517,13 +528,28 @@ export class CampusApiService {
    * Get prospectuses by campus.
    */
   getProspectusByCampus(campusId: string): Observable<GetProspectusResponse | null> {
+    console.log('CampusApiService: getProspectusByCampus METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId });
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService: Get Prospectus By Campus Response received ');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService:  Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
@@ -537,13 +563,28 @@ export class CampusApiService {
    * Get prospectuses by course.
    */
   getProspectusByCourse(courseId: string): Observable<GetProspectusResponse | null> {
+    console.log(' CampusApiService: getProspectusByCourse METHOD CALLED ');
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { courseId });
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService:  Get Prospectus By Course Response received ');
+        console.log('CampusApiService: Raw response:', raw);
+        console.log('CampusApiService: Response type:', typeof raw);
+        if (raw && typeof raw === 'object') {
+          console.log('CampusApiService: Response keys:', Object.keys(raw));
+          console.log('CampusApiService: Has data property?', 'data' in raw);
+          if ('data' in raw) {
+            const responseData = raw as { data: unknown };
+            console.log('CampusApiService: Data is array?', Array.isArray(responseData.data));
+            console.log('CampusApiService: Data length:', Array.isArray(responseData.data) ? responseData.data.length : 'N/A');
+          }
+        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
+          console.log('CampusApiService:  Response structure is valid');
           return raw as GetProspectusResponse;
         }
+        console.warn('CampusApiService: Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
