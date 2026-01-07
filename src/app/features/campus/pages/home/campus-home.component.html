@@ -167,25 +167,40 @@
       <section class="panel alumni">
         <div class="panel-head">
           <div class="panel-title">Alumni</div>
-          <div class="year-pill">2024 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div>
+          <app-dropdown
+            [items]="alumniYearOptions"
+            [value]="selectedAlumniYear()"
+            [disabled]="loadingAlumni()"
+            (valueChange)="onAlumniYearChange($event)"
+            [autocomplete]="false"
+            placeholder="Select Year"
+          />
         </div>
 
-        <app-carousel
-          type="pagination"
-          [currentPage]="alumniPage"
-          [totalPages]="alumniTotalPages"
-          (pageChange)="alumniPage = $event"
-        >
-          <div class="avatar-row small">
-            @for (p of alumniPageItems(); track p.imageUrl) {
-              <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
-                <div class="avatar-name">{{ p.name }}</div>
-                <div class="avatar-sub">{{ p.subtitle }}</div>
-              </div>
-            }
-          </div>
-        </app-carousel>
+        @if (loadingAlumni()) {
+          <div class="loading-state">Loading alumni...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="alumniPage"
+            [totalPages]="alumniTotalPages()"
+            (pageChange)="onAlumniPageChange($event)"
+          >
+            <div class="avatar-row small">
+              @if (alumniPageItems().length === 0) {
+                <div class="empty-state">No alumni found</div>
+              } @else {
+                @for (p of alumniPageItems(); track p.imageUrl) {
+                  <div class="avatar-card">
+                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <div class="avatar-name">{{ p.name }}</div>
+                    <div class="avatar-sub">{{ p.subtitle }}</div>
+                  </div>
+                }
+              }
+            </div>
+          </app-carousel>
+        }
       </section>
     </aside>
   </div>

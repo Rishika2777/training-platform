@@ -112,28 +112,47 @@ export class CampusPlacedStudentsComponent implements OnInit {
    * 
    */
   loadBatches(): void {
+    console.log('CampusPlacedStudentsComponent: loadBatches called');
     this.loadingBatches.set(true);
     
     this.campusApi.getBatchesForDropdown().subscribe({
       next: (batches) => {
+        console.log('CampusPlacedStudentsComponent: Raw batches response:', batches);
+        console.log('CampusPlacedStudentsComponent: Batches type:', typeof batches);
+        console.log('CampusPlacedStudentsComponent: Is array?', Array.isArray(batches));
+        console.log('CampusPlacedStudentsComponent: Batches length:', Array.isArray(batches) ? batches.length : 'N/A');
+        
         // Convert string array to dropdown items format: { label: string, value: string }
         // API returns: ["2023", "2024", ...]
-        const batchDropdownItems = batches
-          .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
-          .map(batch => ({
-            label: batch.trim(),
-            value: batch.trim(), // Use the same value as label (e.g., "2023", "2024")
-          }));
+        const batchDropdownItems = Array.isArray(batches)
+          ? batches
+              .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+              .map(batch => ({
+                label: batch.trim(),
+                value: batch.trim(), // Use the same value as label (e.g., "2023", "2024")
+              }))
+          : [];
         
-        if (batchDropdownItems.length > 0) {
-          this.batchItems.set(batchDropdownItems);
-        } else {
-          this.batchItems.set([]);
-        }
+        console.log('CampusPlacedStudentsComponent: Processed batch items:', batchDropdownItems);
+        console.log('CampusPlacedStudentsComponent: Batch items count:', batchDropdownItems.length);
+        
+        // Always set the items, even if empty array
+        this.batchItems.set(batchDropdownItems);
         
         this.loadingBatches.set(false);
+        
+        if (batchDropdownItems.length === 0) {
+          console.warn('CampusPlacedStudentsComponent: No batches found after processing. Raw data:', batches);
+        }
       },
-      error: () => {
+      error: (error) => {
+        console.error('CampusPlacedStudentsComponent: Failed to load batches:', error);
+        console.error('CampusPlacedStudentsComponent: Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          error: error?.error
+        });
         this.batchItems.set([]);
         this.loadingBatches.set(false);
         this.notify.error('Failed to load batches. Please refresh the page or contact support.');

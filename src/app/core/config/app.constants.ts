@@ -163,6 +163,8 @@
       GET_DESIGNATIONS: '/dashboard/meta/designations',
       GET_COURSES: '/dashboard/meta/courses',
       GET_BATCHES: '/dashboard/meta/batches',
+      GET_ALUMNI: '/dashboard/alumni',
+      GET_ALUMNI_CAROUSEL: '/dashboard/alumni/carousel',
       ADD_FACULTY: '/faculty',
       GET_ALL_FACULTY: '/faculty',
       GET_FACULTY_BY_ID: '/faculty/:facultyId',

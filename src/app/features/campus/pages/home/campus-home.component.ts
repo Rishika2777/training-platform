@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { CampusProspectusComponent, ProspectusUploadFormValue } from '../upload-prospectus/campus-prospectus.component';
 import {
   CampusCompaniesVisitedComponent,
@@ -14,11 +15,12 @@ import { CampusCourseFormComponent, CourseFormValue } from '../course-form/cours
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData } from '../../services/campus-api.service';
+import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { catchError, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-campus-home',
@@ -27,6 +29,7 @@ import { catchError, of } from 'rxjs';
     CommonModule,
     CarouselComponent,
     ModalComponent,
+    DropdownComponent,
     CampusProspectusComponent,
     CampusCompaniesVisitedComponent,
     CampusPlacedStudentsComponent,
@@ -77,11 +80,21 @@ export class CampusHomeComponent implements OnInit {
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   loadingPlacedStudents = signal(false);
 
-  readonly alumni: readonly PersonCard[] = [
-    { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/login-news-image.png' },
-    { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { name: 'Name', subtitle: 'Designation Company', imageUrl: 'assets/images/landing-card-institution.png' },
+  // Alumni - API Integration
+  readonly alumni = signal<readonly PersonCard[]>([]);
+  readonly loadingAlumni = signal(false);
+  selectedAlumniYear = signal<string | null>(null);
+  alumniPage = 1;
+  readonly alumniPageSize = 6;
+  readonly alumniTotalPages = signal(1);
+  readonly useCarouselAPI = signal(false); // Flag to switch between APIs
+  
+  // Year filter options for alumni
+  readonly alumniYearOptions: readonly { label: string; value: string }[] = [
+    { label: '2022', value: '2022' },
+    { label: '2023', value: '2023' },
+    { label: '2024', value: '2024' },
+    { label: '2025', value: '2025' },
   ];
 
   readonly posts: readonly FeedPost[] = [
@@ -106,13 +119,8 @@ export class CampusHomeComponent implements OnInit {
   // Carousel / pagination state (shared component usage)
   readonly peoplePageSize = 6;
   placedStudentsPage = 1;
-  alumniPage = 1;
 
   placedStudentsTotalPages = signal(1);
-
-  get alumniTotalPages(): number {
-    return totalPages(this.alumni.length, this.peoplePageSize);
-  }
 
   currentBatchPageItems(): readonly PersonCard[] {
     return this.currentBatch();
@@ -125,6 +133,10 @@ export class CampusHomeComponent implements OnInit {
   ngOnInit(): void {
     this.loadPlacedStudents();
     this.loadBatches();
+    // Load alumni with default year (2024) using regular API
+    this.selectedAlumniYear.set('2024');
+    this.useCarouselAPI.set(false);
+    this.loadAlumni('2024');
   }
 
   loadPlacedStudents(): void {
@@ -180,32 +192,62 @@ export class CampusHomeComponent implements OnInit {
   loadBatches(): void {
     this.loadingBatches.set(true);
     
-    this.campusApi.getAllBatches().pipe(
-      catchError(() => {
-        this.loadingBatches.set(false);
-        return of(null);
+    // Use the same endpoint as placed students form for consistency
+    this.campusApi.getBatchesForDropdown().pipe(
+      map((batches: string[]) => {
+        // Filter and validate batch strings
+        return batches
+          .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+          .map(batch => batch.trim());
+      }),
+      catchError((error) => {
+        console.error('CampusHomeComponent: Error loading batches from getBatchesForDropdown, trying fallback:', error);
+        // Fallback to getAllBatches if getBatchesForDropdown fails
+        return this.campusApi.getAllBatches().pipe(
+          map((response: BatchesResponse | null) => {
+            if (response?.success && Array.isArray(response.data)) {
+              return response.data
+                .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+                .map(batch => batch.trim());
+            }
+            return [];
+          }),
+          catchError((fallbackError) => {
+            console.error('CampusHomeComponent: Fallback also failed:', fallbackError);
+            return of([]);
+          })
+        );
       })
     ).subscribe({
-      next: (response: BatchesResponse | null) => {
+      next: (batches: string[]) => {
         this.loadingBatches.set(false);
         
-        if (response?.success && Array.isArray(response.data)) {
-          this.batches.set(response.data);
+        if (batches.length > 0) {
+          this.batches.set(batches);
           
           // Auto-select first batch if available and no batch is selected
-          if (response.data.length > 0 && !this.selectedBatch()) {
-            const firstBatch = response.data[0];
+          if (!this.selectedBatch()) {
+            const firstBatch = batches[0];
             this.selectedBatch.set(firstBatch);
             this.loadStudentsByBatch(firstBatch);
-          } else if (this.selectedBatch()) {
-            // Reload students for currently selected batch
+          } else if (this.selectedBatch() && batches.includes(this.selectedBatch()!)) {
+            // Reload students for currently selected batch if it still exists
             this.loadStudentsByBatch(this.selectedBatch()!);
+          } else if (this.selectedBatch() && !batches.includes(this.selectedBatch()!)) {
+            // If selected batch no longer exists, select first available
+            const firstBatch = batches[0];
+            this.selectedBatch.set(firstBatch);
+            this.loadStudentsByBatch(firstBatch);
           }
         } else {
           this.batches.set([]);
+          this.selectedBatch.set(null);
         }
+        
+        console.log('CampusHomeComponent: Batches loaded:', batches.length, 'items');
       },
-      error: () => {
+      error: (error) => {
+        console.error('CampusHomeComponent: Error in batches subscription:', error);
         this.loadingBatches.set(false);
         this.batches.set([]);
       }
@@ -303,7 +345,118 @@ export class CampusHomeComponent implements OnInit {
   }
 
   alumniPageItems(): readonly PersonCard[] {
-    return slicePage(this.alumni, this.alumniPage, this.peoplePageSize);
+    return this.alumni();
+  }
+
+  // Alumni - API Integration (Both APIs: regular with year filter and carousel)
+  loadAlumni(year?: string, useCarousel = false): void {
+    this.loadingAlumni.set(true);
+    
+    // Determine which API to use
+    if (useCarousel) {
+      // Use carousel API (GET /dashboard/alumni/carousel?limit=10)
+      console.log('CampusHomeComponent: loadAlumni (CAROUSEL API) called with limit: 10');
+      this.campusApi.getAlumniForCarousel(10).pipe(
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading alumni from carousel API:', error);
+          this.loadingAlumni.set(false);
+          return of(null);
+        })
+      ).subscribe({
+        next: (response: AlumniDashboardResponse | null) => {
+          this.loadingAlumni.set(false);
+          
+          if (response?.success && Array.isArray(response.data)) {
+            const items = response.data.map((item) => this.mapAlumniToPersonCard(item));
+            this.alumni.set(items);
+            // Carousel API doesn't have pagination, so set to 1 page
+            this.alumniTotalPages.set(1);
+            
+            console.log('CampusHomeComponent: Alumni loaded from CAROUSEL API:', items.length, 'items');
+          } else {
+            this.alumni.set([]);
+            this.alumniTotalPages.set(1);
+            console.warn('CampusHomeComponent: Alumni carousel response not successful or no data');
+          }
+        },
+        error: (error) => {
+          console.error('CampusHomeComponent: Error in alumni carousel subscription:', error);
+          this.loadingAlumni.set(false);
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+        }
+      });
+    } else {
+      // Use regular alumni API with year filter (GET /dashboard/alumni?year=2024)
+      const selectedYear = year || this.selectedAlumniYear() || '2024';
+      console.log('CampusHomeComponent: loadAlumni (REGULAR API) called with year:', selectedYear);
+      
+      this.campusApi.getAlumniForDashboard(selectedYear, this.alumniPage, this.alumniPageSize).pipe(
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading alumni from regular API:', error);
+          this.loadingAlumni.set(false);
+          return of(null);
+        })
+      ).subscribe({
+        next: (response: AlumniDashboardResponse | null) => {
+          this.loadingAlumni.set(false);
+          
+          if (response?.success && Array.isArray(response.data)) {
+            const items = response.data.map((item) => this.mapAlumniToPersonCard(item));
+            this.alumni.set(items);
+            // Calculate total pages based on data length
+            this.alumniTotalPages.set(Math.max(1, Math.ceil(items.length / this.alumniPageSize)));
+            
+            console.log('CampusHomeComponent: Alumni loaded from REGULAR API:', items.length, 'items for year', selectedYear);
+          } else {
+            this.alumni.set([]);
+            this.alumniTotalPages.set(1);
+            console.warn('CampusHomeComponent: Alumni regular API response not successful or no data');
+          }
+        },
+        error: (error) => {
+          console.error('CampusHomeComponent: Error in alumni regular API subscription:', error);
+          this.loadingAlumni.set(false);
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+        }
+      });
+    }
+  }
+
+  onAlumniYearChange(year: string): void {
+    this.selectedAlumniYear.set(year);
+    this.alumniPage = 1; // Reset to first page when year changes
+    this.useCarouselAPI.set(false); // Use regular API when year is selected
+    this.loadAlumni(year, false);
+  }
+
+  onAlumniPageChange(page: number): void {
+    if (page !== this.alumniPage && page >= 1 && !this.useCarouselAPI()) {
+      this.alumniPage = page;
+      const selectedYear = this.selectedAlumniYear();
+      if (selectedYear) {
+        this.loadAlumni(selectedYear, false);
+      }
+    }
+  }
+
+  private mapAlumniToPersonCard(item: AlumniDashboardData): PersonCard {
+    const name = item.studentName || 
+                 [item.firstName, item.lastName].filter(Boolean).join(' ') || 
+                 'Unknown';
+    const subtitle = [item.designation, item.companyName].filter(Boolean).join(' at ') || 
+                    item.yearOfPassing || 
+                    '';
+    const imageUrl = item.profilePhotoUrl || 
+                    item.imageUrl || 
+                    'assets/images/login-news-image.png';
+    
+    return {
+      name,
+      subtitle,
+      imageUrl,
+    };
   }
 
   closeModal(): void {

@@ -467,22 +467,105 @@ export class CampusApiService {
    */
   getBatchesForDropdown(): Observable<string[]> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_BATCHES);
+    console.log('CampusApiService: getBatchesForDropdown - URL:', url);
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService: getBatchesForDropdown - Raw response:', raw);
+        console.log('CampusApiService: getBatchesForDropdown - Response type:', typeof raw);
+        
         // Response format: { success: true, message: null, data: string[], error: null }
         if (raw && typeof raw === 'object') {
           const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          console.log('CampusApiService: getBatchesForDropdown - Response structure:', {
+            success: response.success,
+            hasData: !!response.data,
+            dataType: typeof response.data,
+            isDataArray: Array.isArray(response.data),
+            dataLength: Array.isArray(response.data) ? response.data.length : 'N/A'
+          });
           
           if (response.success && Array.isArray(response.data)) {
             const batches = response.data as string[];
+            console.log('CampusApiService: getBatchesForDropdown - Extracted batches:', batches);
             return batches;
+          } else if (Array.isArray(raw)) {
+            // Handle case where API directly returns array
+            console.log('CampusApiService: getBatchesForDropdown - Response is direct array');
+            return raw as string[];
+          } else if (response.data && !Array.isArray(response.data)) {
+            console.warn('CampusApiService: getBatchesForDropdown - Data is not an array:', response.data);
           }
         }
         
+        console.warn('CampusApiService: getBatchesForDropdown - No valid batches found, returning empty array');
         return [];
       }),
       catchError((error) => {
+        console.error('CampusApiService: getBatchesForDropdown - Error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/alumni/carousel
+   * Get alumni for carousel display. Limited to specified number.
+   * Response format: { success: true, message: null, data: AlumniData[], error: null }
+   */
+  getAlumniForCarousel(limit = 10): Observable<AlumniDashboardResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALUMNI_CAROUSEL);
+    const params = new HttpParams().set('limit', limit.toString());
+    
+    console.log('CampusApiService: getAlumniForCarousel - URL:', url, 'Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getAlumniForCarousel - Raw response:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as AlumniDashboardResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getAlumniForCarousel - Error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/alumni
+   * Get alumni filtered by graduation year.
+   * Response format: { success: true, message: null, data: AlumniData[], error: null }
+   * If year is not provided, returns all alumni for the campus.
+   */
+  getAlumniForDashboard(
+    year?: string,
+    page = 1,
+    limit = 6,
+  ): Observable<AlumniDashboardResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALUMNI);
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    if (year && year.trim() !== '') {
+      params = params.set('year', year.trim());
+    }
+    
+    console.log('CampusApiService: getAlumniForDashboard - URL:', url, 'Params:', params.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getAlumniForDashboard - Raw response:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as AlumniDashboardResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getAlumniForDashboard - Error:', error);
         return throwError(() => error);
       })
     );
@@ -1527,6 +1610,27 @@ export interface StudentsByBatchResponse {
     };
     numberOfElements?: number;
   };
+  error: string | null;
+}
+
+export interface AlumniDashboardData {
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  designation?: string;
+  companyName?: string;
+  yearOfPassing?: string;
+  batch?: string;
+}
+
+export interface AlumniDashboardResponse {
+  success: boolean;
+  message: string | null;
+  data: AlumniDashboardData[];
   error: string | null;
 }
 
