@@ -1,12 +1,31 @@
 <div class="campus-home">
   <div class="announcement">
-    <div class="announcement-date">{{ announcementDate }}</div>
-    <div class="announcement-title">Synkup Announcement</div>
-    <div class="announcement-dots" aria-hidden="true">
-      <span class="dot active"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-    </div>
+    @if (loadingAnnouncements()) {
+      <div class="announcement-date">Loading...</div>
+      <div class="announcement-title">Loading announcements...</div>
+      <div class="announcement-dots" aria-hidden="true">
+        <span class="dot active"></span>
+      </div>
+    } @else if (announcements().length === 0) {
+      <div class="announcement-date">{{ getDefaultDate() }}</div>
+      <div class="announcement-title">Synkup Announcement</div>
+      <div class="announcement-dots" aria-hidden="true">
+        <span class="dot active"></span>
+      </div>
+    } @else {
+      <div class="announcement-date">{{ announcementDate }}</div>
+      <div class="announcement-title">{{ currentAnnouncement?.title || 'Synkup Announcement' }}</div>
+      <div class="announcement-dots" aria-hidden="true">
+        @for (announcement of announcements(); track announcement.id || $index) {
+          <span 
+            class="dot" 
+            [class.active]="$index === currentAnnouncementIndex"
+            (click)="onAnnouncementDotClick($index)"
+            [attr.aria-label]="'Go to announcement ' + ($index + 1)"
+          ></span>
+        }
+      </div>
+    }
   </div>
 
   <div class="grid">

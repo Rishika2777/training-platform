@@ -572,6 +572,53 @@ export class CampusApiService {
   }
 
   /**
+   * GET /dashboard/announcements
+   * Retrieves all announcements for the campus dashboard.
+   * Response format: { success: true, message: null, data: AnnouncementItem[], error: null }
+   */
+  getAnnouncements(): Observable<AnnouncementsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ANNOUNCEMENTS);
+    console.log('CampusApiService: getAnnouncements - URL:', url);
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getAnnouncements - Raw response:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as AnnouncementsResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getAnnouncements - Error:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  /**
+   * GET /dashboard/announcements/synkup
+   * Retrieves system-wide announcements from Synkup. Public endpoint.
+   * Response format: { success: true, message: null, data: AnnouncementItem[], error: null }
+   */
+  getSynkupAnnouncements(limit = 10): Observable<AnnouncementsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_SYNKUP_ANNOUNCEMENTS);
+    const params = new HttpParams().set('limit', limit.toString());
+    console.log('CampusApiService: getSynkupAnnouncements - URL:', url, 'Params:', params.toString());
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getSynkupAnnouncements - Raw response:', raw);
+        if (raw && typeof raw === 'object') {
+          return raw as AnnouncementsResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getSynkupAnnouncements - Error:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  /**
    * POST /prospectus/upload
    * Upload prospectus files for campus and course.
    */
@@ -1631,6 +1678,24 @@ export interface AlumniDashboardResponse {
   success: boolean;
   message: string | null;
   data: AlumniDashboardData[];
+  error: string | null;
+}
+
+export interface AnnouncementItem {
+  id?: string;
+  campusId?: string;
+  title?: string;
+  content?: string;
+  type?: string;
+  eventDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AnnouncementsResponse {
+  success: boolean;
+  message: string | null;
+  data: AnnouncementItem[];
   error: string | null;
 }
 

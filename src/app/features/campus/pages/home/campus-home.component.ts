@@ -15,7 +15,7 @@ import { CampusCourseFormComponent, CourseFormValue } from '../course-form/cours
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData } from '../../services/campus-api.service';
+import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData, AnnouncementItem, AnnouncementsResponse } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -65,7 +65,11 @@ export class CampusHomeComponent implements OnInit {
   submittingPlacedStudents = false;
   submittingFaculty = false;
   submittingCourseForm = false;
-  readonly announcementDate = 'January 7th, 2025';
+
+  // Announcements - API Integration (for top banner)
+  readonly announcements = signal<readonly AnnouncementItem[]>([]);
+  readonly loadingAnnouncements = signal(false);
+  currentAnnouncementIndex = 0;
 
   // Current Batch - API Integration
   readonly currentBatch = signal<readonly PersonCard[]>([]);
@@ -133,10 +137,85 @@ export class CampusHomeComponent implements OnInit {
   ngOnInit(): void {
     this.loadPlacedStudents();
     this.loadBatches();
+    // Load dashboard announcements
+    this.loadAnnouncements();
     // Load alumni with default year (2024) using regular API
     this.selectedAlumniYear.set('2024');
     this.useCarouselAPI.set(false);
     this.loadAlumni('2024');
+  }
+
+  // Announcements - API Integration (for top banner)
+  // Uses Synkup announcements (system-wide) with fallback to campus announcements
+  loadAnnouncements(): void {
+    this.loadingAnnouncements.set(true);
+    
+    // First try Synkup announcements (system-wide)
+    this.campusApi.getSynkupAnnouncements(10).pipe(
+      catchError((error) => {
+        console.warn('CampusHomeComponent: Synkup announcements failed, trying campus announcements:', error);
+        // Fallback to campus-specific announcements
+        return this.campusApi.getAnnouncements().pipe(
+          catchError((fallbackError) => {
+            console.error('CampusHomeComponent: Both announcement endpoints failed:', fallbackError);
+            this.loadingAnnouncements.set(false);
+            return of(null);
+          })
+        );
+      })
+    ).subscribe({
+      next: (response: AnnouncementsResponse | null) => {
+        this.loadingAnnouncements.set(false);
+        if (response?.success && Array.isArray(response.data)) {
+          this.announcements.set(response.data);
+          this.currentAnnouncementIndex = 0; // Reset to first announcement
+          console.log('CampusHomeComponent: Announcements loaded:', response.data.length, 'items');
+        } else {
+          this.announcements.set([]);
+          console.warn('CampusHomeComponent: Announcements response not successful or no data');
+        }
+      },
+      error: (error) => {
+        console.error('CampusHomeComponent: Error in announcements subscription:', error);
+        this.loadingAnnouncements.set(false);
+        this.announcements.set([]);
+      }
+    });
+  }
+
+  get currentAnnouncement(): AnnouncementItem | null {
+    const items = this.announcements();
+    if (items.length === 0) return null;
+    return items[this.currentAnnouncementIndex] || items[0] || null;
+  }
+
+  get announcementDate(): string {
+    const announcement = this.currentAnnouncement;
+    if (!announcement) return '';
+    
+    // Format date from eventDate or createdAt
+    const dateStr = announcement.eventDate || announcement.createdAt;
+    if (!dateStr) return '';
+    
+    try {
+      const date = new Date(dateStr);
+      const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    } catch {
+      return '';
+    }
+  }
+
+  onAnnouncementDotClick(index: number): void {
+    if (index >= 0 && index < this.announcements().length) {
+      this.currentAnnouncementIndex = index;
+    }
+  }
+
+  getDefaultDate(): string {
+    const date = new Date();
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
   }
 
   loadPlacedStudents(): void {
