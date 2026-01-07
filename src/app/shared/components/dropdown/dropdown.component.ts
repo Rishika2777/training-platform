@@ -87,8 +87,10 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
 
   ngOnInit(): void {
     // Initialize with static items if no API function
-    if (!this.apiFetchFn && this.items.length > 0) {
-      this.filteredItems = [...this.items];
+    if (!this.apiFetchFn) {
+      this.filteredItems = this.items.length > 0 ? [...this.items] : [];
+    } else {
+      this.filteredItems = [];
     }
     
     // Set autocomplete if API function is provided
@@ -113,8 +115,26 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     
     // Handle items changes
     if (changes['items'] && !this.apiFetchFn) {
-      this.filteredItems = [...this.items];
+      // Always update filtered items when items change, regardless of dropdown state
+      if (this.items.length > 0) {
+        // If we have a search term, filter the items; otherwise show all
+        if (this.autocomplete && this.searchTerm && this.searchTerm.trim() !== '') {
+          this.filteredItems = this.filterStaticItems(this.searchTerm);
+        } else {
+          this.filteredItems = [...this.items];
+        }
+      } else {
+        this.filteredItems = [];
+      }
+      
       this.updateSelectedItem();
+      
+      console.log('DropdownComponent: Items changed, filteredItems updated:', {
+        itemsCount: this.items.length,
+        filteredCount: this.filteredItems.length,
+        isDropdownOpen: this.isDropdownOpen,
+        searchTerm: this.searchTerm
+      });
     }
   }
 
@@ -179,8 +199,14 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     if (this.autocomplete) {
       this.isDropdownOpen = true;
       // If no search term and we have static items, show all
-      if (!this.searchTerm && !this.apiFetchFn && this.items.length > 0) {
-        this.filteredItems = [...this.items];
+      if (!this.searchTerm && !this.apiFetchFn) {
+        // Always refresh filtered items on focus when items are available
+        if (this.items.length > 0) {
+          this.filteredItems = [...this.items];
+        } else {
+          // If items are empty, clear filtered items to avoid showing stale data
+          this.filteredItems = [];
+        }
       } else if (this.apiFetchFn && !this.searchTerm && this.minSearchLength === 0) {
         // Trigger initial API call if minSearchLength is 0
         this.searchSubject.next('');

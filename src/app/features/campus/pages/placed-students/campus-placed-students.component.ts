@@ -42,23 +42,20 @@ export class CampusPlacedStudentsComponent implements OnInit {
   @Output() valueChange = new EventEmitter<PlacedStudentsFormValue>();
   @Output() submitted = new EventEmitter<PlacedStudentsFormValue>();
 
-  readonly courseItems = [
-    { label: 'BCA', value: 'bca' },
-    { label: 'MCA', value: 'mca' },
-    { label: 'B.Tech', value: 'btech' },
-  ] as const;
+  // Course items - loaded from API (GET /dashboard/meta/courses)
+  // API returns: { success: true, data: string[], error: null }
+  readonly courseItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingCourses = signal(false);
 
-  readonly batchItems = [
-    { label: '2024', value: '2024' },
-    { label: '2023', value: '2023' },
-    { label: '2022', value: '2022' },
-  ] as const;
+  // Batch items - loaded from API (GET /dashboard/meta/batches)
+  // API returns: { success: true, data: string[], error: null }
+  readonly batchItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingBatches = signal(false);
 
-  readonly designationItems = [
-    { label: 'Software Engineer', value: 'software-engineer' },
-    { label: 'Senior Developer', value: 'senior-developer' },
-    { label: 'Tech Lead', value: 'tech-lead' },
-  ] as const;
+  // Designation items - loaded from API (GET /dashboard/meta/designations)
+  // API returns: { success: true, data: ["Software Engineer", "Software Developer", ...], error: null }
+  readonly designationItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingDesignations = signal(false);
 
   // Sector items - loaded from API (GET /dashboard/meta/sectors)
   // API returns: { success: true, data: ["Consulting", "Finance", "IT Services", "Product Companies"], error: null }
@@ -66,8 +63,138 @@ export class CampusPlacedStudentsComponent implements OnInit {
   loadingSectors = signal(false);
 
   ngOnInit(): void {
-    console.log('CampusPlacedStudentsComponent: Component initialized, fetching sectors from API...');
+    this.loadCourses();
+    this.loadBatches();
+    this.loadDesignations();
     this.loadSectors();
+  }
+
+  /**
+   * Load courses from API
+   * GET /dashboard/meta/courses
+   * Response: { success: true, data: string[], error: null }
+   * 
+   * IMPORTANT: Courses are ONLY loaded from backend API, no static/hardcoded values
+   */
+  loadCourses(): void {
+    this.loadingCourses.set(true);
+    
+    this.campusApi.getCoursesForDropdown().subscribe({
+      next: (courses) => {
+        // Convert string array to dropdown items format: { label: string, value: string }
+        // API returns: ["BCA", "MCA", "B.Tech", ...]
+        const courseDropdownItems = courses
+          .filter(course => course && typeof course === 'string' && course.trim() !== '' && course !== 'string')
+          .map(course => ({
+            label: course.trim(),
+            value: course.trim(), // Use the same value as label (e.g., "BCA", "MCA", "B.Tech")
+          }));
+        
+        if (courseDropdownItems.length > 0) {
+          this.courseItems.set(courseDropdownItems);
+        } else {
+          this.courseItems.set([]);
+        }
+        
+        this.loadingCourses.set(false);
+      },
+      error: () => {
+        this.courseItems.set([]);
+        this.loadingCourses.set(false);
+        this.notify.error('Failed to load courses. Please refresh the page or contact support.');
+      },
+    });
+  }
+
+  /**
+   * Load batches from API
+   * GET /dashboard/meta/batches
+   * 
+   */
+  loadBatches(): void {
+    console.log('CampusPlacedStudentsComponent: loadBatches called');
+    this.loadingBatches.set(true);
+    
+    this.campusApi.getBatchesForDropdown().subscribe({
+      next: (batches) => {
+        console.log('CampusPlacedStudentsComponent: Raw batches response:', batches);
+        console.log('CampusPlacedStudentsComponent: Batches type:', typeof batches);
+        console.log('CampusPlacedStudentsComponent: Is array?', Array.isArray(batches));
+        console.log('CampusPlacedStudentsComponent: Batches length:', Array.isArray(batches) ? batches.length : 'N/A');
+        
+        // Convert string array to dropdown items format: { label: string, value: string }
+        // API returns: ["2023", "2024", ...]
+        const batchDropdownItems = Array.isArray(batches)
+          ? batches
+              .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+              .map(batch => ({
+                label: batch.trim(),
+                value: batch.trim(), // Use the same value as label (e.g., "2023", "2024")
+              }))
+          : [];
+        
+        console.log('CampusPlacedStudentsComponent: Processed batch items:', batchDropdownItems);
+        console.log('CampusPlacedStudentsComponent: Batch items count:', batchDropdownItems.length);
+        
+        // Always set the items, even if empty array
+        this.batchItems.set(batchDropdownItems);
+        
+        this.loadingBatches.set(false);
+        
+        if (batchDropdownItems.length === 0) {
+          console.warn('CampusPlacedStudentsComponent: No batches found after processing. Raw data:', batches);
+        }
+      },
+      error: (error) => {
+        console.error('CampusPlacedStudentsComponent: Failed to load batches:', error);
+        console.error('CampusPlacedStudentsComponent: Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          error: error?.error
+        });
+        this.batchItems.set([]);
+        this.loadingBatches.set(false);
+        this.notify.error('Failed to load batches. Please refresh the page or contact support.');
+      },
+    });
+  }
+
+  /**
+   * Load designations from API
+   * GET /dashboard/meta/designations
+   * Response: { success: true, data: ["Software Engineer", "Software Developer", ...], error: null }
+   * 
+   * IMPORTANT: Designations are ONLY loaded from backend API, no static/hardcoded values
+   */
+  loadDesignations(): void {
+    this.loadingDesignations.set(true);
+    
+    this.campusApi.getDesignations().subscribe({
+      next: (designations) => {
+        // Convert string array to dropdown items format: { label: string, value: string }
+        // API returns: ["Software Engineer", "Software Developer", "Full Stack Developer", ...]
+        const designationDropdownItems = designations
+          .filter(designation => designation && typeof designation === 'string' && designation.trim() !== '' && designation !== 'string')
+          .map(designation => ({
+            label: designation.trim(),
+            value: designation.trim(), // Use the same value as label (e.g., "Software Engineer", "Software Developer")
+          }));
+        
+        if (designationDropdownItems.length > 0) {
+          this.designationItems.set(designationDropdownItems);
+        } else {
+          this.designationItems.set([]);
+        }
+        
+        this.loadingDesignations.set(false);
+      },
+      error: () => {
+        this.designationItems.set([]);
+        this.loadingDesignations.set(false);
+        this.notify.error('Failed to load designations. Please refresh the page or contact support.');
+      },
+    });
   }
 
   /**
@@ -78,19 +205,10 @@ export class CampusPlacedStudentsComponent implements OnInit {
    * IMPORTANT: Sectors are ONLY loaded from backend API, no static/hardcoded values
    */
   loadSectors(): void {
-    console.log('CampusPlacedStudentsComponent: ========== LOADING SECTORS FROM API ==========');
-    console.log('CampusPlacedStudentsComponent: API Endpoint: GET /dashboard/meta/sectors');
-    console.log('CampusPlacedStudentsComponent: This will fetch sectors from backend');
-    
     this.loadingSectors.set(true);
     
     this.campusApi.getSectors().subscribe({
       next: (sectors) => {
-        console.log('CampusPlacedStudentsComponent: ✅✅✅ SECTORS API SUCCESS ✅✅✅');
-        console.log('CampusPlacedStudentsComponent: Raw sectors array from API:', sectors);
-        console.log('CampusPlacedStudentsComponent: Sectors count:', sectors.length);
-        console.log('CampusPlacedStudentsComponent: Sectors received:', JSON.stringify(sectors, null, 2));
-        
         // Convert string array to dropdown items format: { label: string, value: string }
         // API returns: ["Consulting", "Finance", "IT Services", "Product Companies"]
         const sectorDropdownItems = sectors
@@ -100,34 +218,17 @@ export class CampusPlacedStudentsComponent implements OnInit {
             value: sector.trim(), // Use the same value as label (e.g., "Finance", "IT Services", "Consulting")
           }));
         
-        console.log('CampusPlacedStudentsComponent: Converted to dropdown items format:');
-        console.log('CampusPlacedStudentsComponent: Dropdown items:', JSON.stringify(sectorDropdownItems, null, 2));
-        
         if (sectorDropdownItems.length > 0) {
           this.sectorItems.set(sectorDropdownItems);
-          console.log('CampusPlacedStudentsComponent: ✅ Sectors loaded successfully from API:', sectorDropdownItems.length, 'items');
-          console.log('CampusPlacedStudentsComponent: Sector dropdown will now show:', sectorDropdownItems.map(s => s.label).join(', '));
         } else {
-          console.warn('CampusPlacedStudentsComponent: ⚠️ No valid sectors found in API response');
-          console.warn('CampusPlacedStudentsComponent: Sector dropdown will be empty');
           this.sectorItems.set([]);
         }
         
         this.loadingSectors.set(false);
       },
-      error: (err) => {
-        console.error('CampusPlacedStudentsComponent: ❌❌❌ ERROR LOADING SECTORS FROM API ❌❌❌');
-        console.error('CampusPlacedStudentsComponent: Error status:', err?.status);
-        console.error('CampusPlacedStudentsComponent: Error URL:', err?.url);
-        console.error('CampusPlacedStudentsComponent: Error message:', err?.message);
-        console.error('CampusPlacedStudentsComponent: Error response:', err?.error);
-        console.error('CampusPlacedStudentsComponent: ⚠️ Sector dropdown will be empty - API call failed');
-        
-        // Set empty array - no fallback values
+      error: () => {
         this.sectorItems.set([]);
         this.loadingSectors.set(false);
-        
-        // Show error notification to user
         this.notify.error('Failed to load sectors. Please refresh the page or contact support.');
       },
     });
@@ -155,24 +256,16 @@ export class CampusPlacedStudentsComponent implements OnInit {
   onButtonClickDirect(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    console.log('=== BUTTON CLICKED DIRECTLY ===');
-    console.log('Submitting flag:', this.submitting);
-    console.log('Current form value:', this.value);
     this.submit();
   }
 
   onFormSubmit(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    console.log('Form ngSubmit triggered - onFormSubmit called');
-    console.log('Submitting flag:', this.submitting);
-    console.log('Current form value:', this.value);
     this.submit();
   }
 
   submit(): void {
-    console.log('=== CampusPlacedStudentsComponent.submit() called ===');
-    console.log('Emitting submitted event with value:', this.value);
     this.submitted.emit(this.value);
   }
 

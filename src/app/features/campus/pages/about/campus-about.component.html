@@ -6,7 +6,7 @@
       <div class="hero-content">
         <h1 class="hero-title">Shaping the Future Through Education and Innovation</h1>
         <div class="hero-buttons">
-          <app-button label="Admissions" variant="primary" />
+          <app-button label="Visit Campus" variant="primary" (buttonClick)="openVisitCampusModal()" />
           <app-button label="Faculties" variant="primary" />
         </div>
         <div class="hero-metrics">25 Promotions, 100 Followers—The Journey Thrives!</div>
@@ -20,15 +20,26 @@
     <div class="insights-content">
       <div class="insights-image">
         <img src="assets/images/landing-card-campus.png" alt="Campus" />
-        <app-button label="Download Prospectus" variant="primary" />
+        <app-button 
+          [label]="downloadingProspectus() ? 'Downloading...' : 'Download Prospectus'" 
+          variant="primary" 
+          [disabled]="downloadingProspectus()"
+          (buttonClick)="downloadProspectusHandler()" 
+        />
       </div>
       <div class="insights-text">
-        <p>
-          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
-          standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
-          make a type specimen book. It has survived not only five centuries, but also the leap into electronic
-          typesetting, remaining essentially unchanged.
-        </p>
+        @if (loadingAboutCampus()) {
+          <p>Loading...</p>
+        } @else if (aboutCampusText()) {
+          <p>{{ aboutCampusText() }}</p>
+        } @else {
+          <p>
+            Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+            standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+            make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+            typesetting, remaining essentially unchanged.
+          </p>
+        }
       </div>
     </div>
   </section>
@@ -36,54 +47,102 @@
   <!-- Our Rising Stars Section -->
   <section class="section rising-stars">
     <h2 class="section-title">Our Rising Stars</h2>
-    <app-carousel type="pagination" [currentPage]="risingStarsPage" [totalPages]="risingStarsTotalPages" (pageChange)="risingStarsPage = $event">
-      <div class="avatar-row">
-        @for (star of risingStarsPageItems(); track star.id) {
-          <div class="avatar-card">
-            <img class="avatar" [src]="star.imageUrl" [alt]="star.name" />
-            <div class="avatar-name">{{ star.name }} ({{ star.id }})</div>
-          </div>
-        }
-      </div>
-    </app-carousel>
+    @if (loadingRisingStars()) {
+      <div class="loading-indicator">Loading...</div>
+    } @else {
+      <app-carousel 
+        type="pagination" 
+        [currentPage]="risingStarsPage" 
+        [totalPages]="risingStarsTotalPages()" 
+        (pageChange)="onRisingStarsPageChange($event)"
+      >
+        <div class="avatar-row">
+          @for (star of risingStarsPageItems(); track star.id) {
+            <div class="avatar-card">
+              <img class="avatar" [src]="star.imageUrl" [alt]="star.name" />
+              <div class="avatar-name">{{ star.name }}</div>
+            </div>
+          } @empty {
+            <div class="empty-state">No rising stars found</div>
+          }
+        </div>
+      </app-carousel>
+    }
   </section>
 
   <!-- Research Section -->
   <section class="section research">
     <h2 class="section-title">Research</h2>
     <div class="research-content">
-      <p>
-        Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
-        standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
-        make a type specimen book. It has survived not only five centuries, but also the leap into electronic
-        typesetting, remaining essentially unchanged.
-      </p>
+      @if (loadingResearch()) {
+        <p>Loading research information...</p>
+      } @else if (researchData()) {
+        @if (researchData()?.researchInfo) {
+          <p>{{ researchData()?.researchInfo }}</p>
+        }
+        @if (researchData()?.description) {
+          <p>{{ researchData()?.description }}</p>
+        }
+        @if (!researchData()?.researchInfo && !researchData()?.description) {
+          <p>
+            Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+            standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+            make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+            typesetting, remaining essentially unchanged.
+          </p>
+        }
+      } @else {
+        <p>
+          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+          standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
+          make a type specimen book. It has survived not only five centuries, but also the leap into electronic
+          typesetting, remaining essentially unchanged.
+        </p>
+      }
     </div>
   </section>
 
   <!-- Success Stories Section -->
   <section class="section success-stories">
     <h2 class="section-title">Success Stories</h2>
-    <div class="carousel-wrapper">
-      <button class="carousel-arrow left" (click)="previousSuccessStory()" [disabled]="successStoryPage === 1">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <app-carousel type="none" [currentPage]="successStoryPage" [totalPages]="successStoriesTotalPages">
-        <div class="avatar-row">
-          @for (story of successStoriesPageItems(); track story.id) {
-            <div class="avatar-card">
-              <img class="avatar" [src]="story.imageUrl" [alt]="story.name" />
-              <div class="avatar-name">{{ story.name }}</div>
-              <div class="avatar-sub">{{ story.batch }}</div>
-              <div class="avatar-sub">{{ story.company }}</div>
-            </div>
-          }
-        </div>
-      </app-carousel>
-      <button class="carousel-arrow right" (click)="nextSuccessStory()" [disabled]="successStoryPage === successStoriesTotalPages">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
+    @if (loadingSuccessStories()) {
+      <div class="loading-indicator">Loading...</div>
+    } @else {
+      <div class="carousel-wrapper">
+        <button 
+          class="carousel-arrow left" 
+          (click)="previousSuccessStory()" 
+          [disabled]="successStoryPage === 1 || loadingSuccessStories()"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <app-carousel 
+          type="none" 
+          [currentPage]="successStoryPage" 
+          [totalPages]="successStoriesTotalPages()"
+        >
+          <div class="avatar-row">
+            @for (story of successStoriesPageItems(); track story.id) {
+              <div class="avatar-card">
+                <img class="avatar" [src]="story.imageUrl" [alt]="story.name" />
+                <div class="avatar-name">{{ story.name }}</div>
+                <div class="avatar-sub">{{ story.batch }}</div>
+                <div class="avatar-sub">{{ story.company }}</div>
+              </div>
+            } @empty {
+              <div class="empty-state">No success stories found</div>
+            }
+          </div>
+        </app-carousel>
+        <button 
+          class="carousel-arrow right" 
+          (click)="nextSuccessStory()" 
+          [disabled]="successStoryPage === successStoriesTotalPages() || loadingSuccessStories()"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    }
   </section>
 
   <!-- Overview Section -->
@@ -135,30 +194,38 @@
   <!-- Courses We Provide Section -->
   <section class="section courses-provide">
     <h2 class="section-title">Courses we Provide</h2>
-    <div class="carousel-wrapper">
-      <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <div class="courses-carousel">
-        @for (course of coursesPageItems(); track course.id) {
-          <div class="course-card">
-            <div class="course-card-top">
-              <div class="course-code">{{ course.name }}</div>
-              <div class="course-details">
-                <span>Seats: {{ course.seats }}</span>
-                <span>Duration: {{ course.duration }}</span>
+    @if (loadingCourses()) {
+      <div class="loading-state">Loading courses...</div>
+    } @else {
+      <div class="carousel-wrapper">
+        <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1 || loadingCourses()">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="courses-carousel">
+          @if (coursesPageItems().length === 0) {
+            <div class="empty-state">No courses found</div>
+          } @else {
+            @for (course of coursesPageItems(); track course.id) {
+              <div class="course-card">
+                <div class="course-card-top">
+                  <div class="course-code">{{ course.name }}</div>
+                  <div class="course-details">
+                    <span>Seats: {{ course.seats }}</span>
+                    <span>Duration: {{ course.duration }}</span>
+                  </div>
+                </div>
+                <div class="course-card-bottom">
+                  <app-button label="Applications" variant="primary" />
+                </div>
               </div>
-            </div>
-            <div class="course-card-bottom">
-              <app-button label="Applications" variant="primary" />
-            </div>
-          </div>
-        }
+            }
+          }
+        </div>
+        <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages() || loadingCourses()">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
-      <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
+    }
   </section>
 
   <!-- Placement Highlights Section -->
@@ -167,13 +234,19 @@
       <div class="placement-chart-card">
         <h3 class="chart-title">Placement Chart</h3>
         <div class="placement-bar-chart">
-          @for (year of placementYears; track year) {
-            <div class="placement-bar-item">
-              <div class="placement-year">{{ year }}</div>
-              <div class="placement-bars">
-                <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
+          @if (loadingPlacementInsights()) {
+            <div class="loading-state">Loading placement data...</div>
+          } @else {
+            @for (year of placementYears(); track year) {
+              <div class="placement-bar-item">
+                <div class="placement-year">{{ year }}</div>
+                <div class="placement-bars">
+                  <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
+                </div>
               </div>
-            </div>
+            } @empty {
+              <div class="empty-state">No placement data available</div>
+            }
           }
         </div>
       </div>
@@ -195,63 +268,118 @@
   <!-- Meet Our Faculties Section -->
   <section class="section faculties">
     <h2 class="section-title">Meet Our Faculties</h2>
-    <app-carousel type="pagination" [currentPage]="facultiesPage" [totalPages]="facultiesTotalPages" (pageChange)="facultiesPage = $event">
-      <div class="avatar-row">
-        @for (faculty of facultiesPageItems(); track faculty.id) {
-          <div class="avatar-card">
-            <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
-            <div class="avatar-name">{{ faculty.name }}</div>
-            <div class="avatar-sub">{{ faculty.designation }}</div>
-          </div>
-        }
-      </div>
-    </app-carousel>
+    @if (loadingFaculties()) {
+      <div class="loading-indicator">Loading...</div>
+    } @else {
+      <app-carousel 
+        type="pagination" 
+        [currentPage]="facultiesPage" 
+        [totalPages]="facultiesTotalPages()" 
+        (pageChange)="onFacultiesPageChange($event)"
+      >
+        <div class="avatar-row">
+          @for (faculty of facultiesPageItems(); track faculty.id) {
+            <div class="avatar-card">
+              <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
+              <div class="avatar-name">{{ faculty.name }}</div>
+              <div class="avatar-sub">{{ faculty.designation }}</div>
+            </div>
+          } @empty {
+            <div class="empty-state">No faculties found</div>
+          }
+        </div>
+      </app-carousel>
+    }
   </section>
 
   <!-- Our Alumni Community Section -->
   <section class="section alumni">
     <h2 class="section-title">Our Alumni Community</h2>
-    <div class="carousel-wrapper">
-      <button class="carousel-arrow left" (click)="previousAlumni()" [disabled]="alumniPage === 1">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages">
-        <div class="avatar-row">
-          @for (alumnus of alumniPageItems(); track alumnus.id) {
-            <div class="avatar-card">
-              <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
-              <div class="avatar-name">{{ alumnus.name }}</div>
-              <div class="avatar-sub">{{ alumnus.designation }}</div>
-              <div class="avatar-sub">{{ alumnus.company }}</div>
-            </div>
-          }
-        </div>
-      </app-carousel>
-      <button class="carousel-arrow right" (click)="nextAlumni()" [disabled]="alumniPage === alumniTotalPages">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
-</section>
+    @if (loadingAlumni()) {
+      <div class="loading-indicator">Loading...</div>
+    } @else {
+      <div class="carousel-wrapper">
+        <button 
+          class="carousel-arrow left" 
+          (click)="previousAlumni()" 
+          [disabled]="alumniPage === 1 || loadingAlumni()"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages()">
+          <div class="avatar-row">
+            @for (alumnus of alumniPageItems(); track alumnus.id) {
+              <div class="avatar-card">
+                <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
+                <div class="avatar-name">{{ alumnus.name }}</div>
+                <div class="avatar-sub">{{ alumnus.designation }}</div>
+                <div class="avatar-sub">{{ alumnus.company }}</div>
+              </div>
+            } @empty {
+              <div class="empty-state">No alumni found</div>
+            }
+          </div>
+        </app-carousel>
+        <button 
+          class="carousel-arrow right" 
+          (click)="nextAlumni()" 
+          [disabled]="alumniPage === alumniTotalPages() || loadingAlumni()"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    }
+  </section>
 
   <!-- Your Voice, Our Strength Section -->
   <section class="section testimonial">
-    <div class="testimonial-content">
-      <button class="testimonial-arrow left" (click)="previousTestimonial()">
-        <i class="fa-solid fa-chevron-left"></i>
-      </button>
-      <div class="testimonial-quote">
-        <p class="quote-text">
-          "I'm grateful for the opportunities and resources provided by the campus. It's made a huge difference in my academic journey."
-        </p>
-        <div class="quote-author">
-          <img class="author-avatar" src="assets/images/landing-card-campus.png" alt="Ankita Wilson" />
-          <div class="author-name">Ankita Wilson</div>
+    @if (loadingTestimonials()) {
+      <div class="testimonial-content">
+        <div class="loading-indicator" style="color: var(--color-white); text-align: center; grid-column: 1 / -1;">
+          Loading testimonials...
         </div>
       </div>
-      <button class="testimonial-arrow right" (click)="nextTestimonial()">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-    </div>
+    } @else {
+      <div class="testimonial-content">
+        <button 
+          class="testimonial-arrow left" 
+          (click)="previousTestimonial()"
+          [disabled]="testimonialPage <= 1"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        @if (currentTestimonial) {
+          <div class="testimonial-quote">
+            <p class="quote-text">
+              "{{ currentTestimonial.testimonial || currentTestimonial.review || currentTestimonial.text || currentTestimonial.quote || 'No testimonial text available.' }}"
+            </p>
+            <div class="quote-author">
+              <img 
+                class="author-avatar" 
+                [src]="currentTestimonial.photoUrl || currentTestimonial.profilePhotoUrl || currentTestimonial.imageUrl || currentTestimonial.avatarUrl || 'assets/images/landing-card-campus.png'" 
+                [alt]="currentTestimonial.studentName || currentTestimonial.name || currentTestimonial.fullName || 'Student'" 
+              />
+              <div class="author-name">
+                {{ currentTestimonial.studentName || currentTestimonial.name || currentTestimonial.fullName || 'Student' }}
+              </div>
+            </div>
+          </div>
+        } @else {
+          <div class="testimonial-quote">
+            <p class="quote-text" style="color: var(--color-white);">
+              No testimonials available at the moment.
+            </p>
+          </div>
+        }
+        <button 
+          class="testimonial-arrow right" 
+          (click)="nextTestimonial()"
+          [disabled]="testimonialPage >= testimonialsTotalPages()"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    }
   </section>
 
   <!-- Footer Section -->
@@ -298,3 +426,16 @@
     <div class="footer-bottom"></div>
   </footer>
 </div>
+
+<!-- Visit Campus Modal -->
+<app-modal
+  [visible]="isVisitCampusModalOpen()"
+  title="Visit Campus Form"
+  size="lg"
+  (closed)="closeModal()"
+>
+  <app-campus-visit-campus
+    [submitting]="submittingVisitCampus"
+    (submitted)="handleVisitCampusSubmit($event)"
+  />
+</app-modal>

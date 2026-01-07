@@ -1,9 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { TextareaComponent } from '../../../../shared/components/textarea/textarea.component';
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { ModalService } from '../../../../core/modal/modal.service';
+import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
+import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, CourseData, PlacementInsightsResponse, YearlyTrend } from '../../services/campus-api.service';
+import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { catchError, of } from 'rxjs';
 
 interface PersonCard {
   id: string;
@@ -30,101 +40,344 @@ interface CourseCard {
     CarouselComponent,
     InputComponent,
     TextareaComponent,
+    ModalComponent,
+    CampusVisitCampusComponent,
   ],
   templateUrl: './campus-about.component.html',
   styleUrl: './campus-about.component.css',
 })
-export class CampusAboutComponent {
+export class CampusAboutComponent implements OnInit {
+  readonly modalService = inject(ModalService);
+  private readonly campusApi = inject(CampusApiService);
+  private readonly storage = inject(StorageService);
+  private readonly authState = inject(AuthStateService);
+  private readonly notify = inject(NotificationService);
   readonly pageSize = 8;
 
-  // Rising Stars
-  readonly risingStars: readonly PersonCard[] = [
-    { id: '1', name: 'Name', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '2', name: 'Name', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '3', name: 'Name', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '4', name: 'Name', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '5', name: 'Name', imageUrl: 'assets/images/login-hero-image.png' },
-    { id: '6', name: 'Name', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '7', name: 'Name', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '8', name: 'Name', imageUrl: 'assets/images/landing-card-company.png' },
-  ];
+  readonly activeModal = computed(() => this.modalService.activeModal());
+  readonly isVisitCampusModalOpen = computed(() => this.activeModal() === 'visit-campus');
 
+  submittingVisitCampus = false;
+
+  // Rising Stars - API Integration
+  readonly risingStars = signal<readonly PersonCard[]>([]);
+  readonly loadingRisingStars = signal(false);
   risingStarsPage = 1;
-  get risingStarsTotalPages(): number {
-    return Math.max(1, Math.ceil(this.risingStars.length / this.pageSize));
+  readonly risingStarsTotalPages = signal(1);
+
+  // Campus Insights - About Campus Content
+  readonly aboutCampusText = signal<string>('');
+  readonly loadingAboutCampus = signal(false);
+  
+  // Prospectus Download
+  readonly downloadingProspectus = signal(false);
+
+  ngOnInit(): void {
+    this.loadRisingStars();
+    this.loadAboutCampus();
+    this.loadSuccessStories();
+    this.loadFaculties();
+    this.loadTestimonials();
+    this.loadResearch();
+    this.loadAlumni();
+    this.loadCourses();
+    this.loadPlacementInsights();
   }
+
+  loadAboutCampus(): void {
+    // Try multiple sources for campusId (correct sources only)
+    // 1. From storage
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    
+    // 2. From auth state (user profile) - profileServiceId contains campusId
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    
+    // Use the first available campusId (only from correct sources)
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingAboutCampus.set(true);
+
+    this.campusApi.getCampusById(campusId).pipe(
+      catchError(() => {
+        this.loadingAboutCampus.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (campus) => {
+        this.loadingAboutCampus.set(false);
+        
+        if (campus) {
+          if (campus.aboutCampus) {
+            this.aboutCampusText.set(campus.aboutCampus);
+          } else {
+            this.aboutCampusText.set('');
+          }
+        } else {
+          this.aboutCampusText.set('');
+        }
+      },
+      error: () => {
+        this.loadingAboutCampus.set(false);
+        this.aboutCampusText.set('');
+      }
+    });
+  }
+
+  loadRisingStars(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingRisingStars.set(true);
+    
+    this.campusApi.getRisingStars(campusId, this.risingStarsPage, this.pageSize).pipe(
+      catchError(() => {
+        this.loadingRisingStars.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingRisingStars.set(false);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          const mappedStars = response.content.map((star) => this.mapRisingStarToPersonCard(star));
+          this.risingStars.set(mappedStars);
+          
+          const totalPages = response.totalPages ?? 0;
+          this.risingStarsTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.risingStars.set([]);
+          this.risingStarsTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingRisingStars.set(false);
+        this.risingStars.set([]);
+        this.risingStarsTotalPages.set(1);
+      }
+    });
+  }
+
+  private mapRisingStarToPersonCard(star: RisingStarData): PersonCard {
+    return {
+      id: star.id || star.studentId || star.userId || '',
+      name: star.studentName || `${star.firstName || ''} ${star.lastName || ''}`.trim() || 'Name',
+      imageUrl: star.profilePhotoUrl || star.imageUrl || 'assets/images/login-news-image.png',
+      batch: star.batch,
+    };
+  }
+
   risingStarsPageItems(): readonly PersonCard[] {
-    return this.slicePage(this.risingStars, this.risingStarsPage, this.pageSize);
+    return this.risingStars();
   }
 
-  // Success Stories
-  readonly successStories: readonly PersonCard[] = [
-    { id: '1', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '2', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '3', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '4', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '5', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/login-hero-image.png' },
-    { id: '6', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '7', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '8', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '9', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '10', name: 'Name', batch: 'Batch', company: 'Company', imageUrl: 'assets/images/login-hero-image.png' },
-  ];
+  onRisingStarsPageChange(page: number): void {
+    if (page !== this.risingStarsPage && page >= 1) {
+      this.risingStarsPage = page;
+      this.loadRisingStars();
+    }
+  }
 
+  // Success Stories - API Integration
+  readonly successStories = signal<readonly PersonCard[]>([]);
+  readonly loadingSuccessStories = signal(false);
   successStoryPage = 1;
   readonly successStoryPageSize = 6;
-  get successStoriesTotalPages(): number {
-    return Math.max(1, Math.ceil(this.successStories.length / this.successStoryPageSize));
+  readonly successStoriesTotalPages = signal(1);
+
+  loadSuccessStories(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingSuccessStories.set(true);
+    
+    this.campusApi.getSuccessStories(campusId, this.successStoryPage, this.successStoryPageSize).pipe(
+      catchError(() => {
+        this.loadingSuccessStories.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingSuccessStories.set(false);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          const mappedStories = response.content.map((story) => this.mapSuccessStoryToPersonCard(story));
+          this.successStories.set(mappedStories);
+          
+          const totalPages = response.totalPages ?? 0;
+          this.successStoriesTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.successStories.set([]);
+          this.successStoriesTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingSuccessStories.set(false);
+        this.successStories.set([]);
+        this.successStoriesTotalPages.set(1);
+      }
+    });
   }
+
+  private mapSuccessStoryToPersonCard(story: SuccessStoryData): PersonCard {
+    return {
+      id: story.id || story.studentId || story.userId || '',
+      name: story.studentName || `${story.firstName || ''} ${story.lastName || ''}`.trim() || 'Name',
+      imageUrl: story.profilePhotoUrl || story.imageUrl || 'assets/images/login-news-image.png',
+      batch: story.batch,
+      company: story.companyName || story.company,
+    };
+  }
+
   successStoriesPageItems(): readonly PersonCard[] {
-    return this.slicePage(this.successStories, this.successStoryPage, this.successStoryPageSize);
+    return this.successStories();
   }
 
   previousSuccessStory(): void {
     if (this.successStoryPage > 1) {
       this.successStoryPage--;
+      this.loadSuccessStories();
     }
   }
 
   nextSuccessStory(): void {
-    if (this.successStoryPage < this.successStoriesTotalPages) {
+    if (this.successStoryPage < this.successStoriesTotalPages()) {
       this.successStoryPage++;
+      this.loadSuccessStories();
     }
   }
 
-  // Courses
-  readonly courses: readonly CourseCard[] = [
-    { id: '1', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '2', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '3', name: 'BCA', seats: 30, duration: '3 yr' },
-    { id: '4', name: 'BCA', seats: 30, duration: '3 yr' },
-  ];
-
+  // Courses - API Integration
+  readonly courses = signal<readonly CourseCard[]>([]);
+  readonly loadingCourses = signal(false);
   coursePage = 1;
   readonly coursePageSize = 4;
-  get coursesTotalPages(): number {
-    return Math.max(1, Math.ceil(this.courses.length / this.coursePageSize));
+  readonly coursesTotalPages = signal(1);
+
+  loadCourses(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingCourses.set(true);
+    
+    this.campusApi.getCourses(campusId, this.coursePage, this.coursePageSize).pipe(
+      catchError(() => {
+        this.loadingCourses.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingCourses.set(false);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          const mappedCourses = response.content.map((course) => this.mapCourseDataToCourseCard(course));
+          this.courses.set(mappedCourses);
+          
+          const totalPages = response.totalPages ?? 0;
+          this.coursesTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.courses.set([]);
+          this.coursesTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingCourses.set(false);
+        this.courses.set([]);
+        this.coursesTotalPages.set(1);
+      }
+    });
   }
+
+  private mapCourseDataToCourseCard(course: CourseData): CourseCard {
+    // Parse seats from seatsAvailable string or use seats number
+    let seats = 0;
+    if (course.seats !== undefined) {
+      seats = course.seats;
+    } else if (course.seatsAvailable) {
+      const parsed = parseInt(course.seatsAvailable, 10);
+      if (!isNaN(parsed)) {
+        seats = parsed;
+      }
+    }
+
+    // Use courseName or name, fallback to empty string
+    const courseName = course.courseName || course.name || '';
+    
+    // Use courseDuration or duration, fallback to empty string
+    const duration = course.courseDuration || course.duration || '';
+
+    return {
+      id: course.id || course.courseId || '',
+      name: courseName,
+      seats: seats,
+      duration: duration,
+    };
+  }
+
   coursesPageItems(): readonly CourseCard[] {
-    return this.slicePage(this.courses, this.coursePage, this.coursePageSize);
+    return this.courses();
   }
 
   previousCourse(): void {
     if (this.coursePage > 1) {
       this.coursePage--;
+      this.loadCourses();
     }
   }
 
   nextCourse(): void {
-    if (this.coursePage < this.coursesTotalPages) {
+    if (this.coursePage < this.coursesTotalPages()) {
       this.coursePage++;
+      this.loadCourses();
     }
   }
 
-  // Placement Years
-  readonly placementYears = ['2024', '2023', '2022', '2021', '2020'];
+  // Placement Insights - API Integration
+  readonly placementInsights = signal<YearlyTrend[]>([]);
+  readonly loadingPlacementInsights = signal(false);
+  readonly placementPercentage = signal<number>(0);
+
+  // Placement Years - Will be populated from API, fallback to hardcoded
+  readonly placementYears = signal<string[]>(['2024', '2023', '2022', '2021', '2020']);
 
   getPlacementValue(year: string): number {
+    // First try to use API data
+    const insights = this.placementInsights();
+    if (insights && insights.length > 0) {
+      const yearData = insights.find(trend => trend.year === year);
+      if (yearData && yearData.totalStudents && yearData.totalStudents > 0) {
+        // Calculate percentage: (placedCount / totalStudents) * 100
+        const percentage = Math.round(((yearData.placedCount || 0) / yearData.totalStudents) * 100);
+        return percentage;
+      }
+    }
+
+    // Fallback to hardcoded values if API data not available
     const values: Record<string, number> = {
       '2024': 85,
       '2023': 80,
@@ -146,75 +399,434 @@ export class CampusAboutComponent {
     return colors[year] || 'var(--color-secondary)';
   }
 
-  // Faculties
-  readonly faculties: readonly PersonCard[] = [
-    { id: '1', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '2', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '3', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '4', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '5', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/login-hero-image.png' },
-    { id: '6', name: 'Name', designation: 'Designation', imageUrl: 'assets/images/login-news-image.png' },
-  ];
+  loadPlacementInsights(): void {
+    // Try multiple sources for campusId
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingPlacementInsights.set(true);
+    
+    this.campusApi.getPlacementInsights(campusId, 1, 9).pipe(
+      catchError(() => {
+        this.loadingPlacementInsights.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: PlacementInsightsResponse | null) => {
+        this.loadingPlacementInsights.set(false);
+        
+        if (response?.success && response.data) {
+          // Store placement percentage
+          if (response.data.placementPercentage !== undefined) {
+            this.placementPercentage.set(response.data.placementPercentage);
+          }
+          
+          // Store yearly trends
+          if (response.data.yearlyTrends && response.data.yearlyTrends.length > 0) {
+            this.placementInsights.set(response.data.yearlyTrends);
+            
+            // Extract years from yearlyTrends and sort descending (newest first)
+            const years = response.data.yearlyTrends
+              .map(trend => trend.year)
+              .filter((year): year is string => !!year)
+              .sort((a, b) => b.localeCompare(a));
+            
+            if (years.length > 0) {
+              this.placementYears.set(years);
+            }
+          }
+        }
+      },
+      error: () => {
+        this.loadingPlacementInsights.set(false);
+      }
+    });
+  }
 
+  // Faculties - API Integration
+  readonly faculties = signal<readonly PersonCard[]>([]);
+  readonly loadingFaculties = signal(false);
   facultiesPage = 1;
   readonly facultiesPageSize = 6;
-  get facultiesTotalPages(): number {
-    return Math.max(1, Math.ceil(this.faculties.length / this.facultiesPageSize));
+  readonly facultiesTotalPages = signal(1);
+
+  loadFaculties(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingFaculties.set(true);
+    
+    this.campusApi.getFaculties(campusId, this.facultiesPage, this.facultiesPageSize).pipe(
+      catchError(() => {
+        this.loadingFaculties.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: FacultiesResponse | null) => {
+        this.loadingFaculties.set(false);
+        
+        if (response && response.content && Array.isArray(response.content)) {
+          const mappedFaculties = response.content.map((faculty: FacultyData) => this.mapFacultyToPersonCard(faculty));
+          this.faculties.set(mappedFaculties);
+          
+          const totalPages = response.totalPages ?? 0;
+          this.facultiesTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.faculties.set([]);
+          this.facultiesTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingFaculties.set(false);
+        this.faculties.set([]);
+        this.facultiesTotalPages.set(1);
+      }
+    });
   }
+
+  private mapFacultyToPersonCard(faculty: FacultyData): PersonCard {
+    return {
+      id: faculty.id || faculty.facultyId || faculty.userId || '',
+      name: faculty.fullName || faculty.name || 'Name',
+      imageUrl: faculty.photoUrl || faculty.profilePhotoUrl || faculty.imageUrl || 'assets/images/login-news-image.png',
+      designation: faculty.designation,
+    };
+  }
+
   facultiesPageItems(): readonly PersonCard[] {
-    return this.slicePage(this.faculties, this.facultiesPage, this.facultiesPageSize);
+    return this.faculties();
   }
 
-  // Alumni
-  readonly alumni: readonly PersonCard[] = [
-    { id: '1', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '2', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-    { id: '3', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-company.png' },
-    { id: '4', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-institution.png' },
-    { id: '5', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-hero-image.png' },
-    { id: '6', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/login-news-image.png' },
-    { id: '7', name: 'Name', designation: 'Designation', company: 'Company', imageUrl: 'assets/images/landing-card-campus.png' },
-  ];
+  onFacultiesPageChange(page: number): void {
+    if (page !== this.facultiesPage && page >= 1) {
+      this.facultiesPage = page;
+      this.loadFaculties();
+    }
+  }
 
+  // Alumni - API Integration
+  readonly alumni = signal<readonly PersonCard[]>([]);
+  readonly loadingAlumni = signal(false);
   alumniPage = 1;
   readonly alumniPageSize = 7;
-  get alumniTotalPages(): number {
-    return Math.max(1, Math.ceil(this.alumni.length / this.alumniPageSize));
+  readonly alumniTotalPages = signal(1);
+
+  loadAlumni(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    
+    if (!campusId) {
+      return;
+    }
+    
+    this.loadingAlumni.set(true);
+    
+    this.campusApi.getAlumni(campusId, this.alumniPage, this.alumniPageSize).pipe(
+      catchError(() => {
+        this.loadingAlumni.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: ApiResponsePageAlumniResponse | null) => {
+        this.loadingAlumni.set(false);
+        
+        if (response?.data?.content && Array.isArray(response.data.content)) {
+          const mappedAlumni = response.data.content.map((alumnus: AlumniResponse) => this.mapAlumniToPersonCard(alumnus));
+          this.alumni.set(mappedAlumni);
+          
+          const totalPages = response.data.totalPages ?? 0;
+          this.alumniTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingAlumni.set(false);
+        this.alumni.set([]);
+        this.alumniTotalPages.set(1);
+      }
+    });
   }
+
+  private mapAlumniToPersonCard(alumnus: AlumniResponse): PersonCard {
+    return {
+      id: alumnus.studentId || alumnus.userId || '',
+      name: `${alumnus.firstName || ''} ${alumnus.lastName || ''}`.trim() || 'Name',
+      imageUrl: alumnus.profilePhotoUrl || 'assets/images/login-news-image.png',
+      designation: alumnus.designation,
+      company: alumnus.companyName,
+    };
+  }
+
   alumniPageItems(): readonly PersonCard[] {
-    return this.slicePage(this.alumni, this.alumniPage, this.alumniPageSize);
+    return this.alumni();
   }
 
   previousAlumni(): void {
     if (this.alumniPage > 1) {
       this.alumniPage--;
+      this.loadAlumni();
     }
   }
 
   nextAlumni(): void {
-    if (this.alumniPage < this.alumniTotalPages) {
+    if (this.alumniPage < this.alumniTotalPages()) {
       this.alumniPage++;
+      this.loadAlumni();
     }
   }
 
-  // Testimonials
+  // Testimonials - API Integration
+  readonly testimonials = signal<readonly TestimonialData[]>([]);
+  readonly loadingTestimonials = signal(false);
+  readonly testimonialsTotalPages = signal(1);
   testimonialPage = 1;
-  readonly testimonialTotalPages = 3;
+  readonly testimonialPageSize = 5;
+
+  loadTestimonials(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+
+    if (!campusId) {
+      this.testimonials.set([]);
+      this.testimonialsTotalPages.set(1);
+      return;
+    }
+
+    this.loadingTestimonials.set(true);
+
+    this.campusApi.getTestimonials(campusId, this.testimonialPage, this.testimonialPageSize).pipe(
+      catchError(() => {
+        this.loadingTestimonials.set(false);
+        this.testimonials.set([]);
+        this.testimonialsTotalPages.set(1);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: TestimonialsResponse | null) => {
+        this.loadingTestimonials.set(false);
+
+        if (response?.data?.content && Array.isArray(response.data.content)) {
+          const testimonialsData = response.data.content;
+          
+          this.testimonials.set(testimonialsData);
+          
+          const totalPages = response.data.totalPages ?? 0;
+          this.testimonialsTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.testimonials.set([]);
+          this.testimonialsTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingTestimonials.set(false);
+        this.testimonials.set([]);
+        this.testimonialsTotalPages.set(1);
+      }
+    });
+  }
 
   previousTestimonial(): void {
     if (this.testimonialPage > 1) {
       this.testimonialPage--;
+      this.loadTestimonials();
     }
   }
 
   nextTestimonial(): void {
-    if (this.testimonialPage < this.testimonialTotalPages) {
+    if (this.testimonialPage < this.testimonialsTotalPages()) {
       this.testimonialPage++;
+      this.loadTestimonials();
     }
+  }
+
+  get currentTestimonial(): TestimonialData | null {
+    const allTestimonials = this.testimonials();
+    if (allTestimonials.length === 0) {
+      return null;
+    }
+    // Show first testimonial from current page data
+    return allTestimonials[0] || null;
+  }
+
+  // Research - API Integration
+  readonly researchData = signal<ResearchData | null>(null);
+  readonly loadingResearch = signal(false);
+
+  loadResearch(): void {
+    // Try multiple sources for campusId (correct sources only)
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+
+    if (!campusId) {
+      this.researchData.set(null);
+      return;
+    }
+
+    this.loadingResearch.set(true);
+
+    this.campusApi.getResearch(campusId).pipe(
+      catchError(() => {
+        this.loadingResearch.set(false);
+        this.researchData.set(null);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: ResearchResponse | null) => {
+        this.loadingResearch.set(false);
+
+        if (response?.data) {
+          this.researchData.set(response.data);
+        } else {
+          this.researchData.set(null);
+        }
+      },
+      error: () => {
+        this.loadingResearch.set(false);
+        this.researchData.set(null);
+      }
+    });
   }
 
   private slicePage<T>(items: readonly T[], page: number, pageSize: number): readonly T[] {
     const start = (page - 1) * pageSize;
     return items.slice(start, start + pageSize);
+  }
+
+  openVisitCampusModal(): void {
+    console.log('Opening Visit Campus modal...');
+    this.modalService.openModal('visit-campus');
+    console.log('Modal service activeModal:', this.modalService.activeModal());
+  }
+
+  closeModal(): void {
+    this.modalService.closeModal();
+  }
+
+  handleVisitCampusSubmit(value: VisitCampusFormValue): void {
+    console.log('Visit Campus Form submitted:', value);
+    this.submittingVisitCampus = true;
+    // TODO: Implement API call to submit visit campus form
+    // For now, just close the modal after a delay
+    setTimeout(() => {
+      this.submittingVisitCampus = false;
+      this.closeModal();
+    }, 1000);
+  }
+
+  /**
+   * Download Prospectus Handler
+   * Fetches prospectuses for the campus and downloads the first available one
+   */
+  downloadProspectusHandler(): void {
+    // Check if already downloading
+    if (this.downloadingProspectus()) {
+      return;
+    }
+
+    // Get campusId from storage or auth state
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusId = campusIdFromUser || campusIdFromStorage || null;
+
+    if (!campusId) {
+      this.notify.error('Campus ID not found. Please login again to refresh your session.');
+      return;
+    }
+
+    this.downloadingProspectus.set(true);
+
+    // First, get prospectuses for the campus
+    this.campusApi.getProspectusByCampus(campusId).pipe(
+      catchError((error) => {
+        this.downloadingProspectus.set(false);
+        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus information';
+        this.notify.error(errorMessage);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: GetProspectusResponse | null) => {
+        if (!response) {
+          this.downloadingProspectus.set(false);
+          this.notify.error('Failed to fetch prospectus information');
+          return;
+        }
+
+        // Check if we have prospectus data
+        if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+          this.downloadingProspectus.set(false);
+          this.notify.error('No prospectus available for this campus');
+          return;
+        }
+
+        // Get the first prospectus (or you could show a selection modal if multiple)
+        const firstProspectus = response.data[0];
+        const prospectusId = firstProspectus.id;
+
+        if (!prospectusId) {
+          this.downloadingProspectus.set(false);
+          this.notify.error('Prospectus ID is missing');
+          return;
+        }
+
+        // Download the prospectus file
+        this.campusApi.downloadProspectus(prospectusId).subscribe({
+          next: (blob: Blob) => {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Generate filename - use prospectus ID or default name
+            const fileName = `prospectus-${prospectusId}.pdf`;
+            link.download = fileName;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            
+            this.downloadingProspectus.set(false);
+            this.notify.success('Prospectus downloaded successfully');
+          },
+          error: (error) => {
+            this.downloadingProspectus.set(false);
+            const errorMessage = error?.error?.message || error?.message || 'Failed to download prospectus file';
+            this.notify.error(errorMessage);
+          }
+        });
+      },
+      error: (error) => {
+        this.downloadingProspectus.set(false);
+        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus';
+        this.notify.error(errorMessage);
+      }
+    });
   }
 }

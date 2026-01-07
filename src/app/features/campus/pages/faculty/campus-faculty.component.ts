@@ -219,30 +219,17 @@ export class CampusFacultyComponent {
   }
 
   submit(): void {
-    console.log('FacultyComponent: ========== SUBMIT METHOD CALLED ==========');
-    console.log('FacultyComponent: Form value:', this.value);
-    console.log('FacultyComponent: Email exists?', this.emailExists);
-    console.log('FacultyComponent: Checking email?', this.checkingEmail);
-    console.log('FacultyComponent: Email error message:', this.emailErrorMessage);
-    console.log('FacultyComponent: Submitting flag:', this.submitting);
-    
     // Prevent submission if email already exists
     if (this.emailExists) {
-      console.warn('FacultyComponent: ⚠️ Cannot submit - email already exists');
-      console.warn('FacultyComponent: Email:', this.value.email);
       return;
     }
     
     // Prevent submission if email is being checked
     if (this.checkingEmail) {
-      console.warn('FacultyComponent: ⚠️ Cannot submit - email check in progress');
       return;
     }
     
-    console.log('FacultyComponent: ✅ All checks passed, emitting submitted event...');
-    console.log('FacultyComponent: Emitting value:', this.value);
     this.submitted.emit(this.value);
-    console.log('FacultyComponent: ✅ Event emitted successfully');
   }
 
   cancel(): void {

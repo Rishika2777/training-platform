@@ -1,12 +1,31 @@
 <div class="campus-home">
   <div class="announcement">
-    <div class="announcement-date">{{ announcementDate }}</div>
-    <div class="announcement-title">Synkup Announcement</div>
-    <div class="announcement-dots" aria-hidden="true">
-      <span class="dot active"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-    </div>
+    @if (loadingAnnouncements()) {
+      <div class="announcement-date">Loading...</div>
+      <div class="announcement-title">Loading announcements...</div>
+      <div class="announcement-dots" aria-hidden="true">
+        <span class="dot active"></span>
+      </div>
+    } @else if (announcements().length === 0) {
+      <div class="announcement-date">{{ getDefaultDate() }}</div>
+      <div class="announcement-title">Synkup Announcement</div>
+      <div class="announcement-dots" aria-hidden="true">
+        <span class="dot active"></span>
+      </div>
+    } @else {
+      <div class="announcement-date">{{ announcementDate }}</div>
+      <div class="announcement-title">{{ currentAnnouncement?.title || 'Synkup Announcement' }}</div>
+      <div class="announcement-dots" aria-hidden="true">
+        @for (announcement of announcements(); track announcement.id || $index) {
+          <span 
+            class="dot" 
+            [class.active]="$index === currentAnnouncementIndex"
+            (click)="onAnnouncementDotClick($index)"
+            [attr.aria-label]="'Go to announcement ' + ($index + 1)"
+          ></span>
+        }
+      </div>
+    }
   </div>
 
   <div class="grid">
@@ -14,26 +33,46 @@
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Current Batch</div>
-          <button class="panel-icon" type="button" title="Filter">
-            <i class="fa-solid fa-filter" aria-hidden="true"></i>
-          </button>
+          @if (batches().length > 0) {
+            <select 
+              class="batch-select" 
+              [value]="selectedBatch() || ''"
+              (change)="onBatchSelect($any($event.target).value)"
+              [disabled]="loadingBatches() || loadingCurrentBatch()"
+              title="Select Batch"
+            >
+              @for (batch of batches(); track batch) {
+                <option [value]="batch">{{ batch }}</option>
+              }
+            </select>
+          } @else if (loadingBatches()) {
+            <span class="loading-text">Loading batches...</span>
+          }
         </div>
 
-        <app-carousel
-          type="pagination"
-          [currentPage]="currentBatchPage"
-          [totalPages]="currentBatchTotalPages"
-          (pageChange)="currentBatchPage = $event"
-        >
-          <div class="avatar-row">
-            @for (p of currentBatchPageItems(); track p.imageUrl) {
-              <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
-                <div class="avatar-name">{{ p.name }}</div>
-              </div>
-            }
-          </div>
-        </app-carousel>
+        @if (loadingCurrentBatch()) {
+          <div class="loading-state">Loading students...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="currentBatchPage"
+            [totalPages]="currentBatchTotalPages()"
+            (pageChange)="onCurrentBatchPageChange($event)"
+          >
+            <div class="avatar-row">
+              @if (currentBatchPageItems().length === 0) {
+                <div class="empty-state">No students found for this batch</div>
+              } @else {
+                @for (p of currentBatchPageItems(); track p.imageUrl) {
+                  <div class="avatar-card">
+                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <div class="avatar-name">{{ p.name }}</div>
+                  </div>
+                }
+              }
+            </div>
+          </app-carousel>
+        }
       </section>
 
       <div class="composer">
@@ -147,25 +186,40 @@
       <section class="panel alumni">
         <div class="panel-head">
           <div class="panel-title">Alumni</div>
-          <div class="year-pill">2024 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div>
+          <app-dropdown
+            [items]="alumniYearOptions"
+            [value]="selectedAlumniYear()"
+            [disabled]="loadingAlumni()"
+            (valueChange)="onAlumniYearChange($event)"
+            [autocomplete]="false"
+            placeholder="Select Year"
+          />
         </div>
 
-        <app-carousel
-          type="pagination"
-          [currentPage]="alumniPage"
-          [totalPages]="alumniTotalPages"
-          (pageChange)="alumniPage = $event"
-        >
-          <div class="avatar-row small">
-            @for (p of alumniPageItems(); track p.imageUrl) {
-              <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
-                <div class="avatar-name">{{ p.name }}</div>
-                <div class="avatar-sub">{{ p.subtitle }}</div>
-              </div>
-            }
-          </div>
-        </app-carousel>
+        @if (loadingAlumni()) {
+          <div class="loading-state">Loading alumni...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="alumniPage"
+            [totalPages]="alumniTotalPages()"
+            (pageChange)="onAlumniPageChange($event)"
+          >
+            <div class="avatar-row small">
+              @if (alumniPageItems().length === 0) {
+                <div class="empty-state">No alumni found</div>
+              } @else {
+                @for (p of alumniPageItems(); track p.imageUrl) {
+                  <div class="avatar-card">
+                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <div class="avatar-name">{{ p.name }}</div>
+                    <div class="avatar-sub">{{ p.subtitle }}</div>
+                  </div>
+                }
+              }
+            </div>
+          </app-carousel>
+        }
       </section>
     </aside>
   </div>
