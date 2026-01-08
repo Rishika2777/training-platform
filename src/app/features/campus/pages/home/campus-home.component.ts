@@ -617,91 +617,97 @@ export class CampusHomeComponent implements OnInit {
       photoName: value.studentPhoto?.name || 'null'
     });
     
+    // Validate required fields
+    if (!value.studentPhoto) {
+      this.notify.error('Please select a student photo');
+      return;
+    }
+
+    if (!value.course || !value.course.trim()) {
+      this.notify.error('Please select a course');
+      return;
+    }
+
+    if (!value.placementCompany || !value.placementCompany.trim()) {
+      this.notify.error('Please enter a placement company name');
+      return;
+    }
+    
     this.submittingPlacedStudents = true;
 
-    // Convert File to base64 string
-    this.convertFileToBase64(value.studentPhoto)
-      .then((photoBase64) => {
-        console.log('CampusHomeComponent: ✅ File conversion completed');
-        console.log('CampusHomeComponent: Photo base64 length:', photoBase64?.length || 0);
+    // Create FormData for multipart/form-data request
+    // API expects: studentName, photo (file), courseName, batch, placementCompanyName, designation, sector
+    const formData = new FormData();
+    formData.append('studentName', value.studentName.trim());
+    formData.append('photo', value.studentPhoto);
+    formData.append('courseName', value.course.trim()); // Required field: courseName (not courseId)
+    formData.append('batch', value.batch.trim());
+    formData.append('placementCompanyName', value.placementCompany.trim()); // Required field: placementCompanyName (not placementCompanyId)
+    formData.append('designation', value.designation.trim());
+    formData.append('sector', value.sector.trim());
+
+    // Optional fields - only append if they have values
+    // Note: courseId and placementCompanyId are optional according to API docs
+
+    console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
+    console.log('CampusHomeComponent: FormData fields:', {
+      studentName: value.studentName.trim(),
+      courseName: value.course.trim(),
+      batch: value.batch.trim(),
+      placementCompanyName: value.placementCompany.trim(),
+      designation: value.designation.trim(),
+      sector: value.sector.trim(),
+      photoFile: value.studentPhoto.name
+    });
+    console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed with multipart/form-data');
+
+    this.campusApi.addPlacedStudent(formData).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
+        console.log('CampusHomeComponent: Response:', response);
+        console.log('CampusHomeComponent: Response success:', response?.success);
+        console.log('CampusHomeComponent: Response message:', response?.message);
         
-        const request = {
-          studentName: value.studentName,
-          photo: photoBase64 || '',
-          courseId: value.course,
-          batch: value.batch,
-          placementCompanyId: value.placementCompany,
-          designation: value.designation,
-          sector: value.sector,
-        };
-
-        console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
-        console.log('CampusHomeComponent: Request payload:', {
-          studentName: request.studentName,
-          courseId: request.courseId,
-          batch: request.batch,
-          placementCompanyId: request.placementCompanyId,
-          designation: request.designation,
-          sector: request.sector,
-          photoLength: request.photo.length
-        });
-        console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed');
-
-        this.campusApi.addPlacedStudent(request).subscribe({
-          next: (response) => {
-            console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
-            console.log('CampusHomeComponent: Response:', response);
-            console.log('CampusHomeComponent: Response success:', response?.success);
-            console.log('CampusHomeComponent: Response message:', response?.message);
-            
-            // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
-            setTimeout(() => {
-              this.submittingPlacedStudents = false;
-              if (response?.success) {
-                this.notify.success(response?.message || 'Placed student added successfully');
-                this.closeModal();
-                // Reset to page 1 to see the newest students first
-                this.placedStudentsPage = 1;
-                // Reload placed students after adding a new one
-                this.loadPlacedStudents();
-              } else {
-                this.notify.warn(response?.message || 'Placed student might not have been added');
-              }
-              // Safe change detection - won't crash if component is destroyed
-              try {
-                this.cdr.detectChanges();
-              } catch {
-                // Component might be destroyed, ignore
-              }
-            }, 0);
-          },
-          error: (err) => {
-            console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
-            console.error('CampusHomeComponent: Error status:', err?.status);
-            console.error('CampusHomeComponent: Error URL:', err?.url);
-            console.error('CampusHomeComponent: Error response:', err?.error);
-            
-            // HTTP interceptor will show error notification to user
-            // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
-            setTimeout(() => {
-              this.submittingPlacedStudents = false;
-              // Safe change detection - won't crash if component is destroyed
-              try {
-                this.cdr.detectChanges();
-              } catch {
-                // Component might be destroyed, ignore
-              }
-            }, 0);
-          },
-        });
-      })
-      .catch(() => {
+        // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.submittingPlacedStudents = false;
+          if (response?.success) {
+            this.notify.success(response?.message || 'Placed student added successfully');
+            this.closeModal();
+            // Reset to page 1 to see the newest students first
+            this.placedStudentsPage = 1;
+            // Reload placed students after adding a new one
+            this.loadPlacedStudents();
+          } else {
+            this.notify.warn(response?.message || 'Placed student might not have been added');
+          }
+          // Safe change detection - won't crash if component is destroyed
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        }, 0);
+      },
+      error: (err) => {
+        console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        
+        // HTTP interceptor will show error notification to user
         // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           this.submittingPlacedStudents = false;
-          this.cdr.detectChanges();
+          // Safe change detection - won't crash if component is destroyed
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
         }, 0);
-      });
+      },
+    });
   }
 
   private convertFileToBase64(file: File | null): Promise<string> {

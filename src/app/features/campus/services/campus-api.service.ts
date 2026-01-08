@@ -98,11 +98,13 @@ export class CampusApiService {
   /**
    * POST /dashboard/students/placed
    * Add a placed student.
+   * Uses multipart/form-data to send the request with file upload.
    */
-  addPlacedStudent(request: AddPlacedStudentRequest): Observable<AddPlacedStudentResponse | null> {
+  addPlacedStudent(formData: FormData): Observable<AddPlacedStudentResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_PLACED_STUDENT);
     
-    return this.http.post<unknown>(url, request).pipe(
+    // Let Angular automatically set Content-Type to multipart/form-data with boundary
+    return this.http.post<unknown>(url, formData).pipe(
       map((raw) => {
         // The API returns the full response object with success, message, data, error
         if (raw && typeof raw === 'object' && 'data' in raw) {
