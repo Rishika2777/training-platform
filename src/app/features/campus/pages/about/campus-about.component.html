@@ -210,12 +210,12 @@
                 <div class="course-card-top">
                   <div class="course-code">{{ course.name }}</div>
                   <div class="course-details">
-                    <span>Seats: {{ course.seats }}</span>
+                    <span>seats: {{ course.seats }}</span>
                     <span>Duration: {{ course.duration }}</span>
                   </div>
                 </div>
                 <div class="course-card-bottom">
-                  <app-button label="Applications" variant="primary" />
+                  <div class="course-full-name">{{ course.fullName || course.name }}</div>
                 </div>
               </div>
             }

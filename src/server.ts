@@ -55,7 +55,8 @@ function resolveUpstreamBase(reqPath: string): string | null {
       : reqPath.startsWith('/api/v1/campus') ||
         reqPath.startsWith('/api/v1/faculty') ||
         reqPath.startsWith('/api/v1/prospectus') ||
-        reqPath.startsWith('/api/v1/dashboard')
+        reqPath.startsWith('/api/v1/dashboard') ||
+        reqPath.startsWith('/api/v1/courses')
         ? 'CAMPUS'
         : reqPath.startsWith('/api/v1/company')
           ? 'COMPANY'

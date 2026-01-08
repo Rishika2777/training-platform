@@ -15,10 +15,11 @@
       <app-dropdown
         label="Course"
         placeholder="Select"
-        [items]="courseItems"
+        [items]="courseItems()"
         [value]="value.course"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingCourses()"
         (valueChange)="patch({ course: $event })"
+        [autocomplete]="true"
       />
     </div>
 

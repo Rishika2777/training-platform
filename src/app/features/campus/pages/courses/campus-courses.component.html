@@ -4,8 +4,26 @@
   </div>
 
   <div class="courses-grid">
-    @for (course of courses; track course.id) {
+    @if (loadingCourses()) {
+      <div class="loading-state">Loading courses...</div>
+    } @else if (courses().length === 0) {
+      <div class="empty-state">No courses found</div>
+    }
+    @for (course of courses(); track course.id) {
       <div class="course-card">
+        <button
+          type="button"
+          class="delete-btn"
+          (click)="deleteCourse(course.id, course.name)"
+          [disabled]="deletingCourseId() === course.id"
+          title="Delete course"
+        >
+          @if (deletingCourseId() === course.id) {
+            <i class="fa-solid fa-spinner fa-spin"></i>
+          } @else {
+            <i class="fa-solid fa-trash"></i>
+          }
+        </button>
         <div class="course-card-top">
           <div class="course-code">{{ course.name }}</div>
           <div class="course-details">

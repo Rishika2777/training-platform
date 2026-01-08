@@ -995,8 +995,54 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleCourseFormSubmit(value: CourseFormValue): void {
-    if (!value.courseName.trim() || !value.courseDuration.trim() || !value.seatsAvailable.trim() || !value.description.trim()) {
+    try {
+      console.log('CampusHomeComponent: ========== handleCourseFormSubmit CALLED ==========');
+      console.log('CampusHomeComponent: Form value received:', value);
+      console.log('CampusHomeComponent: Value type:', typeof value);
+      console.log('CampusHomeComponent: All fields:', {
+        courseName: value?.courseName,
+        duration: value?.duration,
+        totalSeats: value?.totalSeats,
+        description: value?.description,
+      });
+      
+      if (!value || !value.courseName || !value.duration || !value.totalSeats || !value.description) {
+        console.error('CampusHomeComponent: ❌ Validation failed - value or fields are missing');
+        console.error('CampusHomeComponent: Value object:', value);
+        this.submittingCourseForm = false;
+        this.notify.error('Please fill all required fields');
+        return;
+      }
+      
+      if (!value.courseName.trim() || !value.duration.trim() || !value.totalSeats.trim() || !value.description.trim()) {
+        console.warn('CampusHomeComponent: Validation failed - empty required fields');
+        this.submittingCourseForm = false;
+        this.notify.error('Please fill all required fields');
+        return;
+      }
+    } catch (error) {
+      console.error('CampusHomeComponent: ❌ Error in handleCourseFormSubmit validation:', error);
       this.submittingCourseForm = false;
+      this.notify.error('An error occurred while processing the form');
+      return;
+    }
+
+    // Convert duration and totalSeats to numbers
+    const durationNum = parseInt(value.duration.trim(), 10);
+    const totalSeatsNum = parseInt(value.totalSeats.trim(), 10);
+
+    // Validate that duration and totalSeats are valid numbers
+    if (isNaN(durationNum) || durationNum <= 0) {
+      console.warn('CampusHomeComponent: Validation failed - invalid duration');
+      this.submittingCourseForm = false;
+      this.notify.error('Duration must be a valid positive number');
+      return;
+    }
+
+    if (isNaN(totalSeatsNum) || totalSeatsNum <= 0) {
+      console.warn('CampusHomeComponent: Validation failed - invalid total seats');
+      this.submittingCourseForm = false;
+      this.notify.error('Total seats must be a valid positive number');
       return;
     }
 
@@ -1004,15 +1050,24 @@ export class CampusHomeComponent implements OnInit {
 
     const request = {
       courseName: value.courseName.trim(),
-      courseDuration: value.courseDuration.trim(),
-      seatsAvailable: value.seatsAvailable.trim(),
+      duration: durationNum,
+      totalSeats: totalSeatsNum,
       description: value.description.trim(),
     };
 
-    this.campusApi.addCourse(request).subscribe({
-      next: () => {
+    console.log('CampusHomeComponent: ========== CALLING addCourse API ==========');
+    console.log('CampusHomeComponent: Request object:', request);
+    console.log('CampusHomeComponent: Auth token exists:', !!this.authState.token());
+    console.log('CampusHomeComponent: Auth token value:', this.authState.token() ? '***TOKEN_EXISTS***' : 'NO_TOKEN');
+
+    try {
+      this.campusApi.addCourse(request).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅ addCourse API success');
+        console.log('CampusHomeComponent: Response:', response);
         this.submittingCourseForm = false;
-        this.notify.success('Course added successfully');
+        const successMessage = response?.message || 'Course added successfully';
+        this.notify.success(successMessage);
         this.closeModal();
         try {
           this.cdr.detectChanges();
@@ -1021,8 +1076,15 @@ export class CampusHomeComponent implements OnInit {
         }
       },
       error: (err) => {
-        const errorMessage = err?.error?.message || err?.message || 'Failed to add course';
+        console.error('CampusHomeComponent: ❌ addCourse API error');
+        console.error('CampusHomeComponent: Error object:', err);
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        console.error('CampusHomeComponent: Error message:', err?.message);
+        
         this.submittingCourseForm = false;
+        const errorMessage = err?.error?.message || err?.error?.error || err?.message || 'Failed to add course';
         this.notify.error(errorMessage);
         try {
           this.cdr.detectChanges();
@@ -1031,6 +1093,16 @@ export class CampusHomeComponent implements OnInit {
         }
       },
     });
+    } catch (error) {
+      console.error('CampusHomeComponent: ❌ Exception in addCourse API call:', error);
+      this.submittingCourseForm = false;
+      this.notify.error('An error occurred while calling the API');
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Ignore
+      }
+    }
   }
 }
 

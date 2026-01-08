@@ -7,7 +7,7 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
-import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, CourseData, PlacementInsightsResponse, YearlyTrend } from '../../services/campus-api.service';
+import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend } from '../../services/campus-api.service';
 import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -29,6 +29,7 @@ interface CourseCard {
   name: string;
   seats: number;
   duration: string;
+  fullName?: string; // For course description in card bottom
 }
 
 @Component({
@@ -266,6 +267,7 @@ export class CampusAboutComponent implements OnInit {
   }
 
   // Courses - API Integration
+  // Using GET /courses to fetch all added courses (same as Courses We Offer section)
   readonly courses = signal<readonly CourseCard[]>([]);
   readonly loadingCourses = signal(false);
   coursePage = 1;
@@ -273,37 +275,34 @@ export class CampusAboutComponent implements OnInit {
   readonly coursesTotalPages = signal(1);
 
   loadCourses(): void {
-    // Try multiple sources for campusId (correct sources only)
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
-    
-    if (!campusId) {
-      return;
-    }
-    
     this.loadingCourses.set(true);
     
-    this.campusApi.getCourses(campusId, this.coursePage, this.coursePageSize).pipe(
+    // Use getAllCourses() to fetch all added courses (same API as Courses We Offer)
+    this.campusApi.getAllCourses().pipe(
       catchError(() => {
         this.loadingCourses.set(false);
-        return of(null);
+        return of([]);
       })
     ).subscribe({
-      next: (response) => {
-        this.loadingCourses.set(false);
+      next: (coursesData) => {
+        // Map API response to CourseCard format (same as Courses We Offer)
+        const courseCards: CourseCard[] = coursesData
+          .filter(course => course && course.courseName && course.id)
+          .map(course => ({
+            id: course.id || '',
+            name: course.courseName || '',
+            seats: course.availableSeats || course.totalSeats || 0,
+            duration: course.duration ? `${course.duration} ${course.duration === 1 ? 'month' : 'months'}` : 'N/A',
+            fullName: course.description || course.courseName || '', // For card bottom section
+          }));
         
-        if (response && response.content && Array.isArray(response.content)) {
-          const mappedCourses = response.content.map((course) => this.mapCourseDataToCourseCard(course));
-          this.courses.set(mappedCourses);
-          
-          const totalPages = response.totalPages ?? 0;
-          this.coursesTotalPages.set(Math.max(1, totalPages));
-        } else {
-          this.courses.set([]);
-          this.coursesTotalPages.set(1);
-        }
+        this.courses.set(courseCards);
+        
+        // Calculate total pages for carousel pagination
+        const totalPages = Math.max(1, Math.ceil(courseCards.length / this.coursePageSize));
+        this.coursesTotalPages.set(totalPages);
+        
+        this.loadingCourses.set(false);
       },
       error: () => {
         this.loadingCourses.set(false);
@@ -313,47 +312,21 @@ export class CampusAboutComponent implements OnInit {
     });
   }
 
-  private mapCourseDataToCourseCard(course: CourseData): CourseCard {
-    // Parse seats from seatsAvailable string or use seats number
-    let seats = 0;
-    if (course.seats !== undefined) {
-      seats = course.seats;
-    } else if (course.seatsAvailable) {
-      const parsed = parseInt(course.seatsAvailable, 10);
-      if (!isNaN(parsed)) {
-        seats = parsed;
-      }
-    }
-
-    // Use courseName or name, fallback to empty string
-    const courseName = course.courseName || course.name || '';
-    
-    // Use courseDuration or duration, fallback to empty string
-    const duration = course.courseDuration || course.duration || '';
-
-    return {
-      id: course.id || course.courseId || '',
-      name: courseName,
-      seats: seats,
-      duration: duration,
-    };
-  }
-
   coursesPageItems(): readonly CourseCard[] {
-    return this.courses();
+    const startIndex = (this.coursePage - 1) * this.coursePageSize;
+    const endIndex = startIndex + this.coursePageSize;
+    return this.courses().slice(startIndex, endIndex);
   }
 
   previousCourse(): void {
     if (this.coursePage > 1) {
       this.coursePage--;
-      this.loadCourses();
     }
   }
 
   nextCourse(): void {
     if (this.coursePage < this.coursesTotalPages()) {
       this.coursePage++;
-      this.loadCourses();
     }
   }
 

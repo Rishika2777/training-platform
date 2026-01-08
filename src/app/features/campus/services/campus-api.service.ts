@@ -206,17 +206,128 @@ export class CampusApiService {
   }
 
   /**
-   * POST /dashboard/courses
-   * Add a course.
+   * POST /courses
+   * Add a new course to the campus catalog.
+   * Course name must be unique within the campus.
+   * Returns the created course with 201 status.
    */
   addCourse(request: AddCourseRequest): Observable<AddCourseResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COURSE);
-    return this.http.post<unknown>(url, request).pipe(
+    console.log('CampusApiService: addCourse - URL:', url);
+    console.log('CampusApiService: addCourse - Request:', request);
+    
+    // Create headers object - Angular will merge with interceptor's Authorization header
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, request, { headers }).pipe(
       map((raw) => {
+        console.log('CampusApiService: addCourse - Raw response:', raw);
         if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as AddCourseResponse;
+          const response = raw as AddCourseResponse;
+          console.log('CampusApiService: addCourse - Parsed response:', response);
+          return response;
         }
+        console.warn('CampusApiService: addCourse - Response format unexpected:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: addCourse - Error occurred:', error);
+        console.error('CampusApiService: addCourse - Error status:', error?.status);
+        console.error('CampusApiService: addCourse - Error URL:', error?.url);
+        console.error('CampusApiService: addCourse - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /courses
+   * Get all courses for the campus.
+   * Returns course cards with course name, full title, available seats, and duration. Sorted alphabetically.
+   * Response format: { success: true, message: null, data: AddCourseResponseData[], error: null }
+   */
+  getAllCourses(): Observable<AddCourseResponseData[]> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_COURSES);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: null, data: AddCourseResponseData[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          
+          if (response.success && Array.isArray(response.data)) {
+            const courses = response.data as AddCourseResponseData[];
+            return courses;
+          }
+        }
+        
+        return [];
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /courses/{courseId}
+   * Get course by ID.
+   * Retrieves course details by course ID.
+   * Response format: { success: true, message: null, data: AddCourseResponseData, error: null }
+   */
+  getCourseById(courseId: string): Observable<AddCourseResponseData | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COURSE_BY_ID, { courseId });
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: null, data: AddCourseResponseData, error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          
+          if (response.success && response.data && typeof response.data === 'object') {
+            return response.data as AddCourseResponseData;
+          }
+        }
+        
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * DELETE /courses/{courseId}
+   * Delete course by ID.
+   * Deletes a course from the campus catalog.
+   * Response format: { success: true, message: "Course deleted successfully", data: null, error: null }
+   */
+  deleteCourse(courseId: string): Observable<{ success: boolean; message: string | null; data: null; error: string | null } | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_COURSE, { courseId });
+    
+    return this.http.delete<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: "Course deleted successfully", data: null, error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; message?: unknown; data?: unknown; error?: unknown };
+          
+          if (response.success !== undefined) {
+            return {
+              success: response.success,
+              message: (response.message as string) || null,
+              data: null,
+              error: (response.error as string) || null,
+            };
+          }
+        }
+        
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
       })
     );
   }
@@ -1150,8 +1261,8 @@ export interface AddCompanyVisitedResponse {
 
 export interface AddCourseRequest {
   courseName: string;
-  courseDuration: string;
-  seatsAvailable: string;
+  duration: number;
+  totalSeats: number;
   description: string;
 }
 
@@ -1159,8 +1270,9 @@ export interface AddCourseResponseData {
   id?: string;
   campusId?: string;
   courseName?: string;
-  courseDuration?: string;
-  seatsAvailable?: string;
+  duration?: number;
+  totalSeats?: number;
+  availableSeats?: number;
   description?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -1170,7 +1282,7 @@ export interface AddCourseResponse {
   success: boolean;
   message: string;
   data: AddCourseResponseData;
-  error: string;
+  error: string | null;
 }
 
 export interface ProfessionalInfoRequest {
