@@ -63,7 +63,7 @@ export class SidebarComponent implements OnInit {
   readonly showCampusFaculties = computed(() => {
     const userType = this.roles.getUserType();
     const path = this.path();
-    return userType === 'CAMPUS' && path === '/campus/home';
+    return userType === 'CAMPUS' && (path === '/campus/home' || path === '/campus/about');
   });
 
   // Static fallback data

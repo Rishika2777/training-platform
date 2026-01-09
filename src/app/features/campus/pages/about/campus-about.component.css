@@ -82,12 +82,30 @@
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* Section Styles */
 .section {
   padding: 80px 40px;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
+}
+
+.section-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: var(--space-sm) !important;
+  margin-bottom: 50px !important;
+  width: 100% !important;
+}
+
+.section-header .section-title {
+  font-size: 42px !important;
+  font-weight: 800 !important;
+  color: var(--color-text-primary) !important;
+  margin: 0 !important;
+  text-align: left !important;
+  flex: 1 !important;
+  padding-right: 10px !important;
 }
 
 .section-title {
@@ -98,7 +116,38 @@
   text-align: left;
 }
 
-/* Campus Insights Section */
+.section-add-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+  padding: 0;
+  margin: 0;
+}
+
+.section-add-btn:hover {
+  background: var(--color-secondary);
+  color: var(--color-white);
+  border-color: var(--color-secondary);
+}
+
+.section-add-btn:active {
+  transform: scale(0.95);
+}
+
+.section-add-btn i {
+  font-size: 14px;
+  line-height: 1;
+}
+
 .campus-insights {
   background: var(--color-white);
 }
@@ -130,7 +179,6 @@
   padding-top: 20px;
 }
 
-/* Rising Stars Section */
 .rising-stars {
   background: var(--color-white);
 }
@@ -614,6 +662,27 @@
 /* Faculties Section */
 .faculties {
   background: var(--color-white);
+  overflow: visible !important;
+}
+
+.faculties .section-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin-bottom: 50px !important;
+}
+
+.faculties .section-header .section-title {
+  margin: 0 !important;
+  margin-bottom: 0 !important;
+  flex: 1 !important;
+}
+
+.faculties .section-add-btn {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Alumni Section */
@@ -825,7 +894,6 @@
   box-sizing: border-box;
 }
 
-/* Responsive Design */
 @media (max-width: 1200px) {
   .section {
     padding: 60px 30px;
@@ -933,4 +1001,30 @@
   .count-value {
     font-size: 48px;
   }
+}
+
+:host ::ng-deep .faculty-detail-modal .panel{grid-template-rows:1fr;border:none!important}
+:host ::ng-deep .faculty-detail-modal .header{display:none}
+:host ::ng-deep .faculty-detail-modal .body{padding:0}
+
+::ng-deep .panel.delete-faculty-modal{background:#fff!important;border:none!important;box-shadow:0 4px 12px rgba(0,0,0,.15)!important}
+::ng-deep app-sidebar .sidebar{z-index:997!important;position:fixed!important}
+::ng-deep .delete-faculty-modal .header{display:flex!important;padding:12px 14px!important;justify-content:flex-end!important}
+::ng-deep .delete-faculty-modal .header .title{display:none!important}
+::ng-deep .delete-faculty-modal .body{padding:20px!important}
+.delete-modal-content{display:flex;flex-direction:column;gap:16px;align-items:center}
+.delete-modal-image{display:flex;justify-content:center;margin:8px 0 16px}
+.delete-modal-image img{width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid #9b59b6}
+.delete-modal-content p{margin:0;font-size:16px;color:var(--color-text-primary);text-align:center}
+.delete-modal-content .warning-text{color:var(--color-error,#e76f51);font-weight:500}
+.delete-item-info{display:flex;flex-direction:column;gap:4px;padding:12px;background:#fff;border:1px solid var(--color-border);border-radius:8px;width:100%;box-sizing:border-box}
+.delete-item-info strong{font-size:16px;color:var(--color-text-primary)}
+.delete-item-info .email{font-size:14px;color:var(--color-text-secondary,#666)}
+.delete-modal-actions{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
+.delete-modal-actions app-button{min-width:100px}
+::ng-deep .delete-modal-actions app-button:last-child .btn.primary{background:var(--color-error,#e76f51);border-color:var(--color-error,#e76f51);color:var(--color-white)}
+::ng-deep .delete-modal-actions app-button:last-child .btn.primary:hover{opacity:.9}
+@media (max-width:768px){
+  .delete-modal-actions{flex-direction:column}
+  .delete-modal-actions app-button{width:100%}
 }

@@ -163,21 +163,17 @@
           <div class="company-grid">
             @for (company of companiesVisited(); track company.id || company.companyName) {
               <div class="company-tile">
-                <img [src]="company.logoUrl" [alt]="company.companyName" class="company-logo" />
+                <img 
+                  [src]="company.logoUrl" 
+                  [alt]="company.companyName" 
+                  class="company-logo"
+                  (error)="onCompanyImageError($event, company)"
+                  loading="lazy"
+                />
               </div>
             }
             @if (companiesVisited().length === 0) {
               <div class="empty-state grid-full-width">No companies visited yet</div>
-            }
-            @if (companiesVisited().length < companiesVisitedPageSize || companiesVisitedPage === 0) {
-              <button
-                class="company-tile add"
-                type="button"
-                title="Add Company"
-                (click)="modalService.openModal('companies-visited')"
-              >
-                <i class="fa-solid fa-plus" aria-hidden="true"></i>
-              </button>
             }
           </div>
 

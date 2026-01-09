@@ -377,9 +377,24 @@ export class CampusHomeComponent implements OnInit {
   }
 
   onCompaniesVisitedPageChange(page: number): void {
-    // Carousel/pager component uses 1-based indexing, convert to 0-based for API
-    const apiPage = page - 1;
-    if (apiPage !== this.companiesVisitedPage && apiPage >= 0 && apiPage < this.companiesVisitedTotalPages()) {
+    // page can be either 0-based (from prev/next buttons) or 1-based (from page number buttons)
+    // Convert to 0-based if it's 1-based (greater than 0 and less than or equal to totalPages)
+    let apiPage: number;
+    const totalPages = this.companiesVisitedTotalPages();
+    
+    if (page >= 1 && page <= totalPages) {
+      // 1-based page number from UI buttons
+      apiPage = page - 1;
+    } else if (page >= 0 && page < totalPages) {
+      // Already 0-based (from prev/next buttons)
+      apiPage = page;
+    } else {
+      console.warn('CampusHomeComponent: Invalid page number:', page, 'Total pages:', totalPages);
+      return;
+    }
+    
+    if (apiPage !== this.companiesVisitedPage) {
+      console.log('CampusHomeComponent: Changing page from', this.companiesVisitedPage, 'to', apiPage);
       this.companiesVisitedPage = apiPage;
       this.loadCompaniesVisited();
     }
@@ -412,24 +427,56 @@ export class CampusHomeComponent implements OnInit {
     return pages;
   }
 
+  onCompanyImageError(event: Event, company: CompanyVisitedCard): void {
+    const img = event.target as HTMLImageElement;
+    console.error('CampusHomeComponent: ❌ Image failed to load for company:', company.companyName);
+    console.error('CampusHomeComponent: Failed image URL:', img.src);
+    console.error('CampusHomeComponent: Company data:', company);
+    
+    // Set fallback image
+    img.src = 'assets/images/login-news-image.png';
+    img.alt = `${company.companyName} (fallback)`;
+  }
+
   private mapCompanyVisitedToCard(item: CompanyVisitedItem): CompanyVisitedCard {
     // Construct full image URL from logourl
+    // Backend returns logourl like "company/ed38e166-3f2a-45e4-8fe7-c441dd068764.jpg"
     let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+    
     if (item.logourl) {
-      if (item.logourl.startsWith('http://') || item.logourl.startsWith('https://')) {
-        imageUrl = item.logourl;
-      } else if (item.logourl.startsWith('/')) {
-        imageUrl = `/api/v1/files${item.logourl}`;
+      const logourl = item.logourl.trim();
+      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Company:', item.companyName);
+      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Raw logourl:', logourl);
+      
+      if (logourl.startsWith('http://') || logourl.startsWith('https://')) {
+        // Already a full URL
+        imageUrl = logourl;
+        console.log('CampusHomeComponent: Using full URL:', imageUrl);
+      } else if (logourl.startsWith('/')) {
+        // Absolute path, add /api/v1/files prefix
+        imageUrl = `/api/v1/files${logourl}`;
+        console.log('CampusHomeComponent: Constructed URL from absolute path:', imageUrl);
       } else {
-        imageUrl = `/api/v1/files/${item.logourl}`;
+        // Relative path like "company/filename.jpg", add /api/v1/files/ prefix
+        imageUrl = `/api/v1/files/${logourl}`;
+        console.log('CampusHomeComponent: Constructed URL from relative path:', imageUrl);
       }
+    } else {
+      console.warn('CampusHomeComponent: mapCompanyVisitedToCard - No logourl found for company:', item.companyName);
     }
     
-    return {
+    const result = {
       id: item.id,
       companyName: item.companyName || 'Unknown Company',
       logoUrl: imageUrl,
     };
+    
+    console.log('CampusHomeComponent: mapCompanyVisitedToCard - Final card for', result.companyName, ':', {
+      id: result.id,
+      companyName: result.companyName,
+      logoUrl: result.logoUrl
+    });
+    return result;
   }
 
   // Current Batch - API Integration
@@ -887,8 +934,12 @@ export class CampusHomeComponent implements OnInit {
         
         this.submittingCompanies = false;
         
-        if (response?.success) {
-          const successMessage = response.message || 'Company visited added successfully';
+        // If we get a response (even if null), HTTP request was successful (200)
+        // Show success message and refresh the list
+        if (response && response.success !== false) {
+          // Response has success=true or success is undefined (treat as success for HTTP 200)
+          const successMessage = response?.message || 'Company visited added successfully';
+          console.log('CampusHomeComponent: Showing success message:', successMessage);
           this.notify.success(successMessage);
           this.closeModal();
           
@@ -901,10 +952,26 @@ export class CampusHomeComponent implements OnInit {
           } catch {
             // Component might be destroyed, ignore
           }
-        } else {
-          const errorMsg = response?.error || 'Company might not have been added';
+        } else if (response && response.success === false) {
+          // Explicit failure response
+          const errorMsg = response?.error || response?.message || 'Company might not have been added';
           console.warn('CampusHomeComponent: API response success is false:', errorMsg);
-          this.notify.warn(errorMsg);
+          this.notify.error(errorMsg);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore
+          }
+        } else {
+          // Response is null but HTTP was 200 - treat as success
+          console.log('CampusHomeComponent: Response is null but HTTP 200 - treating as success');
+          this.notify.success('Company visited added successfully');
+          this.closeModal();
+          
+          // Refresh the companies visited list after adding
+          this.companiesVisitedPage = 0; // Reset to first page
+          this.loadCompaniesVisited();
+          
           try {
             this.cdr.detectChanges();
           } catch {

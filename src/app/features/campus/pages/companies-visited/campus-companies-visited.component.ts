@@ -59,11 +59,19 @@ export class CampusCompaniesVisitedComponent {
     return this.value.companyLogo !== null && this.value.companyName.trim().length > 0;
   }
 
-  onFormSubmit(): void {
+  onFormSubmit(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.submit();
   }
 
-  onButtonClick(): void {
+  onButtonClick(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.submit();
   }
 }

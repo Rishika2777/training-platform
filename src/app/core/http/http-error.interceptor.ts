@@ -106,6 +106,17 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
           notifications.error(getErrorMessage(err));
           return throwError(() => err);
         }
+        
+        // IMPORTANT: For 401 errors on companies/dashboard API, don't clear token or redirect
+        // Let the component handle the error
+        if (err.status === 401 && (req.url.includes('/dashboard/companies') || req.url.includes('/companies'))) {
+          console.warn('httpErrorInterceptor: 401 on companies API - NOT clearing token, NOT redirecting');
+          console.warn('httpErrorInterceptor: URL:', req.url);
+          console.warn('httpErrorInterceptor: Error details:', err);
+          console.warn('httpErrorInterceptor: Letting component handle error');
+          notifications.error(getErrorMessage(err));
+          return throwError(() => err);
+        }
       }
       
       notifications.error(getErrorMessage(err));
