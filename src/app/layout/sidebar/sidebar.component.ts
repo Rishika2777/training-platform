@@ -151,10 +151,29 @@ export class SidebarComponent implements OnInit {
 
         if (response?.data && response.data.length > 0) {
           // Convert API data to FacultyCard format
-          const apiFacultyCards: FacultyCard[] = response.data.map((item) => ({
-            name: item.fullName || 'Unknown',
-            imageUrl: item.photoUrl || 'assets/images/login-news-image.png',
-          }));
+          const apiFacultyCards: FacultyCard[] = response.data.map((item) => {
+            // Construct full image URL from photoUrl (API returns relative path or full URL)
+            let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+            
+            if (item.photoUrl) {
+              // If photoUrl is already a full URL (starts with http:// or https://), use it as is
+              if (item.photoUrl.startsWith('http://') || item.photoUrl.startsWith('https://')) {
+                imageUrl = item.photoUrl;
+              } else if (item.photoUrl.startsWith('/')) {
+                // If it starts with /, it's an absolute path - construct full URL
+                imageUrl = `/api/v1/files${item.photoUrl}`;
+              } else {
+                // Relative path like "faculty/filename.jpg" - construct full URL
+                imageUrl = `/api/v1/files/${item.photoUrl}`;
+              }
+            }
+            
+            return {
+              id: item.id, // Store ID for fetching details
+              name: item.fullName || 'Unknown',
+              imageUrl: imageUrl,
+            };
+          });
 
           console.log('SidebarComponent: Using API data, count:', apiFacultyCards.length);
           console.log('SidebarComponent: Faculty names:', apiFacultyCards.map(f => f.name));
@@ -191,10 +210,88 @@ export class SidebarComponent implements OnInit {
   }
 
   onFacultyClick(faculty: FacultyCard): void {
-    const detailData = this.facultyDetailData[faculty.name];
-    if (detailData) {
-      this.facultyDetailService.setSelectedFaculty(detailData);
-      this.modalService.openModal('faculty-detail');
+    // If faculty has ID, fetch from API; otherwise use static data as fallback
+    if (faculty.id) {
+      this.loadingFaculties.set(true);
+      this.campusApi.getFacultyProfile(faculty.id).subscribe({
+        next: (response) => {
+          this.loadingFaculties.set(false);
+          if (response?.data) {
+            const profile = response.data;
+            const professionalInfo = profile.professionalInfo && profile.professionalInfo.length > 0 
+              ? profile.professionalInfo[0] 
+              : null;
+            
+            // Construct full image URL
+            let imageUrl = 'assets/images/login-news-image.png';
+            if (profile.photoUrl) {
+              if (profile.photoUrl.startsWith('http://') || profile.photoUrl.startsWith('https://')) {
+                imageUrl = profile.photoUrl;
+              } else if (profile.photoUrl.startsWith('/')) {
+                imageUrl = `/api/v1/files${profile.photoUrl}`;
+              } else {
+                imageUrl = `/api/v1/files/${profile.photoUrl}`;
+              }
+            }
+            
+            // Handle designation and department as arrays (convert to string)
+            const designationStr = professionalInfo?.designation 
+              ? (Array.isArray(professionalInfo.designation) 
+                  ? professionalInfo.designation.join(', ') 
+                  : professionalInfo.designation)
+              : 'Not specified';
+            
+            const departmentStr = professionalInfo?.department
+              ? (Array.isArray(professionalInfo.department)
+                  ? professionalInfo.department.join(', ')
+                  : professionalInfo.department)
+              : 'Not specified';
+            
+            const qualificationsStr = professionalInfo?.qualifications || 'Not specified';
+            const experienceStr = professionalInfo?.yearsOfExperience 
+              ? `${professionalInfo.yearsOfExperience} years of experience`
+              : 'Not specified';
+            
+            const detailData: FacultyDetailData = {
+              name: profile.fullName || faculty.name,
+              imageUrl: imageUrl,
+              designation: designationStr,
+              department: departmentStr,
+              qualifications: qualificationsStr,
+              experience: experienceStr,
+              email: profile.email || 'Not available',
+              phone: profile.phoneNumber || 'Not available',
+            };
+            
+            this.facultyDetailService.setSelectedFaculty(detailData);
+            this.modalService.openModal('faculty-detail');
+          } else {
+            // Fallback to static data if API returns no data
+            const detailData = this.facultyDetailData[faculty.name];
+            if (detailData) {
+              this.facultyDetailService.setSelectedFaculty(detailData);
+              this.modalService.openModal('faculty-detail');
+            }
+          }
+        },
+        error: (err) => {
+          this.loadingFaculties.set(false);
+          console.warn('SidebarComponent: Failed to load faculty profile:', err);
+          // Fallback to static data on error
+          const detailData = this.facultyDetailData[faculty.name];
+          if (detailData) {
+            this.facultyDetailService.setSelectedFaculty(detailData);
+            this.modalService.openModal('faculty-detail');
+          }
+        },
+      });
+    } else {
+      // Fallback to static data if no ID
+      const detailData = this.facultyDetailData[faculty.name];
+      if (detailData) {
+        this.facultyDetailService.setSelectedFaculty(detailData);
+        this.modalService.openModal('faculty-detail');
+      }
     }
   }
 
@@ -268,6 +365,7 @@ export class SidebarComponent implements OnInit {
 }
 
 interface FacultyCard {
+  id?: string;
   name: string;
   imageUrl: string;
 }

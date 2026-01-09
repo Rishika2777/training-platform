@@ -7,8 +7,9 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campus/campus-visit-campus.component';
-import { CampusApiService, FacultyData, FacultiesResponse, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, RisingStarData, SuccessStoryData, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend } from '../../services/campus-api.service';
-import { ApiResponsePageAlumniResponse, AlumniResponse } from '../../../student/models/student.models';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData } from '../../services/campus-api.service';
+import { ApiResponsePlacedStudentsResponse, PlacedStudentResponse } from '../../../student/models/student.models';
+import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -50,6 +51,7 @@ interface CourseCard {
 export class CampusAboutComponent implements OnInit {
   readonly modalService = inject(ModalService);
   private readonly campusApi = inject(CampusApiService);
+  private readonly studentApiService = inject(StudentApiService);
   private readonly storage = inject(StorageService);
   private readonly authState = inject(AuthStateService);
   private readonly notify = inject(NotificationService);
@@ -69,6 +71,7 @@ export class CampusAboutComponent implements OnInit {
   // Campus Insights - About Campus Content
   readonly aboutCampusText = signal<string>('');
   readonly loadingAboutCampus = signal(false);
+  readonly campusWebsiteUrl = signal<string | null>(null);
   
   // Prospectus Download
   readonly downloadingProspectus = signal(false);
@@ -118,44 +121,44 @@ export class CampusAboutComponent implements OnInit {
           } else {
             this.aboutCampusText.set('');
           }
+          
+          // Store campus website URL
+          if (campus.campusWebsiteUrl) {
+            this.campusWebsiteUrl.set(campus.campusWebsiteUrl);
+          } else {
+            this.campusWebsiteUrl.set(null);
+          }
         } else {
           this.aboutCampusText.set('');
+          this.campusWebsiteUrl.set(null);
         }
       },
       error: () => {
         this.loadingAboutCampus.set(false);
         this.aboutCampusText.set('');
+        this.campusWebsiteUrl.set(null);
       }
     });
   }
 
   loadRisingStars(): void {
-    // Try multiple sources for campusId (correct sources only)
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
-    
-    if (!campusId) {
-      return;
-    }
-    
     this.loadingRisingStars.set(true);
     
-    this.campusApi.getRisingStars(campusId, this.risingStarsPage, this.pageSize).pipe(
+    // Use the same API as campus home page placed students section
+    this.studentApiService.getPlacedStudents(this.risingStarsPage, this.pageSize).pipe(
       catchError(() => {
         this.loadingRisingStars.set(false);
         return of(null);
       })
     ).subscribe({
-      next: (response) => {
+      next: (response: ApiResponsePlacedStudentsResponse | null) => {
         this.loadingRisingStars.set(false);
         
-        if (response && response.content && Array.isArray(response.content)) {
-          const mappedStars = response.content.map((star) => this.mapRisingStarToPersonCard(star));
+        if (response?.success && response.data?.content && Array.isArray(response.data.content)) {
+          const mappedStars = response.data.content.map((student) => this.mapPlacedStudentToPersonCard(student));
           this.risingStars.set(mappedStars);
           
-          const totalPages = response.totalPages ?? 0;
+          const totalPages = response.data.totalPages ?? 0;
           this.risingStarsTotalPages.set(Math.max(1, totalPages));
         } else {
           this.risingStars.set([]);
@@ -170,12 +173,18 @@ export class CampusAboutComponent implements OnInit {
     });
   }
 
-  private mapRisingStarToPersonCard(star: RisingStarData): PersonCard {
+  private mapPlacedStudentToPersonCard(student: PlacedStudentResponse): PersonCard {
+    const name = student.studentName || 
+                 [student.firstName, student.lastName].filter(Boolean).join(' ') || 
+                 'Unknown';
+    
     return {
-      id: star.id || star.studentId || star.userId || '',
-      name: star.studentName || `${star.firstName || ''} ${star.lastName || ''}`.trim() || 'Name',
-      imageUrl: star.profilePhotoUrl || star.imageUrl || 'assets/images/login-news-image.png',
-      batch: star.batch,
+      id: student.studentId || student.userId || '',
+      name: name,
+      imageUrl: student.profilePhotoUrl || 'assets/images/login-news-image.png',
+      batch: student.batch,
+      company: student.companyName,
+      designation: student.designation,
     };
   }
 
@@ -190,7 +199,7 @@ export class CampusAboutComponent implements OnInit {
     }
   }
 
-  // Success Stories - API Integration
+  // Success Stories - API Integration (Using same API as campus dashboard placed students)
   readonly successStories = signal<readonly PersonCard[]>([]);
   readonly loadingSuccessStories = signal(false);
   successStoryPage = 1;
@@ -198,32 +207,23 @@ export class CampusAboutComponent implements OnInit {
   readonly successStoriesTotalPages = signal(1);
 
   loadSuccessStories(): void {
-    // Try multiple sources for campusId (correct sources only)
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
-    
-    if (!campusId) {
-      return;
-    }
-    
     this.loadingSuccessStories.set(true);
     
-    this.campusApi.getSuccessStories(campusId, this.successStoryPage, this.successStoryPageSize).pipe(
+    // Use the same API as campus dashboard placed students section
+    this.studentApiService.getPlacedStudents(this.successStoryPage, this.successStoryPageSize).pipe(
       catchError(() => {
         this.loadingSuccessStories.set(false);
         return of(null);
       })
     ).subscribe({
-      next: (response) => {
+      next: (response: ApiResponsePlacedStudentsResponse | null) => {
         this.loadingSuccessStories.set(false);
         
-        if (response && response.content && Array.isArray(response.content)) {
-          const mappedStories = response.content.map((story) => this.mapSuccessStoryToPersonCard(story));
+        if (response?.success && response.data?.content && Array.isArray(response.data.content)) {
+          const mappedStories = response.data.content.map((student) => this.mapPlacedStudentToPersonCard(student));
           this.successStories.set(mappedStories);
           
-          const totalPages = response.totalPages ?? 0;
+          const totalPages = response.data.totalPages ?? 0;
           this.successStoriesTotalPages.set(Math.max(1, totalPages));
         } else {
           this.successStories.set([]);
@@ -236,16 +236,6 @@ export class CampusAboutComponent implements OnInit {
         this.successStoriesTotalPages.set(1);
       }
     });
-  }
-
-  private mapSuccessStoryToPersonCard(story: SuccessStoryData): PersonCard {
-    return {
-      id: story.id || story.studentId || story.userId || '',
-      name: story.studentName || `${story.firstName || ''} ${story.lastName || ''}`.trim() || 'Name',
-      imageUrl: story.profilePhotoUrl || story.imageUrl || 'assets/images/login-news-image.png',
-      batch: story.batch,
-      company: story.companyName || story.company,
-    };
   }
 
   successStoriesPageItems(): readonly PersonCard[] {
@@ -423,6 +413,8 @@ export class CampusAboutComponent implements OnInit {
   }
 
   // Faculties - API Integration
+  // Using getAllFaculties() from campus dashboard (same as campus home page)
+  readonly allFaculties = signal<readonly PersonCard[]>([]);
   readonly faculties = signal<readonly PersonCard[]>([]);
   readonly loadingFaculties = signal(false);
   facultiesPage = 1;
@@ -430,53 +422,63 @@ export class CampusAboutComponent implements OnInit {
   readonly facultiesTotalPages = signal(1);
 
   loadFaculties(): void {
-    // Try multiple sources for campusId (correct sources only)
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
-    
-    if (!campusId) {
-      return;
-    }
-    
     this.loadingFaculties.set(true);
     
-    this.campusApi.getFaculties(campusId, this.facultiesPage, this.facultiesPageSize).pipe(
+    // Use the same API as campus home page (campus dashboard get all faculty)
+    this.campusApi.getAllFaculties().pipe(
       catchError(() => {
         this.loadingFaculties.set(false);
         return of(null);
       })
     ).subscribe({
-      next: (response: FacultiesResponse | null) => {
+      next: (response: GetAllFacultiesResponse | null) => {
         this.loadingFaculties.set(false);
         
-        if (response && response.content && Array.isArray(response.content)) {
-          const mappedFaculties = response.content.map((faculty: FacultyData) => this.mapFacultyToPersonCard(faculty));
-          this.faculties.set(mappedFaculties);
+        if (response?.success && response.data && Array.isArray(response.data)) {
+          const mappedFaculties = response.data.map((faculty: FacultyListItem) => this.mapFacultyListItemToPersonCard(faculty));
+          this.allFaculties.set(mappedFaculties);
           
-          const totalPages = response.totalPages ?? 0;
-          this.facultiesTotalPages.set(Math.max(1, totalPages));
+          // Calculate total pages for client-side pagination
+          const totalPages = Math.max(1, Math.ceil(mappedFaculties.length / this.facultiesPageSize));
+          this.facultiesTotalPages.set(totalPages);
+          
+          // Update current page items
+          this.updateFacultiesPageItems();
         } else {
+          this.allFaculties.set([]);
           this.faculties.set([]);
           this.facultiesTotalPages.set(1);
         }
       },
       error: () => {
         this.loadingFaculties.set(false);
+        this.allFaculties.set([]);
         this.faculties.set([]);
         this.facultiesTotalPages.set(1);
       }
     });
   }
 
-  private mapFacultyToPersonCard(faculty: FacultyData): PersonCard {
+  private mapFacultyListItemToPersonCard(faculty: FacultyListItem): PersonCard {
+    // Convert designation array to string (join with comma or take first element)
+    const designationStr = faculty.designation && faculty.designation.length > 0
+      ? faculty.designation.join(', ')
+      : undefined;
+    
     return {
-      id: faculty.id || faculty.facultyId || faculty.userId || '',
-      name: faculty.fullName || faculty.name || 'Name',
-      imageUrl: faculty.photoUrl || faculty.profilePhotoUrl || faculty.imageUrl || 'assets/images/login-news-image.png',
-      designation: faculty.designation,
+      id: faculty.id || '',
+      name: faculty.fullName || 'Name',
+      imageUrl: faculty.photoUrl || 'assets/images/login-news-image.png',
+      designation: designationStr,
     };
+  }
+
+  private updateFacultiesPageItems(): void {
+    const all = this.allFaculties();
+    const startIndex = (this.facultiesPage - 1) * this.facultiesPageSize;
+    const endIndex = startIndex + this.facultiesPageSize;
+    const pageItems = all.slice(startIndex, endIndex);
+    this.faculties.set(pageItems);
   }
 
   facultiesPageItems(): readonly PersonCard[] {
@@ -486,11 +488,12 @@ export class CampusAboutComponent implements OnInit {
   onFacultiesPageChange(page: number): void {
     if (page !== this.facultiesPage && page >= 1) {
       this.facultiesPage = page;
-      this.loadFaculties();
+      this.updateFacultiesPageItems();
     }
   }
 
-  // Alumni - API Integration
+  // Alumni - API Integration (Using same API as campus dashboard)
+  readonly allAlumni = signal<readonly PersonCard[]>([]);
   readonly alumni = signal<readonly PersonCard[]>([]);
   readonly loadingAlumni = signal(false);
   alumniPage = 1;
@@ -498,54 +501,64 @@ export class CampusAboutComponent implements OnInit {
   readonly alumniTotalPages = signal(1);
 
   loadAlumni(): void {
-    // Try multiple sources for campusId (correct sources only)
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
-    
-    if (!campusId) {
-      return;
-    }
-    
     this.loadingAlumni.set(true);
     
-    this.campusApi.getAlumni(campusId, this.alumniPage, this.alumniPageSize).pipe(
+    // Use the same API as campus dashboard (getAlumniForCarousel)
+    this.campusApi.getAlumniForCarousel(50).pipe(
       catchError(() => {
         this.loadingAlumni.set(false);
         return of(null);
       })
     ).subscribe({
-      next: (response: ApiResponsePageAlumniResponse | null) => {
+      next: (response: AlumniDashboardResponse | null) => {
         this.loadingAlumni.set(false);
         
-        if (response?.data?.content && Array.isArray(response.data.content)) {
-          const mappedAlumni = response.data.content.map((alumnus: AlumniResponse) => this.mapAlumniToPersonCard(alumnus));
-          this.alumni.set(mappedAlumni);
+        if (response?.success && Array.isArray(response.data)) {
+          const mappedAlumni = response.data.map((alumnus: AlumniDashboardData) => this.mapAlumniToPersonCard(alumnus));
+          this.allAlumni.set(mappedAlumni);
           
-          const totalPages = response.data.totalPages ?? 0;
-          this.alumniTotalPages.set(Math.max(1, totalPages));
+          // Calculate total pages for client-side pagination
+          const totalPages = Math.max(1, Math.ceil(mappedAlumni.length / this.alumniPageSize));
+          this.alumniTotalPages.set(totalPages);
+          
+          // Update current page items
+          this.updateAlumniPageItems();
         } else {
+          this.allAlumni.set([]);
           this.alumni.set([]);
           this.alumniTotalPages.set(1);
         }
       },
       error: () => {
         this.loadingAlumni.set(false);
+        this.allAlumni.set([]);
         this.alumni.set([]);
         this.alumniTotalPages.set(1);
       }
     });
   }
 
-  private mapAlumniToPersonCard(alumnus: AlumniResponse): PersonCard {
+  private mapAlumniToPersonCard(alumnus: AlumniDashboardData): PersonCard {
+    const name = alumnus.studentName || 
+                 [alumnus.firstName, alumnus.lastName].filter(Boolean).join(' ') || 
+                 'Unknown';
+    
     return {
       id: alumnus.studentId || alumnus.userId || '',
-      name: `${alumnus.firstName || ''} ${alumnus.lastName || ''}`.trim() || 'Name',
-      imageUrl: alumnus.profilePhotoUrl || 'assets/images/login-news-image.png',
+      name: name,
+      imageUrl: alumnus.profilePhotoUrl || alumnus.imageUrl || 'assets/images/login-news-image.png',
       designation: alumnus.designation,
       company: alumnus.companyName,
+      batch: alumnus.batch || alumnus.yearOfPassing,
     };
+  }
+
+  private updateAlumniPageItems(): void {
+    const all = this.allAlumni();
+    const startIndex = (this.alumniPage - 1) * this.alumniPageSize;
+    const endIndex = startIndex + this.alumniPageSize;
+    const pageItems = all.slice(startIndex, endIndex);
+    this.alumni.set(pageItems);
   }
 
   alumniPageItems(): readonly PersonCard[] {
@@ -555,14 +568,14 @@ export class CampusAboutComponent implements OnInit {
   previousAlumni(): void {
     if (this.alumniPage > 1) {
       this.alumniPage--;
-      this.loadAlumni();
+      this.updateAlumniPageItems();
     }
   }
 
   nextAlumni(): void {
     if (this.alumniPage < this.alumniTotalPages()) {
       this.alumniPage++;
-      this.loadAlumni();
+      this.updateAlumniPageItems();
     }
   }
 
@@ -692,6 +705,20 @@ export class CampusAboutComponent implements OnInit {
     console.log('Opening Visit Campus modal...');
     this.modalService.openModal('visit-campus');
     console.log('Modal service activeModal:', this.modalService.activeModal());
+  }
+
+  openCampusWebsite(): void {
+    const websiteUrl = this.campusWebsiteUrl();
+    if (websiteUrl && websiteUrl.trim()) {
+      // Ensure URL has protocol
+      let url = websiteUrl.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      // Open in new tab
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+    // If no URL, button still enabled but does nothing (as per requirement)
   }
 
   closeModal(): void {

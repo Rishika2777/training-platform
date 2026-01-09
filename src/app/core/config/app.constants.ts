@@ -154,7 +154,7 @@
       DELETE: '/campus/admin/:campusId',
       APPROVAL: '/campus/:campusId/approval',
       ADD_PLACED_STUDENT: '/dashboard/students/placed',
-      GET_PLACED_STUDENTS: '/dashboard/students/placed',
+      GET_PLACED_STUDENTS: '/dashboard/placed-students',
       GET_ALL_BATCHES: '/dashboard/students/batches',
       GET_STUDENTS_BY_BATCH: '/dashboard/students/batch',
       ADD_COMPANY_VISITED: '/dashboard/companies/visited',

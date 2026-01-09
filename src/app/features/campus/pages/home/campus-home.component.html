@@ -128,7 +128,7 @@
 
         <app-carousel
           type="pagination"
-          [currentPage]="placedStudentsPage"
+          [currentPage]="placedStudentsPage + 1"
           [totalPages]="placedStudentsTotalPages()"
           (pageChange)="onPlacedStudentsPageChange($event)"
         >

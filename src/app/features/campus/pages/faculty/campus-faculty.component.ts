@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, OnInit, Output, ViewChild, signal } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
@@ -31,7 +31,7 @@ export interface FacultyFormValue {
   templateUrl: './campus-faculty.component.html',
   styleUrl: './campus-faculty.component.css',
 })
-export class CampusFacultyComponent {
+export class CampusFacultyComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly emailCheckSubject = new Subject<string>();
 
@@ -63,25 +63,34 @@ export class CampusFacultyComponent {
   @Output() submitted = new EventEmitter<FacultyFormValue>();
   @Output() cancelled = new EventEmitter<void>();
 
-  readonly designationItems: readonly DropdownItem<string>[] = [
-    { label: 'Professor', value: 'professor' },
-    { label: 'Associate Professor', value: 'associate-professor' },
-    { label: 'Assistant Professor', value: 'assistant-professor' },
-    { label: 'Lecturer', value: 'lecturer' },
-  ];
+  // Designation items loaded from API (initialize with fallback data)
+  readonly designationItems = signal<readonly DropdownItem<string>[]>([
+    { label: 'Professor', value: 'Professor' },
+    { label: 'Associate Professor', value: 'Associate Professor' },
+    { label: 'Assistant Professor', value: 'Assistant Professor' },
+    { label: 'Lecturer', value: 'Lecturer' },
+  ]);
+  loadingDesignations = signal(false);
 
+  // Department items (hardcoded - no API available)
   readonly departmentItems: readonly DropdownItem<string>[] = [
-    { label: 'Computer Science', value: 'cs' },
-    { label: 'Mathematics', value: 'math' },
-    { label: 'Physics', value: 'physics' },
-    { label: 'Chemistry', value: 'chemistry' },
+    { label: 'Computer Science', value: 'Computer Science' },
+    { label: 'Mathematics', value: 'Mathematics' },
+    { label: 'Physics', value: 'Physics' },
+    { label: 'Chemistry', value: 'Chemistry' },
   ];
 
   readonly specializationItems: readonly DropdownItem<string>[] = [
-    { label: 'Machine Learning', value: 'ml' },
-    { label: 'Data Science', value: 'ds' },
-    { label: 'Web Development', value: 'web' },
-    { label: 'Database Systems', value: 'db' },
+    { label: 'Machine Learning', value: 'Machine Learning' },
+    { label: 'Data Science', value: 'Data Science' },
+    { label: 'Web Development', value: 'Web Development' },
+    { label: 'Database Systems', value: 'Database Systems' },
+    { label: 'Academic Management', value: 'Academic Management' },
+    { label: 'Educational Leadership', value: 'Educational Leadership' },
+    { label: 'Computer Science', value: 'Computer Science' },
+    { label: 'Software Engineering', value: 'Software Engineering' },
+    { label: 'Artificial Intelligence', value: 'Artificial Intelligence' },
+    { label: 'Cybersecurity', value: 'Cybersecurity' },
   ];
 
   readonly experienceItems: readonly DropdownItem<string>[] = [
@@ -132,6 +141,58 @@ export class CampusFacultyComponent {
           this.emailErrorMessage = '';
         },
       });
+  }
+
+  ngOnInit(): void {
+    // Load designations from API
+    this.loadDesignations();
+  }
+
+  /**
+   * Load designations from API
+   */
+  loadDesignations(): void {
+    this.loadingDesignations.set(true);
+    this.campusApi.getDesignations().subscribe({
+      next: (designations) => {
+        this.loadingDesignations.set(false);
+        if (designations && designations.length > 0) {
+          // Convert API response (string[]) to DropdownItem[]
+          const items: DropdownItem<string>[] = designations.map((designation) => ({
+            label: designation,
+            value: designation,
+          }));
+          this.designationItems.set(items);
+          console.log('Faculty Component: Designations loaded successfully:', items.length, 'items');
+        } else {
+          console.warn('Faculty Component: API returned empty designations, using fallback');
+          // Fallback to static data if API returns empty
+          this.designationItems.set([
+            { label: 'Professor', value: 'Professor' },
+            { label: 'Associate Professor', value: 'Associate Professor' },
+            { label: 'Assistant Professor', value: 'Assistant Professor' },
+            { label: 'Lecturer', value: 'Lecturer' },
+          ]);
+        }
+      },
+      error: (error) => {
+        this.loadingDesignations.set(false);
+        console.error('Faculty Component: Failed to load designations from API:', error);
+        console.error('Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          error: error?.error,
+          message: error?.message
+        });
+        // Fallback to static data on error
+        this.designationItems.set([
+          { label: 'Professor', value: 'Professor' },
+          { label: 'Associate Professor', value: 'Associate Professor' },
+          { label: 'Assistant Professor', value: 'Assistant Professor' },
+          { label: 'Lecturer', value: 'Lecturer' },
+        ]);
+      },
+    });
   }
 
   private isValidEmail(email: string): boolean {

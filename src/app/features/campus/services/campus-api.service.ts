@@ -116,12 +116,15 @@ export class CampusApiService {
   }
 
   /**
-   * GET /dashboard/students/placed
+   * GET /dashboard/placed-students
    * Fetch placed students for campus (paginated)
+   * Default 6 students per page, sorted by placement date (newest first)
+   * Page is 0-indexed (page=0 for first page)
+   * Response: { success, message, data: { content: PlacedStudent[], totalPages, totalElements, ... } }
    */
   getPlacedStudents(
-    page = 1,
-    limit = 4,
+    page = 0,
+    limit = 6,
     companyName?: string,
     batch?: string,
   ): Observable<ApiResponsePlacedStudentsResponse> {
@@ -341,6 +344,10 @@ export class CampusApiService {
   addFaculty(data: { basicInformation: unknown; professionalInformation: unknown }): Observable<AddFacultyResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
     
+    // Log the exact request being sent to backend
+    console.log('CampusApiService.addFaculty - URL:', url);
+    console.log('CampusApiService.addFaculty - Request Data:', JSON.stringify(data, null, 2));
+    
     // Create headers object - Angular will merge with interceptor's Authorization header
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
@@ -350,33 +357,54 @@ export class CampusApiService {
       headers: headers
     }).pipe(
       map((raw) => {
-        // Check if response has expected structure: { success, message, data: { basicInformation, professionalInformation }, error }
+        // Backend response structure: { success, message, basicInformation: {...}, professionalInformation: [...] }
+        // OR: { success, message, data: { basicInformation, professionalInformation }, error }
+        // Handle both formats
         if (raw && typeof raw === 'object') {
           const response = raw as Record<string, unknown>;
           
-          // Validate response structure matches expected format
-          if (
-            'success' in response &&
-            'message' in response &&
-            'data' in response &&
-            typeof response['data'] === 'object' &&
-            response['data'] !== null
-          ) {
-            const dataObj = response['data'] as Record<string, unknown>;
-            
-            // Check if data has basicInformation and professionalInformation
+          // Check if response has success field
+          if ('success' in response) {
+            // Check if response has data wrapper or direct fields
             if (
-              'basicInformation' in dataObj &&
-              'professionalInformation' in dataObj &&
-              typeof dataObj['basicInformation'] === 'object' &&
-              typeof dataObj['professionalInformation'] === 'object'
+              'basicInformation' in response &&
+              'professionalInformation' in response &&
+              typeof response['basicInformation'] === 'object' &&
+              typeof response['professionalInformation'] === 'object'
             ) {
-              return raw as AddFacultyResponse;
+              // Response has direct fields (no data wrapper)
+              // Convert to expected format with data wrapper for consistency
+              return {
+                success: response['success'] as boolean,
+                message: (response['message'] as string) || '',
+                data: {
+                  basicInformation: response['basicInformation'],
+                  professionalInformation: response['professionalInformation']
+                },
+                error: (response['error'] as string) || null
+              } as AddFacultyResponse;
+            } else if (
+              'data' in response &&
+              typeof response['data'] === 'object' &&
+              response['data'] !== null
+            ) {
+              // Response has data wrapper
+              const dataObj = response['data'] as Record<string, unknown>;
+              
+              if (
+                'basicInformation' in dataObj &&
+                'professionalInformation' in dataObj &&
+                typeof dataObj['basicInformation'] === 'object' &&
+                typeof dataObj['professionalInformation'] === 'object'
+              ) {
+                return raw as AddFacultyResponse;
+              }
             }
           }
         }
         
-        return null;
+        // If structure doesn't match, still return the raw response for error handling
+        return raw as AddFacultyResponse;
       }),
       catchError((error) => {
         return throwError(() => error);
@@ -533,13 +561,32 @@ export class CampusApiService {
           
           if (response.success && Array.isArray(response.data)) {
             const designations = response.data as string[];
-            return designations;
+            
+            // Filter out invalid entries (like "string", empty strings, null, undefined)
+            const validDesignations = designations
+              .filter((d) => 
+                d && 
+                typeof d === 'string' && 
+                d.trim() !== '' && 
+                d.toLowerCase() !== 'string' &&
+                d.trim() !== 'null' &&
+                d.trim() !== 'undefined'
+              )
+              .map((d) => d.trim());
+            
+            // Remove duplicates and sort alphabetically
+            const uniqueDesignations = Array.from(new Set(validDesignations)).sort();
+            
+            console.log('Designations loaded from API:', uniqueDesignations.length, 'items');
+            return uniqueDesignations;
           }
         }
         
+        console.warn('Designations API returned unexpected format:', raw);
         return [];
       }),
       catchError((error) => {
+        console.error('Error loading designations from API:', error);
         return throwError(() => error);
       })
     );
@@ -1306,19 +1353,25 @@ export interface AddFacultyRequest {
 }
 
 export interface BasicInformationResponse {
-  fullName: string;
-  email: string;
-  dateOfBirth: string;
-  phoneNumber: string;
+  id?: string;
+  campusId?: string;
+  fullName?: string;
+  email?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  photoUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProfessionalInformationResponse {
-  designation: string[];
-  department: string[];
-  specialization: string[];
-  yearsOfExperience: number[];
-  qualifications: string[];
-  certificates: string[];
+  designation?: string[];
+  designationDisplay?: string[];
+  department?: string[];
+  specialization?: string[];
+  yearsOfExperience?: number;
+  qualifications?: string[];
+  certificates?: string[];
 }
 
 export interface AddFacultyResponseData {
@@ -1335,11 +1388,16 @@ export interface AddFacultyResponse {
 
 export interface FacultyListItem {
   id?: string;
+  campusId?: string;
   fullName?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   email?: string;
-  designation?: string;
-  department?: string;
+  dateOfBirth?: string;
+  designation?: string[];
+  department?: string[];
+  specialization?: string[];
+  yearsOfExperience?: number;
+  qualifications?: string[];
 }
 
 export interface GetAllFacultiesResponse {
