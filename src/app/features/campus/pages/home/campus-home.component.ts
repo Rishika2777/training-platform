@@ -284,8 +284,7 @@ export class CampusHomeComponent implements OnInit {
             this.placedStudentsTotalPages.set(1);
           }
         },
-        error: (error) => {
-          console.error('CampusHomeComponent: ❌ Placed students subscription error:', error);
+        error: () => {
           this.loadingPlacedStudents.set(false);
           this.placedStudents.set([]);
           this.placedStudentsTotalPages.set(1);

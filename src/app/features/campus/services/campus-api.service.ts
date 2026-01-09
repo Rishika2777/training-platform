@@ -619,20 +619,20 @@ export class CampusApiService {
                 error: (response['error'] as string) || null
               } as AddFacultyResponse;
             } else if (
-              'data' in response &&
-              typeof response['data'] === 'object' &&
-              response['data'] !== null
-            ) {
+            'data' in response &&
+            typeof response['data'] === 'object' &&
+            response['data'] !== null
+          ) {
               // Response has data wrapper
-              const dataObj = response['data'] as Record<string, unknown>;
-              
-              if (
-                'basicInformation' in dataObj &&
-                'professionalInformation' in dataObj &&
-                typeof dataObj['basicInformation'] === 'object' &&
-                typeof dataObj['professionalInformation'] === 'object'
-              ) {
-                return raw as AddFacultyResponse;
+            const dataObj = response['data'] as Record<string, unknown>;
+            
+            if (
+              'basicInformation' in dataObj &&
+              'professionalInformation' in dataObj &&
+              typeof dataObj['basicInformation'] === 'object' &&
+              typeof dataObj['professionalInformation'] === 'object'
+            ) {
+              return raw as AddFacultyResponse;
               }
             }
           }
@@ -703,7 +703,7 @@ export class CampusApiService {
                   },
                   error: (response['error'] as string) || null,
                 } as GetFacultyByIdResponse;
-              }
+        }
             }
           }
         }
@@ -774,7 +774,7 @@ export class CampusApiService {
               data: response['data'] as null,
               error: (response['error'] as string) || null,
             } as DeleteFacultyResponse;
-          }
+        }
         }
         console.warn('CampusApiService.deleteFaculty - Unexpected response format:', raw);
         return null;
