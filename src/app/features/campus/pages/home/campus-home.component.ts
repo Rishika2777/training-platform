@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CampusProspectusComponent, ProspectusUploadFormValue } from '../upload-prospectus/campus-prospectus.component';
 import {
   CampusCompaniesVisitedComponent,
@@ -15,7 +16,7 @@ import { CampusCourseFormComponent, CourseFormValue } from '../course-form/cours
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData, AnnouncementItem, AnnouncementsResponse } from '../../services/campus-api.service';
+import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData, AnnouncementItem, AnnouncementsResponse, CompanyVisitedItem } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -30,6 +31,7 @@ import { map } from 'rxjs/operators';
     CarouselComponent,
     ModalComponent,
     DropdownComponent,
+    ButtonComponent,
     CampusProspectusComponent,
     CampusCompaniesVisitedComponent,
     CampusPlacedStudentsComponent,
@@ -65,6 +67,9 @@ export class CampusHomeComponent implements OnInit {
   submittingPlacedStudents = false;
   submittingFaculty = false;
   submittingCourseForm = false;
+  deletingFaculty = false;
+  showDeleteFacultyModal = false;
+  facultyToDeleteId: string | null = null;
 
   // Announcements - API Integration (for top banner)
   readonly announcements = signal<readonly AnnouncementItem[]>([]);
@@ -83,6 +88,13 @@ export class CampusHomeComponent implements OnInit {
 
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   loadingPlacedStudents = signal(false);
+
+  // Companies Visited - API Integration
+  readonly companiesVisited = signal<readonly CompanyVisitedCard[]>([]);
+  readonly loadingCompaniesVisited = signal(false);
+  companiesVisitedPage = 0; // API uses 0-indexed pagination (page=0 for first page)
+  readonly companiesVisitedPageSize = 3; // 3 companies per page (as per UI design)
+  readonly companiesVisitedTotalPages = signal(1);
 
   // Alumni - API Integration
   readonly alumni = signal<readonly PersonCard[]>([]);
@@ -118,8 +130,6 @@ export class CampusHomeComponent implements OnInit {
     },
   ];
 
-  readonly companiesVisitedSlots = 3;
-
   // Carousel / pagination state (shared component usage)
   readonly peoplePageSize = 4; // Reduced to 4 per page for better pagination visibility
   placedStudentsPage = 0; // API uses 0-indexed pagination (page=0 for first page)
@@ -138,6 +148,7 @@ export class CampusHomeComponent implements OnInit {
   ngOnInit(): void {
     this.loadPlacedStudents();
     this.loadBatches();
+    this.loadCompaniesVisited();
     // Load dashboard announcements
     this.loadAnnouncements();
     // Load alumni with default year (2024) using regular API
@@ -289,6 +300,136 @@ export class CampusHomeComponent implements OnInit {
       this.placedStudentsPage = apiPage;
       this.loadPlacedStudents();
     }
+  }
+
+  // Companies Visited - API Integration
+  loadCompaniesVisited(): void {
+    console.log('CampusHomeComponent: ========== LOADING COMPANIES VISITED ==========');
+    console.log('CampusHomeComponent: Current page (0-indexed):', this.companiesVisitedPage);
+    console.log('CampusHomeComponent: Page size:', this.companiesVisitedPageSize);
+    
+    this.loadingCompaniesVisited.set(true);
+    
+    this.campusApi
+      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading companies visited:', error);
+          this.loadingCompaniesVisited.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          console.log('CampusHomeComponent: ✅ GET COMPANIES VISITED API RESPONSE RECEIVED');
+          console.log('CampusHomeComponent: Response:', response);
+          console.log('CampusHomeComponent: Response success:', response?.success);
+          console.log('CampusHomeComponent: Response message:', response?.message);
+          console.log('CampusHomeComponent: Response data:', response?.data);
+          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
+          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
+          console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
+          
+          this.loadingCompaniesVisited.set(false);
+          if (response?.success && response.data) {
+            const rawItems = response.data.content || [];
+            const items = rawItems.map((item) => this.mapCompanyVisitedToCard(item));
+            
+            this.companiesVisited.set(items);
+            const totalPages = response.data.totalPages ?? 1;
+            this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
+            
+            console.log('CampusHomeComponent: ✅ Companies visited list updated');
+            console.log('CampusHomeComponent: Mapped items count:', items.length);
+            console.log('CampusHomeComponent: Total pages:', totalPages);
+            console.log('CampusHomeComponent: Current companies visited signal:', this.companiesVisited());
+          } else {
+            console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
+            console.warn('CampusHomeComponent: Response success:', response?.success);
+            console.warn('CampusHomeComponent: Response message:', response?.message);
+            console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
+            this.companiesVisited.set([]);
+            this.companiesVisitedTotalPages.set(1);
+          }
+        },
+        error: (error) => {
+          console.error('CampusHomeComponent: ❌❌❌ COMPANIES VISITED SUBSCRIPTION ERROR ❌❌❌');
+          console.error('CampusHomeComponent: Error object:', error);
+          console.error('CampusHomeComponent: Error status:', error?.status);
+          console.error('CampusHomeComponent: Error URL:', error?.url);
+          console.error('CampusHomeComponent: Error message:', error?.message);
+          console.error('CampusHomeComponent: Error response:', error?.error);
+          
+          this.loadingCompaniesVisited.set(false);
+          this.companiesVisited.set([]);
+          this.companiesVisitedTotalPages.set(1);
+          
+          const errorMessage = error?.error?.message || error?.error?.error || error?.message || 'Failed to load companies visited';
+          this.notify.error(errorMessage);
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        },
+      });
+  }
+
+  onCompaniesVisitedPageChange(page: number): void {
+    // Carousel/pager component uses 1-based indexing, convert to 0-based for API
+    const apiPage = page - 1;
+    if (apiPage !== this.companiesVisitedPage && apiPage >= 0 && apiPage < this.companiesVisitedTotalPages()) {
+      this.companiesVisitedPage = apiPage;
+      this.loadCompaniesVisited();
+    }
+  }
+
+  getCompaniesVisitedPageNumbers(): number[] {
+    const totalPages = this.companiesVisitedTotalPages();
+    const maxVisiblePages = 6; // Show max 6 page numbers
+    const currentPage = this.companiesVisitedPage + 1; // Convert to 1-based for display
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is less than max
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    // Show pages around current page
+    const pages: number[] = [];
+    let startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  }
+
+  private mapCompanyVisitedToCard(item: CompanyVisitedItem): CompanyVisitedCard {
+    // Construct full image URL from logourl
+    let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+    if (item.logourl) {
+      if (item.logourl.startsWith('http://') || item.logourl.startsWith('https://')) {
+        imageUrl = item.logourl;
+      } else if (item.logourl.startsWith('/')) {
+        imageUrl = `/api/v1/files${item.logourl}`;
+      } else {
+        imageUrl = `/api/v1/files/${item.logourl}`;
+      }
+    }
+    
+    return {
+      id: item.id,
+      companyName: item.companyName || 'Unknown Company',
+      logoUrl: imageUrl,
+    };
   }
 
   // Current Batch - API Integration
@@ -625,7 +766,74 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleFacultyDetailClose(): void {
+    this.facultyDetailService.clearSelectedFaculty();
     this.closeModal();
+  }
+
+  handleFacultyDeleteRequest(facultyId: string): void {
+    this.facultyToDeleteId = facultyId;
+    this.showDeleteFacultyModal = true;
+  }
+
+  closeDeleteFacultyModal(): void {
+    this.showDeleteFacultyModal = false;
+    this.facultyToDeleteId = null;
+  }
+
+  confirmDeleteFaculty(): void {
+    if (!this.facultyToDeleteId || this.deletingFaculty) {
+      return;
+    }
+
+    this.deletingFaculty = true;
+    
+    this.campusApi.deleteFaculty(this.facultyToDeleteId).subscribe({
+      next: (response) => {
+        this.deletingFaculty = false;
+        
+        if (response?.success) {
+          const message = response.message || 'Faculty deleted successfully';
+          this.notify.success(message);
+          
+          // Close both modals
+          this.closeDeleteFacultyModal();
+          this.closeModal();
+          
+          // Refresh faculty list by dispatching event (sidebar will listen)
+          window.dispatchEvent(new Event('facultyAdded'));
+          
+          // Also trigger facultyDeleted event for any other listeners
+          window.dispatchEvent(new Event('facultyDeleted'));
+        } else {
+          const errorMessage = response?.error || response?.message || 'Failed to delete faculty';
+          this.notify.error(errorMessage);
+        }
+      },
+      error: (err) => {
+        this.deletingFaculty = false;
+        
+        console.error('❌ DELETE FACULTY - ERROR:', err);
+        console.error('Error Status:', err?.status);
+        console.error('Error Status Text:', err?.statusText);
+        console.error('Error URL:', err?.url);
+        console.error('Error Message:', err?.message);
+        console.error('Error Response:', err?.error);
+        
+        let errorMessage = 'Failed to delete faculty member';
+        
+        if (err?.error) {
+          if (err.error.message) {
+            errorMessage = err.error.message;
+          } else if (err.error.error) {
+            errorMessage = err.error.error;
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.notify.error(errorMessage);
+      },
+    });
   }
 
   handleProspectusUploadSuccess(): void {
@@ -639,50 +847,91 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
-    if (!value.companyLogo || !value.companyName.trim()) {
+    console.log('CampusHomeComponent: ========== COMPANIES VISITED SUBMIT CALLED ==========');
+    console.log('CampusHomeComponent: Form value:', {
+      companyName: value.companyName,
+      hasLogo: !!value.companyLogo,
+      logoName: value.companyLogo?.name || 'null'
+    });
+
+    // Validate required fields
+    if (!value.companyLogo) {
+      console.warn('CampusHomeComponent: Validation failed - company logo is required');
       this.submittingCompanies = false;
+      this.notify.error('Please select a company logo');
+      return;
+    }
+
+    if (!value.companyName.trim()) {
+      console.warn('CampusHomeComponent: Validation failed - company name is required');
+      this.submittingCompanies = false;
+      this.notify.error('Please enter a company name');
       return;
     }
 
     this.submittingCompanies = true;
 
-    // Convert file to base64
-    this.convertFileToBase64(value.companyLogo)
-      .then((base64Logo) => {
-        const request = {
-          companyLogo: base64Logo,
-          companyName: value.companyName.trim(),
-        };
+    // Create FormData for multipart/form-data request
+    const formData = new FormData();
+    formData.append('companyName', value.companyName.trim());
+    formData.append('logo', value.companyLogo);
 
-        this.campusApi.addCompanyVisited(request).subscribe({
-          next: () => {
-            this.submittingCompanies = false;
-            this.notify.success('Company visited added successfully');
-            this.closeModal();
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Component might be destroyed, ignore
-            }
-          },
-          error: (err) => {
-            const errorMessage = err?.error?.message || err?.message || 'Failed to add company visited';
-            this.submittingCompanies = false;
-            this.notify.error(errorMessage);
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Ignore
-            }
-          },
-        });
-      })
-      .catch(() => {
-        setTimeout(() => {
-          this.submittingCompanies = false;
+    console.log('CampusHomeComponent: ========== CALLING ADD COMPANY VISITED API ==========');
+    console.log('CampusHomeComponent: FormData companyName:', formData.get('companyName'));
+    console.log('CampusHomeComponent: FormData logo file:', formData.get('logo'));
+
+    this.campusApi.addCompanyVisited(formData).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅✅✅ ADD COMPANY VISITED API SUCCESS ✅✅✅');
+        console.log('CampusHomeComponent: Response:', response);
+        
+        this.submittingCompanies = false;
+        
+        if (response?.success) {
+          const successMessage = response.message || 'Company visited added successfully';
+          this.notify.success(successMessage);
+          this.closeModal();
+          
+          // Refresh the companies visited list after adding
+          this.companiesVisitedPage = 0; // Reset to first page
+          this.loadCompaniesVisited();
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        } else {
+          const errorMsg = response?.error || 'Company might not have been added';
+          console.warn('CampusHomeComponent: API response success is false:', errorMsg);
+          this.notify.warn(errorMsg);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore
+          }
+        }
+      },
+      error: (err) => {
+        console.error('CampusHomeComponent: ❌❌❌ ADD COMPANY VISITED API ERROR ❌❌❌');
+        console.error('CampusHomeComponent: Error object:', err);
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        console.error('CampusHomeComponent: Error message:', err?.message);
+        
+        this.submittingCompanies = false;
+        
+        const errorMessage = err?.error?.message || err?.error?.error || err?.message || 'Failed to add company visited';
+        this.notify.error(errorMessage);
+        
+        try {
           this.cdr.detectChanges();
-        }, 0);
-      });
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 
   handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
@@ -1427,5 +1676,11 @@ interface FeedPost {
   authorId: string;
   imageUrl: string;
   text: string;
+}
+
+interface CompanyVisitedCard {
+  id?: string;
+  companyName: string;
+  logoUrl: string;
 }
 

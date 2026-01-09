@@ -230,15 +230,30 @@
   outline-color: #f4a261;
 }
 
-/* Teal-green buttons */
-:host ::ng-deep .form-actions app-button button.primary {
+/* Cancel button - keep original color */
+:host ::ng-deep .form-actions app-button:first-child button.primary {
   background: #628a8e;
   border-color: #628a8e;
+  color: var(--color-white);
 }
 
-:host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
+:host ::ng-deep .form-actions app-button:first-child button.primary:hover:not(:disabled) {
   background: #4a6d70;
   border-color: #4a6d70;
+}
+
+/* Submit button - same color as close button (#f4a261) */
+:host ::ng-deep .form-actions app-button[type="submit"] button.primary,
+:host ::ng-deep .form-actions app-button:last-child button.primary {
+  background: #f4a261;
+  border-color: #f4a261;
+  color: var(--color-white);
+}
+
+:host ::ng-deep .form-actions app-button[type="submit"] button.primary:hover:not(:disabled),
+:host ::ng-deep .form-actions app-button:last-child button.primary:hover:not(:disabled) {
+  background: #e76f51;
+  border-color: #e76f51;
 }
 
 @media (max-width: 1200px) {

@@ -46,6 +46,27 @@
   margin-top: 10px;
 }
 
+.form-actions .btn.primary {
+  background: var(--color-secondary);
+  border: 2px solid var(--color-secondary);
+  border-radius: 8px;
+  color: var(--color-white);
+  padding: 10px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.form-actions .btn.primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.form-actions .btn.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;

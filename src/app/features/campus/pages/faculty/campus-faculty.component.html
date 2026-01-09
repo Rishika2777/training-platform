@@ -109,13 +109,10 @@
               placeholder="Select Designation"
               [items]="designationItems()"
               [value]="info.designation"
-              [disabled]="submitting || loadingDesignations()"
+              [disabled]="submitting"
               [required]="true"
               (valueChange)="updateProfessionalInfo($index, 'designation', $event)"
             />
-            @if (loadingDesignations()) {
-              <span class="loading-text">Loading designations...</span>
-            }
           </div>
 
           <div class="form-row">

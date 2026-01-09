@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, inject, Input, OnInit, Output, ViewChild, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild, signal } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
@@ -31,7 +31,7 @@ export interface FacultyFormValue {
   templateUrl: './campus-faculty.component.html',
   styleUrl: './campus-faculty.component.css',
 })
-export class CampusFacultyComponent implements OnInit {
+export class CampusFacultyComponent {
   private readonly campusApi = inject(CampusApiService);
   private readonly emailCheckSubject = new Subject<string>();
 
@@ -63,12 +63,17 @@ export class CampusFacultyComponent implements OnInit {
   @Output() submitted = new EventEmitter<FacultyFormValue>();
   @Output() cancelled = new EventEmitter<void>();
 
-  // Designation items loaded from API (initialize with fallback data)
+  // Designation items - Hardcoded enum values (API commented out)
+  // Backend expects enum values: PRINCIPAL, PROFESSOR, ASSOCIATE_PROFESSOR, ASSISTANT_PROFESSOR, LECTURER, HEAD_OF_DEPARTMENT, DEAN, DIRECTOR
   readonly designationItems = signal<readonly DropdownItem<string>[]>([
-    { label: 'Professor', value: 'Professor' },
-    { label: 'Associate Professor', value: 'Associate Professor' },
-    { label: 'Assistant Professor', value: 'Assistant Professor' },
-    { label: 'Lecturer', value: 'Lecturer' },
+    { label: 'Principal', value: 'PRINCIPAL' },
+    { label: 'Professor', value: 'PROFESSOR' },
+    { label: 'Associate Professor', value: 'ASSOCIATE_PROFESSOR' },
+    { label: 'Assistant Professor', value: 'ASSISTANT_PROFESSOR' },
+    { label: 'Lecturer', value: 'LECTURER' },
+    { label: 'Head of Department', value: 'HEAD_OF_DEPARTMENT' },
+    { label: 'Dean', value: 'DEAN' },
+    { label: 'Director', value: 'DIRECTOR' },
   ]);
   loadingDesignations = signal(false);
 
@@ -143,57 +148,54 @@ export class CampusFacultyComponent implements OnInit {
       });
   }
 
-  ngOnInit(): void {
-    // Load designations from API
-    this.loadDesignations();
-  }
 
   /**
-   * Load designations from API
+   * Load designations from API - COMMENTED OUT: Using hardcoded enum values instead
+   * Backend expects enum values: PRINCIPAL, PROFESSOR, ASSOCIATE_PROFESSOR, ASSISTANT_PROFESSOR, LECTURER, HEAD_OF_DEPARTMENT, DEAN, DIRECTOR
    */
-  loadDesignations(): void {
-    this.loadingDesignations.set(true);
-    this.campusApi.getDesignations().subscribe({
-      next: (designations) => {
-        this.loadingDesignations.set(false);
-        if (designations && designations.length > 0) {
-          // Convert API response (string[]) to DropdownItem[]
-          const items: DropdownItem<string>[] = designations.map((designation) => ({
-            label: designation,
-            value: designation,
-          }));
-          this.designationItems.set(items);
-          console.log('Faculty Component: Designations loaded successfully:', items.length, 'items');
-        } else {
-          console.warn('Faculty Component: API returned empty designations, using fallback');
-          // Fallback to static data if API returns empty
-          this.designationItems.set([
-            { label: 'Professor', value: 'Professor' },
-            { label: 'Associate Professor', value: 'Associate Professor' },
-            { label: 'Assistant Professor', value: 'Assistant Professor' },
-            { label: 'Lecturer', value: 'Lecturer' },
-          ]);
-        }
-      },
-      error: (error) => {
-        this.loadingDesignations.set(false);
-        console.error('Faculty Component: Failed to load designations from API:', error);
-        console.error('Error details:', {
-          status: error?.status,
-          statusText: error?.statusText,
-          error: error?.error,
-          message: error?.message
-        });
-        // Fallback to static data on error
-        this.designationItems.set([
-          { label: 'Professor', value: 'Professor' },
-          { label: 'Associate Professor', value: 'Associate Professor' },
-          { label: 'Assistant Professor', value: 'Assistant Professor' },
-          { label: 'Lecturer', value: 'Lecturer' },
-        ]);
-      },
-    });
-  }
+  // loadDesignations(): void {
+  //   this.loadingDesignations.set(true);
+  //   this.campusApi.getDesignations().subscribe({
+  //     next: (designations) => {
+  //       this.loadingDesignations.set(false);
+  //       if (designations && designations.length > 0) {
+  //         // Convert API response (string[]) to DropdownItem[]
+  //         const items: DropdownItem<string>[] = designations.map((designation) => ({
+  //           label: designation,
+  //           value: designation,
+  //         }));
+  //         this.designationItems.set(items);
+  //         console.log('Faculty Component: Designations loaded successfully:', items.length, 'items');
+  //       } else {
+  //         console.warn('Faculty Component: API returned empty designations, using fallback');
+  //         // Fallback to static data if API returns empty
+  //         this.designationItems.set([
+  //           { label: 'Professor', value: 'Professor' },
+  //           { label: 'Associate Professor', value: 'Associate Professor' },
+  //           { label: 'Assistant Professor', value: 'Assistant Professor' },
+  //           { label: 'Lecturer', value: 'Lecturer' },
+  //         ]);
+  //       }
+  //     },
+  //     error: (error) => {
+  //       this.loadingDesignations.set(false);
+  //       console.error('Faculty Component: Failed to load designations from API:', error);
+  //       console.error('Error details:', {
+  //         status: error?.status,
+  //         statusText: error?.statusText,
+  //         error: error?.error,
+  //         message: error?.message
+  //       });
+  //       // Fallback to static data on error
+  //       this.designationItems.set([
+  //         { label: 'Professor', value: 'Professor' },
+  //         { label: 'Associate Professor', value: 'Associate Professor' },
+  //         { label: 'Assistant Professor', value: 'Assistant Professor' },
+  //         { label: 'Lecturer', value: 'Lecturer' },
+  //       ]);
+  //     },
+  //   });
+  // }
 
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

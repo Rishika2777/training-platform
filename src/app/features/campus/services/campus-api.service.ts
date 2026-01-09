@@ -195,17 +195,156 @@ export class CampusApiService {
   }
 
   /**
-   * POST /dashboard/companies/visited
+   * POST /dashboard/companies
    * Add a company visited.
+   * Request: multipart/form-data with companyName (string) and logo (file)
+   * Response: { success: true, message: string, data: AddCompanyVisitedResponseData, error: null }
    */
-  addCompanyVisited(request: AddCompanyVisitedRequest): Observable<AddCompanyVisitedResponse | null> {
+  addCompanyVisited(formData: FormData): Observable<AddCompanyVisitedResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED);
-    return this.http.post<unknown>(url, request).pipe(
+    
+    console.log('CampusApiService: ========== ADD COMPANY VISITED API CALL ==========');
+    console.log('CampusApiService: addCompanyVisited - URL:', url);
+    console.log('CampusApiService: addCompanyVisited - FormData keys:', Array.from(formData.keys()));
+    console.log('CampusApiService: FormData companyName:', formData.get('companyName'));
+    console.log('CampusApiService: FormData logo:', formData.get('logo'));
+    
+    return this.http.post<unknown>(url, formData).pipe(
       map((raw) => {
-        if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as AddCompanyVisitedResponse;
+        console.log('CampusApiService: ========== ADD COMPANY VISITED RESPONSE RECEIVED ==========');
+        console.log('CampusApiService: addCompanyVisited - Raw response:', raw);
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const response = raw as Record<string, unknown>;
+          console.log('CampusApiService: Response keys:', Object.keys(response));
+          console.log('CampusApiService: Response success:', response['success']);
+          console.log('CampusApiService: Response message:', response['message']);
+          console.log('CampusApiService: Response data:', response['data']);
+          
+          // Check if response has expected structure: { success, message, data, error }
+          if ('success' in response && 'data' in response) {
+            const result = {
+              success: response['success'] as boolean,
+              message: (response['message'] as string) || 'Company added successfully',
+              data: response['data'] as AddCompanyVisitedResponseData,
+              error: (response['error'] as string) || null,
+            } as AddCompanyVisitedResponse;
+            
+            console.log('CampusApiService: ✅ Parsed response:', result);
+            return result;
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure invalid - missing success or data');
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not a valid object');
         }
+        
+        console.warn('CampusApiService: ❌ addCompanyVisited - Unexpected response format, returning null');
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ADD COMPANY VISITED - ERROR OCCURRED ❌❌❌');
+        console.error('CampusApiService: Error type:', error?.constructor?.name);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error response:', error?.error);
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/companies
+   * Get companies visited with pagination.
+   * Query params: page (default 0), limit (default 6)
+   * Response: { success: true, message: string, data: { content: CompanyVisitedItem[], pageable: {...} }, error: null }
+   */
+  getCompaniesVisited(page = 0, limit = 6): Observable<GetCompaniesVisitedResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COMPANIES_VISITED);
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    console.log('CampusApiService: ========== GET COMPANIES VISITED API CALL ==========');
+    console.log('CampusApiService: getCompaniesVisited - URL:', url);
+    console.log('CampusApiService: getCompaniesVisited - Params:', { page, limit });
+    console.log('CampusApiService: Full URL with params:', `${url}?page=${page}&limit=${limit}`);
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ========== GET COMPANIES VISITED RESPONSE RECEIVED ==========');
+        console.log('CampusApiService: getCompaniesVisited - Raw response:', raw);
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response is object?', typeof raw === 'object' && raw !== null);
+        
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const response = raw as Record<string, unknown>;
+          console.log('CampusApiService: Response keys:', Object.keys(response));
+          console.log('CampusApiService: Response has success?', 'success' in response);
+          console.log('CampusApiService: Response has data?', 'data' in response);
+          
+          // Check if response has expected structure: { success, message, data, error }
+          if ('success' in response && 'data' in response) {
+            const data = response['data'] as Record<string, unknown>;
+            console.log('CampusApiService: Data keys:', Object.keys(data || {}));
+            console.log('CampusApiService: Data has content?', 'content' in (data || {}));
+            console.log('CampusApiService: Content is array?', Array.isArray(data?.['content']));
+            
+            // Verify data has content array
+            if (data && typeof data === 'object' && 'content' in data && Array.isArray(data['content'])) {
+              const contentArray = data['content'] as CompanyVisitedItem[];
+              console.log('CampusApiService: Content array length:', contentArray.length);
+              console.log('CampusApiService: Content array:', contentArray);
+              
+              const pageable = data['pageable'] as PageableInfo | undefined;
+              const pageSize = pageable?.pageSize || limit;
+              const totalElements = (data['totalElements'] as number) ?? contentArray.length;
+              const totalPages = (data['totalPages'] as number) ?? Math.max(1, Math.ceil(totalElements / pageSize));
+              
+              console.log('CampusApiService: Calculated pagination:', { pageSize, totalElements, totalPages });
+              
+              const result = {
+                success: response['success'] as boolean,
+                message: (response['message'] as string) || 'Companies fetched successfully',
+                data: {
+                  content: contentArray,
+                  pageable: pageable,
+                  totalPages: totalPages,
+                  totalElements: totalElements,
+                },
+                error: (response['error'] as string) || null,
+              } as GetCompaniesVisitedResponse;
+              
+              console.log('CampusApiService: ✅ Parsed response:', result);
+              return result;
+            } else {
+              console.warn('CampusApiService: ⚠️ Data structure invalid - missing content array');
+              console.warn('CampusApiService: Data structure:', data);
+            }
+          } else {
+            console.warn('CampusApiService: ⚠️ Response structure invalid - missing success or data');
+            console.warn('CampusApiService: Response structure:', response);
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not a valid object');
+          console.warn('CampusApiService: Raw response:', raw);
+        }
+        
+        console.warn('CampusApiService: ❌ getCompaniesVisited - Unexpected response format, returning null');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ getCompaniesVisited - ERROR OCCURRED ❌❌❌');
+        console.error('CampusApiService: Error type:', error?.constructor?.name);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error response:', error?.error);
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -434,16 +573,51 @@ export class CampusApiService {
 
   /**
    * GET /api/v1/faculty/{facultyId}
-   * Get faculty by ID (for edit form).
+   * Get faculty by ID.
+   * Response format: { success: true, message: null, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
    */
   getFacultyById(facultyId: string): Observable<GetFacultyByIdResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_BY_ID, { facultyId });
+    
+    console.log('CampusApiService.getFacultyById - URL:', url);
+    console.log('CampusApiService.getFacultyById - Faculty ID:', facultyId);
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as GetFacultyByIdResponse;
+        console.log('CampusApiService.getFacultyById - Raw response:', raw);
+        
+        if (raw && typeof raw === 'object') {
+          const response = raw as Record<string, unknown>;
+          
+          // Check if response has expected structure: { success, message, data, error }
+          if ('success' in response && 'data' in response) {
+            const data = response['data'];
+            
+            // Verify data has basicInformation and professionalInformation
+            if (data && typeof data === 'object' && data !== null) {
+              const dataObj = data as Record<string, unknown>;
+              
+              if ('basicInformation' in dataObj && 'professionalInformation' in dataObj) {
+                return {
+                  success: response['success'] as boolean,
+                  message: (response['message'] as string) || null,
+                  data: {
+                    basicInformation: dataObj['basicInformation'] as BasicInformationResponse,
+                    professionalInformation: dataObj['professionalInformation'] as ProfessionalInformationResponse,
+                  },
+                  error: (response['error'] as string) || null,
+                } as GetFacultyByIdResponse;
+              }
+            }
+          }
         }
+        
+        console.warn('CampusApiService.getFacultyById - Unexpected response format:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService.getFacultyById - Error occurred:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -483,15 +657,35 @@ export class CampusApiService {
   /**
    * DELETE /api/v1/faculty/{facultyId}
    * Delete faculty member.
+   * Response format: { success: true, message: "Faculty deleted successfully", data: null, error: null }
    */
   deleteFaculty(facultyId: string): Observable<DeleteFacultyResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_FACULTY, { facultyId });
+    
+    console.log('CampusApiService.deleteFaculty - URL:', url);
+    console.log('CampusApiService.deleteFaculty - Faculty ID:', facultyId);
+    
     return this.http.delete<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService.deleteFaculty - Raw response:', raw);
         if (raw && typeof raw === 'object') {
-          return raw as DeleteFacultyResponse;
+          const response = raw as Record<string, unknown>;
+          // Ensure response has expected structure
+          if ('success' in response) {
+            return {
+              success: response['success'] as boolean,
+              message: (response['message'] as string) || 'Faculty deleted successfully',
+              data: response['data'] as null,
+              error: (response['error'] as string) || null,
+            } as DeleteFacultyResponse;
+          }
         }
+        console.warn('CampusApiService.deleteFaculty - Unexpected response format:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService.deleteFaculty - Error occurred:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -1287,16 +1481,17 @@ export interface AddPlacedStudentResponse {
   error: string;
 }
 
-export interface AddCompanyVisitedRequest {
-  companyLogo: string; // base64 encoded image
-  companyName: string;
-}
+// Request is sent as FormData with:
+// - companyName: string
+// - logo: File (multipart/form-data)
+// No interface needed for FormData
 
 export interface AddCompanyVisitedResponseData {
   id?: string;
   campusId?: string;
   companyName?: string;
-  companyLogoUrl?: string;
+  logoUrl?: string; // Backend returns "logoUrl" not "companyLogoUrl"
+  visitedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1306,6 +1501,43 @@ export interface AddCompanyVisitedResponse {
   message: string;
   data: AddCompanyVisitedResponseData;
   error: string;
+}
+
+export interface CompanyVisitedItem {
+  id?: string;
+  campusId?: string;
+  companyName?: string;
+  logourl?: string; // Note: backend returns "logourl" not "logoUrl"
+  visitedDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PageableInfo {
+  pageNumber?: number;
+  pageSize?: number;
+  sort?: {
+    empty?: boolean;
+    sorted?: boolean;
+    unsorted?: boolean;
+  };
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+}
+
+export interface GetCompaniesVisitedResponseData {
+  content: CompanyVisitedItem[];
+  pageable?: PageableInfo;
+  totalPages?: number;
+  totalElements?: number;
+}
+
+export interface GetCompaniesVisitedResponse {
+  success: boolean;
+  message: string;
+  data: GetCompaniesVisitedResponseData;
+  error: string | null;
 }
 
 export interface AddCourseRequest {
@@ -1365,13 +1597,14 @@ export interface BasicInformationResponse {
 }
 
 export interface ProfessionalInformationResponse {
-  designation?: string[];
-  designationDisplay?: string[];
-  department?: string[];
-  specialization?: string[];
-  yearsOfExperience?: number;
-  qualifications?: string[];
-  certificates?: string[];
+  designation?: string[]; // Enum values like ["PRINCIPAL"]
+  designationDisplay?: string[]; // Display values like ["Principal"]
+  department?: string[]; // e.g., ["Computer Science"]
+  specialization?: string[]; // e.g., ["Machine Learning", "Data Science"]
+  yearsOfExperience?: number[]; // Array of numbers, e.g., [22]
+  experienceDisplay?: string[]; // Display strings, e.g., ["22 years of teaching experience"]
+  qualifications?: string[]; // e.g., ["PhD in Education", "M.Ed"]
+  certificates?: string[]; // e.g., ["CBSE Principal Certification"]
 }
 
 export interface AddFacultyResponseData {

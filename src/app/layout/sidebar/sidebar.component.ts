@@ -128,9 +128,13 @@ export class SidebarComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadFaculties();
-    // Listen for faculty refresh events
+    // Listen for faculty refresh events (add, delete, update)
     window.addEventListener('facultyAdded', () => {
       console.log('SidebarComponent: Received facultyAdded event, refreshing list...');
+      this.loadFaculties();
+    });
+    window.addEventListener('facultyDeleted', () => {
+      console.log('SidebarComponent: Received facultyDeleted event, refreshing list...');
       this.loadFaculties();
     });
   }
@@ -210,62 +214,73 @@ export class SidebarComponent implements OnInit {
   }
 
   onFacultyClick(faculty: FacultyCard): void {
-    // If faculty has ID, fetch from API; otherwise use static data as fallback
+    // If faculty has ID, fetch from API using getFacultyById; otherwise use static data as fallback
     if (faculty.id) {
       this.loadingFaculties.set(true);
-      this.campusApi.getFacultyProfile(faculty.id).subscribe({
+      console.log('SidebarComponent: Fetching faculty details for ID:', faculty.id);
+      
+      this.campusApi.getFacultyById(faculty.id).subscribe({
         next: (response) => {
           this.loadingFaculties.set(false);
-          if (response?.data) {
-            const profile = response.data;
-            const professionalInfo = profile.professionalInfo && profile.professionalInfo.length > 0 
-              ? profile.professionalInfo[0] 
-              : null;
+          console.log('SidebarComponent: getFacultyById API response:', response);
+          
+          if (response?.success && response.data) {
+            const basicInfo = response.data.basicInformation;
+            const professionalInfo = response.data.professionalInformation;
             
             // Construct full image URL
             let imageUrl = 'assets/images/login-news-image.png';
-            if (profile.photoUrl) {
-              if (profile.photoUrl.startsWith('http://') || profile.photoUrl.startsWith('https://')) {
-                imageUrl = profile.photoUrl;
-              } else if (profile.photoUrl.startsWith('/')) {
-                imageUrl = `/api/v1/files${profile.photoUrl}`;
+            if (basicInfo?.photoUrl) {
+              if (basicInfo.photoUrl.startsWith('http://') || basicInfo.photoUrl.startsWith('https://')) {
+                imageUrl = basicInfo.photoUrl;
+              } else if (basicInfo.photoUrl.startsWith('/')) {
+                imageUrl = `/api/v1/files${basicInfo.photoUrl}`;
               } else {
-                imageUrl = `/api/v1/files/${profile.photoUrl}`;
+                imageUrl = `/api/v1/files/${basicInfo.photoUrl}`;
               }
             }
             
-            // Handle designation and department as arrays (convert to string)
-            const designationStr = professionalInfo?.designation 
-              ? (Array.isArray(professionalInfo.designation) 
-                  ? professionalInfo.designation.join(', ') 
-                  : professionalInfo.designation)
-              : 'Not specified';
+            // Handle designation as array (use display values if available, otherwise enum values)
+            const designationStr = professionalInfo?.designationDisplay 
+              ? professionalInfo.designationDisplay.join(', ')
+              : (professionalInfo?.designation 
+                  ? professionalInfo.designation.join(', ')
+                  : 'Not specified');
             
+            // Handle department as array
             const departmentStr = professionalInfo?.department
-              ? (Array.isArray(professionalInfo.department)
-                  ? professionalInfo.department.join(', ')
-                  : professionalInfo.department)
+              ? professionalInfo.department.join(', ')
               : 'Not specified';
             
-            const qualificationsStr = professionalInfo?.qualifications || 'Not specified';
-            const experienceStr = professionalInfo?.yearsOfExperience 
-              ? `${professionalInfo.yearsOfExperience} years of experience`
+            // Handle qualifications as array
+            const qualificationsStr = professionalInfo?.qualifications 
+              ? professionalInfo.qualifications.join(', ')
               : 'Not specified';
+            
+            // Handle years of experience (array of numbers)
+            const experienceStr = professionalInfo?.yearsOfExperience && professionalInfo.yearsOfExperience.length > 0
+              ? `${professionalInfo.yearsOfExperience[0]} years of experience`
+              : (professionalInfo?.experienceDisplay && professionalInfo.experienceDisplay.length > 0
+                  ? professionalInfo.experienceDisplay[0]
+                  : 'Not specified');
             
             const detailData: FacultyDetailData = {
-              name: profile.fullName || faculty.name,
+              id: basicInfo?.id || faculty.id, // Include ID for delete operation
+              name: basicInfo?.fullName || faculty.name,
               imageUrl: imageUrl,
               designation: designationStr,
               department: departmentStr,
               qualifications: qualificationsStr,
               experience: experienceStr,
-              email: profile.email || 'Not available',
-              phone: profile.phoneNumber || 'Not available',
+              email: basicInfo?.email || 'Not available',
+              phone: basicInfo?.phoneNumber || 'Not available',
             };
             
+            console.log('SidebarComponent: Mapped faculty detail data:', detailData);
             this.facultyDetailService.setSelectedFaculty(detailData);
             this.modalService.openModal('faculty-detail');
           } else {
+            console.warn('SidebarComponent: API response not successful or no data');
             // Fallback to static data if API returns no data
             const detailData = this.facultyDetailData[faculty.name];
             if (detailData) {
@@ -276,17 +291,25 @@ export class SidebarComponent implements OnInit {
         },
         error: (err) => {
           this.loadingFaculties.set(false);
-          console.warn('SidebarComponent: Failed to load faculty profile:', err);
+          console.error('SidebarComponent: Failed to load faculty by ID:', err);
+          console.error('SidebarComponent: Error details:', {
+            status: err?.status,
+            message: err?.message,
+            error: err?.error
+          });
           // Fallback to static data on error
           const detailData = this.facultyDetailData[faculty.name];
           if (detailData) {
             this.facultyDetailService.setSelectedFaculty(detailData);
             this.modalService.openModal('faculty-detail');
+          } else {
+            this.notifications.error('Failed to load faculty details');
           }
         },
       });
     } else {
       // Fallback to static data if no ID
+      console.warn('SidebarComponent: Faculty has no ID, using static data');
       const detailData = this.facultyDetailData[faculty.name];
       if (detailData) {
         this.facultyDetailService.setSelectedFaculty(detailData);
