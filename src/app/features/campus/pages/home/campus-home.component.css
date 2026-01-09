@@ -123,6 +123,35 @@
   grid-column: 1 / -1;
 }
 
+.batch-select {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.batch-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.loading-state,
+.empty-state {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
 .avatar-row {
   display: flex;
   gap: 14px;

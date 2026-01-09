@@ -284,8 +284,7 @@ export class CampusHomeComponent implements OnInit {
             this.placedStudentsTotalPages.set(1);
           }
         },
-        error: (error) => {
-          console.error('CampusHomeComponent: ❌ Placed students subscription error:', error);
+        error: () => {
           this.loadingPlacedStudents.set(false);
           this.placedStudents.set([]);
           this.placedStudentsTotalPages.set(1);
@@ -477,6 +476,139 @@ export class CampusHomeComponent implements OnInit {
       logoUrl: result.logoUrl
     });
     return result;
+  }
+
+  // Current Batch - API Integration
+  loadBatches(): void {
+    this.loadingBatches.set(true);
+    
+    // Use the same endpoint as placed students form for consistency
+    this.campusApi.getBatchesForDropdown().pipe(
+      map((batches: string[]) => {
+        // Filter and validate batch strings
+        return batches
+          .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+          .map(batch => batch.trim());
+      }),
+      catchError((error) => {
+        console.error('CampusHomeComponent: Error loading batches from getBatchesForDropdown, trying fallback:', error);
+        // Fallback to getAllBatches if getBatchesForDropdown fails
+        return this.campusApi.getAllBatches().pipe(
+          map((response: BatchesResponse | null) => {
+            if (response?.success && Array.isArray(response.data)) {
+              return response.data
+                .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+                .map(batch => batch.trim());
+            }
+            return [];
+          }),
+          catchError((fallbackError) => {
+            console.error('CampusHomeComponent: Fallback also failed:', fallbackError);
+            return of([]);
+          })
+        );
+      })
+    ).subscribe({
+      next: (batches: string[]) => {
+        this.loadingBatches.set(false);
+        
+        if (batches.length > 0) {
+          this.batches.set(batches);
+          
+          // Auto-select first batch if available and no batch is selected
+          if (!this.selectedBatch()) {
+            const firstBatch = batches[0];
+            this.selectedBatch.set(firstBatch);
+            this.loadStudentsByBatch(firstBatch);
+          } else if (this.selectedBatch() && batches.includes(this.selectedBatch()!)) {
+            // Reload students for currently selected batch if it still exists
+            this.loadStudentsByBatch(this.selectedBatch()!);
+          } else if (this.selectedBatch() && !batches.includes(this.selectedBatch()!)) {
+            // If selected batch no longer exists, select first available
+            const firstBatch = batches[0];
+            this.selectedBatch.set(firstBatch);
+            this.loadStudentsByBatch(firstBatch);
+          }
+        } else {
+          this.batches.set([]);
+          this.selectedBatch.set(null);
+        }
+        
+        console.log('CampusHomeComponent: Batches loaded:', batches.length, 'items');
+      },
+      error: (error) => {
+        console.error('CampusHomeComponent: Error in batches subscription:', error);
+        this.loadingBatches.set(false);
+        this.batches.set([]);
+      }
+    });
+  }
+
+  loadStudentsByBatch(batch: string): void {
+    if (!batch) {
+      return;
+    }
+    
+    this.loadingCurrentBatch.set(true);
+    
+    this.campusApi.getStudentsByBatch(batch, this.currentBatchPage, this.currentBatchPageSize).pipe(
+      catchError(() => {
+        this.loadingCurrentBatch.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: StudentsByBatchResponse | null) => {
+        this.loadingCurrentBatch.set(false);
+        
+        if (response?.success && response.data) {
+          const rawItems = response.data.content || [];
+          const items = rawItems.map((item) => this.mapStudentByBatchToPersonCard(item));
+          
+          this.currentBatch.set(items);
+          this.currentBatchTotalPages.set(response.data.totalPages || 1);
+        } else {
+          this.currentBatch.set([]);
+          this.currentBatchTotalPages.set(1);
+        }
+      },
+      error: () => {
+        this.loadingCurrentBatch.set(false);
+        this.currentBatch.set([]);
+        this.currentBatchTotalPages.set(1);
+      }
+    });
+  }
+
+  private mapStudentByBatchToPersonCard(student: StudentByBatchData): PersonCard {
+    const name = student.studentName || 
+                 [student.firstName, student.lastName].filter(Boolean).join(' ') || 
+                 'Unknown';
+    const subtitle = student.batch || '';
+    const imageUrl = student.profilePhotoUrl || 
+                     student.imageUrl || 
+                     'assets/images/login-news-image.png';
+    
+    return {
+      name,
+      subtitle,
+      imageUrl,
+    };
+  }
+
+  onCurrentBatchPageChange(page: number): void {
+    if (page !== this.currentBatchPage && page >= 1) {
+      this.currentBatchPage = page;
+      const selectedBatch = this.selectedBatch();
+      if (selectedBatch) {
+        this.loadStudentsByBatch(selectedBatch);
+      }
+    }
+  }
+
+  onBatchSelect(batch: string): void {
+    this.selectedBatch.set(batch);
+    this.currentBatchPage = 1; // Reset to first page when batch changes
+    this.loadStudentsByBatch(batch);
   }
 
   // Current Batch - API Integration

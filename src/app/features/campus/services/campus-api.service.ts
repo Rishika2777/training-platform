@@ -1438,6 +1438,229 @@ export class CampusApiService {
     );
   }
 
+  /**
+   * GET /public/landing/campus/{campusId}/rising-stars
+   * Get rising stars (current students not placed) with pagination.
+   * Default 8 per page.
+   */
+  getRisingStars(
+    campusId: string,
+    page = 1,
+    size = 8,
+  ): Observable<RisingStarsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.RISING_STARS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as RisingStarsResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/success-stories
+   * Get success stories (placed students) with pagination.
+   * Default 6 per page.
+   */
+  getSuccessStories(
+    campusId: string,
+    page = 1,
+    size = 6,
+  ): Observable<SuccessStoriesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.SUCCESS_STORIES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as SuccessStoriesResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/faculties
+   * Get faculty members with pagination.
+   * Default 6 per page.
+   */
+  getFaculties(
+    campusId: string,
+    page = 1,
+    size = 6,
+  ): Observable<FacultiesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.FACULTIES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as FacultiesResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/testimonials
+   * Get student testimonials/reviews with pagination.
+   * Default 5 per page.
+   */
+  getTestimonials(
+    campusId: string,
+    page = 1,
+    size = 5,
+  ): Observable<TestimonialsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.TESTIMONIALS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as TestimonialsResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/research
+   * Get research and innovation information.
+   */
+  getResearch(campusId: string): Observable<ResearchResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.RESEARCH, { campusId });
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as ResearchResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/alumni
+   * Get alumni community with pagination.
+   * Default 7 per page.
+   */
+  getAlumni(
+    campusId: string,
+    page = 1,
+    size = 7,
+  ): Observable<ApiResponsePageAlumniResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ALUMNI, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as ApiResponsePageAlumniResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/courses
+   * Get courses offered with pagination.
+   * Default 4 per page.
+   */
+  getCourses(
+    campusId: string,
+    page = 1,
+    size = 4,
+  ): Observable<CoursesResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.COURSES, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as CoursesResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/placement-insights
+   * Get placement insights.
+   * Gets placement statistics and companies with pagination. Default 9 companies per page.
+   */
+  getPlacementInsights(
+    campusId: string,
+    page = 1,
+    size = 9,
+  ): Observable<PlacementInsightsResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.PLACEMENT_INSIGHTS, { campusId });
+    const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as PlacementInsightsResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/about
+   * Get About Synkup content.
+   * Retrieves the About Synkup content displayed on the landing page.
+   */
+  getAboutSynkup(): Observable<AboutSynkupResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ABOUT_SYNKUP);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          return raw as AboutSynkupResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
   private buildUrl(endpoint: string, params?: Record<string, string>): string {
     const resolved = resolvePathParams(endpoint, params);
 
