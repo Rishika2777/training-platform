@@ -191,15 +191,31 @@ export interface BatchmateResponse {
 }
 
 export interface PlacedStudentResponse {
+  id?: string;
+  userId?: string | null;
+  campusId?: string;
+  courseId?: string | null;
+  courseName?: string;
+  studentName?: string;
+  photoUrl?: string;
+  batch?: string;
+  rollNumber?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  placementCompanyId?: string | null;
+  placementCompanyName?: string;
+  placementDate?: string;
+  designation?: string;
+  sector?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  placed?: boolean;
+  // Legacy fields for backward compatibility
   studentId?: string;
-  userId?: string;
   firstName?: string;
   lastName?: string;
-  studentName?: string;
   profilePhotoUrl?: string;
-  batch?: string;
   companyName?: string;
-  designation?: string;
   lpa?: string;
 }
 

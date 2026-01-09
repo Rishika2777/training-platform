@@ -7,7 +7,7 @@
         <h1 class="hero-title">Shaping the Future Through Education and Innovation</h1>
         <div class="hero-buttons">
           <app-button label="Visit Campus" variant="primary" (buttonClick)="openVisitCampusModal()" />
-          <app-button label="Faculties" variant="primary" />
+          <app-button label="Read More" variant="primary" (buttonClick)="openCampusWebsite()" />
         </div>
         <div class="hero-metrics">25 Promotions, 100 Followers—The Journey Thrives!</div>
       </div>
@@ -210,12 +210,12 @@
                 <div class="course-card-top">
                   <div class="course-code">{{ course.name }}</div>
                   <div class="course-details">
-                    <span>Seats: {{ course.seats }}</span>
+                    <span>seats: {{ course.seats }}</span>
                     <span>Duration: {{ course.duration }}</span>
                   </div>
                 </div>
                 <div class="course-card-bottom">
-                  <app-button label="Applications" variant="primary" />
+                  <div class="course-full-name">{{ course.fullName || course.name }}</div>
                 </div>
               </div>
             }
@@ -267,7 +267,17 @@
 
   <!-- Meet Our Faculties Section -->
   <section class="section faculties">
-    <h2 class="section-title">Meet Our Faculties</h2>
+    <div class="section-header">
+      <h2 class="section-title">Meet Our Faculties</h2>
+      <button
+        class="section-add-btn"
+        type="button"
+        title="Add Faculty"
+        (click)="modalService.openModal('faculty')"
+      >
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+      </button>
+    </div>
     @if (loadingFaculties()) {
       <div class="loading-indicator">Loading...</div>
     } @else {
@@ -279,7 +289,7 @@
       >
         <div class="avatar-row">
           @for (faculty of facultiesPageItems(); track faculty.id) {
-            <div class="avatar-card">
+            <div class="avatar-card" (click)="onFacultyClick(faculty)" (keydown.enter)="onFacultyClick(faculty)" (keydown.space)="onFacultyClick(faculty)" tabindex="0" style="cursor: pointer;" role="button" aria-label="View {{ faculty.name }} details">
               <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
               <div class="avatar-name">{{ faculty.name }}</div>
               <div class="avatar-sub">{{ faculty.designation }}</div>
@@ -438,4 +448,74 @@
     [submitting]="submittingVisitCampus"
     (submitted)="handleVisitCampusSubmit($event)"
   />
+</app-modal>
+
+<!-- Add Faculty Modal -->
+<app-modal
+  [visible]="isFacultyModalOpen()"
+  title="Add Faculty"
+  size="lg"
+  (closed)="closeModal()"
+>
+  <app-campus-faculty
+    [submitting]="submittingFaculty"
+    (submitted)="handleFacultySubmit($event)"
+  />
+</app-modal>
+
+<!-- Faculty Detail Modal -->
+<app-modal
+  [visible]="isFacultyDetailModalOpen()"
+  title=""
+  size="sm"
+  (closed)="handleFacultyDetailClose()"
+  modalClass="faculty-detail-modal"
+>
+  <app-campus-faculty-detail 
+    [faculty]="selectedFaculty()" 
+    (closed)="handleFacultyDetailClose()"
+    (deleteRequested)="handleFacultyDeleteRequest($event)"
+  />
+</app-modal>
+
+<!-- Delete Faculty Confirmation Modal -->
+<app-modal
+  [visible]="showDeleteFacultyModal"
+  title="Delete Faculty"
+  size="sm"
+  (closed)="closeDeleteFacultyModal()"
+  modalClass="delete-faculty-modal"
+>
+  <div class="delete-modal-content">
+    <!-- Faculty Image/Illustration at top -->
+    @if (selectedFaculty()?.imageUrl) {
+      <div class="delete-modal-image">
+        <img [src]="selectedFaculty()?.imageUrl" [alt]="selectedFaculty()?.name || 'Faculty'" />
+      </div>
+    }
+    <p>Are you sure you want to delete this faculty member?</p>
+    @if (selectedFaculty()?.name) {
+      <div class="delete-item-info">
+        <strong>{{ selectedFaculty()?.name }}</strong>
+        @if (selectedFaculty()?.email) {
+          <span class="email">{{ selectedFaculty()?.email }}</span>
+        }
+      </div>
+    }
+    <p class="warning-text">This action cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <app-button
+        label="Cancel"
+        variant="outline"
+        [disabled]="deletingFaculty"
+        (buttonClick)="closeDeleteFacultyModal()"
+      ></app-button>
+      <app-button
+        label="Delete"
+        variant="primary"
+        [disabled]="deletingFaculty"
+        (buttonClick)="confirmDeleteFaculty()"
+      ></app-button>
+    </div>
+  </div>
 </app-modal>

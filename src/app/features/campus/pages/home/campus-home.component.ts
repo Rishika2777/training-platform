@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CampusProspectusComponent, ProspectusUploadFormValue } from '../upload-prospectus/campus-prospectus.component';
 import {
   CampusCompaniesVisitedComponent,
@@ -15,7 +16,7 @@ import { CampusCourseFormComponent, CourseFormValue } from '../course-form/cours
 import { CampusFacultyDetailComponent } from '../faculty-detail/campus-faculty-detail.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData, AnnouncementItem, AnnouncementsResponse } from '../../services/campus-api.service';
+import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBatchData, AlumniDashboardResponse, AlumniDashboardData, AnnouncementItem, AnnouncementsResponse, CompanyVisitedItem } from '../../services/campus-api.service';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -30,6 +31,7 @@ import { map } from 'rxjs/operators';
     CarouselComponent,
     ModalComponent,
     DropdownComponent,
+    ButtonComponent,
     CampusProspectusComponent,
     CampusCompaniesVisitedComponent,
     CampusPlacedStudentsComponent,
@@ -65,6 +67,9 @@ export class CampusHomeComponent implements OnInit {
   submittingPlacedStudents = false;
   submittingFaculty = false;
   submittingCourseForm = false;
+  deletingFaculty = false;
+  showDeleteFacultyModal = false;
+  facultyToDeleteId: string | null = null;
 
   // Announcements - API Integration (for top banner)
   readonly announcements = signal<readonly AnnouncementItem[]>([]);
@@ -83,6 +88,13 @@ export class CampusHomeComponent implements OnInit {
 
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   loadingPlacedStudents = signal(false);
+
+  // Companies Visited - API Integration
+  readonly companiesVisited = signal<readonly CompanyVisitedCard[]>([]);
+  readonly loadingCompaniesVisited = signal(false);
+  companiesVisitedPage = 0; // API uses 0-indexed pagination (page=0 for first page)
+  readonly companiesVisitedPageSize = 3; // 3 companies per page (as per UI design)
+  readonly companiesVisitedTotalPages = signal(1);
 
   // Alumni - API Integration
   readonly alumni = signal<readonly PersonCard[]>([]);
@@ -118,11 +130,9 @@ export class CampusHomeComponent implements OnInit {
     },
   ];
 
-  readonly companiesVisitedSlots = 3;
-
   // Carousel / pagination state (shared component usage)
-  readonly peoplePageSize = 6;
-  placedStudentsPage = 1;
+  readonly peoplePageSize = 4; // Reduced to 4 per page for better pagination visibility
+  placedStudentsPage = 0; // API uses 0-indexed pagination (page=0 for first page)
 
   placedStudentsTotalPages = signal(1);
 
@@ -131,12 +141,14 @@ export class CampusHomeComponent implements OnInit {
   }
 
   placedStudentsPageItems(): readonly PersonCard[] {
-    return slicePage(this.placedStudents(), this.placedStudentsPage, this.peoplePageSize);
+    // API already returns paginated data, so return the items directly
+    return this.placedStudents();
   }
 
   ngOnInit(): void {
     this.loadPlacedStudents();
     this.loadBatches();
+    this.loadCompaniesVisited();
     // Load dashboard announcements
     this.loadAnnouncements();
     // Load alumni with default year (2024) using regular API
@@ -220,13 +232,17 @@ export class CampusHomeComponent implements OnInit {
 
   loadPlacedStudents(): void {
     console.log('CampusHomeComponent: ========== LOADING PLACED STUDENTS ==========');
-    console.log('CampusHomeComponent: Current page:', this.placedStudentsPage);
+    console.log('CampusHomeComponent: Current page (0-indexed):', this.placedStudentsPage);
     console.log('CampusHomeComponent: Page size:', this.peoplePageSize);
     this.loadingPlacedStudents.set(true);
-    this.studentApiService
+    
+    // Use dashboard API endpoint: GET /dashboard/placed-students
+    // API uses 0-indexed pagination (page=0 for first page)
+    this.campusApi
       .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
       .pipe(
-        catchError(() => {
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading placed students:', error);
           this.loadingPlacedStudents.set(false);
           return of(null);
         }),
@@ -236,9 +252,12 @@ export class CampusHomeComponent implements OnInit {
           console.log('CampusHomeComponent: ✅ GET PLACED STUDENTS API RESPONSE RECEIVED');
           console.log('CampusHomeComponent: Response:', response);
           console.log('CampusHomeComponent: Response success:', response?.success);
+          console.log('CampusHomeComponent: Response message:', response?.message);
           console.log('CampusHomeComponent: Response data:', response?.data);
           console.log('CampusHomeComponent: Response content array:', response?.data?.content);
           console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
+          console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
+          console.log('CampusHomeComponent: Total elements:', response?.data?.totalElements);
           
           this.loadingPlacedStudents.set(false);
           if (response?.success && response.data) {
@@ -246,25 +265,217 @@ export class CampusHomeComponent implements OnInit {
             const items = rawItems.map((item) => this.mapPlacedStudentToPersonCard(item));
             
             this.placedStudents.set(items);
-            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+            const totalPages = response.data.totalPages ?? 1;
+            this.placedStudentsTotalPages.set(Math.max(1, totalPages));
+            
+            // Log for debugging
+            console.log('CampusHomeComponent: Page conversion - API page:', this.placedStudentsPage, 'Display page:', this.placedStudentsPage + 1);
             
             console.log('CampusHomeComponent: ✅ Placed students list updated');
+            console.log('CampusHomeComponent: Mapped items count:', items.length);
+            console.log('CampusHomeComponent: Total pages:', totalPages);
             console.log('CampusHomeComponent: Current placed students signal:', this.placedStudents());
           } else {
             console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
             console.warn('CampusHomeComponent: Response success:', response?.success);
+            console.warn('CampusHomeComponent: Response message:', response?.message);
             console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
+            this.placedStudents.set([]);
+            this.placedStudentsTotalPages.set(1);
           }
         },
         error: () => {
           this.loadingPlacedStudents.set(false);
+          this.placedStudents.set([]);
+          this.placedStudentsTotalPages.set(1);
         },
       });
   }
 
   onPlacedStudentsPageChange(page: number): void {
-    this.placedStudentsPage = page;
-    this.loadPlacedStudents();
+    // Carousel component uses 1-based indexing, convert to 0-based for API
+    const apiPage = page - 1;
+    if (apiPage !== this.placedStudentsPage && apiPage >= 0) {
+      this.placedStudentsPage = apiPage;
+      this.loadPlacedStudents();
+    }
+  }
+
+  // Companies Visited - API Integration
+  loadCompaniesVisited(): void {
+    console.log('CampusHomeComponent: ========== LOADING COMPANIES VISITED ==========');
+    console.log('CampusHomeComponent: Current page (0-indexed):', this.companiesVisitedPage);
+    console.log('CampusHomeComponent: Page size:', this.companiesVisitedPageSize);
+    
+    this.loadingCompaniesVisited.set(true);
+    
+    this.campusApi
+      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading companies visited:', error);
+          this.loadingCompaniesVisited.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          console.log('CampusHomeComponent: ✅ GET COMPANIES VISITED API RESPONSE RECEIVED');
+          console.log('CampusHomeComponent: Response:', response);
+          console.log('CampusHomeComponent: Response success:', response?.success);
+          console.log('CampusHomeComponent: Response message:', response?.message);
+          console.log('CampusHomeComponent: Response data:', response?.data);
+          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
+          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
+          console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
+          
+          this.loadingCompaniesVisited.set(false);
+          if (response?.success && response.data) {
+            const rawItems = response.data.content || [];
+            const items = rawItems.map((item) => this.mapCompanyVisitedToCard(item));
+            
+            this.companiesVisited.set(items);
+            const totalPages = response.data.totalPages ?? 1;
+            this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
+            
+            console.log('CampusHomeComponent: ✅ Companies visited list updated');
+            console.log('CampusHomeComponent: Mapped items count:', items.length);
+            console.log('CampusHomeComponent: Total pages:', totalPages);
+            console.log('CampusHomeComponent: Current companies visited signal:', this.companiesVisited());
+          } else {
+            console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
+            console.warn('CampusHomeComponent: Response success:', response?.success);
+            console.warn('CampusHomeComponent: Response message:', response?.message);
+            console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
+            this.companiesVisited.set([]);
+            this.companiesVisitedTotalPages.set(1);
+          }
+        },
+        error: (error) => {
+          console.error('CampusHomeComponent: ❌❌❌ COMPANIES VISITED SUBSCRIPTION ERROR ❌❌❌');
+          console.error('CampusHomeComponent: Error object:', error);
+          console.error('CampusHomeComponent: Error status:', error?.status);
+          console.error('CampusHomeComponent: Error URL:', error?.url);
+          console.error('CampusHomeComponent: Error message:', error?.message);
+          console.error('CampusHomeComponent: Error response:', error?.error);
+          
+          this.loadingCompaniesVisited.set(false);
+          this.companiesVisited.set([]);
+          this.companiesVisitedTotalPages.set(1);
+          
+          const errorMessage = error?.error?.message || error?.error?.error || error?.message || 'Failed to load companies visited';
+          this.notify.error(errorMessage);
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        },
+      });
+  }
+
+  onCompaniesVisitedPageChange(page: number): void {
+    // page can be either 0-based (from prev/next buttons) or 1-based (from page number buttons)
+    // Convert to 0-based if it's 1-based (greater than 0 and less than or equal to totalPages)
+    let apiPage: number;
+    const totalPages = this.companiesVisitedTotalPages();
+    
+    if (page >= 1 && page <= totalPages) {
+      // 1-based page number from UI buttons
+      apiPage = page - 1;
+    } else if (page >= 0 && page < totalPages) {
+      // Already 0-based (from prev/next buttons)
+      apiPage = page;
+    } else {
+      console.warn('CampusHomeComponent: Invalid page number:', page, 'Total pages:', totalPages);
+      return;
+    }
+    
+    if (apiPage !== this.companiesVisitedPage) {
+      console.log('CampusHomeComponent: Changing page from', this.companiesVisitedPage, 'to', apiPage);
+      this.companiesVisitedPage = apiPage;
+      this.loadCompaniesVisited();
+    }
+  }
+
+  getCompaniesVisitedPageNumbers(): number[] {
+    const totalPages = this.companiesVisitedTotalPages();
+    const maxVisiblePages = 6; // Show max 6 page numbers
+    const currentPage = this.companiesVisitedPage + 1; // Convert to 1-based for display
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is less than max
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    
+    // Show pages around current page
+    const pages: number[] = [];
+    let startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  }
+
+  onCompanyImageError(event: Event, company: CompanyVisitedCard): void {
+    const img = event.target as HTMLImageElement;
+    console.error('CampusHomeComponent: ❌ Image failed to load for company:', company.companyName);
+    console.error('CampusHomeComponent: Failed image URL:', img.src);
+    console.error('CampusHomeComponent: Company data:', company);
+    
+    // Set fallback image
+    img.src = 'assets/images/login-news-image.png';
+    img.alt = `${company.companyName} (fallback)`;
+  }
+
+  private mapCompanyVisitedToCard(item: CompanyVisitedItem): CompanyVisitedCard {
+    // Construct full image URL from logourl
+    // Backend returns logourl like "company/ed38e166-3f2a-45e4-8fe7-c441dd068764.jpg"
+    let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+    
+    if (item.logourl) {
+      const logourl = item.logourl.trim();
+      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Company:', item.companyName);
+      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Raw logourl:', logourl);
+      
+      if (logourl.startsWith('http://') || logourl.startsWith('https://')) {
+        // Already a full URL
+        imageUrl = logourl;
+        console.log('CampusHomeComponent: Using full URL:', imageUrl);
+      } else if (logourl.startsWith('/')) {
+        // Absolute path, add /api/v1/files prefix
+        imageUrl = `/api/v1/files${logourl}`;
+        console.log('CampusHomeComponent: Constructed URL from absolute path:', imageUrl);
+      } else {
+        // Relative path like "company/filename.jpg", add /api/v1/files/ prefix
+        imageUrl = `/api/v1/files/${logourl}`;
+        console.log('CampusHomeComponent: Constructed URL from relative path:', imageUrl);
+      }
+    } else {
+      console.warn('CampusHomeComponent: mapCompanyVisitedToCard - No logourl found for company:', item.companyName);
+    }
+    
+    const result = {
+      id: item.id,
+      companyName: item.companyName || 'Unknown Company',
+      logoUrl: imageUrl,
+    };
+    
+    console.log('CampusHomeComponent: mapCompanyVisitedToCard - Final card for', result.companyName, ':', {
+      id: result.id,
+      companyName: result.companyName,
+      logoUrl: result.logoUrl
+    });
+    return result;
   }
 
   // Current Batch - API Integration
@@ -401,26 +612,83 @@ export class CampusHomeComponent implements OnInit {
   }
 
   private mapPlacedStudentToPersonCard(item: {
+    // API response fields from GET /dashboard/placed-students (as per API spec)
+    id?: string;
+    userId?: string | null;
+    campusId?: string;
+    courseId?: string | null;
+    courseName?: string;
+    studentName?: string;
+    photoUrl?: string; // Relative path like "student/0cf39251-9301-4650-bafe-b86597396368.jpg"
+    batch?: string;
+    rollNumber?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    placementCompanyId?: string | null;
+    placementCompanyName?: string;
+    placementDate?: string;
+    designation?: string;
+    sector?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    placed?: boolean;
+    // Legacy fields (for backward compatibility)
     firstName?: string;
     lastName?: string;
-    studentName?: string;
     profilePhotoUrl?: string;
-    batch?: string;
     companyName?: string;
-    placementCompanyId?: string;
-    designation?: string;
   }): PersonCard {
-    // Use studentName if available, otherwise fall back to firstName + lastName
-    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    // Try companyName first, then placementCompanyId as fallback
-    const company = item.companyName || item.placementCompanyId || '';
-    const subtitle = [item.batch, company].filter(Boolean).join(' ') || '';
-    const result = {
+    // Construct image URL from photoUrl (API returns relative path)
+    // photoUrl format: "student/0cf39251-9301-4650-bafe-b86597396368.jpg"
+    // Need to construct full URL using API base URL
+    let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+    
+    if (item.photoUrl) {
+      // If photoUrl is already a full URL (starts with http:// or https://), use it as is
+      if (item.photoUrl.startsWith('http://') || item.photoUrl.startsWith('https://')) {
+        imageUrl = item.photoUrl;
+      } else if (item.photoUrl.startsWith('/')) {
+        // If it starts with /, it's an absolute path - prepend API base URL
+        // Construct URL: /api/v1/files/{photoUrl} or similar based on your file serving endpoint
+        // For now, try common patterns
+        imageUrl = `/api/v1/files/${item.photoUrl.substring(1)}`; // Remove leading /
+      } else {
+        // Relative path like "student/filename.jpg" - construct full URL
+        // Based on API, files are typically served from /api/v1/files/ endpoint
+        imageUrl = `/api/v1/files/${item.photoUrl}`;
+      }
+    } else if (item.profilePhotoUrl) {
+      // Fallback to profilePhotoUrl for backward compatibility
+      if (item.profilePhotoUrl.startsWith('http://') || item.profilePhotoUrl.startsWith('https://') || item.profilePhotoUrl.startsWith('/')) {
+        imageUrl = item.profilePhotoUrl;
+      } else {
+        imageUrl = `/api/v1/files/${item.profilePhotoUrl}`;
+      }
+    }
+    
+    // API provides studentName directly - use it as primary source
+    const name = item.studentName || 
+                 (item.firstName || item.lastName ? [item.firstName, item.lastName].filter(Boolean).join(' ').trim() : null) ||
+                 (item.rollNumber ? `Student ${item.rollNumber}` : null) ||
+                 (item.email ? item.email.split('@')[0] : null) ||
+                 'Unknown';
+    
+    // Build subtitle with company name and designation
+    // API returns placementCompanyName and designation
+    const company = item.placementCompanyName || item.companyName || '';
+    const subtitleParts: string[] = [];
+    if (company) subtitleParts.push(company);
+    if (item.designation) subtitleParts.push(item.designation);
+    // If no company/designation, show batch
+    const subtitle = subtitleParts.length > 0 
+      ? subtitleParts.join(' - ') 
+      : (item.batch ? `Batch: ${item.batch}` : '');
+    
+    return {
       name,
       subtitle,
-      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+      imageUrl,
     };
-    return result;
   }
 
   alumniPageItems(): readonly PersonCard[] {
@@ -544,7 +812,74 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleFacultyDetailClose(): void {
+    this.facultyDetailService.clearSelectedFaculty();
     this.closeModal();
+  }
+
+  handleFacultyDeleteRequest(facultyId: string): void {
+    this.facultyToDeleteId = facultyId;
+    this.showDeleteFacultyModal = true;
+  }
+
+  closeDeleteFacultyModal(): void {
+    this.showDeleteFacultyModal = false;
+    this.facultyToDeleteId = null;
+  }
+
+  confirmDeleteFaculty(): void {
+    if (!this.facultyToDeleteId || this.deletingFaculty) {
+      return;
+    }
+
+    this.deletingFaculty = true;
+    
+    this.campusApi.deleteFaculty(this.facultyToDeleteId).subscribe({
+      next: (response) => {
+        this.deletingFaculty = false;
+        
+        if (response?.success) {
+          const message = response.message || 'Faculty deleted successfully';
+          this.notify.success(message);
+          
+          // Close both modals
+          this.closeDeleteFacultyModal();
+          this.closeModal();
+          
+          // Refresh faculty list by dispatching event (sidebar will listen)
+          window.dispatchEvent(new Event('facultyAdded'));
+          
+          // Also trigger facultyDeleted event for any other listeners
+          window.dispatchEvent(new Event('facultyDeleted'));
+        } else {
+          const errorMessage = response?.error || response?.message || 'Failed to delete faculty';
+          this.notify.error(errorMessage);
+        }
+      },
+      error: (err) => {
+        this.deletingFaculty = false;
+        
+        console.error('❌ DELETE FACULTY - ERROR:', err);
+        console.error('Error Status:', err?.status);
+        console.error('Error Status Text:', err?.statusText);
+        console.error('Error URL:', err?.url);
+        console.error('Error Message:', err?.message);
+        console.error('Error Response:', err?.error);
+        
+        let errorMessage = 'Failed to delete faculty member';
+        
+        if (err?.error) {
+          if (err.error.message) {
+            errorMessage = err.error.message;
+          } else if (err.error.error) {
+            errorMessage = err.error.error;
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.notify.error(errorMessage);
+      },
+    });
   }
 
   handleProspectusUploadSuccess(): void {
@@ -558,50 +893,111 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
-    if (!value.companyLogo || !value.companyName.trim()) {
+    console.log('CampusHomeComponent: ========== COMPANIES VISITED SUBMIT CALLED ==========');
+    console.log('CampusHomeComponent: Form value:', {
+      companyName: value.companyName,
+      hasLogo: !!value.companyLogo,
+      logoName: value.companyLogo?.name || 'null'
+    });
+
+    // Validate required fields
+    if (!value.companyLogo) {
+      console.warn('CampusHomeComponent: Validation failed - company logo is required');
       this.submittingCompanies = false;
+      this.notify.error('Please select a company logo');
+      return;
+    }
+
+    if (!value.companyName.trim()) {
+      console.warn('CampusHomeComponent: Validation failed - company name is required');
+      this.submittingCompanies = false;
+      this.notify.error('Please enter a company name');
       return;
     }
 
     this.submittingCompanies = true;
 
-    // Convert file to base64
-    this.convertFileToBase64(value.companyLogo)
-      .then((base64Logo) => {
-        const request = {
-          companyLogo: base64Logo,
-          companyName: value.companyName.trim(),
-        };
+    // Create FormData for multipart/form-data request
+    const formData = new FormData();
+    formData.append('companyName', value.companyName.trim());
+    formData.append('logo', value.companyLogo);
 
-        this.campusApi.addCompanyVisited(request).subscribe({
-          next: () => {
-            this.submittingCompanies = false;
-            this.notify.success('Company visited added successfully');
-            this.closeModal();
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Component might be destroyed, ignore
-            }
-          },
-          error: (err) => {
-            const errorMessage = err?.error?.message || err?.message || 'Failed to add company visited';
-            this.submittingCompanies = false;
-            this.notify.error(errorMessage);
-            try {
-              this.cdr.detectChanges();
-            } catch {
-              // Ignore
-            }
-          },
-        });
-      })
-      .catch(() => {
-        setTimeout(() => {
-          this.submittingCompanies = false;
+    console.log('CampusHomeComponent: ========== CALLING ADD COMPANY VISITED API ==========');
+    console.log('CampusHomeComponent: FormData companyName:', formData.get('companyName'));
+    console.log('CampusHomeComponent: FormData logo file:', formData.get('logo'));
+
+    this.campusApi.addCompanyVisited(formData).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅✅✅ ADD COMPANY VISITED API SUCCESS ✅✅✅');
+        console.log('CampusHomeComponent: Response:', response);
+        
+        this.submittingCompanies = false;
+        
+        // If we get a response (even if null), HTTP request was successful (200)
+        // Show success message and refresh the list
+        if (response && response.success !== false) {
+          // Response has success=true or success is undefined (treat as success for HTTP 200)
+          const successMessage = response?.message || 'Company visited added successfully';
+          console.log('CampusHomeComponent: Showing success message:', successMessage);
+          this.notify.success(successMessage);
+          this.closeModal();
+          
+          // Refresh the companies visited list after adding
+          this.companiesVisitedPage = 0; // Reset to first page
+          this.loadCompaniesVisited();
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        } else if (response && response.success === false) {
+          // Explicit failure response
+          const errorMsg = response?.error || response?.message || 'Company might not have been added';
+          console.warn('CampusHomeComponent: API response success is false:', errorMsg);
+          this.notify.error(errorMsg);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore
+          }
+        } else {
+          // Response is null but HTTP was 200 - treat as success
+          console.log('CampusHomeComponent: Response is null but HTTP 200 - treating as success');
+          this.notify.success('Company visited added successfully');
+          this.closeModal();
+          
+          // Refresh the companies visited list after adding
+          this.companiesVisitedPage = 0; // Reset to first page
+          this.loadCompaniesVisited();
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore
+          }
+        }
+      },
+      error: (err) => {
+        console.error('CampusHomeComponent: ❌❌❌ ADD COMPANY VISITED API ERROR ❌❌❌');
+        console.error('CampusHomeComponent: Error object:', err);
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        console.error('CampusHomeComponent: Error message:', err?.message);
+        
+        this.submittingCompanies = false;
+        
+        const errorMessage = err?.error?.message || err?.error?.error || err?.message || 'Failed to add company visited';
+        this.notify.error(errorMessage);
+        
+        try {
           this.cdr.detectChanges();
-        }, 0);
-      });
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 
   handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
@@ -617,91 +1013,97 @@ export class CampusHomeComponent implements OnInit {
       photoName: value.studentPhoto?.name || 'null'
     });
     
+    // Validate required fields
+    if (!value.studentPhoto) {
+      this.notify.error('Please select a student photo');
+      return;
+    }
+
+    if (!value.course || !value.course.trim()) {
+      this.notify.error('Please select a course');
+      return;
+    }
+
+    if (!value.placementCompany || !value.placementCompany.trim()) {
+      this.notify.error('Please enter a placement company name');
+      return;
+    }
+    
     this.submittingPlacedStudents = true;
 
-    // Convert File to base64 string
-    this.convertFileToBase64(value.studentPhoto)
-      .then((photoBase64) => {
-        console.log('CampusHomeComponent: ✅ File conversion completed');
-        console.log('CampusHomeComponent: Photo base64 length:', photoBase64?.length || 0);
+    // Create FormData for multipart/form-data request
+    // API expects: studentName, photo (file), courseName, batch, placementCompanyName, designation, sector
+    const formData = new FormData();
+    formData.append('studentName', value.studentName.trim());
+    formData.append('photo', value.studentPhoto);
+    formData.append('courseName', value.course.trim()); // Required field: courseName (not courseId)
+    formData.append('batch', value.batch.trim());
+    formData.append('placementCompanyName', value.placementCompany.trim()); // Required field: placementCompanyName (not placementCompanyId)
+    formData.append('designation', value.designation.trim());
+    formData.append('sector', value.sector.trim());
+
+    // Optional fields - only append if they have values
+    // Note: courseId and placementCompanyId are optional according to API docs
+
+    console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
+    console.log('CampusHomeComponent: FormData fields:', {
+      studentName: value.studentName.trim(),
+      courseName: value.course.trim(),
+      batch: value.batch.trim(),
+      placementCompanyName: value.placementCompany.trim(),
+      designation: value.designation.trim(),
+      sector: value.sector.trim(),
+      photoFile: value.studentPhoto.name
+    });
+    console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed with multipart/form-data');
+
+    this.campusApi.addPlacedStudent(formData).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
+        console.log('CampusHomeComponent: Response:', response);
+        console.log('CampusHomeComponent: Response success:', response?.success);
+        console.log('CampusHomeComponent: Response message:', response?.message);
         
-        const request = {
-          studentName: value.studentName,
-          photo: photoBase64 || '',
-          courseId: value.course,
-          batch: value.batch,
-          placementCompanyId: value.placementCompany,
-          designation: value.designation,
-          sector: value.sector,
-        };
-
-        console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
-        console.log('CampusHomeComponent: Request payload:', {
-          studentName: request.studentName,
-          courseId: request.courseId,
-          batch: request.batch,
-          placementCompanyId: request.placementCompanyId,
-          designation: request.designation,
-          sector: request.sector,
-          photoLength: request.photo.length
-        });
-        console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed');
-
-        this.campusApi.addPlacedStudent(request).subscribe({
-          next: (response) => {
-            console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
-            console.log('CampusHomeComponent: Response:', response);
-            console.log('CampusHomeComponent: Response success:', response?.success);
-            console.log('CampusHomeComponent: Response message:', response?.message);
-            
-            // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
-            setTimeout(() => {
-              this.submittingPlacedStudents = false;
-              if (response?.success) {
-                this.notify.success(response?.message || 'Placed student added successfully');
-                this.closeModal();
-                // Reset to page 1 to see the newest students first
-                this.placedStudentsPage = 1;
-                // Reload placed students after adding a new one
-                this.loadPlacedStudents();
-              } else {
-                this.notify.warn(response?.message || 'Placed student might not have been added');
-              }
-              // Safe change detection - won't crash if component is destroyed
-              try {
-                this.cdr.detectChanges();
-              } catch {
-                // Component might be destroyed, ignore
-              }
-            }, 0);
-          },
-          error: (err) => {
-            console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
-            console.error('CampusHomeComponent: Error status:', err?.status);
-            console.error('CampusHomeComponent: Error URL:', err?.url);
-            console.error('CampusHomeComponent: Error response:', err?.error);
-            
-            // HTTP interceptor will show error notification to user
-            // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
-            setTimeout(() => {
-              this.submittingPlacedStudents = false;
-              // Safe change detection - won't crash if component is destroyed
-              try {
-                this.cdr.detectChanges();
-              } catch {
-                // Component might be destroyed, ignore
-              }
-            }, 0);
-          },
-        });
-      })
-      .catch(() => {
+        // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.submittingPlacedStudents = false;
+          if (response?.success) {
+            this.notify.success(response?.message || 'Placed student added successfully');
+            this.closeModal();
+            // Reset to page 0 (first page) to see the newest students first
+            this.placedStudentsPage = 0;
+            // Reload placed students after adding a new one
+            this.loadPlacedStudents();
+          } else {
+            this.notify.warn(response?.message || 'Placed student might not have been added');
+          }
+          // Safe change detection - won't crash if component is destroyed
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        }, 0);
+      },
+      error: (err) => {
+        console.error('CampusHomeComponent: ❌❌❌ ADD PLACED STUDENT API ERROR ❌❌❌');
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        
+        // HTTP interceptor will show error notification to user
         // Defer state change to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           this.submittingPlacedStudents = false;
-          this.cdr.detectChanges();
+          // Safe change detection - won't crash if component is destroyed
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
         }, 0);
-      });
+      },
+    });
   }
 
   private convertFileToBase64(file: File | null): Promise<string> {
@@ -798,94 +1200,253 @@ export class CampusHomeComponent implements OnInit {
     // Note: Photo is not included in JSON request body
     // If photo is required, backend should handle it separately or we need to use FormData
 
-    // Prepare professional information JSON (without file references)
-    // API expects arrays for designation, department, specialization, yearsOfExperience, and qualifications
-    const professionalInformation = value.professionalInfo.map((info) => {
-      // Parse yearsOfExperience - handle ranges like "1-5", "6-10", "11-15", "16+"
-      const yearsExp = info.yearsOfExperience.trim();
-      let yearsExpNum = 0;
-      
-      if (yearsExp) {
-        // Handle range values like "1-5", "6-10", etc.
-        if (yearsExp.includes('-')) {
-          const parts = yearsExp.split('-');
-          if (parts.length === 2) {
-            // Take the maximum value from the range
-            const max = parseInt(parts[1].trim(), 10);
-            yearsExpNum = isNaN(max) ? 0 : max;
-          }
-        } else if (yearsExp.endsWith('+')) {
-          // Handle "16+" - take the minimum value
-          const min = parseInt(yearsExp.replace('+', '').trim(), 10);
-          yearsExpNum = isNaN(min) ? 0 : min;
-        } else {
-          // Direct number
-          const num = parseInt(yearsExp, 10);
-          yearsExpNum = isNaN(num) ? 0 : num;
-        }
-      }
-      
-      // Parse yearsOfExperience - ensure it's a valid number
-      const yearsExpArray = yearsExpNum > 0 ? [yearsExpNum] : [];
-      
-      // Parse qualifications - split by comma or newline if multiple, otherwise single item array
-      const qualificationsStr = info.qualifications.trim();
-      const qualificationsArray = qualificationsStr
-        ? qualificationsStr.split(/[,\n]/).map(q => q.trim()).filter(q => q.length > 0)
-        : [];
-      
-      // Ensure all arrays have at least one value (backend might require non-empty arrays)
-      const designationArray = info.designation.trim() ? [info.designation.trim()] : [];
-      const departmentArray = info.department.trim() ? [info.department.trim()] : [];
-      const specializationArray = info.specialization.trim()
-        ? info.specialization.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0)
-        : [];
-      
-      return {
-        designation: designationArray,
-        department: departmentArray,
-        specialization: specializationArray,
-        yearsOfExperience: yearsExpArray,
-        qualifications: qualificationsArray,
-        // Note: certificates will be added as files separately in FormData
-        certificates: [], // Empty array - files will be added separately
-      };
-    });
-
-    // According to Swagger and Thunder: professionalInformation should be a SINGLE OBJECT
-    // Backend expects only ONE professionalInformation entry (not merged/multiple)
-    // If user has multiple entries, we'll use only the FIRST one (as per backend limitation)
-    let professionalInformationObj: {
+    // Prepare professional information JSON
+    // According to backend API (from Swagger/Postman):
+    // - designation: array of strings (e.g., ["PRINCIPAL"])
+    // - department: array of strings (e.g., ["School Administration"])
+    // - specialization: array of strings (e.g., ["Academic Management", "Educational Leadership"])
+    // - yearsOfExperience: array of numbers (e.g., [22]) - IMPORTANT: Backend expects ARRAY!
+    // - qualifications: array of strings
+    // - certificates: array of strings
+    let professionalInformation: {
       designation: string[];
       department: string[];
       specialization: string[];
-      yearsOfExperience: number[];
+      yearsOfExperience: number[]; // ARRAY of numbers, not single number!
       qualifications: string[];
-      certificates?: string[]; // For file URLs if needed
-    };
-
-    if (professionalInformation.length === 0) {
-      // Empty object if no professional info
-      professionalInformationObj = {
-        designation: [],
-        department: [],
-        specialization: [],
-        yearsOfExperience: [],
-        qualifications: [],
-        certificates: [],
-      };
-    } else {
-      if (professionalInformation.length > 1) {
-        this.notify.warn('Only the first professional information entry will be saved.');
-      }
-      professionalInformationObj = professionalInformation[0];
+      certificates: string[];
+    }[] = [];
+    
+    try {
+      professionalInformation = value.professionalInfo.map((info, index) => {
+        // Parse qualifications - split by comma or newline if multiple, otherwise single item array
+        const qualificationsStr = (info.qualifications || '').trim();
+        const qualificationsArray = qualificationsStr
+          ? qualificationsStr.split(/[,\n]/).map(q => q.trim()).filter(q => q.length > 0)
+          : [];
+        
+        // Certificates - empty array for now (files would need to be uploaded separately)
+        // If certificates are provided as file names, they would be added here
+        const certificatesArray: string[] = [];
+        
+        // Convert designation, department, specialization to arrays
+        // Ensure values are trimmed and not empty
+        const designationValue = (info.designation || '').trim();
+        const departmentValue = (info.department || '').trim();
+        const specializationValue = (info.specialization || '').trim();
+        
+        if (!designationValue) {
+          throw new Error(`Professional info entry ${index + 1}: Designation is required`);
+        }
+        if (!departmentValue) {
+          throw new Error(`Professional info entry ${index + 1}: Department is required`);
+        }
+        if (!specializationValue) {
+          throw new Error(`Professional info entry ${index + 1}: Specialization is required`);
+        }
+        
+        const designationArray = [designationValue];
+        const departmentArray = [departmentValue];
+        const specializationArray = [specializationValue];
+        
+        // Parse yearsOfExperience from string to number
+        // Format could be "1-5", "6-10", "11-15", "16+", or a direct number like "10"
+        let yearsOfExperienceNum = 0;
+        const yearsStr = (info.yearsOfExperience || '').trim();
+        if (!yearsStr) {
+          throw new Error(`Professional info entry ${index + 1}: Years of experience is required`);
+        }
+        
+        // If it's a range like "1-5", take the midpoint or upper bound
+        if (yearsStr.includes('-')) {
+          const parts = yearsStr.split('-');
+          if (parts.length === 2) {
+            const lower = parseInt(parts[0].trim(), 10);
+            const upper = parseInt(parts[1].trim(), 10);
+            if (!isNaN(lower) && !isNaN(upper) && lower >= 0 && upper > 0) {
+              yearsOfExperienceNum = upper; // Use upper bound
+            } else {
+              throw new Error(`Professional info entry ${index + 1}: Invalid years of experience range`);
+            }
+          } else {
+            throw new Error(`Professional info entry ${index + 1}: Invalid years of experience format`);
+          }
+        } else if (yearsStr.endsWith('+')) {
+          // Handle "16+" format
+          const num = parseInt(yearsStr.replace('+', '').trim(), 10);
+          if (!isNaN(num) && num > 0) {
+            yearsOfExperienceNum = num;
+          } else {
+            throw new Error(`Professional info entry ${index + 1}: Invalid years of experience format`);
+          }
+        } else {
+          // Direct number
+          const num = parseInt(yearsStr, 10);
+          if (!isNaN(num) && num > 0) {
+            yearsOfExperienceNum = num;
+          } else {
+            throw new Error(`Professional info entry ${index + 1}: Invalid years of experience`);
+          }
+        }
+        
+        // Validate yearsOfExperience is not zero
+        if (yearsOfExperienceNum <= 0) {
+          throw new Error(`Professional info entry ${index + 1}: Years of experience must be greater than 0`);
+        }
+        
+        // Create object with ALL fields explicitly defined
+        // IMPORTANT: Backend expects yearsOfExperience as ARRAY of numbers, not single number!
+        const professionalInfoObj: {
+          designation: string[];
+          department: string[];
+          specialization: string[];
+          yearsOfExperience: number[]; // Backend expects ARRAY of numbers!
+          qualifications: string[];
+          certificates: string[];
+        } = {
+          designation: designationArray,
+          department: departmentArray,
+          specialization: specializationArray,
+          yearsOfExperience: [yearsOfExperienceNum], // Send as ARRAY: [10] not 10
+          qualifications: qualificationsArray,
+          certificates: certificatesArray,
+        };
+        
+        // Debug log for each professional info entry
+        console.log(`Professional Info Entry ${index + 1}:`, JSON.stringify(professionalInfoObj, null, 2));
+        console.log(`Professional Info Entry ${index + 1} - All fields:`, {
+          hasDesignation: !!professionalInfoObj.designation && professionalInfoObj.designation.length > 0,
+          hasDepartment: !!professionalInfoObj.department && professionalInfoObj.department.length > 0,
+          hasSpecialization: !!professionalInfoObj.specialization && professionalInfoObj.specialization.length > 0,
+          hasYearsOfExperience: Array.isArray(professionalInfoObj.yearsOfExperience) && professionalInfoObj.yearsOfExperience.length > 0,
+          hasQualifications: Array.isArray(professionalInfoObj.qualifications),
+          hasCertificates: Array.isArray(professionalInfoObj.certificates),
+        });
+        
+        return professionalInfoObj;
+      });
+    } catch (error) {
+      this.submittingFaculty = false;
+      const errorMessage = error instanceof Error ? error.message : 'Invalid professional information data';
+      this.notify.error(errorMessage);
+      return;
     }
 
-    // Prepare request data (JSON format - like Thunder/Postman)
-    const requestData = {
-      basicInformation,
-      professionalInformation: professionalInformationObj
+    // IMPORTANT: Backend expects professionalInformation as a SINGLE OBJECT, not an array!
+    // Backend expects: professionalInformation: { designation: [...], department: [...], ... }
+    // NOT: professionalInformation: [{...}]
+    // So we use only the FIRST entry if multiple exist
+    if (professionalInformation.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('At least one professional information entry is required');
+      return;
+    }
+    
+    // Use only the first professional information entry (backend expects object, not array)
+    const professionalInformationObj = professionalInformation[0];
+    
+    // Warn if multiple entries (only first will be saved)
+    if (professionalInformation.length > 1) {
+      console.warn('Multiple professional information entries provided. Only the first one will be saved.');
+    }
+
+    // Validate the professional information object has all required fields
+    if (!professionalInformationObj.designation || professionalInformationObj.designation.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Designation is required');
+      return;
+    }
+    if (!professionalInformationObj.department || professionalInformationObj.department.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Department is required');
+      return;
+    }
+    if (!professionalInformationObj.specialization || professionalInformationObj.specialization.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Specialization is required');
+      return;
+    }
+    // Validate yearsOfExperience is an array of numbers
+    if (!Array.isArray(professionalInformationObj.yearsOfExperience) || professionalInformationObj.yearsOfExperience.length === 0 || !professionalInformationObj.yearsOfExperience.every((y: number) => typeof y === 'number' && y > 0)) {
+      this.submittingFaculty = false;
+      this.notify.error('Valid years of experience is required');
+      return;
+    }
+    // Ensure qualifications and certificates are arrays (even if empty)
+    // Backend accepts empty arrays, but let's ensure they're always arrays
+    if (!Array.isArray(professionalInformationObj.qualifications)) {
+      professionalInformationObj.qualifications = [];
+    }
+    if (!Array.isArray(professionalInformationObj.certificates)) {
+      professionalInformationObj.certificates = [];
+    }
+    
+    // Additional validation: Check for null or undefined values in arrays
+    professionalInformationObj.designation = professionalInformationObj.designation.filter(d => d != null && d.trim() !== '');
+    professionalInformationObj.department = professionalInformationObj.department.filter(d => d != null && d.trim() !== '');
+    professionalInformationObj.specialization = professionalInformationObj.specialization.filter(s => s != null && s.trim() !== '');
+    professionalInformationObj.qualifications = professionalInformationObj.qualifications.filter(q => q != null && q.trim() !== '');
+    professionalInformationObj.certificates = professionalInformationObj.certificates.filter(c => c != null && c.trim() !== '');
+    
+    // Validate after filtering
+    if (professionalInformationObj.designation.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Designation is required and cannot be empty');
+      return;
+    }
+    if (professionalInformationObj.department.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Department is required and cannot be empty');
+      return;
+    }
+    if (professionalInformationObj.specialization.length === 0) {
+      this.submittingFaculty = false;
+      this.notify.error('Specialization is required and cannot be empty');
+      return;
+    }
+
+    // Prepare request data (JSON format - EXACTLY like backend expects)
+    // IMPORTANT: Backend expects professionalInformation as a SINGLE OBJECT, not an array!
+    // Backend format: { basicInformation: {...}, professionalInformation: {...} }
+    const requestData: {
+      basicInformation: {
+        fullName: string;
+        email: string;
+        dateOfBirth: string;
+        phoneNumber: string;
+      };
+      professionalInformation: {
+        designation: string[];
+        department: string[];
+        specialization: string[];
+        yearsOfExperience: number[]; // Array: [22]
+        qualifications: string[];
+        certificates: string[];
+      };
+    } = {
+      basicInformation: {
+        fullName: basicInformation.fullName,
+        email: basicInformation.email,
+        dateOfBirth: basicInformation.dateOfBirth,
+        phoneNumber: basicInformation.phoneNumber,
+      },
+      professionalInformation: professionalInformationObj,
     };
+
+    // Debug: Log the complete request data to console
+    console.log('=== FACULTY SUBMIT - COMPLETE REQUEST DATA ===');
+    console.log('Basic Information:', JSON.stringify(basicInformation, null, 2));
+    console.log('Professional Information (OBJECT, not array):', JSON.stringify(professionalInformationObj, null, 2));
+    console.log('Complete Request Data (stringified):', JSON.stringify(requestData, null, 2));
+    console.log('Professional Information Type Check:');
+    console.log('  - Is professionalInformation an object?', typeof requestData.professionalInformation === 'object' && !Array.isArray(requestData.professionalInformation));
+    console.log('  - designation:', requestData.professionalInformation.designation, '(isArray:', Array.isArray(requestData.professionalInformation.designation), ')');
+    console.log('  - department:', requestData.professionalInformation.department, '(isArray:', Array.isArray(requestData.professionalInformation.department), ')');
+    console.log('  - specialization:', requestData.professionalInformation.specialization, '(isArray:', Array.isArray(requestData.professionalInformation.specialization), ')');
+    console.log('  - yearsOfExperience:', requestData.professionalInformation.yearsOfExperience, '(isArray:', Array.isArray(requestData.professionalInformation.yearsOfExperience), ')');
+    console.log('  - qualifications:', requestData.professionalInformation.qualifications, '(isArray:', Array.isArray(requestData.professionalInformation.qualifications), ')');
+    console.log('  - certificates:', requestData.professionalInformation.certificates, '(isArray:', Array.isArray(requestData.professionalInformation.certificates), ')');
+    console.log('===========================================');
 
     // Check authentication
     const token = this.authState.token();
@@ -895,6 +1456,11 @@ export class CampusHomeComponent implements OnInit {
       this.notify.error('Authentication required. Please login again.');
       return;
     }
+    
+    // Log the exact request being sent
+    console.log('🚀 SENDING REQUEST TO BACKEND 🚀');
+    console.log('URL: POST /api/v1/faculty');
+    console.log('Request Data (complete):', JSON.stringify(requestData, null, 2));
     
     this.campusApi.addFaculty(requestData).subscribe({
       next: (response) => {
@@ -941,38 +1507,97 @@ export class CampusHomeComponent implements OnInit {
         setTimeout(() => {
           this.submittingFaculty = false;
           
+          // Log full error for debugging
+          console.error('❌❌❌ FACULTY SUBMIT - FULL ERROR DETAILS ❌❌❌');
+          console.error('Error Status:', err?.status);
+          console.error('Error Status Text:', err?.statusText);
+          console.error('Error URL:', err?.url);
+          console.error('Error Message:', err?.message);
+          console.error('Error Object:', err);
+          console.error('Error Error (backend response):', err?.error);
+          console.error('Error Error (stringified):', JSON.stringify(err?.error, null, 2));
+          
+          if (err?.error) {
+            console.error('=== BACKEND ERROR RESPONSE ===');
+            console.error('Success:', err.error.success);
+            console.error('Message:', err.error.message);
+            console.error('Error:', err.error.error);
+            console.error('Data:', err.error.data);
+            if (err.error.errors) {
+              console.error('Validation Errors:', JSON.stringify(err.error.errors, null, 2));
+              // If errors is an array, log each error
+              if (Array.isArray(err.error.errors)) {
+                err.error.errors.forEach((validationError: unknown, index: number) => {
+                  console.error(`  Validation Error ${index + 1}:`, JSON.stringify(validationError, null, 2));
+                });
+              } else if (typeof err.error.errors === 'object') {
+                // If errors is an object (like field validation errors)
+                Object.keys(err.error.errors).forEach((key) => {
+                  console.error(`  Field "${key}":`, err.error.errors[key]);
+                });
+              }
+            }
+            // Try to extract more specific error information
+            if (err.error.message) {
+              console.error('📌 BACKEND ERROR MESSAGE:', err.error.message);
+            }
+            if (err.error.error) {
+              console.error('📌 BACKEND ERROR DETAIL:', err.error.error);
+            }
+            console.error('==============================');
+          }
+          
           let errorMessage = 'Failed to add faculty';
           if (err?.status === 401) {
             errorMessage = 'Unauthorized: Your session has expired. Please login again.';
           } else if (err?.status === 403) {
             errorMessage = 'Forbidden: You do not have permission to add faculty.';
           } else if (err?.status === 500) {
-            // Handle 500 Internal Server Error
-            if (err?.error?.error) {
-              errorMessage = err.error.error;
-            } else if (err?.error?.message) {
-              errorMessage = err.error.message;
+            // Handle 500 Internal Server Error - Get detailed message
+            console.error('⚠️ 500 Internal Server Error - Checking backend error response...');
+            
+            // Check multiple possible error formats
+            if (err?.error?.message && err.error.message !== 'null' && err.error.message.trim() !== '') {
+              errorMessage = `Server Error: ${err.error.message}`;
+            } else if (err?.error?.error && err.error.error !== 'null' && err.error.error.trim() !== '') {
+              errorMessage = `Server Error: ${err.error.error}`;
+            } else if (err?.error?.errors && typeof err.error.errors === 'object') {
+              const validationErrors = Object.entries(err.error.errors)
+                .map(([field, messages]) => {
+                  const msg = Array.isArray(messages) ? messages.join(', ') : String(messages);
+                  return `${field}: ${msg}`;
+                })
+                .join('; ');
+              errorMessage = validationErrors || 'Server error: Validation failed. Please check all fields.';
             } else {
-              errorMessage = 'Server error: An internal error occurred. Please check the request data and try again.';
+              errorMessage = 'Server Error (500): Please check browser console (F12) for detailed error message from backend.';
             }
+            
+            // Also log the full error for developer
+            console.error('Final Error Message for User:', errorMessage);
           } else if (err?.status === 502) {
             errorMessage = 'Service temporarily unavailable. Please check your connection and try again.';
           } else if (err?.status === 0) {
             errorMessage = 'Network error: Unable to connect to server.';
-          } else if (err?.error?.message) {
+          } else if (err?.error?.message && err.error.message !== 'null') {
             errorMessage = err.error.message;
-          } else if (err?.error?.error) {
+          } else if (err?.error?.error && err.error.error !== 'null') {
             errorMessage = err.error.error;
           } else if (err?.message) {
             errorMessage = err.message;
           }
 
+          // Check for validation errors again (for any status code)
           if (err?.error?.errors && typeof err.error.errors === 'object') {
             const validationErrors = Object.entries(err.error.errors)
               .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
               .join('; ');
-            errorMessage = validationErrors || errorMessage;
+            if (validationErrors.trim()) {
+              errorMessage = validationErrors;
+            }
           }
+          
+          console.error('❌❌❌ END OF ERROR LOG ❌❌❌');
           
           // CRITICAL: Don't close modal, don't redirect, don't clear token
           // Just show error and let user try again
@@ -995,8 +1620,54 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleCourseFormSubmit(value: CourseFormValue): void {
-    if (!value.courseName.trim() || !value.courseDuration.trim() || !value.seatsAvailable.trim() || !value.description.trim()) {
+    try {
+      console.log('CampusHomeComponent: ========== handleCourseFormSubmit CALLED ==========');
+      console.log('CampusHomeComponent: Form value received:', value);
+      console.log('CampusHomeComponent: Value type:', typeof value);
+      console.log('CampusHomeComponent: All fields:', {
+        courseName: value?.courseName,
+        duration: value?.duration,
+        totalSeats: value?.totalSeats,
+        description: value?.description,
+      });
+      
+      if (!value || !value.courseName || !value.duration || !value.totalSeats || !value.description) {
+        console.error('CampusHomeComponent: ❌ Validation failed - value or fields are missing');
+        console.error('CampusHomeComponent: Value object:', value);
+        this.submittingCourseForm = false;
+        this.notify.error('Please fill all required fields');
+        return;
+      }
+      
+      if (!value.courseName.trim() || !value.duration.trim() || !value.totalSeats.trim() || !value.description.trim()) {
+        console.warn('CampusHomeComponent: Validation failed - empty required fields');
+        this.submittingCourseForm = false;
+        this.notify.error('Please fill all required fields');
+        return;
+      }
+    } catch (error) {
+      console.error('CampusHomeComponent: ❌ Error in handleCourseFormSubmit validation:', error);
       this.submittingCourseForm = false;
+      this.notify.error('An error occurred while processing the form');
+      return;
+    }
+
+    // Convert duration and totalSeats to numbers
+    const durationNum = parseInt(value.duration.trim(), 10);
+    const totalSeatsNum = parseInt(value.totalSeats.trim(), 10);
+
+    // Validate that duration and totalSeats are valid numbers
+    if (isNaN(durationNum) || durationNum <= 0) {
+      console.warn('CampusHomeComponent: Validation failed - invalid duration');
+      this.submittingCourseForm = false;
+      this.notify.error('Duration must be a valid positive number');
+      return;
+    }
+
+    if (isNaN(totalSeatsNum) || totalSeatsNum <= 0) {
+      console.warn('CampusHomeComponent: Validation failed - invalid total seats');
+      this.submittingCourseForm = false;
+      this.notify.error('Total seats must be a valid positive number');
       return;
     }
 
@@ -1004,15 +1675,24 @@ export class CampusHomeComponent implements OnInit {
 
     const request = {
       courseName: value.courseName.trim(),
-      courseDuration: value.courseDuration.trim(),
-      seatsAvailable: value.seatsAvailable.trim(),
+      duration: durationNum,
+      totalSeats: totalSeatsNum,
       description: value.description.trim(),
     };
 
-    this.campusApi.addCourse(request).subscribe({
-      next: () => {
+    console.log('CampusHomeComponent: ========== CALLING addCourse API ==========');
+    console.log('CampusHomeComponent: Request object:', request);
+    console.log('CampusHomeComponent: Auth token exists:', !!this.authState.token());
+    console.log('CampusHomeComponent: Auth token value:', this.authState.token() ? '***TOKEN_EXISTS***' : 'NO_TOKEN');
+
+    try {
+      this.campusApi.addCourse(request).subscribe({
+      next: (response) => {
+        console.log('CampusHomeComponent: ✅ addCourse API success');
+        console.log('CampusHomeComponent: Response:', response);
         this.submittingCourseForm = false;
-        this.notify.success('Course added successfully');
+        const successMessage = response?.message || 'Course added successfully';
+        this.notify.success(successMessage);
         this.closeModal();
         try {
           this.cdr.detectChanges();
@@ -1021,8 +1701,15 @@ export class CampusHomeComponent implements OnInit {
         }
       },
       error: (err) => {
-        const errorMessage = err?.error?.message || err?.message || 'Failed to add course';
+        console.error('CampusHomeComponent: ❌ addCourse API error');
+        console.error('CampusHomeComponent: Error object:', err);
+        console.error('CampusHomeComponent: Error status:', err?.status);
+        console.error('CampusHomeComponent: Error URL:', err?.url);
+        console.error('CampusHomeComponent: Error response:', err?.error);
+        console.error('CampusHomeComponent: Error message:', err?.message);
+        
         this.submittingCourseForm = false;
+        const errorMessage = err?.error?.message || err?.error?.error || err?.message || 'Failed to add course';
         this.notify.error(errorMessage);
         try {
           this.cdr.detectChanges();
@@ -1031,6 +1718,16 @@ export class CampusHomeComponent implements OnInit {
         }
       },
     });
+    } catch (error) {
+      console.error('CampusHomeComponent: ❌ Exception in addCourse API call:', error);
+      this.submittingCourseForm = false;
+      this.notify.error('An error occurred while calling the API');
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // Ignore
+      }
+    }
   }
 }
 
@@ -1047,17 +1744,9 @@ interface FeedPost {
   text: string;
 }
 
-function totalPages(totalItems: number, pageSize: number): number {
-  const safeSize = Math.max(1, pageSize);
-  return Math.max(1, Math.ceil(Math.max(0, totalItems) / safeSize));
+interface CompanyVisitedCard {
+  id?: string;
+  companyName: string;
+  logoUrl: string;
 }
-
-function slicePage<T>(items: readonly T[], page: number, pageSize: number): readonly T[] {
-  const safeSize = Math.max(1, pageSize);
-  const total = totalPages(items.length, safeSize);
-  const safePage = Math.max(1, Math.min(total, page));
-  const start = (safePage - 1) * safeSize;
-  return items.slice(start, start + safeSize);
-}
-
 

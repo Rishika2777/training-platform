@@ -98,11 +98,13 @@ export class CampusApiService {
   /**
    * POST /dashboard/students/placed
    * Add a placed student.
+   * Uses multipart/form-data to send the request with file upload.
    */
-  addPlacedStudent(request: AddPlacedStudentRequest): Observable<AddPlacedStudentResponse | null> {
+  addPlacedStudent(formData: FormData): Observable<AddPlacedStudentResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_PLACED_STUDENT);
     
-    return this.http.post<unknown>(url, request).pipe(
+    // Let Angular automatically set Content-Type to multipart/form-data with boundary
+    return this.http.post<unknown>(url, formData).pipe(
       map((raw) => {
         // The API returns the full response object with success, message, data, error
         if (raw && typeof raw === 'object' && 'data' in raw) {
@@ -114,12 +116,15 @@ export class CampusApiService {
   }
 
   /**
-   * GET /dashboard/students/placed
+   * GET /dashboard/placed-students
    * Fetch placed students for campus (paginated)
+   * Default 6 students per page, sorted by placement date (newest first)
+   * Page is 0-indexed (page=0 for first page)
+   * Response: { success, message, data: { content: PlacedStudent[], totalPages, totalElements, ... } }
    */
   getPlacedStudents(
-    page = 1,
-    limit = 4,
+    page = 0,
+    limit = 6,
     companyName?: string,
     batch?: string,
   ): Observable<ApiResponsePlacedStudentsResponse> {
@@ -190,33 +195,379 @@ export class CampusApiService {
   }
 
   /**
-   * POST /dashboard/companies/visited
+   * POST /dashboard/companies
    * Add a company visited.
+   * Request: multipart/form-data with companyName (string) and logo (file)
+   * Response: { success: true, message: string, data: AddCompanyVisitedResponseData, error: null }
    */
-  addCompanyVisited(request: AddCompanyVisitedRequest): Observable<AddCompanyVisitedResponse | null> {
+  addCompanyVisited(formData: FormData): Observable<AddCompanyVisitedResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED);
-    return this.http.post<unknown>(url, request).pipe(
-      map((raw) => {
-        if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as AddCompanyVisitedResponse;
+    
+    console.log('CampusApiService: ========== ADD COMPANY VISITED API CALL ==========');
+    console.log('CampusApiService: addCompanyVisited - URL:', url);
+    console.log('CampusApiService: addCompanyVisited - FormData keys:', Array.from(formData.keys()));
+    console.log('CampusApiService: FormData companyName:', formData.get('companyName'));
+    console.log('CampusApiService: FormData logo:', formData.get('logo'));
+    
+    return this.http.post<unknown>(url, formData, { observe: 'response' }).pipe(
+      map((httpResponse) => {
+        console.log('CampusApiService: ========== ADD COMPANY VISITED RESPONSE RECEIVED ==========');
+        console.log('CampusApiService: HTTP Status:', httpResponse.status);
+        console.log('CampusApiService: HTTP Status Text:', httpResponse.statusText);
+        console.log('CampusApiService: Response Headers:', httpResponse.headers.keys());
+        
+        const raw = httpResponse.body;
+        console.log('CampusApiService: addCompanyVisited - Raw response body:', raw);
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        
+        // For 201 Created or 200 OK, treat as success even if response format is unexpected
+        if (httpResponse.status === 201 || httpResponse.status === 200) {
+          if (raw && typeof raw === 'object' && raw !== null) {
+            const response = raw as Record<string, unknown>;
+            console.log('CampusApiService: Response keys:', Object.keys(response));
+            console.log('CampusApiService: Response success:', response['success']);
+            console.log('CampusApiService: Response message:', response['message']);
+            console.log('CampusApiService: Response data:', response['data']);
+            
+            // Check if response has expected structure: { success, message, data, error }
+            if ('success' in response && 'data' in response) {
+              const result = {
+                success: response['success'] as boolean,
+                message: (response['message'] as string) || 'Company visited added successfully',
+                data: response['data'] as AddCompanyVisitedResponseData,
+                error: (response['error'] as string) || null,
+              } as AddCompanyVisitedResponse;
+              
+              console.log('CampusApiService: ✅ Parsed response:', result);
+              return result;
+            } else {
+              // HTTP 201/200 but unexpected response format - still treat as success
+              console.warn('CampusApiService: ⚠️ Response structure invalid but HTTP 201/200 - treating as success');
+              const result = {
+                success: true,
+                message: 'Company visited added successfully',
+                data: raw as AddCompanyVisitedResponseData,
+                error: null,
+              } as AddCompanyVisitedResponse;
+              console.log('CampusApiService: ✅ Returning success response:', result);
+              return result;
+            }
+          } else {
+            // HTTP 201/200 but no body or invalid body - still treat as success
+            console.warn('CampusApiService: ⚠️ No response body but HTTP 201/200 - treating as success');
+            const result = {
+              success: true,
+              message: 'Company visited added successfully',
+              data: {} as AddCompanyVisitedResponseData,
+              error: null,
+            } as AddCompanyVisitedResponse;
+            console.log('CampusApiService: ✅ Returning success response:', result);
+            return result;
+          }
+        } else {
+          // Unexpected status code
+          console.warn('CampusApiService: ❌ Unexpected HTTP status:', httpResponse.status);
+          return null;
         }
-        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ ADD COMPANY VISITED - ERROR OCCURRED ❌❌❌');
+        console.error('CampusApiService: Error type:', error?.constructor?.name);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error response:', error?.error);
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
       })
     );
   }
 
   /**
-   * POST /dashboard/courses
-   * Add a course.
+   * GET /dashboard/companies
+   * Get companies visited with pagination.
+   * Query params: page (default 0), limit (default 6)
+   * Response: Spring Page object with content array and pagination metadata at root level
+   */
+  getCompaniesVisited(page = 0, limit = 6): Observable<GetCompaniesVisitedResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COMPANIES_VISITED);
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    console.log('CampusApiService: ========== GET COMPANIES VISITED API CALL ==========');
+    console.log('CampusApiService: getCompaniesVisited - URL:', url);
+    console.log('CampusApiService: getCompaniesVisited - Params:', { page, limit });
+    console.log('CampusApiService: Full URL with params:', `${url}?page=${page}&limit=${limit}`);
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: ========== GET COMPANIES VISITED RESPONSE RECEIVED ==========');
+        console.log('CampusApiService: getCompaniesVisited - Raw response:', raw);
+        console.log('CampusApiService: Raw response type:', typeof raw);
+        console.log('CampusApiService: Raw response is array?', Array.isArray(raw));
+        console.log('CampusApiService: Raw response is object?', typeof raw === 'object' && raw !== null);
+        
+        if (raw && typeof raw === 'object' && raw !== null) {
+          // Check if response is an array (Spring Page can return array directly)
+          if (Array.isArray(raw)) {
+            const contentArray = raw as CompanyVisitedItem[];
+            console.log('CampusApiService: Response is array, length:', contentArray.length);
+            console.log('CampusApiService: Content array:', contentArray);
+            
+            // If it's just an array, we need to check for pagination info in a different way
+            // But based on the API doc, it should have pagination metadata
+            // Let's check if there are additional properties on the response object
+            const response = raw as unknown as Record<string, unknown>;
+            
+            if ('totalPages' in response || 'totalElements' in response || 'pageable' in response) {
+              // It's a Spring Page object with array-like structure
+              const totalPages = (response['totalPages'] as number) ?? 1;
+              const totalElements = (response['totalElements'] as number) ?? contentArray.length;
+              const pageable = response['pageable'] as PageableInfo | undefined;
+              const size = (response['size'] as number) ?? limit;
+              
+              console.log('CampusApiService: Found pagination metadata:', { totalPages, totalElements, size });
+              
+              const result = {
+                success: true,
+                message: 'Companies fetched successfully',
+                data: {
+                  content: contentArray,
+                  pageable: pageable,
+                  totalPages: totalPages,
+                  totalElements: totalElements,
+                },
+                error: null,
+              } as GetCompaniesVisitedResponse;
+              
+              console.log('CampusApiService: ✅ Parsed response (array with metadata):', result);
+              return result;
+            } else {
+              // Pure array response - create pagination info
+              const result = {
+                success: true,
+                message: 'Companies fetched successfully',
+                data: {
+                  content: contentArray,
+                  pageable: undefined,
+                  totalPages: 1,
+                  totalElements: contentArray.length,
+                },
+                error: null,
+              } as GetCompaniesVisitedResponse;
+              
+              console.log('CampusApiService: ✅ Parsed response (pure array):', result);
+              return result;
+            }
+          } else {
+            // Response is an object - check for Spring Page structure
+            const response = raw as Record<string, unknown>;
+            console.log('CampusApiService: Response keys:', Object.keys(response));
+            
+            // Check if it has content array (Spring Page structure)
+            if ('content' in response && Array.isArray(response['content'])) {
+              const contentArray = response['content'] as CompanyVisitedItem[];
+              const pageable = response['pageable'] as PageableInfo | undefined;
+              const totalPages = (response['totalPages'] as number) ?? 1;
+              const totalElements = (response['totalElements'] as number) ?? contentArray.length;
+              const size = (response['size'] as number) ?? limit;
+              
+              console.log('CampusApiService: Found Spring Page structure');
+              console.log('CampusApiService: Content array length:', contentArray.length);
+              console.log('CampusApiService: Pagination:', { totalPages, totalElements, size });
+              console.log('CampusApiService: Content array:', contentArray);
+              
+              const result = {
+                success: true,
+                message: 'Companies fetched successfully',
+                data: {
+                  content: contentArray,
+                  pageable: pageable,
+                  totalPages: totalPages,
+                  totalElements: totalElements,
+                },
+                error: null,
+              } as GetCompaniesVisitedResponse;
+              
+              console.log('CampusApiService: ✅ Parsed response (Spring Page object):', result);
+              return result;
+            }
+            
+            // Check if it's a wrapped response with success/data
+            if ('success' in response && 'data' in response) {
+              const data = response['data'] as Record<string, unknown>;
+              
+              if (data && typeof data === 'object' && 'content' in data && Array.isArray(data['content'])) {
+                const contentArray = data['content'] as CompanyVisitedItem[];
+                const pageable = data['pageable'] as PageableInfo | undefined;
+                const totalPages = (data['totalPages'] as number) ?? 1;
+                const totalElements = (data['totalElements'] as number) ?? contentArray.length;
+                
+                const result = {
+                  success: response['success'] as boolean,
+                  message: (response['message'] as string) || 'Companies fetched successfully',
+                  data: {
+                    content: contentArray,
+                    pageable: pageable,
+                    totalPages: totalPages,
+                    totalElements: totalElements,
+                  },
+                  error: (response['error'] as string) || null,
+                } as GetCompaniesVisitedResponse;
+                
+                console.log('CampusApiService: ✅ Parsed response (wrapped format):', result);
+                return result;
+              }
+            }
+            
+            console.warn('CampusApiService: ⚠️ Response structure not recognized');
+            console.warn('CampusApiService: Response keys:', Object.keys(response));
+          }
+        } else {
+          console.warn('CampusApiService: ⚠️ Response is not a valid object or array');
+          console.warn('CampusApiService: Raw response:', raw);
+        }
+        
+        console.warn('CampusApiService: ❌ getCompaniesVisited - Unexpected response format, returning null');
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: ❌❌❌ getCompaniesVisited - ERROR OCCURRED ❌❌❌');
+        console.error('CampusApiService: Error type:', error?.constructor?.name);
+        console.error('CampusApiService: Error message:', error?.message);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        console.error('CampusApiService: Error response:', error?.error);
+        console.error('CampusApiService: Full error object:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * POST /courses
+   * Add a new course to the campus catalog.
+   * Course name must be unique within the campus.
+   * Returns the created course with 201 status.
    */
   addCourse(request: AddCourseRequest): Observable<AddCourseResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COURSE);
-    return this.http.post<unknown>(url, request).pipe(
+    console.log('CampusApiService: addCourse - URL:', url);
+    console.log('CampusApiService: addCourse - Request:', request);
+    
+    // Create headers object - Angular will merge with interceptor's Authorization header
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, request, { headers }).pipe(
       map((raw) => {
+        console.log('CampusApiService: addCourse - Raw response:', raw);
         if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as AddCourseResponse;
+          const response = raw as AddCourseResponse;
+          console.log('CampusApiService: addCourse - Parsed response:', response);
+          return response;
         }
+        console.warn('CampusApiService: addCourse - Response format unexpected:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: addCourse - Error occurred:', error);
+        console.error('CampusApiService: addCourse - Error status:', error?.status);
+        console.error('CampusApiService: addCourse - Error URL:', error?.url);
+        console.error('CampusApiService: addCourse - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /courses
+   * Get all courses for the campus.
+   * Returns course cards with course name, full title, available seats, and duration. Sorted alphabetically.
+   * Response format: { success: true, message: null, data: AddCourseResponseData[], error: null }
+   */
+  getAllCourses(): Observable<AddCourseResponseData[]> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_COURSES);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: null, data: AddCourseResponseData[], error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          
+          if (response.success && Array.isArray(response.data)) {
+            const courses = response.data as AddCourseResponseData[];
+            return courses;
+          }
+        }
+        
+        return [];
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /courses/{courseId}
+   * Get course by ID.
+   * Retrieves course details by course ID.
+   * Response format: { success: true, message: null, data: AddCourseResponseData, error: null }
+   */
+  getCourseById(courseId: string): Observable<AddCourseResponseData | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COURSE_BY_ID, { courseId });
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: null, data: AddCourseResponseData, error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
+          
+          if (response.success && response.data && typeof response.data === 'object') {
+            return response.data as AddCourseResponseData;
+          }
+        }
+        
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * DELETE /courses/{courseId}
+   * Delete course by ID.
+   * Deletes a course from the campus catalog.
+   * Response format: { success: true, message: "Course deleted successfully", data: null, error: null }
+   */
+  deleteCourse(courseId: string): Observable<{ success: boolean; message: string | null; data: null; error: string | null } | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_COURSE, { courseId });
+    
+    return this.http.delete<unknown>(url).pipe(
+      map((raw) => {
+        // Response format: { success: true, message: "Course deleted successfully", data: null, error: null }
+        if (raw && typeof raw === 'object') {
+          const response = raw as { success?: boolean; message?: unknown; data?: unknown; error?: unknown };
+          
+          if (response.success !== undefined) {
+            return {
+              success: response.success,
+              message: (response.message as string) || null,
+              data: null,
+              error: (response.error as string) || null,
+            };
+          }
+        }
+        
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
       })
     );
   }
@@ -228,6 +579,10 @@ export class CampusApiService {
   addFaculty(data: { basicInformation: unknown; professionalInformation: unknown }): Observable<AddFacultyResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY);
     
+    // Log the exact request being sent to backend
+    console.log('CampusApiService.addFaculty - URL:', url);
+    console.log('CampusApiService.addFaculty - Request Data:', JSON.stringify(data, null, 2));
+    
     // Create headers object - Angular will merge with interceptor's Authorization header
     const headers = new HttpHeaders({
       'Content-Type': 'application/json'
@@ -237,21 +592,40 @@ export class CampusApiService {
       headers: headers
     }).pipe(
       map((raw) => {
-        // Check if response has expected structure: { success, message, data: { basicInformation, professionalInformation }, error }
+        // Backend response structure: { success, message, basicInformation: {...}, professionalInformation: [...] }
+        // OR: { success, message, data: { basicInformation, professionalInformation }, error }
+        // Handle both formats
         if (raw && typeof raw === 'object') {
           const response = raw as Record<string, unknown>;
           
-          // Validate response structure matches expected format
-          if (
-            'success' in response &&
-            'message' in response &&
+          // Check if response has success field
+          if ('success' in response) {
+            // Check if response has data wrapper or direct fields
+            if (
+              'basicInformation' in response &&
+              'professionalInformation' in response &&
+              typeof response['basicInformation'] === 'object' &&
+              typeof response['professionalInformation'] === 'object'
+            ) {
+              // Response has direct fields (no data wrapper)
+              // Convert to expected format with data wrapper for consistency
+              return {
+                success: response['success'] as boolean,
+                message: (response['message'] as string) || '',
+                data: {
+                  basicInformation: response['basicInformation'],
+                  professionalInformation: response['professionalInformation']
+                },
+                error: (response['error'] as string) || null
+              } as AddFacultyResponse;
+            } else if (
             'data' in response &&
             typeof response['data'] === 'object' &&
             response['data'] !== null
           ) {
+              // Response has data wrapper
             const dataObj = response['data'] as Record<string, unknown>;
             
-            // Check if data has basicInformation and professionalInformation
             if (
               'basicInformation' in dataObj &&
               'professionalInformation' in dataObj &&
@@ -259,11 +633,13 @@ export class CampusApiService {
               typeof dataObj['professionalInformation'] === 'object'
             ) {
               return raw as AddFacultyResponse;
+              }
             }
           }
         }
         
-        return null;
+        // If structure doesn't match, still return the raw response for error handling
+        return raw as AddFacultyResponse;
       }),
       catchError((error) => {
         return throwError(() => error);
@@ -293,16 +669,51 @@ export class CampusApiService {
 
   /**
    * GET /api/v1/faculty/{facultyId}
-   * Get faculty by ID (for edit form).
+   * Get faculty by ID.
+   * Response format: { success: true, message: null, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
    */
   getFacultyById(facultyId: string): Observable<GetFacultyByIdResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_FACULTY_BY_ID, { facultyId });
+    
+    console.log('CampusApiService.getFacultyById - URL:', url);
+    console.log('CampusApiService.getFacultyById - Faculty ID:', facultyId);
+    
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        if (raw && typeof raw === 'object' && 'data' in raw) {
-          return raw as GetFacultyByIdResponse;
+        console.log('CampusApiService.getFacultyById - Raw response:', raw);
+        
+        if (raw && typeof raw === 'object') {
+          const response = raw as Record<string, unknown>;
+          
+          // Check if response has expected structure: { success, message, data, error }
+          if ('success' in response && 'data' in response) {
+            const data = response['data'];
+            
+            // Verify data has basicInformation and professionalInformation
+            if (data && typeof data === 'object' && data !== null) {
+              const dataObj = data as Record<string, unknown>;
+              
+              if ('basicInformation' in dataObj && 'professionalInformation' in dataObj) {
+                return {
+                  success: response['success'] as boolean,
+                  message: (response['message'] as string) || null,
+                  data: {
+                    basicInformation: dataObj['basicInformation'] as BasicInformationResponse,
+                    professionalInformation: dataObj['professionalInformation'] as ProfessionalInformationResponse,
+                  },
+                  error: (response['error'] as string) || null,
+                } as GetFacultyByIdResponse;
         }
+            }
+          }
+        }
+        
+        console.warn('CampusApiService.getFacultyById - Unexpected response format:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService.getFacultyById - Error occurred:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -342,15 +753,35 @@ export class CampusApiService {
   /**
    * DELETE /api/v1/faculty/{facultyId}
    * Delete faculty member.
+   * Response format: { success: true, message: "Faculty deleted successfully", data: null, error: null }
    */
   deleteFaculty(facultyId: string): Observable<DeleteFacultyResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DELETE_FACULTY, { facultyId });
+    
+    console.log('CampusApiService.deleteFaculty - URL:', url);
+    console.log('CampusApiService.deleteFaculty - Faculty ID:', facultyId);
+    
     return this.http.delete<unknown>(url).pipe(
       map((raw) => {
+        console.log('CampusApiService.deleteFaculty - Raw response:', raw);
         if (raw && typeof raw === 'object') {
-          return raw as DeleteFacultyResponse;
+          const response = raw as Record<string, unknown>;
+          // Ensure response has expected structure
+          if ('success' in response) {
+            return {
+              success: response['success'] as boolean,
+              message: (response['message'] as string) || 'Faculty deleted successfully',
+              data: response['data'] as null,
+              error: (response['error'] as string) || null,
+            } as DeleteFacultyResponse;
         }
+        }
+        console.warn('CampusApiService.deleteFaculty - Unexpected response format:', raw);
         return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService.deleteFaculty - Error occurred:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -420,13 +851,32 @@ export class CampusApiService {
           
           if (response.success && Array.isArray(response.data)) {
             const designations = response.data as string[];
-            return designations;
+            
+            // Filter out invalid entries (like "string", empty strings, null, undefined)
+            const validDesignations = designations
+              .filter((d) => 
+                d && 
+                typeof d === 'string' && 
+                d.trim() !== '' && 
+                d.toLowerCase() !== 'string' &&
+                d.trim() !== 'null' &&
+                d.trim() !== 'undefined'
+              )
+              .map((d) => d.trim());
+            
+            // Remove duplicates and sort alphabetically
+            const uniqueDesignations = Array.from(new Set(validDesignations)).sort();
+            
+            console.log('Designations loaded from API:', uniqueDesignations.length, 'items');
+            return uniqueDesignations;
           }
         }
         
+        console.warn('Designations API returned unexpected format:', raw);
         return [];
       }),
       catchError((error) => {
+        console.error('Error loading designations from API:', error);
         return throwError(() => error);
       })
     );
@@ -1127,16 +1577,17 @@ export interface AddPlacedStudentResponse {
   error: string;
 }
 
-export interface AddCompanyVisitedRequest {
-  companyLogo: string; // base64 encoded image
-  companyName: string;
-}
+// Request is sent as FormData with:
+// - companyName: string
+// - logo: File (multipart/form-data)
+// No interface needed for FormData
 
 export interface AddCompanyVisitedResponseData {
   id?: string;
   campusId?: string;
   companyName?: string;
-  companyLogoUrl?: string;
+  logoUrl?: string; // Backend returns "logoUrl" not "companyLogoUrl"
+  visitedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1145,13 +1596,50 @@ export interface AddCompanyVisitedResponse {
   success: boolean;
   message: string;
   data: AddCompanyVisitedResponseData;
-  error: string;
+  error: string | null;
+}
+
+export interface CompanyVisitedItem {
+  id?: string;
+  campusId?: string;
+  companyName?: string;
+  logourl?: string; // Note: backend returns "logourl" not "logoUrl"
+  visitedDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PageableInfo {
+  pageNumber?: number;
+  pageSize?: number;
+  sort?: {
+    empty?: boolean;
+    sorted?: boolean;
+    unsorted?: boolean;
+  };
+  offset?: number;
+  paged?: boolean;
+  unpaged?: boolean;
+}
+
+export interface GetCompaniesVisitedResponseData {
+  content: CompanyVisitedItem[];
+  pageable?: PageableInfo;
+  totalPages?: number;
+  totalElements?: number;
+}
+
+export interface GetCompaniesVisitedResponse {
+  success: boolean;
+  message: string;
+  data: GetCompaniesVisitedResponseData;
+  error: string | null;
 }
 
 export interface AddCourseRequest {
   courseName: string;
-  courseDuration: string;
-  seatsAvailable: string;
+  duration: number;
+  totalSeats: number;
   description: string;
 }
 
@@ -1159,8 +1647,9 @@ export interface AddCourseResponseData {
   id?: string;
   campusId?: string;
   courseName?: string;
-  courseDuration?: string;
-  seatsAvailable?: string;
+  duration?: number;
+  totalSeats?: number;
+  availableSeats?: number;
   description?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -1170,7 +1659,7 @@ export interface AddCourseResponse {
   success: boolean;
   message: string;
   data: AddCourseResponseData;
-  error: string;
+  error: string | null;
 }
 
 export interface ProfessionalInfoRequest {
@@ -1192,19 +1681,26 @@ export interface AddFacultyRequest {
 }
 
 export interface BasicInformationResponse {
-  fullName: string;
-  email: string;
-  dateOfBirth: string;
-  phoneNumber: string;
+  id?: string;
+  campusId?: string;
+  fullName?: string;
+  email?: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  photoUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProfessionalInformationResponse {
-  designation: string[];
-  department: string[];
-  specialization: string[];
-  yearsOfExperience: number[];
-  qualifications: string[];
-  certificates: string[];
+  designation?: string[]; // Enum values like ["PRINCIPAL"]
+  designationDisplay?: string[]; // Display values like ["Principal"]
+  department?: string[]; // e.g., ["Computer Science"]
+  specialization?: string[]; // e.g., ["Machine Learning", "Data Science"]
+  yearsOfExperience?: number[]; // Array of numbers, e.g., [22]
+  experienceDisplay?: string[]; // Display strings, e.g., ["22 years of teaching experience"]
+  qualifications?: string[]; // e.g., ["PhD in Education", "M.Ed"]
+  certificates?: string[]; // e.g., ["CBSE Principal Certification"]
 }
 
 export interface AddFacultyResponseData {
@@ -1221,11 +1717,16 @@ export interface AddFacultyResponse {
 
 export interface FacultyListItem {
   id?: string;
+  campusId?: string;
   fullName?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   email?: string;
-  designation?: string;
-  department?: string;
+  dateOfBirth?: string;
+  designation?: string[];
+  department?: string[];
+  specialization?: string[];
+  yearsOfExperience?: number;
+  qualifications?: string[];
 }
 
 export interface GetAllFacultiesResponse {

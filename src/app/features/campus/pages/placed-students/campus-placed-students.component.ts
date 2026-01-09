@@ -70,24 +70,33 @@ export class CampusPlacedStudentsComponent implements OnInit {
   }
 
   /**
+   * Public method to reload courses.
+   * Can be called when modal opens to ensure fresh data.
+   */
+  reloadCourses(): void {
+    this.loadCourses();
+  }
+
+  /**
    * Load courses from API
-   * GET /dashboard/meta/courses
-   * Response: { success: true, data: string[], error: null }
+   * GET /courses
+   * Response: { success: true, data: AddCourseResponseData[], error: null }
    * 
-   * IMPORTANT: Courses are ONLY loaded from backend API, no static/hardcoded values
+   * IMPORTANT: Courses are loaded from GET /courses endpoint which returns all courses with full details.
+   * This ensures newly added courses appear in the dropdown.
    */
   loadCourses(): void {
     this.loadingCourses.set(true);
     
-    this.campusApi.getCoursesForDropdown().subscribe({
+    this.campusApi.getAllCourses().subscribe({
       next: (courses) => {
-        // Convert string array to dropdown items format: { label: string, value: string }
-        // API returns: ["BCA", "MCA", "B.Tech", ...]
+        // Convert course objects to dropdown items format: { label: string, value: string }
+        // API returns: [{ id, courseName, duration, totalSeats, ... }, ...]
         const courseDropdownItems = courses
-          .filter(course => course && typeof course === 'string' && course.trim() !== '' && course !== 'string')
+          .filter(course => course && course.courseName && typeof course.courseName === 'string' && course.courseName.trim() !== '')
           .map(course => ({
-            label: course.trim(),
-            value: course.trim(), // Use the same value as label (e.g., "BCA", "MCA", "B.Tech")
+            label: course.courseName!.trim(),
+            value: course.courseName!.trim(), // Use courseName as both label and value
           }));
         
         if (courseDropdownItems.length > 0) {

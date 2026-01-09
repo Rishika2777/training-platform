@@ -1,4 +1,4 @@
-<form class="course-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="course-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-grid">
     <div class="form-row">
       <app-input
@@ -17,33 +17,33 @@
 
     <div class="form-row">
       <app-input
-        label="Course Duration"
-        type="text"
+        label="Duration"
+        type="number"
         [required]="true"
-        [value]="value.courseDuration"
+        [value]="value.duration"
         [disabled]="submitting"
-        [invalid]="isInvalid('courseDuration')"
-        placeholder="e.g., 3 yr"
-        (valueChange)="patch({ courseDuration: $event })"
+        [invalid]="isInvalid('duration')"
+        placeholder="e.g., 6"
+        (valueChange)="patch({ duration: $event })"
       />
-      @if (submitAttempted && isInvalid('courseDuration')) {
-        <span class="error-message">Course duration is required</span>
+      @if (submitAttempted && isInvalid('duration')) {
+        <span class="error-message">Duration is required</span>
       }
     </div>
 
     <div class="form-row">
       <app-input
-        label="Seats Available"
-        type="text"
+        label="Total Seats"
+        type="number"
         [required]="true"
-        [value]="value.seatsAvailable"
+        [value]="value.totalSeats"
         [disabled]="submitting"
-        [invalid]="isInvalid('seatsAvailable')"
-        placeholder="e.g., 30"
-        (valueChange)="patch({ seatsAvailable: $event })"
+        [invalid]="isInvalid('totalSeats')"
+        placeholder="e.g., 11"
+        (valueChange)="patch({ totalSeats: $event })"
       />
-      @if (submitAttempted && isInvalid('seatsAvailable')) {
-        <span class="error-message">Seats available is required</span>
+      @if (submitAttempted && isInvalid('totalSeats')) {
+        <span class="error-message">Total seats is required</span>
       }
     </div>
 
@@ -65,7 +65,13 @@
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting || !isFormValid()" />
+    <app-button 
+      type="button" 
+      label="Submit" 
+      variant="primary" 
+      [disabled]="submitting" 
+      (buttonClick)="onButtonClick($event)"
+    />
   </div>
 </form>
 

@@ -1,5 +1,16 @@
 @if (faculty) {
   <div class="faculty-detail-card">
+    @if (faculty.id) {
+      <button 
+        type="button" 
+        class="delete-btn" 
+        (click)="onDeleteClick()" 
+        aria-label="Delete faculty member"
+        title="Delete Faculty Member"
+      >
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    }
     <button type="button" class="close-btn" (click)="closeModal()" aria-label="Close faculty detail">
       <i class="fa-solid fa-xmark"></i>
     </button>

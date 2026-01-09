@@ -60,20 +60,62 @@ export class CampusProspectusComponent implements OnInit, OnChanges {
     return /^\d+$/.test(trimmed);
   }
 
-  // Course items - using text values like "BCA", "MCA", etc.
-  // Note: These should be fetched from API in production
-  readonly courseItems = [
-    { label: 'BCA', value: 'BCA' },
-    { label: 'MCA', value: 'MCA' },
-    { label: 'B.Tech', value: 'B.Tech' },
-    { label: 'M.Tech', value: 'M.Tech' },
-    { label: 'MBA', value: 'MBA' },
-    { label: 'BBA', value: 'BBA' },
-  ] as const;
+  // Course items - loaded from API (GET /courses)
+  // API returns: { success: true, data: AddCourseResponseData[], error: null }
+  readonly courseItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingCourses = signal(false);
 
   ngOnInit(): void {
+    // Load courses from API
+    this.loadCourses();
     // Fetch prospectus list on component initialization if campus or course is already selected
     this.loadProspectusListIfNeeded();
+  }
+
+  /**
+   * Load courses from API
+   * GET /courses
+   * Response: { success: true, data: AddCourseResponseData[], error: null }
+   * 
+   * IMPORTANT: Courses are loaded from GET /courses endpoint which returns all courses with full details.
+   * This ensures newly added courses appear in the dropdown.
+   */
+  loadCourses(): void {
+    this.loadingCourses.set(true);
+    
+    this.campusApi.getAllCourses().subscribe({
+      next: (courses) => {
+        // Convert course objects to dropdown items format: { label: string, value: string }
+        // API returns: [{ id, courseName, duration, totalSeats, ... }, ...]
+        const courseDropdownItems = courses
+          .filter(course => course && course.courseName && typeof course.courseName === 'string' && course.courseName.trim() !== '')
+          .map(course => ({
+            label: course.courseName!.trim(),
+            value: course.courseName!.trim(), // Use courseName as both label and value
+          }));
+        
+        if (courseDropdownItems.length > 0) {
+          this.courseItems.set(courseDropdownItems);
+        } else {
+          this.courseItems.set([]);
+        }
+        
+        this.loadingCourses.set(false);
+      },
+      error: () => {
+        this.courseItems.set([]);
+        this.loadingCourses.set(false);
+        this.notify.error('Failed to load courses. Please refresh the page or contact support.');
+      },
+    });
+  }
+
+  /**
+   * Public method to reload courses.
+   * Can be called when modal opens to ensure fresh data.
+   */
+  reloadCourses(): void {
+    this.loadCourses();
   }
 
   ngOnChanges(changes: SimpleChanges): void {

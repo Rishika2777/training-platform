@@ -128,7 +128,7 @@
 
         <app-carousel
           type="pagination"
-          [currentPage]="placedStudentsPage"
+          [currentPage]="placedStudentsPage + 1"
           [totalPages]="placedStudentsTotalPages()"
           (pageChange)="onPlacedStudentsPageChange($event)"
         >
@@ -147,31 +147,71 @@
       <section class="panel companies">
         <div class="panel-head">
           <div class="panel-title">Companies Visited</div>
-        </div>
-
-        <div class="company-grid">
           <button
-            class="company-tile add"
+            class="panel-icon"
             type="button"
             title="Add"
             (click)="modalService.openModal('companies-visited')"
           >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
-          <div class="company-tile"></div>
-          <div class="company-tile"></div>
         </div>
 
-        <div class="pager" aria-hidden="true">
-          <i class="fa-solid fa-chevron-left"></i>
-          <span class="page active">1</span>
-          <span class="page">2</span>
-          <span class="page">3</span>
-          <span class="page">4</span>
-          <span class="page">5</span>
-          <span class="page">6</span>
-          <i class="fa-solid fa-chevron-right"></i>
-        </div>
+        @if (loadingCompaniesVisited()) {
+          <div class="loading-state">Loading companies...</div>
+        } @else {
+          <div class="company-grid">
+            @for (company of companiesVisited(); track company.id || company.companyName) {
+              <div class="company-tile">
+                <img 
+                  [src]="company.logoUrl" 
+                  [alt]="company.companyName" 
+                  class="company-logo"
+                  (error)="onCompanyImageError($event, company)"
+                  loading="lazy"
+                />
+              </div>
+            }
+            @if (companiesVisited().length === 0) {
+              <div class="empty-state grid-full-width">No companies visited yet</div>
+            }
+          </div>
+
+          @if (companiesVisitedTotalPages() > 1) {
+            <div class="pager">
+              <button
+                type="button"
+                class="pager-btn"
+                [disabled]="companiesVisitedPage === 0"
+                (click)="onCompaniesVisitedPageChange(companiesVisitedPage)"
+                aria-label="Previous page"
+              >
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              @for (page of getCompaniesVisitedPageNumbers(); track page) {
+                <button
+                  type="button"
+                  class="page"
+                  [class.active]="page === companiesVisitedPage + 1"
+                  (click)="onCompaniesVisitedPageChange(page)"
+                  [attr.aria-label]="'Go to page ' + page"
+                  [attr.aria-current]="page === companiesVisitedPage + 1 ? 'page' : null"
+                >
+                  {{ page }}
+                </button>
+              }
+              <button
+                type="button"
+                class="pager-btn"
+                [disabled]="companiesVisitedPage >= companiesVisitedTotalPages() - 1"
+                (click)="onCompaniesVisitedPageChange(companiesVisitedPage + 2)"
+                aria-label="Next page"
+              >
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          }
+        }
       </section>
 
       <section class="notice">
@@ -296,7 +336,46 @@
   (closed)="handleFacultyDetailClose()"
   modalClass="faculty-detail-modal"
 >
-  <app-campus-faculty-detail [faculty]="selectedFaculty()" (closed)="handleFacultyDetailClose()" />
+  <app-campus-faculty-detail 
+    [faculty]="selectedFaculty()" 
+    (closed)="handleFacultyDetailClose()"
+    (deleteRequested)="handleFacultyDeleteRequest($event)"
+  />
+</app-modal>
+
+<!-- Delete Faculty Confirmation Modal -->
+<app-modal
+  [visible]="showDeleteFacultyModal"
+  title="Delete Faculty"
+  size="sm"
+  (closed)="closeDeleteFacultyModal()"
+>
+  <div class="delete-modal-content">
+    <p>Are you sure you want to delete this faculty member?</p>
+    @if (selectedFaculty()?.name) {
+      <div class="delete-item-info">
+        <strong>{{ selectedFaculty()?.name }}</strong>
+        @if (selectedFaculty()?.email) {
+          <span class="email">{{ selectedFaculty()?.email }}</span>
+        }
+      </div>
+    }
+    <p class="warning-text">This action cannot be undone.</p>
+    <div class="delete-modal-actions">
+      <app-button
+        label="Cancel"
+        variant="outline"
+        [disabled]="deletingFaculty"
+        (buttonClick)="closeDeleteFacultyModal()"
+      ></app-button>
+      <app-button
+        label="Delete"
+        variant="primary"
+        [disabled]="deletingFaculty"
+        (buttonClick)="confirmDeleteFaculty()"
+      ></app-button>
+    </div>
+  </div>
 </app-modal>
 
 <!-- Course Form Modal -->

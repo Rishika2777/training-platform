@@ -107,7 +107,7 @@
             <app-dropdown
               label="Designation"
               placeholder="Select Designation"
-              [items]="designationItems"
+              [items]="designationItems()"
               [value]="info.designation"
               [disabled]="submitting"
               [required]="true"

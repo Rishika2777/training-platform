@@ -17,7 +17,8 @@
 }
 
 .panel {
-  width: min(720px, 100%);
+  width:800px;
+  /* width: min(720px, 100%); */
   max-height: 90vh;
   background: var(--color-white);
   border-radius: var(--radius-md);
@@ -25,6 +26,7 @@
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr;
+  box-shadow:2px 2px 10px rgba(0,0,0,0.3);
 }
 
 .modal.sm .panel {

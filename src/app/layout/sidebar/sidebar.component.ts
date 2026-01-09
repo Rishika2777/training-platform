@@ -63,7 +63,7 @@ export class SidebarComponent implements OnInit {
   readonly showCampusFaculties = computed(() => {
     const userType = this.roles.getUserType();
     const path = this.path();
-    return userType === 'CAMPUS' && path === '/campus/home';
+    return userType === 'CAMPUS' && (path === '/campus/home' || path === '/campus/about');
   });
 
   // Static fallback data
@@ -128,9 +128,13 @@ export class SidebarComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadFaculties();
-    // Listen for faculty refresh events
+    // Listen for faculty refresh events (add, delete, update)
     window.addEventListener('facultyAdded', () => {
       console.log('SidebarComponent: Received facultyAdded event, refreshing list...');
+      this.loadFaculties();
+    });
+    window.addEventListener('facultyDeleted', () => {
+      console.log('SidebarComponent: Received facultyDeleted event, refreshing list...');
       this.loadFaculties();
     });
   }
@@ -151,10 +155,29 @@ export class SidebarComponent implements OnInit {
 
         if (response?.data && response.data.length > 0) {
           // Convert API data to FacultyCard format
-          const apiFacultyCards: FacultyCard[] = response.data.map((item) => ({
-            name: item.fullName || 'Unknown',
-            imageUrl: item.photoUrl || 'assets/images/login-news-image.png',
-          }));
+          const apiFacultyCards: FacultyCard[] = response.data.map((item) => {
+            // Construct full image URL from photoUrl (API returns relative path or full URL)
+            let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
+            
+            if (item.photoUrl) {
+              // If photoUrl is already a full URL (starts with http:// or https://), use it as is
+              if (item.photoUrl.startsWith('http://') || item.photoUrl.startsWith('https://')) {
+                imageUrl = item.photoUrl;
+              } else if (item.photoUrl.startsWith('/')) {
+                // If it starts with /, it's an absolute path - construct full URL
+                imageUrl = `/api/v1/files${item.photoUrl}`;
+              } else {
+                // Relative path like "faculty/filename.jpg" - construct full URL
+                imageUrl = `/api/v1/files/${item.photoUrl}`;
+              }
+            }
+            
+            return {
+              id: item.id, // Store ID for fetching details
+              name: item.fullName || 'Unknown',
+              imageUrl: imageUrl,
+            };
+          });
 
           console.log('SidebarComponent: Using API data, count:', apiFacultyCards.length);
           console.log('SidebarComponent: Faculty names:', apiFacultyCards.map(f => f.name));
@@ -191,10 +214,107 @@ export class SidebarComponent implements OnInit {
   }
 
   onFacultyClick(faculty: FacultyCard): void {
-    const detailData = this.facultyDetailData[faculty.name];
-    if (detailData) {
-      this.facultyDetailService.setSelectedFaculty(detailData);
-      this.modalService.openModal('faculty-detail');
+    // If faculty has ID, fetch from API using getFacultyById; otherwise use static data as fallback
+    if (faculty.id) {
+      this.loadingFaculties.set(true);
+      console.log('SidebarComponent: Fetching faculty details for ID:', faculty.id);
+      
+      this.campusApi.getFacultyById(faculty.id).subscribe({
+        next: (response) => {
+          this.loadingFaculties.set(false);
+          console.log('SidebarComponent: getFacultyById API response:', response);
+          
+          if (response?.success && response.data) {
+            const basicInfo = response.data.basicInformation;
+            const professionalInfo = response.data.professionalInformation;
+            
+            // Construct full image URL
+            let imageUrl = 'assets/images/login-news-image.png';
+            if (basicInfo?.photoUrl) {
+              if (basicInfo.photoUrl.startsWith('http://') || basicInfo.photoUrl.startsWith('https://')) {
+                imageUrl = basicInfo.photoUrl;
+              } else if (basicInfo.photoUrl.startsWith('/')) {
+                imageUrl = `/api/v1/files${basicInfo.photoUrl}`;
+              } else {
+                imageUrl = `/api/v1/files/${basicInfo.photoUrl}`;
+              }
+            }
+            
+            // Handle designation as array (use display values if available, otherwise enum values)
+            const designationStr = professionalInfo?.designationDisplay 
+              ? professionalInfo.designationDisplay.join(', ')
+              : (professionalInfo?.designation 
+                  ? professionalInfo.designation.join(', ')
+                  : 'Not specified');
+            
+            // Handle department as array
+            const departmentStr = professionalInfo?.department
+              ? professionalInfo.department.join(', ')
+              : 'Not specified';
+            
+            // Handle qualifications as array
+            const qualificationsStr = professionalInfo?.qualifications 
+              ? professionalInfo.qualifications.join(', ')
+              : 'Not specified';
+            
+            // Handle years of experience (array of numbers)
+            const experienceStr = professionalInfo?.yearsOfExperience && professionalInfo.yearsOfExperience.length > 0
+              ? `${professionalInfo.yearsOfExperience[0]} years of experience`
+              : (professionalInfo?.experienceDisplay && professionalInfo.experienceDisplay.length > 0
+                  ? professionalInfo.experienceDisplay[0]
+                  : 'Not specified');
+            
+            const detailData: FacultyDetailData = {
+              id: basicInfo?.id || faculty.id, // Include ID for delete operation
+              name: basicInfo?.fullName || faculty.name,
+              imageUrl: imageUrl,
+              designation: designationStr,
+              department: departmentStr,
+              qualifications: qualificationsStr,
+              experience: experienceStr,
+              email: basicInfo?.email || 'Not available',
+              phone: basicInfo?.phoneNumber || 'Not available',
+            };
+            
+            console.log('SidebarComponent: Mapped faculty detail data:', detailData);
+            this.facultyDetailService.setSelectedFaculty(detailData);
+            this.modalService.openModal('faculty-detail');
+          } else {
+            console.warn('SidebarComponent: API response not successful or no data');
+            // Fallback to static data if API returns no data
+            const detailData = this.facultyDetailData[faculty.name];
+            if (detailData) {
+              this.facultyDetailService.setSelectedFaculty(detailData);
+              this.modalService.openModal('faculty-detail');
+            }
+          }
+        },
+        error: (err) => {
+          this.loadingFaculties.set(false);
+          console.error('SidebarComponent: Failed to load faculty by ID:', err);
+          console.error('SidebarComponent: Error details:', {
+            status: err?.status,
+            message: err?.message,
+            error: err?.error
+          });
+          // Fallback to static data on error
+          const detailData = this.facultyDetailData[faculty.name];
+          if (detailData) {
+            this.facultyDetailService.setSelectedFaculty(detailData);
+            this.modalService.openModal('faculty-detail');
+          } else {
+            this.notifications.error('Failed to load faculty details');
+          }
+        },
+      });
+    } else {
+      // Fallback to static data if no ID
+      console.warn('SidebarComponent: Faculty has no ID, using static data');
+      const detailData = this.facultyDetailData[faculty.name];
+      if (detailData) {
+        this.facultyDetailService.setSelectedFaculty(detailData);
+        this.modalService.openModal('faculty-detail');
+      }
     }
   }
 
@@ -268,6 +388,7 @@ export class SidebarComponent implements OnInit {
 }
 
 interface FacultyCard {
+  id?: string;
   name: string;
   imageUrl: string;
 }
