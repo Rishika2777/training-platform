@@ -6,6 +6,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authState = inject(AuthStateService);
   const token = authState.token();
   
+  // Skip adding Authorization header for public endpoints (feedback, visit campus, etc.)
+  if (req.url.includes('/public/landing/')) {
+    return next(req);
+  }
+  
   if (!token) {
     return next(req);
   }

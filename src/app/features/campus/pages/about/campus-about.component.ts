@@ -10,7 +10,7 @@ import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campu
 import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-faculty.component';
 import { CampusFacultyDetailComponent, FacultyDetailData } from '../faculty-detail/campus-faculty-detail.component';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData } from '../../services/campus-api.service';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime } from '../../services/campus-api.service';
 import { ApiResponsePlacedStudentsResponse } from '../../../student/models/student.models';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -80,6 +80,15 @@ export class CampusAboutComponent implements OnInit {
 
   submittingVisitCampus = false;
   submittingFaculty = false;
+  submittingFeedback = false;
+
+  // Feedback form data
+  feedbackForm = {
+    name: '',
+    contact: '',
+    message: '',
+    recommendation: '' as 'yes' | 'no' | ''
+  };
 
   // Rising Stars - API Integration (Using GET /dashboard/placed-students)
   readonly risingStars = signal<readonly PersonCard[]>([]);
@@ -92,6 +101,7 @@ export class CampusAboutComponent implements OnInit {
   readonly aboutCampusText = signal<string>('');
   readonly loadingAboutCampus = signal(false);
   readonly campusWebsiteUrl = signal<string | null>(null);
+  readonly currentCampusId = signal<string | null>(null);
   
   // Prospectus Download
   readonly downloadingProspectus = signal(false);
@@ -113,21 +123,59 @@ export class CampusAboutComponent implements OnInit {
     });
   }
 
-  loadAboutCampus(): void {
-    // Try multiple sources for campusId (correct sources only)
-    // 1. From storage
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+  /**
+   * Helper method to get campusId from multiple sources
+   * Priority:
+   * 1. Stored campusId from loaded campus data (most reliable)
+   * 2. User profile profileServiceId (from auth state)
+   * 3. Storage CAMPUS_ID key (fallback)
+   */
+  private getCampusId(): string | null {
+    // First, try the stored campusId from loaded campus data
+    const storedCampusId = this.currentCampusId();
+    if (storedCampusId) {
+      console.log('CampusAboutComponent: Found campusId from stored campus data:', storedCampusId);
+      return storedCampusId;
+    }
     
-    // 2. From auth state (user profile) - profileServiceId contains campusId
+    // Try from auth state (user profile) - profileServiceId contains campusId
     const currentUser = this.authState.user();
     const campusIdFromUser = currentUser?.profileServiceId;
+    if (campusIdFromUser) {
+      console.log('CampusAboutComponent: Found campusId from user profile:', campusIdFromUser);
+      return campusIdFromUser;
+    }
     
-    // Use the first available campusId (only from correct sources)
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    // Try from storage
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    if (campusIdFromStorage) {
+      console.log('CampusAboutComponent: Found campusId from storage:', campusIdFromStorage);
+      return campusIdFromStorage;
+    }
+    
+    // Log debug info if campusId not found
+    console.warn('CampusAboutComponent: Campus ID not found in any source.', {
+      storedCampusId: storedCampusId,
+      campusIdFromUser: campusIdFromUser,
+      campusIdFromStorage: campusIdFromStorage,
+      currentUser: currentUser ? { email: currentUser.email, profileServiceId: currentUser.profileServiceId } : null,
+      isAuthenticated: this.authState.isAuthenticated(),
+      token: this.authState.token() ? 'present' : 'missing'
+    });
+    
+    return null;
+  }
+
+  loadAboutCampus(): void {
+    const campusId = this.getCampusId();
     
     if (!campusId) {
+      console.warn('CampusAboutComponent: No campusId found, cannot load campus data');
       return;
     }
+    
+    // Store the campusId for future use
+    this.currentCampusId.set(campusId);
     
     this.loadingAboutCampus.set(true);
 
@@ -141,6 +189,12 @@ export class CampusAboutComponent implements OnInit {
         this.loadingAboutCampus.set(false);
         
         if (campus) {
+          // Store campusId from the response if available
+          const campusIdFromResponse = campus.campusId || campus.id || campusId;
+          if (campusIdFromResponse) {
+            this.currentCampusId.set(campusIdFromResponse);
+          }
+          
           if (campus.aboutCampus) {
             this.aboutCampusText.set(campus.aboutCampus);
           } else {
@@ -822,13 +876,182 @@ export class CampusAboutComponent implements OnInit {
 
   handleVisitCampusSubmit(value: VisitCampusFormValue): void {
     console.log('Visit Campus Form submitted:', value);
+    
+    // Validate form fields
+    if (!value.companyName || !value.companyName.trim()) {
+      this.notify.error('Please enter company name');
+      return;
+    }
+
+    if (!value.contactPersonName || !value.contactPersonName.trim()) {
+      this.notify.error('Please enter contact person name');
+      return;
+    }
+
+    if (!value.contactPersonEmail || !value.contactPersonEmail.trim()) {
+      this.notify.error('Please enter contact person email');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value.contactPersonEmail.trim())) {
+      this.notify.error('Please enter a valid email address');
+      return;
+    }
+
+    if (!value.contactPersonPhoneNo || !value.contactPersonPhoneNo.trim()) {
+      this.notify.error('Please enter contact person phone number');
+      return;
+    }
+
+    if (!value.recruitmentType.internship && !value.recruitmentType.fullTime && !value.recruitmentType.both) {
+      this.notify.error('Please select at least one recruitment type');
+      return;
+    }
+
+    if (!value.numberOfPositions || !value.numberOfPositions.trim()) {
+      this.notify.error('Please enter number of positions');
+      return;
+    }
+
+    const numberOfPositionsNum = parseInt(value.numberOfPositions.trim(), 10);
+    if (isNaN(numberOfPositionsNum) || numberOfPositionsNum <= 0) {
+      this.notify.error('Please enter a valid number of positions');
+      return;
+    }
+
+    if (!value.dateOfVisit || !value.dateOfVisit.trim()) {
+      this.notify.error('Please select visit date');
+      return;
+    }
+
+    if (!value.timeOfVisit || !value.timeOfVisit.trim()) {
+      this.notify.error('Please select visit time');
+      return;
+    }
+
+    // Check if already submitting
+    if (this.submittingVisitCampus) {
+      return;
+    }
+
+    // Get campusId using helper method
+    const campusId = this.getCampusId();
+
+    if (!campusId) {
+      console.error('CampusAboutComponent: Campus ID not found. Please ensure you are logged in as a campus admin.');
+      this.notify.error('Campus ID not found. Please ensure you are logged in as a campus admin and try again. If the issue persists, please refresh the page or login again.');
+      return;
+    }
+    
+    console.log('CampusAboutComponent: Using campusId for visit request:', campusId);
+
     this.submittingVisitCampus = true;
-    // TODO: Implement API call to submit visit campus form
-    // For now, just close the modal after a delay
-    setTimeout(() => {
-      this.submittingVisitCampus = false;
-      this.closeModal();
-    }, 1000);
+    console.log('Starting visit campus request submission...');
+
+    // Map recruitment type from checkboxes to API format
+    let recruitmentType: 'INTERNSHIP' | 'FULL_TIME' | 'BOTH';
+    if (value.recruitmentType.both) {
+      recruitmentType = 'BOTH';
+    } else if (value.recruitmentType.internship && value.recruitmentType.fullTime) {
+      recruitmentType = 'BOTH';
+    } else if (value.recruitmentType.internship) {
+      recruitmentType = 'INTERNSHIP';
+    } else if (value.recruitmentType.fullTime) {
+      recruitmentType = 'FULL_TIME';
+    } else {
+      // Fallback (should not reach here due to validation above)
+      recruitmentType = 'BOTH';
+    }
+
+    // Parse time from "HH:MM" format to { hour, minute, second, nano }
+    const timeParts = value.timeOfVisit.trim().split(':');
+    const hour = parseInt(timeParts[0] || '0', 10);
+    const minute = parseInt(timeParts[1] || '0', 10);
+    const visitTime: VisitTime = {
+      hour: isNaN(hour) ? 0 : hour,
+      minute: isNaN(minute) ? 0 : minute,
+      second: 0,
+      nano: 0
+    };
+
+    // Format date to YYYY-MM-DD if needed (input type="date" already provides this format)
+    let visitDate = value.dateOfVisit.trim();
+    // If date is in MM/DD/YYYY format, convert it
+    if (visitDate.includes('/')) {
+      const dateParts = visitDate.split('/');
+      if (dateParts.length === 3) {
+        visitDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+      }
+    }
+
+    // Prepare API request payload
+    const request: VisitCampusRequest = {
+      companyName: value.companyName.trim(),
+      contactPersonName: value.contactPersonName.trim(),
+      contactPersonEmail: value.contactPersonEmail.trim(),
+      contactPersonPhone: value.contactPersonPhoneNo.trim(),
+      numberOfPositions: numberOfPositionsNum,
+      packageAmount: (value.package || '').trim() || 'Not specified',
+      recruitmentType: recruitmentType,
+      visitDate: visitDate,
+      visitTime: visitTime,
+      attachmentUrls: [], // TODO: Handle file uploads if needed - for now empty array
+      additionalRequirements: (value.additionalRequirements || '').trim()
+    };
+
+    console.log('Visit Campus request payload:', request);
+    console.log('Calling API: submitVisitCampusRequest with campusId:', campusId);
+
+    // Call API
+    this.campusApi.submitVisitCampusRequest(campusId, request).subscribe({
+      next: (response: VisitCampusResponse | null) => {
+        console.log('✅ Visit Campus API Response:', response);
+        this.submittingVisitCampus = false;
+
+        if (response?.success) {
+          const successMessage = response.message || 'Campus visit request submitted successfully. Your request has been received and we will contact you soon.';
+          console.log('✅ Success:', successMessage);
+          this.notify.success(successMessage);
+          
+          // Close modal - form will be reset when modal reopens (component recreated)
+          setTimeout(() => {
+            this.closeModal();
+          }, 500);
+        } else {
+          const errorMessage = response?.error || response?.message || 'Failed to submit visit campus request';
+          console.error('❌ API returned unsuccessful response:', errorMessage);
+          this.notify.error(errorMessage);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Visit Campus API Error:', error);
+        console.error('Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          error: error?.error,
+          message: error?.message,
+          url: error?.url
+        });
+        
+        this.submittingVisitCampus = false;
+        
+        let errorMessage = 'Failed to submit visit campus request';
+        if (error?.error) {
+          if (error.error.message && error.error.message !== 'null' && error.error.message.trim()) {
+            errorMessage = error.error.message;
+          } else if (error.error.error && error.error.error !== 'null' && error.error.error.trim()) {
+            errorMessage = error.error.error;
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        console.error('Displaying error message:', errorMessage);
+        this.notify.error(errorMessage);
+      }
+    });
   }
 
   handleFacultySubmit(value: FacultyFormValue): void {
@@ -1336,16 +1559,16 @@ export class CampusAboutComponent implements OnInit {
       return;
     }
 
-    // Get campusId from storage or auth state
-    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
-    const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
-    const campusId = campusIdFromUser || campusIdFromStorage || null;
+    // Get campusId using helper method
+    const campusId = this.getCampusId();
 
     if (!campusId) {
-      this.notify.error('Campus ID not found. Please login again to refresh your session.');
+      console.error('CampusAboutComponent: Campus ID not found for prospectus download.');
+      this.notify.error('Campus ID not found. Please ensure you are logged in as a campus admin and try again.');
       return;
     }
+    
+    console.log('CampusAboutComponent: Using campusId for prospectus download:', campusId);
 
     this.downloadingProspectus.set(true);
 
@@ -1415,6 +1638,88 @@ export class CampusAboutComponent implements OnInit {
       error: (error) => {
         this.downloadingProspectus.set(false);
         const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus';
+        this.notify.error(errorMessage);
+      }
+    });
+  }
+
+  /**
+   * Submit Feedback Handler
+   * Submits feedback from contact form to the API
+   * POST /public/landing/feedback
+   * Request: { name: string, contact: string, message: string }
+   * Response: 201 Created with success message
+   */
+  submitFeedback(event: Event): void {
+    // Prevent default form submission
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Validate form fields
+    if (!this.feedbackForm.name || !this.feedbackForm.name.trim()) {
+      this.notify.error('Please enter your name');
+      return;
+    }
+
+    if (!this.feedbackForm.contact || !this.feedbackForm.contact.trim()) {
+      this.notify.error('Please enter your contact information');
+      return;
+    }
+
+    if (!this.feedbackForm.message || !this.feedbackForm.message.trim()) {
+      this.notify.error('Please enter your message');
+      return;
+    }
+
+    // Check if already submitting
+    if (this.submittingFeedback) {
+      return;
+    }
+
+    this.submittingFeedback = true;
+
+    // Prepare request payload - only send name, contact, and message (as per API spec)
+    const requestData: FeedbackRequest = {
+      name: this.feedbackForm.name.trim(),
+      contact: this.feedbackForm.contact.trim(),
+      message: this.feedbackForm.message.trim()
+    };
+
+    // Call API
+    this.campusApi.submitFeedback(requestData).subscribe({
+      next: (response: FeedbackResponse | null) => {
+        this.submittingFeedback = false;
+
+        if (response?.success) {
+          const successMessage = response.message || 'Your message has been sent successfully! Thank you for your feedback.';
+          this.notify.success(successMessage);
+          
+          // Reset form after successful submission
+          this.feedbackForm = {
+            name: '',
+            contact: '',
+            message: '',
+            recommendation: ''
+          };
+        } else {
+          const errorMessage = response?.error || response?.message || 'Failed to submit feedback. Please try again.';
+          this.notify.error(errorMessage);
+        }
+      },
+      error: (error) => {
+        this.submittingFeedback = false;
+        
+        let errorMessage = 'Failed to submit feedback. Please try again.';
+        if (error?.error) {
+          if (error.error.message && typeof error.error.message === 'string' && error.error.message !== 'null' && error.error.message.trim()) {
+            errorMessage = error.error.message;
+          } else if (error.error.error && typeof error.error.error === 'string' && error.error.error !== 'null' && error.error.error.trim()) {
+            errorMessage = error.error.error;
+          }
+        } else if (error?.message && typeof error.message === 'string') {
+          errorMessage = error.message;
+        }
+        
         this.notify.error(errorMessage);
       }
     });

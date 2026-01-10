@@ -20,6 +20,8 @@ import { CampusApiService, BatchesResponse, StudentsByBatchResponse, StudentByBa
 import { FacultyDetailService } from '../../services/faculty-detail.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -51,6 +53,7 @@ export class CampusHomeComponent implements OnInit {
   private readonly notify = inject(NotificationService);
   private readonly facultyDetailService = inject(FacultyDetailService);
   private readonly authState = inject(AuthStateService);
+  private readonly storage = inject(StorageService);
   
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -886,10 +889,137 @@ export class CampusHomeComponent implements OnInit {
     this.closeModal();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleProspectusSubmit(_value: ProspectusUploadFormValue): void {
-    // Prospectus submission is handled by the prospectus component itself
-    // This handler is just for the event binding
+  /**
+   * Helper method to get campusId from multiple sources
+   * Priority:
+   * 1. User profile profileServiceId (from auth state)
+   * 2. Storage CAMPUS_ID key (fallback)
+   * 3. Form value campus field (if valid ID)
+   */
+  private getCampusId(formValueCampus?: string): string | null {
+    // Try from auth state (user profile) - profileServiceId contains campusId
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId;
+    if (campusIdFromUser) {
+      return campusIdFromUser;
+    }
+    
+    // Try from storage
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    if (campusIdFromStorage) {
+      return campusIdFromStorage;
+    }
+    
+    // Try from form value if provided and is a valid ID
+    if (formValueCampus && formValueCampus.trim()) {
+      const trimmedCampus = formValueCampus.trim();
+      // Check if it's a valid ID (not a file name)
+      if (/^\d+$/.test(trimmedCampus) && !/\.\w+$/.test(trimmedCampus)) {
+        return trimmedCampus;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Handle prospectus form submission
+   * POST /prospectus/upload?campusId=xxx
+   * Body (multipart/form-data): courseName, files[]
+   */
+  handleProspectusSubmit(value: ProspectusUploadFormValue): void {
+    // Prevent double submission
+    if (this.submittingProspectus) {
+      return;
+    }
+
+    // Validate course
+    if (!value.course || !value.course.trim()) {
+      this.notify.error('Please select a course');
+      return;
+    }
+
+    // Collect files
+    const files: File[] = [];
+    if (value.campusFile) {
+      files.push(value.campusFile);
+    }
+    if (value.courseFile) {
+      files.push(value.courseFile);
+    }
+
+    if (files.length === 0) {
+      this.notify.error('Please select at least one prospectus file');
+      return;
+    }
+
+    // Get campusId from auth state/storage
+    const campusId = this.getCampusId(value.campus);
+    
+    if (!campusId) {
+      this.notify.error('Campus ID not found. Please ensure you are logged in as a campus admin.');
+      return;
+    }
+
+    // All validation passed - set submitting state and make API call
+    this.submittingProspectus = true;
+
+    // Create FormData for multipart/form-data request
+    const formData = new FormData();
+    formData.append('courseName', value.course.trim());
+    
+    // Append all files to the 'files' field (as array)
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    this.campusApi.uploadProspectus(campusId, formData).subscribe({
+      next: (response) => {
+        this.submittingProspectus = false;
+        
+        if (response?.success) {
+          const successMessage = response.message || 'Prospectus uploaded successfully';
+          this.notify.success(successMessage);
+          this.closeModal();
+          
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Component might be destroyed, ignore
+          }
+        } else {
+          const errorMsg = response?.error || response?.message || 'Failed to upload prospectus';
+          this.notify.error(errorMsg);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // Ignore
+          }
+        }
+      },
+      error: (err) => {
+        this.submittingProspectus = false;
+        
+        let errorMessage = 'Failed to upload prospectus';
+        if (err?.error) {
+          if (err.error.message && err.error.message !== 'null' && err.error.message.trim()) {
+            errorMessage = err.error.message;
+          } else if (err.error.error && err.error.error !== 'null' && err.error.error.trim()) {
+            errorMessage = err.error.error;
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.notify.error(errorMessage);
+        
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // Ignore
+        }
+      },
+    });
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {

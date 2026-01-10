@@ -19,6 +19,20 @@ export class ButtonComponent {
   // Allow consumers to use `(buttonClick)="..."` on `<app-button>`.
   // We re-emit the inner button click event.
   @Output() readonly buttonClick = new EventEmitter<MouseEvent>();
+
+  onButtonClick(event: MouseEvent): void {
+    // For submit buttons, don't interfere with form submission
+    if (this.type === 'submit') {
+      // Don't stop propagation or prevent default for submit buttons
+      // Let the form's ngSubmit handle it
+      this.buttonClick.emit(event);
+      return;
+    }
+    
+    // For non-submit buttons, stop propagation
+    event.stopPropagation();
+    this.buttonClick.emit(event);
+  }
 }
 
 

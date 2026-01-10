@@ -1,5 +1,5 @@
 <div class="prospectus-container">
-  <form class="prospectus-form" (ngSubmit)="$event.preventDefault(); submit()">
+  <form class="prospectus-form" (ngSubmit)="onFormSubmit($event)">
     <div class="form-row">
       <app-input-with-file
         label="Campus"
@@ -24,7 +24,7 @@
     </div>
 
     <div class="form-actions">
-      <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="submit()" />
+      <app-button type="button" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="submit()" />
     </div>
   </form>
 

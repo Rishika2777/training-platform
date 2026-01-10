@@ -89,9 +89,6 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
         // IMPORTANT: For 401 errors on faculty API, don't clear token or redirect
         // Let the component handle the error
         if (err.status === 401 && req.url.includes('/faculty')) {
-          console.warn('httpErrorInterceptor: 401 on faculty API - NOT clearing token, NOT redirecting');
-          console.warn('httpErrorInterceptor: URL:', req.url);
-          console.warn('httpErrorInterceptor: Letting component handle error');
           notifications.error(getErrorMessage(err));
           return throwError(() => err);
         }
@@ -99,10 +96,6 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
         // IMPORTANT: For 401 errors on courses API, don't clear token or redirect
         // Let the component handle the error
         if (err.status === 401 && (req.url.includes('/courses') || req.url.includes('/course'))) {
-          console.warn('httpErrorInterceptor: 401 on courses API - NOT clearing token, NOT redirecting');
-          console.warn('httpErrorInterceptor: URL:', req.url);
-          console.warn('httpErrorInterceptor: Error details:', err);
-          console.warn('httpErrorInterceptor: Letting component handle error');
           notifications.error(getErrorMessage(err));
           return throwError(() => err);
         }
@@ -110,10 +103,20 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
         // IMPORTANT: For 401 errors on companies/dashboard API, don't clear token or redirect
         // Let the component handle the error
         if (err.status === 401 && (req.url.includes('/dashboard/companies') || req.url.includes('/companies'))) {
-          console.warn('httpErrorInterceptor: 401 on companies API - NOT clearing token, NOT redirecting');
-          console.warn('httpErrorInterceptor: URL:', req.url);
-          console.warn('httpErrorInterceptor: Error details:', err);
-          console.warn('httpErrorInterceptor: Letting component handle error');
+          notifications.error(getErrorMessage(err));
+          return throwError(() => err);
+        }
+        
+        // IMPORTANT: For 401 errors on prospectus API, don't clear token or redirect
+        // Let the component handle the error
+        if (err.status === 401 && req.url.includes('/prospectus')) {
+          notifications.error(getErrorMessage(err));
+          return throwError(() => err);
+        }
+        
+        // IMPORTANT: For 401 errors on public/landing endpoints (feedback, visit campus), don't clear token or redirect
+        // These are public endpoints but may return 401 for other reasons
+        if (err.status === 401 && req.url.includes('/public/landing')) {
           notifications.error(getErrorMessage(err));
           return throwError(() => err);
         }

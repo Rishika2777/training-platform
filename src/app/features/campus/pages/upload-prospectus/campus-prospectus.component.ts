@@ -213,57 +213,46 @@ export class CampusProspectusComponent implements OnInit, OnChanges {
     this.patch({ courseFile: file });
   }
 
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.submit();
+  }
+
   submit(): void {
-    // Check form validation first
-    const validationResult = this.isFormValid();
-    
-    if (!validationResult) {
-      this.notify.error('Please fill all fields: Campus ID (numeric), Course, and at least one file');
-      return;
-    }
-
-    // Get campus ID - prefer actualCampusId (stored when user typed), then check campus field
-    let campusId = this.actualCampusId.trim();
-    if (!campusId) {
-      const campusValue = this.value.campus.trim();
-      if (this.isValidId(campusValue)) {
-        campusId = campusValue;
-      } else {
-        this.notify.error('Please enter a valid Campus ID (numeric) in the Campus field');
-        return;
-      }
-    }
-
-    // Get course ID
-    const courseId = this.value.course.trim();
-    if (!courseId) {
+    // Validate course (required)
+    const courseName = this.value.course.trim();
+    if (!courseName) {
       this.notify.error('Please select a course');
       return;
     }
 
-    // Collect all files (campusFile and courseFile are both prospectus files)
-    const filesToConvert: (File | null)[] = [];
+    // Check for files - campusFile should have the file from Campus field
+    const files: File[] = [];
     if (this.value.campusFile) {
-      filesToConvert.push(this.value.campusFile);
+      files.push(this.value.campusFile);
     }
     if (this.value.courseFile) {
-      filesToConvert.push(this.value.courseFile);
+      files.push(this.value.courseFile);
     }
 
-    if (filesToConvert.length === 0) {
-      this.notify.error('Please select at least one prospectus file');
+    if (files.length === 0) {
+      this.notify.error('Please select at least one prospectus file. Click the paperclip icon to attach a file.');
       return;
     }
 
-    // Prepare form value with correct campus ID (ensure it's the numeric ID, not file name)
+    // Campus ID will be retrieved by parent from auth state
+    const campusValue = this.actualCampusId.trim() || this.value.campus.trim();
+    
+    // Prepare form value to emit to parent
     const formValueToEmit: ProspectusUploadFormValue = {
-      campus: campusId, // Use the validated campus ID
+      campus: campusValue,
       campusFile: this.value.campusFile,
-      course: courseId,
+      course: courseName,
       courseFile: this.value.courseFile,
     };
-
-    // Emit submitted event to parent - parent will handle submitting state and API call
+    
+    // Emit submitted event to parent - parent will handle API call
     this.submitted.emit(formValueToEmit);
   }
 
@@ -473,17 +462,19 @@ export class CampusProspectusComponent implements OnInit, OnChanges {
   }
 
   private isFormValid(): boolean {
-    // Campus ID is required (either typed or stored in actualCampusId)
-    const hasCampusId = (this.actualCampusId.trim().length > 0) || 
-                       (this.value.campus.trim().length > 0 && this.isValidId(this.value.campus.trim()));
+    // Course is required
+    const hasCourse = this.value.course.trim().length > 0;
     
     // At least one file is required (campusFile or courseFile)
     const hasFile = this.value.campusFile !== null || this.value.courseFile !== null;
     
-    // Course is required
-    const hasCourse = this.value.course.trim().length > 0;
+    // Campus ID is optional in form - parent will get it from auth state/storage
+    // But if user enters it manually, validate it
+    const hasValidCampusId = (this.actualCampusId.trim().length > 0 && this.isValidId(this.actualCampusId.trim())) ||
+                             (this.value.campus.trim().length > 0 && this.isValidId(this.value.campus.trim())) ||
+                             this.value.campus.trim().length === 0; // Empty is OK - parent will get from auth
 
-    return hasCampusId && hasFile && hasCourse;
+    return hasCourse && hasFile && hasValidCampusId;
   }
 
   /**

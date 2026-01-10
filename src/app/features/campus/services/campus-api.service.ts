@@ -1070,31 +1070,29 @@ export class CampusApiService {
 
   /**
    * POST /prospectus/upload
-   * Upload prospectus files for campus and course.
+   * Upload prospectus documents for a campus-course combination.
+   * Campus ID is provided as query parameter. Supports multiple files (PDF, DOCX, JPG, PNG, max 50MB each).
+   * Files are stored in folder structure: campus/prospectus/{campusId}. Automatic versioning for existing prospectuses.
+   * 
+   * @param campusId - Campus ID (query parameter)
+   * @param formData - FormData containing courseName (string) and files (File[])
    */
-  uploadProspectus(request: UploadProspectusRequest): Observable<UploadProspectusResponse | null> {
-    console.log('🔵🔵🔵 CampusApiService: uploadProspectus METHOD CALLED 🔵🔵🔵');
+  uploadProspectus(campusId: string, formData: FormData): Observable<UploadProspectusResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS);
     
+    // Add campusId as query parameter
+    const params = new HttpParams().set('campusId', campusId);
+    
+    // Don't set Content-Type header - browser will set it automatically with boundary for multipart/form-data
     const httpOptions = {
-      headers: { 'Content-Type': 'application/json' }
+      params: params
     };
     
-    return this.http.post<unknown>(url, request, httpOptions).pipe(
+    return this.http.post<unknown>(url, formData, httpOptions).pipe(
       map((raw) => {
-        console.log('CampusApiService: ✅✅✅ Upload Prospectus Response received ✅✅✅');
-        console.log('CampusApiService: Raw response:', raw);
-        console.log('CampusApiService: Response type:', typeof raw);
-        console.log('CampusApiService: Response is object?', raw && typeof raw === 'object');
-        if (raw && typeof raw === 'object') {
-          console.log('CampusApiService: Response keys:', Object.keys(raw));
-          console.log('CampusApiService: Has data property?', 'data' in raw);
-        }
         if (raw && typeof raw === 'object' && 'data' in raw) {
-          console.log('CampusApiService: ✅ Response structure is valid');
           return raw as UploadProspectusResponse;
         }
-        console.warn('CampusApiService: ⚠️ Response structure does not match expected format');
         return null;
       }),
       catchError((error) => {
@@ -1176,6 +1174,7 @@ export class CampusApiService {
   /**
    * GET /prospectus/{prospectusId}
    * Get prospectus by ID.
+   * Retrieves prospectus details by prospectus ID.
    */
   getProspectusById(prospectusId: string): Observable<UploadProspectusResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_ID, { prospectusId });
@@ -1185,6 +1184,9 @@ export class CampusApiService {
           return raw as UploadProspectusResponse;
         }
         return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
       })
     );
   }
@@ -1433,6 +1435,74 @@ export class CampusApiService {
         return null;
       }),
       catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * POST /public/landing/feedback
+   * Submit feedback from contact form.
+   * Requires name, contact, and message. Feedback will be saved and can be approved by admin to display as testimonial.
+   * Response: 201 Created with { success: true, message: string, data: FeedbackData, error: null }
+   */
+  submitFeedback(request: FeedbackRequest): Observable<FeedbackResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.FEEDBACK);
+    
+    // Set Content-Type header explicitly for JSON
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      map((raw) => {
+        // Handle response body directly (Angular HttpClient handles 201/200 automatically)
+        if (raw && typeof raw === 'object') {
+          return raw as FeedbackResponse;
+        }
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * POST /public/landing/campus/{campusId}/visit
+   * Submit a campus visit request via JSON.
+   * Use 'attachmentUrls' field for file URLs/names. Supports recruitment type (Internship/Full-time/Both), visit date/time, positions, package, and requirements.
+   */
+  submitVisitCampusRequest(campusId: string, request: VisitCampusRequest): Observable<VisitCampusResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.VISIT_CAMPUS, { campusId });
+    
+    console.log('CampusApiService: ========== SUBMIT VISIT CAMPUS REQUEST API CALL ==========');
+    console.log('CampusApiService: submitVisitCampusRequest - URL:', url);
+    console.log('CampusApiService: submitVisitCampusRequest - Endpoint:', API_ENDPOINTS.CAMPUS.VISIT_CAMPUS);
+    console.log('CampusApiService: submitVisitCampusRequest - Campus ID:', campusId);
+    console.log('CampusApiService: submitVisitCampusRequest - Base URL:', this.baseUrl);
+    console.log('CampusApiService: submitVisitCampusRequest - Request:', JSON.stringify(request, null, 2));
+    
+    // Set Content-Type header explicitly for JSON
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: submitVisitCampusRequest - Raw response:', raw);
+        if (raw && typeof raw === 'object') {
+          const response = raw as VisitCampusResponse;
+          console.log('CampusApiService: submitVisitCampusRequest - Parsed response:', response);
+          return response;
+        }
+        console.warn('CampusApiService: submitVisitCampusRequest - Invalid response format:', raw);
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: submitVisitCampusRequest - Error in pipe:', error);
         return throwError(() => error);
       })
     );
@@ -2043,6 +2113,74 @@ export interface AboutSynkupResponse {
   message?: string | null;
   data?: AboutSynkupData;
   error?: string | null;
+}
+
+export interface FeedbackRequest {
+  name: string;
+  contact: string;
+  message: string;
+}
+
+export interface FeedbackData {
+  id?: string;
+  name?: string;
+  contact?: string;
+  message?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FeedbackResponse {
+  success: boolean;
+  message: string;
+  data: FeedbackData;
+  error: string | null;
+}
+
+export interface VisitTime {
+  hour: number;
+  minute: number;
+  second: number;
+  nano: number;
+}
+
+export interface VisitCampusRequest {
+  companyName: string;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  contactPersonPhone: string;
+  numberOfPositions: number;
+  packageAmount: string;
+  recruitmentType: 'INTERNSHIP' | 'FULL_TIME' | 'BOTH';
+  visitDate: string; // Format: YYYY-MM-DD
+  visitTime: VisitTime;
+  attachmentUrls: string[];
+  additionalRequirements?: string;
+}
+
+export interface VisitCampusData {
+  id?: string;
+  campusId?: string;
+  companyName?: string;
+  contactPersonName?: string;
+  contactPersonEmail?: string;
+  contactPersonPhone?: string;
+  numberOfPositions?: number;
+  packageAmount?: string;
+  recruitmentType?: string;
+  visitDate?: string;
+  visitTime?: string;
+  attachmentUrls?: string[];
+  additionalRequirements?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VisitCampusResponse {
+  success: boolean;
+  message: string;
+  data: VisitCampusData;
+  error: string | null;
 }
 
 export interface CourseData {

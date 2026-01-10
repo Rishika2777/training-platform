@@ -881,6 +881,16 @@
   transform: translateY(-2px);
 }
 
+.feedback-btn.active.yes {
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.feedback-btn.active.no {
+  background: #f44336;
+  border-color: #f44336;
+}
+
 .footer-bottom {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 30px;

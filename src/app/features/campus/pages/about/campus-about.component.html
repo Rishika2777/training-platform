@@ -419,17 +419,58 @@
       </div>
       <div class="footer-right">
         <h3 class="footer-title">Feedback</h3>
-        <form class="feedback-form">
+        <form class="feedback-form" (ngSubmit)="submitFeedback($event)">
           <div class="feedback-question">
             <p>Would you recommend promoting this campus based on their performance and potential?</p>
             <div class="feedback-buttons">
-              <button type="button" class="feedback-btn yes">Yes</button>
-              <button type="button" class="feedback-btn no">No</button>
+              <button 
+                type="button" 
+                class="feedback-btn yes" 
+                [class.active]="feedbackForm.recommendation === 'yes'"
+                (click)="feedbackForm.recommendation = 'yes'"
+              >
+                Yes
+              </button>
+              <button 
+                type="button" 
+                class="feedback-btn no"
+                [class.active]="feedbackForm.recommendation === 'no'"
+                (click)="feedbackForm.recommendation = 'no'"
+              >
+                No
+              </button>
             </div>
           </div>
-          <app-input label="Name" type="text" />
-          <app-textarea label="Speak your mind about Mangalore University!" />
-          <app-button label="Send" variant="primary" type="submit" />
+          <app-input 
+            label="Name" 
+            type="text" 
+            placeholder="Enter your name"
+            [value]="feedbackForm.name"
+            (valueChange)="feedbackForm.name = $event"
+            [disabled]="submittingFeedback"
+          />
+          <app-input 
+            label="Contact" 
+            type="text" 
+            placeholder="Enter your contact (email or phone)"
+            [value]="feedbackForm.contact"
+            (valueChange)="feedbackForm.contact = $event"
+            [disabled]="submittingFeedback"
+          />
+          <app-textarea 
+            label="Speak your mind about Mangalore University!" 
+            placeholder="Write your feedback here..."
+            [value]="feedbackForm.message"
+            (valueChange)="feedbackForm.message = $event"
+            [rows]="5"
+            [disabled]="submittingFeedback"
+          />
+          <app-button 
+            [label]="submittingFeedback ? 'Sending...' : 'Send'" 
+            variant="secondary" 
+            type="submit"
+            [disabled]="submittingFeedback"
+          />
         </form>
       </div>
     </div>

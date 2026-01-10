@@ -193,6 +193,8 @@
       COURSES: '/public/landing/campus/:campusId/courses',
       PLACEMENT_INSIGHTS: '/public/landing/campus/:campusId/placement-insights',
       ABOUT_SYNKUP: '/public/landing/about',
+      FEEDBACK: '/public/landing/feedback',
+      VISIT_CAMPUS: '/public/landing/campus/:campusId/visit',
     },
     USERS: {
       BASE: '/users',

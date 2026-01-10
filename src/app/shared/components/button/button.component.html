@@ -5,7 +5,7 @@
   [class.outline]="variant === 'outline'"
   [attr.type]="type"
   [disabled]="disabled"
-  (click)="$event.stopPropagation(); buttonClick.emit($event)"
+  (click)="onButtonClick($event)"
 >
   {{ label }}
 </button>
