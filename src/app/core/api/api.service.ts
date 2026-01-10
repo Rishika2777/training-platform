@@ -42,7 +42,16 @@ export class ApiService {
     urlParams?: UrlParams,
   ): Observable<T> {
     const url = this.baseUrl + replaceUrlParams(endpoint, urlParams);
-    return this.http.get<T>(url, { params: buildHttpParams(query) });
+    
+    // Disable cache for all GET requests to prevent stale data issues
+    return this.http.get<T>(url, {
+      params: buildHttpParams(query),
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   }
 
   post<TResponse, TBody>(
