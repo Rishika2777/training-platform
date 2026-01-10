@@ -55,14 +55,16 @@ export class RegisterOptionsComponent {
     }
 
     this.submitting = true;
-    this.userEmail = draft.email;
+    // Convert email to lowercase
+    const email = draft.email.toLowerCase();
+    this.userEmail = email;
     this.pendingRoute = option.route;
     this.selectedUserType = option.userType;
     
     this.auth
       .register(
         {
-          email: draft.email,
+          email: email,
           phoneNumber: generateRandomPhoneNumber(),
           password: draft.password,
           confirmPassword: draft.confirmPassword,
@@ -92,7 +94,7 @@ export class RegisterOptionsComponent {
 
     this.verifyingOtp = true;
     this.auth
-      .verifyOtp({ email: this.userEmail, otp: cleanedOtp }, { persistAuth: true })
+      .verifyOtp({ email: this.userEmail.toLowerCase(), otp: cleanedOtp }, { persistAuth: true })
       .subscribe({
         next: () => {
           this.verifyingOtp = false;
@@ -129,7 +131,7 @@ export class RegisterOptionsComponent {
     }
 
     this.resendingOtp = true;
-    this.auth.resendOtp(draft.email).subscribe({
+    this.auth.resendOtp(draft.email.toLowerCase()).subscribe({
       next: () => {
         this.resendingOtp = false;
         this.cdr.detectChanges();

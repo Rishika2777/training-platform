@@ -48,6 +48,8 @@ export class LoginComponent {
     }
     this.submitting = true;
     const payload = this.form.getRawValue();
+    // Convert email to lowercase before submission
+    payload.email = payload.email.toLowerCase();
 
     this.auth.login(payload).subscribe({
       next: (response) => {
@@ -56,7 +58,7 @@ export class LoginComponent {
         const email = this.auth.extractEmailFromResponse(response);
 
         if (emailVerified === false && email) {
-          this.userEmail = email;
+          this.userEmail = email.toLowerCase();
           this.showOtpModal = true;
           this.handleResendOtp();
           this.cdr.detectChanges();
@@ -77,7 +79,7 @@ export class LoginComponent {
             
             // If emailVerified is false in error response, show OTP modal instead of error
             if (emailVerified === false && email) {
-              this.userEmail = email;
+              this.userEmail = email.toLowerCase();
               this.showOtpModal = true;
               this.handleResendOtp();
               this.cdr.detectChanges();
@@ -152,7 +154,7 @@ export class LoginComponent {
 
     this.verifyingOtp = true;
     this.auth
-      .verifyOtp({ email: this.userEmail, otp: cleanedOtp }, { persistAuth: true })
+      .verifyOtp({ email: this.userEmail.toLowerCase(), otp: cleanedOtp }, { persistAuth: true })
       .subscribe({
         next: () => {
           this.verifyingOtp = false;
@@ -178,7 +180,7 @@ export class LoginComponent {
     }
 
     this.resendingOtp = true;
-    this.auth.resendOtp(this.userEmail).subscribe({
+    this.auth.resendOtp(this.userEmail.toLowerCase()).subscribe({
       next: () => {
         this.resendingOtp = false;
         this.cdr.detectChanges();

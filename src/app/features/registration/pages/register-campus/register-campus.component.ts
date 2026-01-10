@@ -83,7 +83,7 @@ export class RegisterCampusComponent {
           campusLogoUrl: value.campusLogoUrl,
           campusRank: Number.parseInt(value.rank || '0', 10) || 0,
           adminName: value.adminName,
-          adminEmail: value.adminEmail,
+          adminEmail: value.adminEmail.toLowerCase(),
           adminPhone: value.adminPhone,
           adminDepartment: value.adminDept,
           adminDesignation: value.adminDesignation,

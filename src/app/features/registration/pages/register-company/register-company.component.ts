@@ -120,7 +120,7 @@ export class RegisterCompanyComponent {
       companyLogoUrl: this.fileNameOrEmpty(value.companyPhoto),
       adminName: value.adminName,
       adminDesignation: value.adminDesignation,
-      adminEmail: value.adminEmail,
+      adminEmail: value.adminEmail.toLowerCase(),
       adminPhone: value.adminPhone,
       websiteUrl: value.companyWebsiteUrl,
       otherWebsiteUrl: value.otherWebsiteUrl,

@@ -345,7 +345,7 @@ export function mapStudentFormValueToRegisterRequest(
     lastName: toTrimmedString(formValue.lastName || formValue.fullName.split(' ').slice(1).join(' ')),
     dateOfBirth: toTrimmedString(formValue.dateOfBirth),
     gender: mapGenderToApi(formValue.gender),
-    email: toTrimmedString(formValue.email),
+    email: toTrimmedString(formValue.email).toLowerCase(),
     phoneNumber: toTrimmedString(formValue.mobile),
     // File uploads are not wired to backend yet; send filename if chosen, else empty.
     profilePhotoUrl: toTrimmedString(formValue.photoFiles?.item(0)?.name),

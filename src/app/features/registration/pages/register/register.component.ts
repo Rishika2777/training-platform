@@ -66,9 +66,12 @@ export class RegisterComponent {
       return;
     }
 
+    // Convert email to lowercase before storing
+    const email = payload.email.toLowerCase();
+
     // Legacy behavior: store draft only, then userType selection triggers /auth/register.
     this.auth.setRegistrationData({
-      email: payload.email,
+      email: email,
       password: payload.password,
       confirmPassword: payload.confirmPassword,
     });
