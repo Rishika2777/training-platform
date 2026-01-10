@@ -60,7 +60,7 @@ export class CompanyApiService {
   ): Observable<CompanyRegistrationResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.UPDATE, { companyId }));
     const params = new HttpParams().set('userId', userId);
-    return this.http.put<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
+    return this.http.patch<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
   }
 
   /**

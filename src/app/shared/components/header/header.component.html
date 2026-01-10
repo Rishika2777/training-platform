@@ -1,14 +1,16 @@
 <header class="top-header" [class.simple]="isSimpleHeader()">
   @if (!isSimpleHeader()) {
     <div class="header-left">
-      <button
-        class="hamburger"
-        type="button"
-        (click)="toggleSidebar.emit()"
-        [attr.aria-expanded]="!sidebarCollapsed"
-      >
-        <i class="fa-solid fa-bars" aria-hidden="true"></i>
-      </button>
+      @if (!standalone) {
+        <button
+          class="hamburger"
+          type="button"
+          (click)="toggleSidebar.emit()"
+          [attr.aria-expanded]="!sidebarCollapsed"
+        >
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+      }
 
       <div class="brand" [routerLink]="['/']">
         <div class="brand-mark">Synkup</div>

@@ -24,8 +24,44 @@ function isSimpleHeaderRoute(path: string): boolean {
 
 function titleFromPath(path: string): string {
   const parts = path.split('/').filter((p) => p.length > 0);
-  const last = parts.at(-1) ?? 'Dashboard';
-  return last.charAt(0).toUpperCase() + last.slice(1).replaceAll('-', ' ');
+  
+  // Find the last non-UUID part for the title
+  // UUIDs are typically 36 characters with hyphens, or might be other ID formats
+  let titlePart = 'Dashboard';
+  
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    // Skip if it looks like a UUID or numeric ID
+    if (!isLikelyId(part)) {
+      titlePart = part;
+      break;
+    }
+  }
+  
+  return titlePart.charAt(0).toUpperCase() + titlePart.slice(1).replaceAll('-', ' ');
+}
+
+/**
+ * Check if a string looks like an ID (UUID, number, or other identifier)
+ */
+function isLikelyId(str: string): boolean {
+  // Check if it's a UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(str)) {
+    return true;
+  }
+  
+  // Check if it's a pure number
+  if (/^\d+$/.test(str)) {
+    return true;
+  }
+  
+  // Check if it's a long alphanumeric string (likely an ID)
+  if (str.length > 20 && /^[a-zA-Z0-9-_]+$/.test(str)) {
+    return true;
+  }
+  
+  return false;
 }
 
 @Component({
@@ -45,6 +81,7 @@ function titleFromPath(path: string): string {
 })
 export class AppHeaderComponent {
   @Input() sidebarCollapsed = false;
+  @Input() standalone = false;
   @Output() readonly toggleSidebar = new EventEmitter<void>();
 
   private readonly router = inject(Router);

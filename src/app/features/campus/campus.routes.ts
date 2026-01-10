@@ -9,6 +9,7 @@ import { CampusAboutComponent } from './pages/about/campus-about.component';
 export const campusRoutes: Routes = [
   { path: 'home', component: CampusHomeComponent },
   { path: 'about', component: CampusAboutComponent },
+  { path: 'about/:campusId/:userId', component: CampusAboutComponent },
 ];
 
 

@@ -1,6 +1,12 @@
-<app-header [sidebarCollapsed]="sidebarCollapsed()" (toggleSidebar)="toggleSidebar()" />
-<div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()">
-  <app-sidebar [collapsed]="sidebarCollapsed()" />
+<app-header 
+  [sidebarCollapsed]="sidebarCollapsed()" 
+  [standalone]="isStandalone()"
+  (toggleSidebar)="toggleSidebar()" 
+/>
+<div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()" [class.standalone-mode]="isStandalone()">
+  @if (!isStandalone()) {
+    <app-sidebar [collapsed]="sidebarCollapsed()" />
+  }
   <main class="content">
     <router-outlet />
   </main>

@@ -136,10 +136,10 @@
     COMPANY: {
       BASE: '/company',
       REGISTER: '/company/register',
-      GET_ALL: '/company/company/all',
+      GET_ALL: '/company/companies/all',
       BY_ID: '/company/:companyId',
-      UPDATE: '/company/:companyId/update',
-      UPDATE_APPROVAL_STATUS: '/company/:companyId/approvalStatus/update',
+      UPDATE: '/company/update/:companyId',
+      UPDATE_APPROVAL_STATUS: '/company/approvalStatus/update/:companyId',
       APPROVAL_STATUS: '/company/:companyId/approval-status',
       DELETE: '/company/delete/:companyId',
     },

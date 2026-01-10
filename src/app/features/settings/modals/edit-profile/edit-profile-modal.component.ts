@@ -83,19 +83,20 @@ export class EditProfileModalComponent implements OnInit {
       return;
     }
 
-    const requesterUserId = toUserIdString(currentUser.userId);
-    if (!requesterUserId) {
-      return;
-    }
-
     this.viewSubmitting.set(true);
 
     if (this.userType === 'STUDENT') {
+      // For STUDENT users, require studentId
+      if (!currentUser.studentId) {
+        this.viewSubmitting.set(false);
+        console.warn('Student ID not found for student user');
+        return;
+      }
       // Use userId as studentId for users editing their own profile
-      this.selectedStudentId = requesterUserId;
-      this.selectedStudentUserId = requesterUserId;
+      this.selectedStudentId = currentUser.studentId;
+      this.selectedStudentUserId = currentUser.userId.toString();
 
-      this.studentApi.getStudentFullProfile(requesterUserId, requesterUserId, 'STUDENT').subscribe({
+      this.studentApi.getStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, 'STUDENT').subscribe({
         next: (response) => {
           this.viewSubmitting.set(false);
           const data = response.data ?? {};
@@ -114,11 +115,17 @@ export class EditProfileModalComponent implements OnInit {
     } else if (this.userType === 'COMPANY') {
       // For company users editing their own profile
       // Store userId first - we'll update companyId from the profile response
-      this.selectedCompanyUserId = requesterUserId;
+      if (!currentUser.userId) {
+        this.viewSubmitting.set(false);
+        console.warn('User ID not found for company user');
+        return;
+      }
+      const companyUserId = currentUser.userId.toString();
+      this.selectedCompanyUserId = companyUserId;
 
       // For users editing their own profile, try using userId as companyId
       // The profile response will contain the actual companyId which we'll use for updates
-      this.companyApi.getCompanyById(requesterUserId).subscribe({
+      this.companyApi.getCompanyById(companyUserId).subscribe({
         next: (profile) => {
           this.viewSubmitting.set(false);
           if (!profile?.companyId) {
@@ -126,7 +133,7 @@ export class EditProfileModalComponent implements OnInit {
           }
           // Store IDs from the profile response for use in updates
           this.selectedCompanyId = profile.companyId;
-          this.selectedCompanyUserId = profile.userId ?? requesterUserId;
+          this.selectedCompanyUserId = profile.userId ?? companyUserId;
           this.companyViewValue = this.mapProfileToFormValue(profile);
           this.cdr.detectChanges();
         },
@@ -136,26 +143,40 @@ export class EditProfileModalComponent implements OnInit {
         },
       });
     } else if (this.userType === 'CAMPUS') {
-      // Use userId as campusId for users editing their own profile
-      // First, we need to get campus profile by email or userId
-      // For now, use userId and handle it in the API response
-      this.selectedCampusId = requesterUserId;
+      // For CAMPUS users, use campusId or profileServiceId if available
+      // If not available, we'll try to get it from the API response
+      this.selectedCampusId = currentUser?.campusId ?? currentUser?.profileServiceId ?? null;
+      this.selectedCampusEmail = currentUser?.email ?? null;
 
-      this.campusApi.getCampusById(requesterUserId).subscribe({
+      console.log('selectedCampusId', this.selectedCampusId);
+      console.log('selectedCampusEmail', this.selectedCampusEmail);
+
+      // If we don't have campusId, we need to find it another way
+      // For now, try using userId or email to get the campus profile
+      if (!currentUser.userId) {
+        this.viewSubmitting.set(false);
+        console.warn('User ID not found for campus user');
+        return;
+      }
+      const campusIdToUse = this.selectedCampusId || currentUser.userId.toString();
+
+      this.campusApi.getCampusById(campusIdToUse).subscribe({
         next: (profile) => {
           this.viewSubmitting.set(false);
           if (!profile?.campusId && !profile?.id) {
+            console.warn('Campus profile not found or invalid');
             return;
           }
           const actualCampusId = profile.campusId ?? profile.id ?? null;
           if (actualCampusId) {
             this.selectedCampusId = actualCampusId;
           }
-          this.selectedCampusEmail = profile.email ?? profile.adminEmail ?? null;
+          this.selectedCampusEmail = profile.email ?? profile.adminEmail ?? currentUser?.email ?? null;
           this.campusViewValue = this.mapCampusProfileToFormValue(profile);
           this.cdr.detectChanges();
         },
-        error: () => {
+        error: (error) => {
+          console.error('Error loading campus profile:', error);
           this.viewSubmitting.set(false);
           this.cdr.detectChanges();
         },
@@ -675,16 +696,6 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
     });
   }
   return out;
-}
-
-function toUserIdString(value: unknown): string | null {
-  if (typeof value === 'string') {
-    return value.trim().length > 0 ? value : null;
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? String(value) : null;
-  }
-  return null;
 }
 
 function readFirstNonEmptyString(obj: unknown, keys: readonly string[]): string {

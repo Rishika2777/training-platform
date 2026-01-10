@@ -6,6 +6,7 @@ import { MenuService } from '../../core/menu/menu.service';
 import { NotificationService } from '../../core/notifications/notification.service';
 import { RoleService } from '../../core/rbac/role.service';
 import { MenuItem } from '../../core/models/menu.model';
+import { UserData } from '../../core/models/user.model';
 import { AuthService } from '../../core/auth/auth.service';
 import { ModalService, ModalType } from '../../core/modal/modal.service';
 import { FacultyDetailService } from '../../features/campus/services/faculty-detail.service';
@@ -130,11 +131,9 @@ export class SidebarComponent implements OnInit {
     this.loadFaculties();
     // Listen for faculty refresh events (add, delete, update)
     window.addEventListener('facultyAdded', () => {
-      console.log('SidebarComponent: Received facultyAdded event, refreshing list...');
       this.loadFaculties();
     });
     window.addEventListener('facultyDeleted', () => {
-      console.log('SidebarComponent: Received facultyDeleted event, refreshing list...');
       this.loadFaculties();
     });
   }
@@ -143,14 +142,10 @@ export class SidebarComponent implements OnInit {
    * Load faculties from API, fallback to static data on error
    */
   loadFaculties(): void {
-    console.log('SidebarComponent: ========== LOAD FACULTIES START ==========');
-    console.log('SidebarComponent: Loading faculties from API...');
     this.loadingFaculties.set(true);
 
     this.campusApi.getAllFaculties().subscribe({
       next: (response) => {
-        console.log('SidebarComponent: ✅ GET All Faculties API Success');
-        console.log('SidebarComponent: API response received:', response);
         this.loadingFaculties.set(false);
 
         if (response?.data && response.data.length > 0) {
@@ -179,25 +174,12 @@ export class SidebarComponent implements OnInit {
             };
           });
 
-          console.log('SidebarComponent: Using API data, count:', apiFacultyCards.length);
-          console.log('SidebarComponent: Faculty names:', apiFacultyCards.map(f => f.name));
           this.faculty.set(apiFacultyCards);
         } else {
-          console.log('SidebarComponent: API returned empty data, using static fallback');
           this.faculty.set(this.staticFacultyData);
         }
-        console.log('SidebarComponent: ===========================================');
       },
-      error: (err) => {
-        console.warn('SidebarComponent: ========== GET ALL FACULTIES ERROR ==========');
-        console.warn('SidebarComponent: ⚠️ GET All Faculties API Failed');
-        console.warn('SidebarComponent: Error status:', err?.status);
-        console.warn('SidebarComponent: Error URL:', err?.url);
-        console.warn('SidebarComponent: Error message:', err?.message);
-        console.warn('SidebarComponent: This is a GET API error - NOT affecting POST API');
-        console.warn('SidebarComponent: Using static fallback data - page will work normally');
-        console.warn('SidebarComponent: ===========================================');
-        
+      error: () => {
         this.loadingFaculties.set(false);
         // Fallback to static data on error - page continues to work
         this.faculty.set(this.staticFacultyData);
@@ -217,12 +199,10 @@ export class SidebarComponent implements OnInit {
     // If faculty has ID, fetch from API using getFacultyById; otherwise use static data as fallback
     if (faculty.id) {
       this.loadingFaculties.set(true);
-      console.log('SidebarComponent: Fetching faculty details for ID:', faculty.id);
       
       this.campusApi.getFacultyById(faculty.id).subscribe({
         next: (response) => {
           this.loadingFaculties.set(false);
-          console.log('SidebarComponent: getFacultyById API response:', response);
           
           if (response?.success && response.data) {
             const basicInfo = response.data.basicInformation;
@@ -276,11 +256,9 @@ export class SidebarComponent implements OnInit {
               phone: basicInfo?.phoneNumber || 'Not available',
             };
             
-            console.log('SidebarComponent: Mapped faculty detail data:', detailData);
             this.facultyDetailService.setSelectedFaculty(detailData);
             this.modalService.openModal('faculty-detail');
           } else {
-            console.warn('SidebarComponent: API response not successful or no data');
             // Fallback to static data if API returns no data
             const detailData = this.facultyDetailData[faculty.name];
             if (detailData) {
@@ -309,7 +287,6 @@ export class SidebarComponent implements OnInit {
       });
     } else {
       // Fallback to static data if no ID
-      console.warn('SidebarComponent: Faculty has no ID, using static data');
       const detailData = this.facultyDetailData[faculty.name];
       if (detailData) {
         this.facultyDetailService.setSelectedFaculty(detailData);
@@ -347,7 +324,100 @@ export class SidebarComponent implements OnInit {
       window.open(item.route, '_blank', 'noopener,noreferrer');
       return;
     }
+    // Check if it should open in new tab with dynamic IDs
+    if (item.openInNewTab) {
+      // IMPORTANT: Verify authentication with server before opening new tab
+      this.verifyAuthAndOpenNewTab(item);
+      return;
+    }
     void this.router.navigateByUrl(item.route);
+  }
+
+  /**
+   * Verify authentication with /auth/me API before opening new tab.
+   * This ensures token is valid and session hasn't expired.
+   */
+  private verifyAuthAndOpenNewTab(item: MenuItem): void {
+    
+    // Call /auth/me to validate current session (silently, no notification)
+    this.auth.me().subscribe({
+      next: (user) => {
+        
+        if (!user) {
+          console.error('❌ No user data returned from /auth/me');
+          this.notifications.error('Authentication failed. Please login again.');
+          void this.router.navigateByUrl('/login');
+          return;
+        }
+        
+        // Authentication successful, proceed to open new tab
+        this.openNewTabWithUser(item, user);
+      },
+      error: (error) => {
+        console.error('❌ Authentication verification failed:', error);
+        this.notifications.error('Session expired. Please login again.');
+        // Clear auth and redirect to login
+        this.auth.logout().subscribe({
+          next: () => void this.router.navigateByUrl('/login'),
+          error: () => void this.router.navigateByUrl('/login'),
+        });
+      }
+    });
+  }
+
+  /**
+   * Open new tab after authentication has been verified
+   */
+  private openNewTabWithUser(item: MenuItem, user: UserData): void {
+    let fullUrl = `${window.location.origin}${item.route}`;
+    
+    // Build URL with IDs for student profile
+    if (item.id === 'student-profile') {
+      const studentId = user.studentId || user.userId;
+      const userId = user.userId;
+      
+      
+      if (studentId && userId) {
+        fullUrl = `${window.location.origin}/student/profile/${studentId}/${userId}?standalone=true`;
+      } else {
+        console.error('❌ Student ID or User ID not found:', { studentId, userId, user });
+        this.notifications.error('Student ID or User ID not found');
+        return;
+      }
+    }
+    
+    // Build URL with IDs for campus about
+    if (item.id === 'campus-about') {
+      const campusId = user.campusId || user.profileServiceId || user.userId;
+      const userId = user.userId;
+      
+      
+      if (campusId && userId) {
+        fullUrl = `${window.location.origin}/campus/about/${campusId}/${userId}?standalone=true`;
+      } else {
+        console.error('❌ Campus ID or User ID not found:', { campusId, userId, user });
+        this.notifications.error('Campus ID or User ID not found');
+        return;
+      }
+    }
+    
+    // Build URL with IDs for company about
+    if (item.id === 'company-about') {
+      const companyId = user.companyId || user.profileServiceId || user.userId;
+      const userId = user.userId;
+      
+      
+      if (companyId && userId) {
+        fullUrl = `${window.location.origin}/company/about/${companyId}/${userId}?standalone=true`;
+      } else {
+        console.error('❌ Company ID or User ID not found:', { companyId, userId, user });
+        this.notifications.error('Company ID or User ID not found');
+        return;
+      }
+    }
+    
+    // Open the new tab
+    window.open(fullUrl, '_blank', 'noopener,noreferrer');
   }
 
   private getModalTypeForMenuItem(menuId: string): ModalType {

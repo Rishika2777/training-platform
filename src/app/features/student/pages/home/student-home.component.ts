@@ -102,7 +102,8 @@ export class StudentHomeComponent implements OnInit {
   loadData(): void {
     console.log('StudentHomeComponent: loadData called');
     const currentUser = this.authService.getCurrentUser();
-    const studentId = 'e09112c7-89f7-4e78-a147-a3fedd9526b2';
+    console.log('StudentHomeComponent: currentUser =', currentUser);
+    const studentId = currentUser?.studentId;
 
     console.log('StudentHomeComponent: studentId =', studentId);
     console.log('StudentHomeComponent: currentUser =', currentUser);
@@ -303,11 +304,67 @@ export class StudentHomeComponent implements OnInit {
     // TODO: Call API service
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleCareerCheckinSubmit(_value: unknown): void {
-    // API call will be implemented here
+  handleCareerCheckinSubmit(value: {
+    companyName: string;
+    jobTitle: string;
+    startDate: string;
+    endDate: string;
+    currentlyWorking: boolean;
+    recnHelped: boolean;
+  }): void {
+    const currentUser = this.authService.getCurrentUser();
+    const userId = currentUser?.userId?.toString();
+
+    if (!userId) {
+      console.error('User ID not found. Cannot submit career check-in.');
+      this.submittingCareerCheckin = false;
+      return;
+    }
+
     this.submittingCareerCheckin = true;
-    // TODO: Call API service
+
+    // Map form value to API request format
+    // If currently working, endDate is optional (can be empty string)
+    const request = {
+      companyName: value.companyName.trim(),
+      jobTitle: value.jobTitle.trim(),
+      startDate: value.startDate,
+      endDate: value.currentlyWorking ? (value.endDate || '') : value.endDate,
+      isCurrentlyWorking: value.currentlyWorking,
+      recnHelped: value.recnHelped,
+    };
+
+    this.studentApiService
+      .createOrUpdateCareerCheckIn(userId, request)
+      .pipe(
+        catchError((error) => {
+          console.error('Error submitting career check-in:', error);
+          console.error('Error status:', error?.status);
+          console.error('Error message:', error?.message);
+          console.error('Error response:', error?.error);
+          this.submittingCareerCheckin = false;
+          // Don't close modal on error - let user see the error and try again
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.submittingCareerCheckin = false;
+          if (response?.success) {
+            console.log('Career check-in saved successfully:', response);
+            // Only close modal on successful submission
+            this.closeModal();
+          } else {
+            console.error('Failed to save career check-in:', response);
+            // Don't close modal on failure - let user see the error
+          }
+        },
+        error: (error) => {
+          // This should not be reached due to catchError, but just in case
+          console.error('Unexpected error in subscribe:', error);
+          this.submittingCareerCheckin = false;
+        },
+      });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

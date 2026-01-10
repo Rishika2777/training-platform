@@ -9,6 +9,18 @@
   padding-left: var(--space-md);
 }
 
+/* Standalone mode: full-width content without sidebar */
+.layout.standalone-mode {
+  display: block;
+}
+
+.layout.standalone-mode .content {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
 .content {
   flex: 1;
   min-width: 0;

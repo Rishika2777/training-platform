@@ -1,9 +1,45 @@
 <section class="page">
   <h2>Student Profile</h2>
 
-  <app-card title="Get to Know Me">
-    <p>Placeholder for the legacy Student Profile page.</p>
-  </app-card>
+  <!-- Debug Info Card -->
+  @if (studentId() || userId()) {
+    <app-card title="Route Information">
+      <div class="debug-info">
+        <p><strong>Student ID:</strong> {{ studentId() }}</p>
+        <p><strong>User ID:</strong> {{ userId() }}</p>
+        <p><strong>Standalone Mode:</strong> {{ isStandalone() ? 'Yes' : 'No' }}</p>
+      </div>
+    </app-card>
+  }
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <app-card title="Get to Know Me">
+      <div class="loading-state">
+        <p>Loading profile data...</p>
+      </div>
+    </app-card>
+  }
+
+  <!-- Error State -->
+  @if (error() && !loading()) {
+    <app-card title="Error">
+      <div class="error-state">
+        <p>{{ error() }}</p>
+        <button (click)="reload()">Retry</button>
+      </div>
+    </app-card>
+  }
+
+  <!-- Profile Data -->
+  @if (profileData() && !loading() && !error()) {
+    <app-card title="Get to Know Me">
+      <div class="profile-content">
+        <pre>{{ profileData() | json }}</pre>
+        <!-- Replace with your actual profile UI -->
+        <p>Student profile loaded successfully!</p>
+        <p>You can now build your profile UI here using the profileData() signal.</p>
+      </div>
+    </app-card>
+  }
 </section>
-
-

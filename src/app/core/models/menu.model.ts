@@ -9,6 +9,7 @@ export interface MenuItem {
   module: string;
   roles: UserRole[];
   permissions: string[];
+  openInNewTab?: boolean;
 }
 
 export interface MenuConfig {

@@ -23,9 +23,18 @@ export class StorageService {
   get<K extends StorageKey>(key: K): StorageSchema[K] | null {
     const raw = this.getRaw(key);
     if (raw === null) {
+      // Debug logging for auth-related keys
+      if (key === STORAGE_KEYS.AUTH_TOKEN || key === STORAGE_KEYS.USER_DATA) {
+        console.debug(`Storage.get(${key}): raw value is null`);
+      }
       return null;
     }
-    return this.parse<K>(key, raw);
+    const parsed = this.parse<K>(key, raw);
+    // Debug logging for auth-related keys
+    if (key === STORAGE_KEYS.AUTH_TOKEN || key === STORAGE_KEYS.USER_DATA) {
+      console.debug(`Storage.get(${key}): parsed value`, parsed ? 'exists' : 'null');
+    }
+    return parsed;
   }
 
   set<K extends StorageKey>(key: K, value: StorageSchema[K]): void {
@@ -60,9 +69,20 @@ export class StorageService {
   private getRaw(key: StorageKey): string | null {
     if (this.isBrowser) {
       try {
-        return window.localStorage.getItem(key);
-      } catch {
+        const value = window.localStorage.getItem(key);
+        // Debug logging for auth-related keys
+        if (key === STORAGE_KEYS.AUTH_TOKEN || key === STORAGE_KEYS.USER_DATA) {
+          console.debug(`Storage.getRaw(${key}):`, value ? 'exists' : 'null', `(isBrowser: ${this.isBrowser})`);
+        }
+        return value;
+      } catch (error) {
+        console.error(`Storage.getRaw(${key}) error:`, error);
         // fall back to in-memory
+      }
+    } else {
+      // Not in browser (SSR context)
+      if (key === STORAGE_KEYS.AUTH_TOKEN || key === STORAGE_KEYS.USER_DATA) {
+        console.warn(`Storage.getRaw(${key}): NOT IN BROWSER CONTEXT - cannot access localStorage`);
       }
     }
     return this.memory.get(key) ?? null;
@@ -72,8 +92,13 @@ export class StorageService {
     if (this.isBrowser) {
       try {
         window.localStorage.setItem(key, value);
+        // Debug logging for auth-related keys
+        if (key === STORAGE_KEYS.AUTH_TOKEN || key === STORAGE_KEYS.USER_DATA) {
+          console.debug(`Storage.setRaw(${key}): saved to localStorage`);
+        }
         return;
-      } catch {
+      } catch (error) {
+        console.error(`Storage.setRaw(${key}) error:`, error);
         // fall back to in-memory
       }
     }

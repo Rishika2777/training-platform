@@ -13,9 +13,10 @@ const USER_TYPE_MENU_CONFIG: Readonly<
         id: 'campus-about',
         label: 'About campus',
         icon: 'fa-angle-double-right',
-        route: '/campus/about',
+        route: '/campus/about', // Will be constructed dynamically with IDs
         order: 1,
         module: 'campus',
+        openInNewTab: true,
       },
       {
         id: 'campus-courses',
@@ -39,9 +40,10 @@ const USER_TYPE_MENU_CONFIG: Readonly<
         id: 'student-profile',
         label: 'Get to Know Me',
         icon: 'fa-angle-double-right',
-        route: '/student/profile',
+        route: '/student/profile', // Will be constructed dynamically with IDs
         order: 1,
         module: 'student',
+        openInNewTab: true,
       },
       {
         id: 'student-learning-pathway',
@@ -81,9 +83,10 @@ const USER_TYPE_MENU_CONFIG: Readonly<
         id: 'company-about',
         label: 'About company',
         icon: 'fa-angle-double-right',
-        route: '/company/about',
+        route: '/company/about', // Will be constructed dynamically with IDs
         order: 1,
         module: 'company',
+        openInNewTab: true,
       },
       {
         id: 'company-specialization',

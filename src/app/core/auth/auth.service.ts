@@ -59,6 +59,9 @@ interface AuthPayload {
   onboardingFormSubmit?: boolean;
   profileCompleted?: boolean;
   profileServiceId?: string;
+  studentId?: string;
+  campusId?: string;
+  companyId?: string;
   redirectTo?: string;
 }
 
@@ -73,6 +76,9 @@ interface AuthPayloadUser {
   onboardingFormSubmit?: boolean;
   profileCompleted?: boolean;
   profileServiceId?: string;
+  studentId?: string;
+  campusId?: string;
+  companyId?: string;
   redirectTo?: string;
 }
 
@@ -145,6 +151,9 @@ function mergeUserPayload(payload: AuthPayload): AuthPayload {
     approvalStatus: payload.approvalStatus ?? u.approvalStatus,
     profileCompleted: payload.profileCompleted ?? u.profileCompleted,
     profileServiceId: payload.profileServiceId ?? u.profileServiceId,
+    studentId: payload.studentId ?? u.studentId,
+    campusId: payload.campusId ?? u.campusId,
+    companyId: payload.companyId ?? u.companyId,
     redirectTo: payload.redirectTo ?? u.redirectTo,
   };
 }
@@ -172,6 +181,9 @@ function buildUserData(payload: AuthPayload): UserData | null {
     approvalStatus,
     profileCompleted: p.profileCompleted,
     profileServiceId: p.profileServiceId,
+    studentId: p.studentId,
+    campusId: p.campusId,
+    companyId: p.companyId,
     redirectTo: p.redirectTo,
   };
 }

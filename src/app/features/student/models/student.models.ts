@@ -270,6 +270,37 @@ export interface ApiResponsePlacedStudentsResponse {
   timestamp?: string;
 }
 
+export interface CareerCheckInRequest {
+  companyName: string;
+  jobTitle: string;
+  startDate: string;
+  endDate: string;
+  isCurrentlyWorking: boolean;
+  recnHelped: boolean;
+}
+
+export interface CareerCheckInResponse {
+  careerCheckInId?: string;
+  userId?: string;
+  companyName: string;
+  jobTitle: string;
+  startDate: string;
+  endDate?: string;
+  isCurrentlyWorking: boolean;
+  recnHelped: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiResponseCareerCheckInResponse {
+  success?: boolean;
+  message?: string;
+  data?: CareerCheckInResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 function mapGenderToApi(gender: string | null): 'MALE' | 'FEMALE' | 'OTHER' {
   if (gender === 'male') return 'MALE';
   if (gender === 'female') return 'FEMALE';

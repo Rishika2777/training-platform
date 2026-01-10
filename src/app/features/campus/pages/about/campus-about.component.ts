@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal, ChangeDetectorRef } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
@@ -65,7 +66,13 @@ export class CampusAboutComponent implements OnInit {
   private readonly notify = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly facultyDetailService = inject(FacultyDetailService);
+  private readonly route = inject(ActivatedRoute);
   readonly pageSize = 8;
+
+  // Route parameters (for opening in new tab)
+  readonly routeCampusId = signal<string | null>(null);
+  readonly routeUserId = signal<string | null>(null);
+  readonly isStandalone = signal<boolean>(false);
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isVisitCampusModalOpen = computed(() => this.activeModal() === 'visit-campus');
@@ -107,6 +114,32 @@ export class CampusAboutComponent implements OnInit {
   readonly downloadingProspectus = signal(false);
 
   ngOnInit(): void {
+    // Extract route parameters (for new tab scenario)
+    this.route.paramMap.subscribe((params) => {
+      const campusIdFromRoute = params.get('campusId');
+      const userIdFromRoute = params.get('userId');
+
+      console.log('📋 Campus About Page - Route Params:', {
+        campusId: campusIdFromRoute,
+        userId: userIdFromRoute,
+      });
+
+      // If route params exist, use them (opened from menu in new tab)
+      if (campusIdFromRoute && userIdFromRoute) {
+        this.routeCampusId.set(campusIdFromRoute);
+        this.routeUserId.set(userIdFromRoute);
+        // Set the campusId for the component to use
+        this.currentCampusId.set(campusIdFromRoute);
+      }
+    });
+
+    // Check if opened in standalone mode (new tab)
+    this.route.queryParamMap.subscribe((queryParams) => {
+      const standalone = queryParams.get('standalone');
+      this.isStandalone.set(standalone === 'true');
+      console.log('📋 Campus About Page - Standalone mode:', this.isStandalone());
+    });
+
     this.loadRisingStars();
     this.loadAboutCampus();
     this.loadSuccessStories();
@@ -126,12 +159,20 @@ export class CampusAboutComponent implements OnInit {
   /**
    * Helper method to get campusId from multiple sources
    * Priority:
-   * 1. Stored campusId from loaded campus data (most reliable)
-   * 2. User profile profileServiceId (from auth state)
-   * 3. Storage CAMPUS_ID key (fallback)
+   * 1. Route parameter (for new tab scenario)
+   * 2. Stored campusId from loaded campus data (most reliable)
+   * 3. User profile profileServiceId (from auth state)
+   * 4. Storage CAMPUS_ID key (fallback)
    */
   private getCampusId(): string | null {
-    // First, try the stored campusId from loaded campus data
+    // First priority: route parameter (for new tab scenario)
+    const routeCampusId = this.routeCampusId();
+    if (routeCampusId) {
+      console.log('CampusAboutComponent: Found campusId from route parameter:', routeCampusId);
+      return routeCampusId;
+    }
+
+    // Second, try the stored campusId from loaded campus data
     const storedCampusId = this.currentCampusId();
     if (storedCampusId) {
       console.log('CampusAboutComponent: Found campusId from stored campus data:', storedCampusId);
@@ -140,7 +181,7 @@ export class CampusAboutComponent implements OnInit {
     
     // Try from auth state (user profile) - profileServiceId contains campusId
     const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusIdFromUser = currentUser?.profileServiceId || currentUser?.campusId;
     if (campusIdFromUser) {
       console.log('CampusAboutComponent: Found campusId from user profile:', campusIdFromUser);
       return campusIdFromUser;
@@ -155,10 +196,11 @@ export class CampusAboutComponent implements OnInit {
     
     // Log debug info if campusId not found
     console.warn('CampusAboutComponent: Campus ID not found in any source.', {
+      routeCampusId: routeCampusId,
       storedCampusId: storedCampusId,
       campusIdFromUser: campusIdFromUser,
       campusIdFromStorage: campusIdFromStorage,
-      currentUser: currentUser ? { email: currentUser.email, profileServiceId: currentUser.profileServiceId } : null,
+      currentUser: currentUser ? { email: currentUser.email, profileServiceId: currentUser.profileServiceId, campusId: currentUser.campusId } : null,
       isAuthenticated: this.authState.isAuthenticated(),
       token: this.authState.token() ? 'present' : 'missing'
     });

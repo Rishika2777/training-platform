@@ -8,6 +8,7 @@ import { StudentProfileComponent } from './pages/profile/student-profile.compone
 export const studentRoutes: Routes = [
   { path: 'home', component: StudentHomeComponent },
   { path: 'profile', component: StudentProfileComponent },
+  { path: 'profile/:studentId/:userId', component: StudentProfileComponent },
 ];
 
 

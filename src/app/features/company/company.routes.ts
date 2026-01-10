@@ -12,6 +12,7 @@ import { CompanyBenefitsComponent } from './pages/benefits/company-benefits.comp
 export const companyRoutes: Routes = [
   { path: 'home', component: CompanyHomeComponent },
   { path: 'about', component: CompanyAboutComponent },
+  { path: 'about/:companyId/:userId', component: CompanyAboutComponent },
   { path: 'specialization', component: CompanySpecializationComponent },
   { path: 'vision-performance', component: CompanyVisionPerformanceComponent },
   { path: 'current-vacancy', component: CompanyCurrentVacancyComponent },

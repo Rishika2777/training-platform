@@ -12,6 +12,8 @@ import {
   ApiResponsePageAlumniResponse,
   ApiResponseBatchmateResponse,
   ApiResponsePlacedStudentsResponse,
+  CareerCheckInRequest,
+  ApiResponseCareerCheckInResponse,
 } from '../models/student.models';
 
 /**
@@ -152,6 +154,29 @@ export class StudentApiService {
     }
     console.log('StudentApiService: getPlacedStudents - URL:', url, 'Params:', params.toString());
     return this.http.get<ApiResponsePlacedStudentsResponse>(url, { params });
+  }
+
+  /**
+   * GET /student/career-checkin
+   * Get career check-in by userId
+   */
+  getCareerCheckIn(userId: string): Observable<ApiResponseCareerCheckInResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.STUDENT.CAREER_CHECKIN);
+    const params = new HttpParams().set('userId', userId);
+    return this.http.get<ApiResponseCareerCheckInResponse>(url, { params });
+  }
+
+  /**
+   * POST /student/career-checkin
+   * Create or update career check-in
+   */
+  createOrUpdateCareerCheckIn(
+    userId: string,
+    request: CareerCheckInRequest,
+  ): Observable<ApiResponseCareerCheckInResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.STUDENT.CAREER_CHECKIN);
+    const params = new HttpParams().set('userId', userId);
+    return this.http.post<ApiResponseCareerCheckInResponse>(url, request, { params });
   }
 
   private buildUrl(endpoint: string): string {

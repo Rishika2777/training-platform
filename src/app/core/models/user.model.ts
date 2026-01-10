@@ -30,6 +30,9 @@ export interface UserData {
 
   profileCompleted?: boolean;
   profileServiceId?: string;
+  studentId?: string;
+  campusId?: string;
+  companyId?: string;
   redirectTo?: string;
 }
 

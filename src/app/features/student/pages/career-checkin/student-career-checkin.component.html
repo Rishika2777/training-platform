@@ -45,28 +45,30 @@
     />
   </div>
 
-  <div class="form-row checkbox-row">
-    <label class="checkbox-label">
-      <input
-        type="checkbox"
-        [checked]="value.currentlyWorking"
-        [disabled]="submitting"
-        (change)="toggleCurrentlyWorking()"
-      />
-      <span class="checkbox-text">I am currently working here</span>
-    </label>
-  </div>
+  <div class="checkbox-section">
+    <div class="form-row checkbox-row">
+      <label class="checkbox-label">
+        <input
+          type="checkbox"
+          [checked]="value.currentlyWorking"
+          [disabled]="submitting"
+          (change)="toggleCurrentlyWorking()"
+        />
+        <span class="checkbox-text">I am currently working here</span>
+      </label>
+    </div>
 
-  <div class="form-row checkbox-row">
-    <label class="checkbox-label">
-      <input
-        type="checkbox"
-        [checked]="value.recnHelped"
-        [disabled]="submitting"
-        (change)="toggleRecnHelped()"
-      />
-      <span class="checkbox-text">Synkup helped me to get this job</span>
-    </label>
+    <div class="form-row checkbox-row">
+      <label class="checkbox-label">
+        <input
+          type="checkbox"
+          [checked]="value.recnHelped"
+          [disabled]="submitting"
+          (change)="toggleRecnHelped()"
+        />
+        <span class="checkbox-text">Synkup helped me to get this job</span>
+      </label>
+    </div>
   </div>
 
   <div class="form-actions">
