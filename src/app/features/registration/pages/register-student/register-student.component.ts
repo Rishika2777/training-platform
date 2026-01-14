@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   createEmptyStudentFormValue,
@@ -7,7 +7,7 @@ import {
   StudentFormValue,
 } from '../../../../shared/components/forms/student-form/student-form.component';
 import { StudentApiService } from '../../../student/services/student-api.service';
-import { mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
+import { mapStudentFormValueToRegisterRequest, CampusResponse } from '../../../student/models/student.models';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -22,7 +22,7 @@ import { LOGIN_STATUS } from '../../../../core/config/app.constants';
   templateUrl: './register-student.component.html',
   styleUrl: './register-student.component.css',
 })
-export class RegisterStudentComponent {
+export class RegisterStudentComponent implements OnInit {
   private readonly studentApi = inject(StudentApiService);
   private readonly auth = inject(AuthService);
   private readonly authState = inject(AuthStateService);
@@ -38,9 +38,36 @@ export class RegisterStudentComponent {
 
   readonly emailLocked = this.initialEmail.trim().length > 0;
 
+  campuses: CampusResponse[] = [];
+
   formValue: StudentFormValue = createEmptyStudentFormValue({
     email: this.initialEmail,
   });
+
+  ngOnInit(): void {
+    this.loadCampuses();
+  }
+
+  loadCampuses(): void {
+    console.log('Loading campuses...');
+    this.studentApi.getRegisteredCampuses().subscribe({
+      next: (response) => {
+        console.log('Campuses API response:', response);
+        if (response.data && Array.isArray(response.data)) {
+          this.campuses = response.data;
+          console.log(`Loaded ${this.campuses.length} campuses`);
+          this.cdr.detectChanges();
+        } else {
+          console.warn('Campuses API returned no data or invalid format:', response);
+        }
+      },
+      error: (error) => {
+        console.error('Failed to load campuses:', error);
+        // Show user-friendly error message
+        this.notify.error('Failed to load institutions. Please refresh the page.');
+      },
+    });
+  }
 
   submit(value: StudentFormValue): void {
     if (this.submitting) {
@@ -55,7 +82,6 @@ export class RegisterStudentComponent {
 
     this.submitting = true;
     const registerRequest = mapStudentFormValueToRegisterRequest(value, String(user.userId));
-    console.log('dadfadfa',registerRequest); 
     this.studentApi
       .registerStudent(registerRequest)
       .subscribe({
@@ -83,8 +109,13 @@ export class RegisterStudentComponent {
           this.notify.success('Student profile created successfully.');
           void this.router.navigateByUrl('/student/home');
         },
-        error: () => {
+        error: (error) => {
           this.submitting = false;
+          // Extract and display validation errors
+          const errorMessage = this.extractValidationErrorMessage(error);
+          if (errorMessage) {
+            this.notify.error(errorMessage);
+          }
           this.cdr.detectChanges();
         },
       });
@@ -95,6 +126,52 @@ export class RegisterStudentComponent {
       return;
     }
     void this.router.navigateByUrl('/register-options');
+  }
+
+  private extractValidationErrorMessage(error: unknown): string {
+    if (error && typeof error === 'object' && 'error' in error) {
+      const httpError = error as { error?: unknown };
+      const errorResponse = httpError.error;
+      
+      if (errorResponse && typeof errorResponse === 'object') {
+        const response = errorResponse as {
+          message?: string;
+          data?: Record<string, string>;
+          error?: string;
+        };
+        
+        // Extract field-specific validation errors from data
+        if (response.data && typeof response.data === 'object') {
+          const fieldErrors: string[] = [];
+          for (const [field, message] of Object.entries(response.data)) {
+            if (typeof message === 'string' && message.trim()) {
+              // Format field name: convert camelCase to Title Case
+              const fieldName = field
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, (str) => str.toUpperCase())
+                .trim();
+              fieldErrors.push(`${fieldName}: ${message}`);
+            }
+          }
+          
+          if (fieldErrors.length > 0) {
+            const baseMessage = response.message || 'Validation failed';
+            // Join with semicolon for better toaster display
+            return `${baseMessage} - ${fieldErrors.join('; ')}`;
+          }
+        }
+        
+        // Fallback to message or error field
+        if (response.message && typeof response.message === 'string') {
+          return response.message;
+        }
+        if (response.error && typeof response.error === 'string') {
+          return response.error;
+        }
+      }
+    }
+    
+    return 'Failed to register student profile. Please try again.';
   }
 }
 

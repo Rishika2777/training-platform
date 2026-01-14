@@ -14,7 +14,7 @@
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">My Batchmates</div>
-          <button class="panel-icon" type="button" title="Filter">
+          <button class="panel-icon" type="button" title="Filter" (click)="openFilterModal()">
             <i class="fa-solid fa-filter" aria-hidden="true"></i>
           </button>
         </div>
@@ -139,7 +139,17 @@
       <section class="panel alumni">
         <div class="panel-head">
           <div class="panel-title">Alumni</div>
-          <div class="year-pill">2024 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div>
+          <div 
+            class="year-pill" 
+            (click)="openFilterModal()" 
+            (keyup.enter)="openFilterModal()"
+            (keyup.space)="openFilterModal()"
+            tabindex="0"
+            role="button"
+            style="cursor: pointer;"
+          >
+            {{ selectedYearOfPassing() || 'Select Year' }} <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </div>
         </div>
 
         <app-carousel
@@ -220,6 +230,41 @@
     (closed)="closeModal()"
   >
     <app-student-ai-toolkit />
+  </app-modal>
+
+  <!-- Filter Modal for Batchmates and Alumni -->
+  <app-modal
+    [visible]="isFilterModalOpen()"
+    title="Filter Batchmates & Alumni"
+    size="md"
+    (closed)="closeFilterModal()"
+  >
+    <div class="filter-modal-content">
+      <app-dropdown
+        label="Select Campus"
+        [items]="campusItems()"
+        [value]="selectedCampusName()"
+        (valueChange)="onCampusChange($event)"
+        [autocomplete]="true"
+        placeholder="Select a campus..."
+      />
+      
+      <app-dropdown
+        label="Select Year of Passing"
+        [items]="getYearItems()"
+        [value]="selectedYearOfPassing()"
+        (valueChange)="onYearChange($event)"
+        placeholder="Select year..."
+      />
+      
+      <div class="filter-actions">
+        <app-button 
+          label="Close" 
+          variant="primary" 
+          (buttonClick)="closeFilterModal()"
+        />
+      </div>
+    </div>
   </app-modal>
 </div>
 

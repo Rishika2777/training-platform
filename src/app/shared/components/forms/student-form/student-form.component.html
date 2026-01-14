@@ -1,14 +1,14 @@
 <div class="app-form-container">
   @if (!isReviewMode) {
-  <h2 class="app-form-title">Student Registration</h2>
+  <h2 class="app-form-title">{{ isEditModeDisplay ? 'Edit Profile' : 'Student Registration' }}</h2>
   }
 
-  @if (!isReviewMode) {
+  @if (!isReviewMode && !isEditModeDisplay) {
     <app-step-indicator [steps]="steps" [currentStep]="currentStep + 1" [disabled]="submitting" />
   }
 
-  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate [class.review-mode]="isReviewMode">
-    @if (currentStep === 0 || isReviewMode) {
+  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate [class.review-mode]="isReviewMode" [class.edit-mode]="isEditModeDisplay">
+    @if (currentStep === 0 || isReviewMode || isEditModeDisplay) {
       <div class="app-form-step">
         <div class="app-form-row">
           <app-input
@@ -31,14 +31,23 @@
             [disabled]="isFieldsDisabled"
           />
 
-          <app-input
-            label="Upload Photo"
-            [required]="true"
-            [invalid]="isRequiredInvalidFiles(value.photoFiles)"
-            type="file"
-            (filesSelected)="patch({ photoFiles: $event })"
-            [disabled]="isFieldsDisabled"
-          />
+          <div class="app-form-field-wrapper">
+            <app-input
+              label="Upload Photo"
+              [required]="true"
+              [invalid]="isRequiredInvalidFiles(value.photoFiles)"
+              type="file"
+              accept="image/*"
+              (filesSelected)="patch({ photoFiles: $event })"
+              [disabled]="isFieldsDisabled"
+            />
+            @if (value.photoUrl) {
+              <div class="photo-preview">
+                <span class="photo-preview-label">Current Photo:</span>
+                <img [src]="value.photoUrl" alt="Profile photo" class="photo-preview-image" />
+              </div>
+            }
+          </div>
         </div>
 
         <div class="app-form-row">
@@ -129,7 +138,7 @@
       </div>
     }
 
-    @if (currentStep === 1 || isReviewMode) {
+    @if (currentStep === 1 || isReviewMode || isEditModeDisplay) {
       <div class="app-form-step">
         <h3 class="app-form-section-title">Educational Background</h3>
 
@@ -151,7 +160,7 @@
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'institution')"
                 [items]="institutionItems"
-                [value]="edu.institution"
+                [value]="edu.campusId || edu.institution"
                 (valueChange)="patchEducationAt($index, { institution: $event })"
                 [disabled]="isFieldsDisabled"
                 [autocomplete]="true"
@@ -241,7 +250,7 @@
       </div>
     }
 
-    @if (currentStep === 2 || isReviewMode) {
+    @if (currentStep === 2 || isReviewMode || isEditModeDisplay) {
       <div class="app-form-step">
         <div class="app-form-section">
           <h3 class="app-form-section-title">Technical Skills</h3>
@@ -508,7 +517,7 @@
                 />
               </div>
             </div>
-            @if (!isReviewMode || isEditMode) {
+            @if (!isReviewMode || isEditMode || isEditModeDisplay) {
               <div class="app-form-row">
                 <app-dropdown
                   label="Technologies Used"
@@ -538,7 +547,7 @@
                 }
               </div>
             }
-            @if (!isReviewMode || isEditMode) {
+            @if (!isReviewMode || isEditMode || isEditModeDisplay) {
               <div class="app-form-row">
                 <div class="app-form-action-col app-form-action-col-right mini-btns">
                   <app-button class="mini-btn" type="button" variant="outline" label="Add Project" [disabled]="submitting" (buttonClick)="addProject()" />
@@ -558,7 +567,7 @@
       </div>
     }
 
-    @if (currentStep === 3 || isReviewMode) {
+    @if (currentStep === 3 || isReviewMode || isEditModeDisplay) {
       <div class="app-form-step">
         <div class="app-form-row">
           <app-input
@@ -714,13 +723,15 @@
         />
         <app-button type="submit" variant="primary" label="Update" [disabled]="submitting" />
       } @else {
-        <app-button
-          type="button"
-          variant="outline"
-          label="Go Back"
-          [disabled]="submitting || currentStep === 0"
-          (buttonClick)="prevStep()"
-        />
+        @if (!isEditModeDisplay) {
+          <app-button
+            type="button"
+            variant="outline"
+            label="Go Back"
+            [disabled]="submitting || currentStep === 0"
+            (buttonClick)="prevStep()"
+          />
+        }
         <app-button
           type="button"
           variant="outline"
@@ -729,7 +740,7 @@
           (buttonClick)="cancelled.emit()"
         />
 
-        @if (currentStep < steps.length - 1) {
+        @if ((currentStep < steps.length - 1) && !isEditModeDisplay) {
           <app-button
             type="button"
             variant="primary"
@@ -738,7 +749,7 @@
             (buttonClick)="nextStep()"
           />
         } @else {
-          <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+          <app-button type="submit" variant="primary" [label]="isEditModeDisplay ? 'Update' : 'Submit'" [disabled]="submitting" />
         }
       }
     </div>

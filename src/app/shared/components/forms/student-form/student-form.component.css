@@ -197,6 +197,29 @@
   flex-direction: column;
 }
 
+.photo-preview {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.photo-preview-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.photo-preview-image {
+  max-width: 200px;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+}
+
 .app-input-error {
   margin-top: var(--space-xs);
   color: var(--color-error);
@@ -292,4 +315,16 @@
   .app-form-actions app-button {
     width: 100%;
   }
+}
+
+.app-form.edit-mode .app-form-step {
+  margin-bottom: var(--space-xxl);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-form.edit-mode .app-form-step:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }

@@ -88,8 +88,14 @@ export class SidebarComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Only load faculties and add event listeners in browser environment (not during SSR)
-    if (typeof window !== 'undefined') {
+    // Only load faculties if user is a CAMPUS user (not admin, not student)
+    const userType = this.roles.getUserType();
+    const primaryRole = this.roles.getPrimaryRole();
+    const isAdmin = primaryRole === 'ADMIN' || primaryRole === 'SUPER_ADMIN';
+    const isCampus = userType === 'CAMPUS';
+    
+    // Only load faculties for CAMPUS users (not for students or admins)
+    if (isCampus && !isAdmin) {
       this.loadFaculties();
       // Listen for faculty refresh events (add, delete, update)
       window.addEventListener('facultyAdded', () => {
@@ -296,6 +302,19 @@ export class SidebarComponent implements OnInit {
    * This ensures token is valid and session hasn't expired.
    */
   private verifyAuthAndOpenNewTab(item: MenuItem): void {
+    // For student profile, use getCurrentUser() which has studentId from login
+    // /auth/me doesn't return studentId, so we need to use the stored user data
+    if (item.id === 'student-profile') {
+      const currentUser = this.auth.getCurrentUser();
+      if (currentUser && currentUser.studentId && currentUser.userId) {
+        // Use current user data which has studentId from login response
+        this.openNewTabWithUser(item, currentUser);
+        return;
+      } else {
+        // If no studentId in current user, try /auth/me as fallback
+        console.warn('⚠️ No studentId in current user, trying /auth/me...');
+      }
+    }
     
     // Call /auth/me to validate current session (silently, no notification)
     this.auth.me().subscribe({
@@ -306,6 +325,14 @@ export class SidebarComponent implements OnInit {
           this.notifications.error('Authentication failed. Please login again.');
           void this.router.navigateByUrl('/login');
           return;
+        }
+        
+        // For student profile, merge studentId from current user if /auth/me doesn't have it
+        if (item.id === 'student-profile') {
+          const currentUser = this.auth.getCurrentUser();
+          if (currentUser?.studentId && !user.studentId) {
+            user = { ...user, studentId: currentUser.studentId };
+          }
         }
         
         // Authentication successful, proceed to open new tab
@@ -331,15 +358,17 @@ export class SidebarComponent implements OnInit {
     
     // Build URL with IDs for student profile
     if (item.id === 'student-profile') {
-      const studentId = user.studentId || user.userId;
+      // Use studentId from user data (should be present for STUDENT userType)
+      const studentId = user.studentId;
       const userId = user.userId;
       
+      console.log('🔗 Building student profile URL:', { studentId, userId, user });
       
       if (studentId && userId) {
         fullUrl = `${window.location.origin}/student/profile/${studentId}/${userId}?standalone=true`;
       } else {
         console.error('❌ Student ID or User ID not found:', { studentId, userId, user });
-        this.notifications.error('Student ID or User ID not found');
+        this.notifications.error('Student ID or User ID not found. Please ensure your profile is complete.');
         return;
       }
     }

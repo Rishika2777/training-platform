@@ -199,16 +199,19 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     
     if (this.autocomplete) {
       this.isDropdownOpen = true;
-      // If no search term and we have static items, show all
-      if (!this.searchTerm && !this.apiFetchFn) {
+      // For static items mode, always show all items when dropdown opens
+      if (!this.apiFetchFn) {
         // Always refresh filtered items on focus when items are available
+        // Show all items when dropdown opens, user can then filter by typing
         if (this.items.length > 0) {
           this.filteredItems = [...this.items];
+          // Trigger search with empty term to show all items
+          this.searchSubject.next('');
         } else {
           // If items are empty, clear filtered items to avoid showing stale data
           this.filteredItems = [];
         }
-      } else if (this.apiFetchFn && !this.searchTerm && this.minSearchLength === 0) {
+      } else if (this.apiFetchFn !== undefined && !this.searchTerm && this.minSearchLength === 0) {
         // Trigger initial API call if minSearchLength is 0
         this.searchSubject.next('');
       }

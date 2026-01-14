@@ -1,45 +1,327 @@
-<section class="page">
-  <h2>Student Profile</h2>
-
-  <!-- Debug Info Card -->
-  @if (studentId() || userId()) {
-    <app-card title="Route Information">
-      <div class="debug-info">
-        <p><strong>Student ID:</strong> {{ studentId() }}</p>
-        <p><strong>User ID:</strong> {{ userId() }}</p>
-        <p><strong>Standalone Mode:</strong> {{ isStandalone() ? 'Yes' : 'No' }}</p>
-      </div>
-    </app-card>
-  }
-
+<section class="student-profile-page">
   <!-- Loading State -->
   @if (loading()) {
-    <app-card title="Get to Know Me">
-      <div class="loading-state">
-        <p>Loading profile data...</p>
-      </div>
-    </app-card>
+    <div class="loading-container">
+      <p>Loading profile data...</p>
+    </div>
   }
 
   <!-- Error State -->
   @if (error() && !loading()) {
-    <app-card title="Error">
-      <div class="error-state">
-        <p>{{ error() }}</p>
-        <button (click)="reload()">Retry</button>
-      </div>
-    </app-card>
+    <div class="error-container">
+      <p>{{ error() }}</p>
+      <app-button label="Retry" (buttonClick)="reload()" variant="primary" />
+    </div>
   }
 
-  <!-- Profile Data -->
+  <!-- Profile Content -->
   @if (profileData() && !loading() && !error()) {
-    <app-card title="Get to Know Me">
-      <div class="profile-content">
-        <pre>{{ profileData() | json }}</pre>
-        <!-- Replace with your actual profile UI -->
-        <p>Student profile loaded successfully!</p>
-        <p>You can now build your profile UI here using the profileData() signal.</p>
+    <!-- Profile Header Section -->
+    <div class="profile-header">
+      <div class="profile-header-content">
+        <div class="profile-left">
+          <div class="profile-photo-container">
+            @if (hasValidImage(getProfilePhotoUrl())) {
+              <img [src]="getProfilePhotoUrl()" [alt]="getFullName()" class="profile-photo" (error)="onImageError($event)" />
+              <div class="profile-photo-initials" style="display: none;">
+                {{ getInitials(getFullName()) }}
+              </div>
+            } @else {
+              <div class="profile-photo-initials">
+                {{ getInitials(getFullName()) }}
+              </div>
+            }
+            <div class="profile-badge">
+              <i class="fa-solid fa-thumbs-up"></i>
+              <span>25</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-right">
+          <h1 class="student-name">{{ getFullName() }}</h1>
+          <div class="profile-details">
+            <!-- <div class="detail-item">
+              <span class="detail-label">Rank</span>
+            </div> -->
+            <!-- <div class="detail-value">{{ getStringValue('rank', 'N/A') }}</div> -->
+            <div class="detail-item">
+              <span class="detail-label">Campus Name</span>
+            </div>
+            <div class="detail-value campus-name">{{ getInstitutionName() || 'N/A' }}</div>
+            <div class="detail-item">
+              <span class="detail-label">Batch</span>
+            </div>
+            <div class="detail-value">{{ getStringValue('batch', 'N/A') }}</div>
+          </div>
+          <div class="download-resume-container">
+            <app-button 
+              label="Download Resume" 
+              variant="primary" 
+              (buttonClick)="downloadResume()"
+              [disabled]="!getResumeUrl() || getResumeUrl() === '#'"
+            />
+            <i class="fa-solid fa-download download-icon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Journey Section -->
+    <div class="journey-wrapper">
+      <h2 class="section-title">My Journey</h2>
+      <div class="journey-content">
+        <p class="journey-text">{{ getStringValue('about', 'No journey description available.') }}</p>
+      </div>
+    </div>
+
+    <!-- My Batchmates Section -->
+    <div class="batchmates-wrapper">
+      <h2 class="section-title">My Batchmates</h2>
+      <div class="batchmates-section">
+        @if (loadingBatchmates()) {
+          <p>Loading batchmates...</p>
+        } @else if (batchmates().length > 0) {
+          <div class="batchmates-grid">
+            @for (batchmate of batchmates(); track batchmate.name; let i = $index) {
+              <div class="batchmate-card">
+                <div class="batchmate-avatar-container">
+                  @if (hasValidImage(batchmate.imageUrl)) {
+                    <img [src]="batchmate.imageUrl" [alt]="batchmate.name" class="batchmate-avatar" (error)="onImageError($event)" />
+                    <div class="batchmate-avatar-initials" style="display: none;">
+                      {{ getInitials(batchmate.name) }}
+                    </div>
+                  } @else {
+                    <div class="batchmate-avatar-initials">
+                      {{ getInitials(batchmate.name) }}
+                    </div>
+                  }
+                </div>
+                <div class="batchmate-name">{{ batchmate.name }} ({{ getBatchmateSpecialization(batchmate) }})</div>
+              </div>
+            }
+          </div>
+          <div class="pagination">
+            <button class="pagination-btn" type="button" (click)="previousBatchmatesPage()">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="pagination-numbers">
+              @for (page of [1,2,3,4,5,6]; track page) {
+                <button 
+                  class="pagination-number" 
+                  [class.active]="currentBatchmatesPage === page"
+                  (click)="goToBatchmatesPage(page)"
+                  type="button"
+                >
+                  {{ page }}
+                </button>
+              }
+            </div>
+            <button class="pagination-btn" type="button" (click)="nextBatchmatesPage()">
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        } @else {
+          <p class="empty-state">No batchmates found.</p>
+        }
+      </div>
+    </div>
+
+    <!-- Overview Section -->
+    <app-card [title]="'Overview'">
+      <div class="overview-section">
+        <div class="overview-left">
+          <h3 class="overview-title">Course Insights</h3>
+          <div class="chart-container">
+            <div class="donut-chart">
+              <div class="donut-chart-center">
+                <span class="chart-value">{{ getTotalCourses() }}</span>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <span class="legend-dot" style="background: #9C27B0;"></span>
+                <span>Completed</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background: #03A9F4;"></span>
+                <span>On going</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background: #F44336;"></span>
+                <span>Enrolled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="overview-right">
+          <h3 class="overview-title">Knowledge Base</h3>
+          <div class="bar-chart-container">
+            <div class="bar-chart">
+              @for (skill of getTechnicalSkills(); track skill; let i = $index) {
+                <div class="bar-item">
+                  <div class="bar" [style.height.%]="getSkillBarHeight(skill, i)" [style.background]="getBarColor(i)"></div>
+                  <span class="bar-label">{{ skill }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
       </div>
     </app-card>
+
+    <!-- My Projects Section -->
+    <div class="projects-wrapper">
+      <h2 class="section-title">My Projects</h2>
+      <div class="projects-section">
+        @if (getProjects().length > 0) {
+          @for (project of getProjects(); track project.projectId || project.projectName; let i = $index) {
+            <div class="project-card">
+              <h4 class="project-title">{{ project.projectName || 'Untitled Project' }}</h4>
+              <div class="project-content">
+                <div class="project-description">
+                  <span class="project-desc-label">Project Description</span>
+                  <p class="project-desc-text">{{ project.description || 'No description available.' }}</p>
+                </div>
+                <div class="project-technologies">
+                  <span class="tech-label">Technologies used</span>
+                  <div class="tech-icons">
+                    @for (tech of project.technologiesUsed || []; track tech; let techIndex = $index) {
+                      <div class="tech-icon" [title]="tech">
+                        <i class="fa-brands fa-{{ getTechIcon(tech) }}"></i>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+          <!-- <div class="see-more-link">
+            <a href="#" class="see-more">See more</a>
+          </div> -->
+        } @else {
+          <p class="empty-state">No projects available. (Debug: Projects count = {{ getProjects().length }})</p>
+        }
+      </div>
+    </div>
+
+    <!-- Alumni Community Section -->
+    <div class="alumni-section">
+      <h2 class="section-title">Alumni Community</h2>
+      <div class="alumni-carousel">
+        <button class="carousel-nav carousel-nav-left" type="button" (click)="previousAlumni()">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        @if (loadingAlumni()) {
+          <p>Loading alumni...</p>
+        } @else if (alumni().length > 0) {
+          <div class="alumni-list">
+            @for (alumnus of alumni(); track alumnus.name) {
+              <div class="alumni-card">
+                <div class="alumni-avatar-container">
+                  @if (hasValidImage(alumnus.imageUrl)) {
+                    <img [src]="alumnus.imageUrl" [alt]="alumnus.name" class="alumni-avatar" (error)="onImageError($event)" />
+                    <div class="alumni-avatar-initials" style="display: none;">
+                      {{ getInitials(alumnus.name) }}
+                    </div>
+                  } @else {
+                    <div class="alumni-avatar-initials">
+                      {{ getInitials(alumnus.name) }}
+                    </div>
+                  }
+                </div>
+                <div class="alumni-name">{{ alumnus.name }}</div>
+                <div class="alumni-designation">{{ alumnus.designation || 'Designation' }}</div>
+                <div class="alumni-company">{{ alumnus.company || 'Company' }}</div>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">No alumni found.</p>
+        }
+        <button class="carousel-nav carousel-nav-right" type="button" (click)="nextAlumni()">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Testimonials Section -->
+    <div class="testimonials-section">
+      <h2 class="testimonials-title">What People Say About Me</h2>
+      <div class="testimonial-carousel">
+        <button class="carousel-nav carousel-nav-left" type="button" (click)="previousTestimonial()">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <div class="testimonial-content">
+          <p class="testimonial-text">"A dedicated and proactive student who consistently strives for excellence in academics and extracurricular activities."</p>
+          <div class="testimonial-author">
+            <span class="testimonial-author-name">-Shreya Rao</span>
+          </div>
+        </div>
+        <button class="carousel-nav carousel-nav-right" type="button" (click)="nextTestimonial()">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Get In Touch Section -->
+    <div class="contact-section">
+      <div class="contact-header">
+        <h2 class="contact-title">Get In Touch</h2>
+        <p class="contact-subtitle">Hidden Contacts: Safeguard Your Circle.</p>
+      </div>
+      <p class="contact-intro">
+        Your input is valuable in recognizing accomplishments and guiding improvement. Let us know your insights on this student's progress, abilities, and highlights using the form below!
+      </p>
+      <div class="feedback-form">
+        <div class="feedback-left">
+          <p class="feedback-question">Would you recommend promoting this student based on their performance and potential?</p>
+          <div class="recommendation-buttons">
+            <button 
+              type="button" 
+              class="recommend-btn"
+              [class.active]="feedbackRecommendation === 'yes'"
+              (click)="feedbackRecommendation = 'yes'"
+            >
+              <i class="fa-solid fa-thumbs-up"></i>
+              <span>Yes</span>
+            </button>
+            <button 
+              type="button" 
+              class="recommend-btn"
+              [class.active]="feedbackRecommendation === 'no'"
+              (click)="feedbackRecommendation = 'no'"
+            >
+              <i class="fa-solid fa-thumbs-down"></i>
+              <span>No</span>
+            </button>
+          </div>
+        </div>
+        <div class="feedback-right">
+          <app-input
+            label="Name"
+            type="text"
+            [value]="feedbackName"
+            (valueChange)="feedbackName = $event"
+            placeholder="Enter your name"
+          />
+          <app-textarea
+            [label]="'Speak your mind about ' + getFullName() + '!'"
+            [value]="feedbackComment"
+            (valueChange)="feedbackComment = $event"
+            placeholder="Write your feedback here..."
+            [rows]="5"
+          />
+        </div>
+      </div>
+      <div class="feedback-submit">
+        <app-button 
+          label="send" 
+          variant="primary" 
+          type="submit"
+          (buttonClick)="submitFeedback()"
+          [disabled]="!feedbackName.trim() || !feedbackComment.trim() || !feedbackRecommendation"
+        />
+      </div>
+    </div>
   }
 </section>

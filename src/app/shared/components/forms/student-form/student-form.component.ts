@@ -6,6 +6,7 @@ import { InputComponent } from '../../input/input.component';
 import { StepIndicatorComponent } from '../../step-indicator/step-indicator.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import type { CampusResponse } from '../../../../features/student/models/student.models';
 
 type YesNo = 'yes' | 'no';
 type Gender = 'male' | 'female' | 'other';
@@ -13,6 +14,7 @@ type Gender = 'male' | 'female' | 'other';
 export interface StudentEducationItem {
   qualification: string;
   institution: string;
+  campusId?: string; // Campus ID when institution is selected from campuses
   degree: string;
   specialization: string;
   yearOfPassing: string;
@@ -74,6 +76,7 @@ export interface StudentFormValue {
   firstName: string;
   lastName: string;
   photoFiles: FileList | null;
+  photoUrl?: string; // URL of existing photo from API
   dateOfBirth: string;
   gender: Gender | null;
   mobile: string;
@@ -98,6 +101,7 @@ export function createEmptyStudentFormValue(seed?: Partial<StudentFormValue>): S
     firstName: '',
     lastName: '',
     photoFiles: null,
+    photoUrl: undefined,
     dateOfBirth: '',
     gender: null,
     mobile: '',
@@ -181,9 +185,10 @@ export class StudentFormComponent {
   @Input() submitting = false;
   @Input() value: StudentFormValue = createEmptyStudentFormValue();
   @Input() emailLocked = false;
-  @Input() mode: 'create' | 'review' = 'create';
+  @Input() mode: 'create' | 'review' | 'edit' = 'create';
   @Input() approveDisabled = false;
   @Input() isEditMode = false;
+  @Input() campuses: CampusResponse[] = []; // Campuses for institution dropdown
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
@@ -199,6 +204,15 @@ export class StudentFormComponent {
 
   get isReviewMode(): boolean {
     return this.mode === 'review';
+  }
+
+  get isEditModeDisplay(): boolean {
+    // Show all steps when mode is 'edit' (always show full form for editing)
+    // Or when isEditMode is true and not in review mode
+    if (this.mode === 'edit') {
+      return true;
+    }
+    return this.isEditMode && this.mode !== 'review';
   }
 
   get isFieldsDisabled(): boolean {
@@ -246,13 +260,23 @@ export class StudentFormComponent {
     { label: 'Other', value: 'Other' },
   ];
 
-  readonly institutionItems: readonly DropdownItem<string>[] = [
-    { label: 'University of Technology', value: 'University of Technology' },
-    { label: 'State University', value: 'State University' },
-    { label: 'Private University', value: 'Private University' },
-    { label: 'Institute of Technology', value: 'Institute of Technology' },
-    { label: 'Other', value: 'Other' },
-  ];
+  // Use campuses if available, otherwise fallback to hardcoded list
+  get institutionItems(): readonly DropdownItem<string>[] {
+    if (this.campuses && this.campuses.length > 0) {
+      return this.campuses.map((campus) => ({
+        label: campus.campusName || '',
+        value: campus.campusId || '',
+      })).filter((item) => item.label && item.value);
+    }
+    // Fallback to hardcoded list if no campuses provided
+    return [
+      { label: 'University of Technology', value: 'University of Technology' },
+      { label: 'State University', value: 'State University' },
+      { label: 'Private University', value: 'Private University' },
+      { label: 'Institute of Technology', value: 'Institute of Technology' },
+      { label: 'Other', value: 'Other' },
+    ];
+  }
 
   readonly degreeItems: readonly DropdownItem<string>[] = [
     { label: 'B.Tech', value: 'B.Tech' },
@@ -490,6 +514,17 @@ export class StudentFormComponent {
   }
 
   patchEducationAt(index: number, patch: Partial<StudentEducationItem>): void {
+    // If institution is being updated and we have campuses, find the campus and set campusId
+    if (patch.institution && this.campuses && this.campuses.length > 0) {
+      const selectedCampus = this.campuses.find((c) => c.campusId === patch.institution || c.campusName === patch.institution);
+      if (selectedCampus && selectedCampus.campusId) {
+        patch.campusId = selectedCampus.campusId;
+        // Also update institution to campusName for consistency
+        if (selectedCampus.campusName) {
+          patch.institution = selectedCampus.campusName;
+        }
+      }
+    }
     const next = this.value.education.map((item, i) => (i === index ? { ...item, ...patch } : item));
     this.patch({ education: next });
   }
@@ -795,11 +830,12 @@ export class StudentFormComponent {
   }
 
   private isWorkPreferencesValid(): boolean {
+    const isEditModeValidation = this.isReviewMode && this.isEditMode;
     return (
-      this.value.workPreferences.jobRolesInterested.trim().length > 0 &&
-      this.value.workPreferences.preferredLocation.trim().length > 0 &&
-      this.value.workPreferences.availabilityToStart.trim().length > 0 &&
-      this.value.workPreferences.expectedSalary.trim().length > 0
+      (isEditModeValidation || this.value.workPreferences.jobRolesInterested.trim().length > 0) &&
+      (isEditModeValidation || this.value.workPreferences.preferredLocation.trim().length > 0) &&
+      (isEditModeValidation || this.value.workPreferences.availabilityToStart.trim().length > 0) &&
+      (isEditModeValidation || this.value.workPreferences.expectedSalary.trim().length > 0)
     );
   }
 
@@ -808,11 +844,11 @@ export class StudentFormComponent {
     return (
       (isEditModeValidation || (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0)) &&
       (isEditModeValidation || (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0)) &&
-      this.value.additional.portfolioUrl.trim().length > 0 &&
-      this.value.additional.offersInHand !== null &&
-      this.value.additional.heardAboutPortal.trim().length > 0 &&
-      this.value.additional.jobAlertsVia.trim().length > 0 &&
-      this.value.additional.agreeToTerms
+      (isEditModeValidation || this.value.additional.portfolioUrl.trim().length > 0) &&
+      (isEditModeValidation || this.value.additional.offersInHand !== null) &&
+      (isEditModeValidation || this.value.additional.heardAboutPortal.trim().length > 0) &&
+      (isEditModeValidation || this.value.additional.jobAlertsVia.trim().length > 0) &&
+      (isEditModeValidation || this.value.additional.agreeToTerms)
     );
   }
 }

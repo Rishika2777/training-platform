@@ -6,6 +6,7 @@ import { StudentApiService } from '../../../student/services/student-api.service
 import { CompanyApiService } from '../../../company/services/company-api.service';
 import { CampusApiService, Campus, CampusRegisterRequest } from '../../../campus/services/campus-api.service';
 import { StudentFormComponent, StudentFormValue, createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.component';
+import { CampusResponse } from '../../../student/models/student.models';
 import { CompanyFormComponent, CompanyFormValue } from '../../../../shared/components/forms/company-form/company-form.component';
 import { CampusFormComponent, CampusFormValue } from '../../../../shared/components/forms/campus-form/campus-form.component';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -49,6 +50,7 @@ export class EditProfileModalComponent implements OnInit {
   
   studentViewValue: StudentFormValue = createEmptyStudentFormValue();
   companyViewValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
+  campuses: CampusResponse[] = [];
   campusViewValue: CampusFormValue = {
     campusName: '',
     campusLogoUrl: '',
@@ -69,8 +71,24 @@ export class EditProfileModalComponent implements OnInit {
 
   ngOnInit(): void {
     this.userType = this.roleService.getUserType();
-    this.isEditMode.set(false);
+    // Non-admin users should start in edit mode by default
+    this.isEditMode.set(!this.isAdmin);
+    this.loadCampuses();
     this.loadUserProfile();
+  }
+
+  private loadCampuses(): void {
+    this.studentApi.getRegisteredCampuses().subscribe({
+      next: (response) => {
+        if (response.data && Array.isArray(response.data)) {
+          this.campuses = response.data;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (error) => {
+        console.error('Failed to load campuses:', error);
+      },
+    });
   }
 
   toggleEditMode(): void {
@@ -342,9 +360,14 @@ export class EditProfileModalComponent implements OnInit {
     const { personalInfo, educationDetails, skillsAndExperience, additionalInfo } = registerRequest;
     const { skills, projects } = skillsAndExperience;
 
-    const projectNames = projects.map((p) => p.projectName).filter(Boolean);
-    const projectDescriptions = projects.map((p) => p.description).filter(Boolean);
-    const technologiesUsed = projects.flatMap((p) => p.technologiesUsed).filter(Boolean);
+    // Map projects to array of objects as expected by backend
+    const mappedProjects = projects
+      .filter((p) => p.projectName || p.description)
+      .map((p) => ({
+        projectName: p.projectName || '',
+        description: p.description || '',
+        technologiesUsed: p.technologiesUsed || [],
+      }));
 
     return {
       firstName: personalInfo.firstName,
@@ -359,6 +382,8 @@ export class EditProfileModalComponent implements OnInit {
       email: personalInfo.email.toLowerCase(),
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
+      campusId: educationDetails.campusId || [],
+      other: educationDetails.other || false,
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
       yearOfPassing: educationDetails.yearOfPassing || '',
@@ -366,7 +391,7 @@ export class EditProfileModalComponent implements OnInit {
       cgpa: educationDetails.cgpa || '',
       technicalSkills: skills.technicalSkills,
       softSkills: skills.softSkills,
-      proficiencyLevel: skills.proficiencyLevel || '',
+      proficiencyLevel: skills.proficiencyLevel && skills.proficiencyLevel.trim() ? skills.proficiencyLevel : 'BEGINNER',
       languagesKnown: skills.languagesKnown,
       jobRolesOfInterest: skills.jobRolesOfInterest,
       preferredLocation: skills.preferredLocation,
@@ -378,15 +403,16 @@ export class EditProfileModalComponent implements OnInit {
       startDate: skills.startDate || '',
       endDate: skills.endDate || '',
       currentlyWorking: skills.currentlyWorking || false,
-      projectNames: projectNames,
-      description: projectDescriptions.length > 0 ? projectDescriptions[0] : '',
-      technologiesUsed: technologiesUsed,
+      // Projects as array of objects (not flattened)
+      projects: mappedProjects,
       govtIdProofUrl: additionalInfo.govtIdProofUrl || '',
       portfolioUrl: additionalInfo.portfolioUrl || '',
       resumeUrl: additionalInfo.resumeUrl || '',
       otherWebsites: additionalInfo.otherWebsites || [],
       offersInHand: additionalInfo.offersInHand || false,
       jobAlertPreference: additionalInfo.jobAlertPreference || 'NONE',
+      howDidYouHear: additionalInfo.howDidYouHear || '',
+      termsAndCondition: additionalInfo.termsAndCondition || false,
     };
   }
 
@@ -457,11 +483,16 @@ export class EditProfileModalComponent implements OnInit {
     const languagesKnown = readStringArray(data, 'languagesKnown');
 
     // Projects from flat structure
-    const projects = readRecordArray(data, 'projects').map((p) => ({
+    const projectsFromApi = readRecordArray(data, 'projects').map((p) => ({
       projectName: readString(p, 'projectName'),
       description: readString(p, 'description'),
       technologiesUsed: readStringArray(p, 'technologiesUsed'),
     }));
+    
+    // Ensure at least one empty project item exists so fields are visible
+    const projects = projectsFromApi.length > 0 
+      ? projectsFromApi 
+      : [{ projectName: '', description: '', technologiesUsed: [] }];
 
     // For dropdown fields, take the first value from the array
     const jobRolesArray = readStringArray(data, 'jobRolesOfInterest');
@@ -485,6 +516,19 @@ export class EditProfileModalComponent implements OnInit {
     // Try to get email from data, or leave empty if not available
     const email = readString(data, 'email');
     const address = readString(data, 'address');
+    const profilePhotoUrl = readString(data, 'profilePhotoUrl');
+    
+    // Construct full photo URL from filename
+    let photoUrl: string | undefined = undefined;
+    if (profilePhotoUrl) {
+      if (profilePhotoUrl.startsWith('http://') || profilePhotoUrl.startsWith('https://')) {
+        photoUrl = profilePhotoUrl;
+      } else if (profilePhotoUrl.startsWith('/')) {
+        photoUrl = `/api/v1/files${profilePhotoUrl}`;
+      } else {
+        photoUrl = `/api/v1/files/${profilePhotoUrl}`;
+      }
+    }
     
     const initial = createEmptyStudentFormValue({
       firstName,
@@ -496,6 +540,7 @@ export class EditProfileModalComponent implements OnInit {
       address: address || '',
       dateOfBirth,
       gender,
+      photoUrl,
       education,
       technicalSkills,
       softSkills,
@@ -675,6 +720,7 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
 
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
+  const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
   const yearOfPassing = readString(education, 'yearOfPassing');
@@ -687,6 +733,7 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
     out.push({
       qualification: qualifications[i] ?? '',
       institution: institutions[i] ?? '',
+      campusId: campusIds[i] ?? undefined, // Map campusId from API response
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
       yearOfPassing: convertYearToDate(yearOfPassing),

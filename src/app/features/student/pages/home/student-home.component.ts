@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
+import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { StudentResumeUploadComponent } from '../resume-upload/student-resume-upload.component';
 import { StudentCareerCheckinComponent } from '../career-checkin/student-career-checkin.component';
@@ -11,6 +13,7 @@ import { StudentAiToolkitComponent } from '../ai-toolkit/ai-toolkit.component';
 import { StudentApiService } from '../../services/student-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { catchError, of } from 'rxjs';
+import { CampusResponse } from '../../models/student.models';
 
 @Component({
   selector: 'app-student-home',
@@ -19,6 +22,8 @@ import { catchError, of } from 'rxjs';
     CommonModule,
     CarouselComponent,
     ModalComponent,
+    DropdownComponent,
+    ButtonComponent,
     StudentResumeUploadComponent,
     StudentCareerCheckinComponent,
     StudentLearningPathwayComponent,
@@ -39,6 +44,7 @@ export class StudentHomeComponent implements OnInit {
   readonly isLearningPathwayModalOpen = computed(() => this.activeModal() === 'learning-pathway');
   readonly isIdeasSubmissionModalOpen = computed(() => this.activeModal() === 'ideas-submission');
   readonly isDreamJobToolkitModalOpen = computed(() => this.activeModal() === 'dream-job-toolkit');
+  readonly isFilterModalOpen = computed(() => this.activeModal() === 'batchmates-filter');
 
   submittingResume = false;
   submittingCareerCheckin = false;
@@ -48,10 +54,18 @@ export class StudentHomeComponent implements OnInit {
   readonly batchmates = signal<readonly PersonCard[]>([]);
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   readonly alumni = signal<readonly PersonCard[]>([]);
+  readonly campuses = signal<readonly CampusResponse[]>([]);
 
   loadingBatchmates = signal(false);
   loadingPlacedStudents = signal(false);
   loadingAlumni = signal(false);
+
+  // Store student profile data for campusName and yearOfPassing (from localStorage)
+  readonly studentProfile = signal<Record<string, unknown> | null>(null);
+
+  // Filter state for batchmates and alumni
+  readonly selectedCampusName = signal<string | null>(null);
+  readonly selectedYearOfPassing = signal<string | null>(null);
 
   readonly posts: readonly FeedPost[] = [
     {
@@ -96,7 +110,27 @@ export class StudentHomeComponent implements OnInit {
 
   ngOnInit(): void {
     console.log('StudentHomeComponent: ngOnInit called');
+    this.loadCampuses();
     this.loadData();
+  }
+
+  loadCampuses(): void {
+    this.studentApiService.getRegisteredCampuses().subscribe({
+      next: (response) => {
+        if (response.data && Array.isArray(response.data)) {
+          console.log('StudentHomeComponent: Campuses loaded:', response.data);
+          console.log('StudentHomeComponent: Total campuses:', response.data.length);
+          this.campuses.set(response.data);
+          // Debug: Log campus items
+          console.log('StudentHomeComponent: Campus items for dropdown:', this.getCampusItems());
+        } else {
+          console.warn('StudentHomeComponent: No campus data in response:', response);
+        }
+      },
+      error: (error) => {
+        console.error('Failed to load campuses:', error);
+      },
+    });
   }
 
   loadData(): void {
@@ -113,17 +147,69 @@ export class StudentHomeComponent implements OnInit {
       return;
     }
 
-    console.log('StudentHomeComponent: Calling loadBatchmates, loadPlacedStudents, loadAlumni');
-    this.loadBatchmates(studentId);
-    this.loadPlacedStudents();
-    this.loadAlumni(studentId);
+    // Try to get campusName and yearOfPassing from localStorage (stored during registration/profile update)
+    const storedProfile = this.getStoredProfileData();
+    if (storedProfile) {
+      this.studentProfile.set(storedProfile);
+      // Initialize filter values from profile
+      const institutionName = Array.isArray(storedProfile['institutionName']) && storedProfile['institutionName'].length > 0
+        ? String(storedProfile['institutionName'][0])
+        : null;
+      const yearOfPassing = storedProfile['yearOfPassing'] ? String(storedProfile['yearOfPassing']) : null;
+      
+      this.selectedCampusName.set(institutionName);
+      this.selectedYearOfPassing.set(yearOfPassing);
+      
+      // Load batchmates, alumni, and placed students with the stored profile data
+      if (institutionName && yearOfPassing) {
+        this.loadBatchmates(studentId);
+        this.loadAlumni(studentId);
+      }
+    } else {
+      console.warn('Profile data not found in storage. Batchmates and alumni will not be loaded.');
+    }
+    // Load placed students as it doesn't require profile data
+    // this.loadPlacedStudents();
+  }
+
+  /**
+   * Get stored profile data from localStorage
+   * This data should be stored when profile is loaded/updated elsewhere
+   */
+  private getStoredProfileData(): Record<string, unknown> | null {
+    try {
+      const stored = localStorage.getItem('student_profile_data');
+      if (stored) {
+        return JSON.parse(stored) as Record<string, unknown>;
+      }
+    } catch (error) {
+      console.error('Error reading stored profile data:', error);
+    }
+    return null;
   }
 
   loadBatchmates(studentId: string): void {
     console.log('StudentHomeComponent: loadBatchmates called with studentId =', studentId);
+    
+    const profile = this.studentProfile();
+    if (!profile) {
+      console.warn('Student profile not loaded yet. Cannot load batchmates.');
+      return;
+    }
+
+    const institutionName = Array.isArray(profile['institutionName']) && profile['institutionName'].length > 0
+      ? String(profile['institutionName'][0])
+      : null;
+    const yearOfPassing = profile['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
+
+    if (!institutionName || !yearOfPassing) {
+      console.warn('Cannot load batchmates: institutionName or yearOfPassing is missing', { institutionName, yearOfPassing });
+      return;
+    }
+
     this.loadingBatchmates.set(true);
     this.studentApiService
-      .getBatchmates(studentId, this.batchmatesPage, this.peoplePageSize)
+      .getBatchmates(studentId, institutionName, yearOfPassing, this.batchmatesPage, this.peoplePageSize)
       .pipe(
         catchError((error) => {
           console.error('Error loading batchmates:', error);
@@ -187,12 +273,19 @@ export class StudentHomeComponent implements OnInit {
 
   loadAlumni(studentId: string): void {
     console.log('StudentHomeComponent: loadAlumni called with studentId =', studentId);
+    
+    const campusName = this.selectedCampusName();
+    const yearOfPassing = this.selectedYearOfPassing();
+
+    if (!campusName || !yearOfPassing) {
+      console.warn('Cannot load alumni: campusName or yearOfPassing is missing', { campusName, yearOfPassing });
+      return;
+    }
+
     this.loadingAlumni.set(true);
-    // Use current year as default yearOfPassing for alumni
-    const currentYear = new Date().getFullYear().toString();
-    console.log('StudentHomeComponent: Loading alumni for year =', currentYear);
+    console.log('StudentHomeComponent: Loading alumni for campus =', campusName, 'year =', yearOfPassing);
     this.studentApiService
-      .getAlumniForStudent(studentId, currentYear, this.alumniPage, this.peoplePageSize)
+      .getAlumniForStudent(studentId, campusName, yearOfPassing, this.alumniPage, 12)
       .pipe(
         catchError((error) => {
           console.error('Error loading alumni:', error);
@@ -223,7 +316,7 @@ export class StudentHomeComponent implements OnInit {
   onBatchmatesPageChange(page: number): void {
     this.batchmatesPage = page;
     const currentUser = this.authService.getCurrentUser();
-    const studentId = currentUser?.profileServiceId;
+    const studentId = currentUser?.studentId || currentUser?.profileServiceId;
     if (studentId) {
       this.loadBatchmates(studentId);
     }
@@ -237,8 +330,102 @@ export class StudentHomeComponent implements OnInit {
   onAlumniPageChange(page: number): void {
     this.alumniPage = page;
     const currentUser = this.authService.getCurrentUser();
-    const studentId = currentUser?.profileServiceId;
+    const studentId = currentUser?.studentId || currentUser?.profileServiceId;
     if (studentId) {
+      this.loadAlumni(studentId);
+    }
+  }
+
+  /**
+   * Open filter modal for batchmates/alumni
+   */
+  openFilterModal(): void {
+    this.modalService.openModal('batchmates-filter');
+  }
+
+  /**
+   * Close filter modal
+   */
+  closeFilterModal(): void {
+    this.modalService.closeModal();
+  }
+
+  /**
+   * Get campus dropdown items (computed to always have latest data)
+   */
+  readonly campusItems = computed<DropdownItem[]>(() => {
+    const items = this.campuses().map((campus) => ({
+      value: campus.campusName || '',
+      label: campus.campusName || '',
+    })).filter(item => item.value && item.label); // Filter out empty values
+    
+    console.log('StudentHomeComponent: campusItems computed - Total items:', items.length, items);
+    return items;
+  });
+
+  /**
+   * Get campus dropdown items (legacy method for compatibility)
+   */
+  getCampusItems(): DropdownItem[] {
+    return this.campusItems();
+  }
+
+  /**
+   * Get year dropdown items (generate years from current year to 10 years back)
+   */
+  getYearItems(): DropdownItem[] {
+    const currentYear = new Date().getFullYear();
+    const years: DropdownItem[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const year = (currentYear - i).toString();
+      years.push({ value: year, label: year });
+    }
+    return years;
+  }
+
+  /**
+   * Handle campus selection change
+   */
+  onCampusChange(campusName: string): void {
+    this.selectedCampusName.set(campusName);
+    // Apply filters immediately when value changes
+    if (this.selectedYearOfPassing()) {
+      this.applyFilters();
+    }
+  }
+
+  /**
+   * Handle year selection change
+   */
+  onYearChange(year: string): void {
+    this.selectedYearOfPassing.set(year);
+    // Apply filters immediately when value changes
+    if (this.selectedCampusName()) {
+      this.applyFilters();
+    }
+  }
+
+  /**
+   * Apply filters and reload batchmates and alumni
+   */
+  applyFilters(): void {
+    const currentUser = this.authService.getCurrentUser();
+    const studentId = currentUser?.studentId;
+    
+    if (!studentId) {
+      return;
+    }
+
+    const campusName = this.selectedCampusName();
+    const yearOfPassing = this.selectedYearOfPassing();
+
+    if (campusName && yearOfPassing) {
+      // Reset to first page when filters change
+      this.batchmatesPage = 1;
+      this.alumniPage = 1;
+      
+      // Reload both batchmates and alumni with new filters
+      this.loadBatchmates(studentId);
       this.loadAlumni(studentId);
     }
   }

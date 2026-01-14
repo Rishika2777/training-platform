@@ -107,13 +107,14 @@
     STUDENT: {
       BASE: '/student',
       REGISTER: '/student/register',
+      GET_REGISTERED_CAMPUSES: '/campuses',
       FULL_PROFILE: '/student/:studentId/profile',
       PUBLIC_PROFILE: '/student/:studentId/public-profile',
       RESUME_URL: '/student/:studentId/resume',
       APPROVAL_STATUS_BY_STUDENT_ID: '/student/:studentId/approval-status',
       APPROVAL_STATUS_BY_USER_ID: '/student/approval-status',
       UPDATE_FULL_PROFILE: '/student/:studentId/update',
-      UPDATE_APPROVAL_STATUS: '/student/:studentId/approvalStatus/update',
+      UPDATE_APPROVAL_STATUS: '/student/:studentId/approval-Status/update',
       UPDATE_SKILLS: '/student/:studentId/skills',
       UPDATE_EDUCATION: '/student/:studentId/education',
       UPDATE_ADDITIONAL_INFO: '/student/:studentId/additional-info',
@@ -128,10 +129,10 @@
       CAREER_CHECKIN: '/student/career-checkin',
       IDEA_SUBMIT: '/student/ideas/submit',
       IDEA_TEMPLATE: '/student/ideas/template',
-      BATCHMATES: '/batchmates/:studentId/batchmates',
+      BATCHMATES: '/student/:studentId/myBatchmates',
       PLACED_STUDENTS: '/placed-students',
-      ALL_STUDENTS: '/student/students',
-      DELETE: '/student/students/:studentId',
+      ALL_STUDENTS: '/student/students/all',
+      DELETE: '/student/delete/:studentId',
     },
     COMPANY: {
       BASE: '/company',
@@ -218,5 +219,72 @@
 
   export const APP_CONFIG_TOKEN = new InjectionToken<AppConfig>('APP_CONFIG');
   export const API_ENDPOINTS_TOKEN = new InjectionToken<typeof API_ENDPOINTS>('API_ENDPOINTS');
+
+  /**
+   * Static campus data for institution dropdown
+   * Used when API is not available or for offline mode
+   */
+  export const STATIC_CAMPUSES = [
+    {
+      campusId: 'CAMP001',
+      campusName: 'Indian Institute of Technology Delhi',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP002',
+      campusName: 'Indian Institute of Technology Bombay',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP003',
+      campusName: 'Indian Institute of Technology Madras',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP004',
+      campusName: 'Indian Institute of Technology Kanpur',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP005',
+      campusName: 'National Institute of Technology Trichy',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP006',
+      campusName: 'Birla Institute of Technology and Science Pilani',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP007',
+      campusName: 'Delhi Technological University',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP008',
+      campusName: 'Netaji Subhas University of Technology',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP009',
+      campusName: 'Jawaharlal Nehru Technological University Hyderabad',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+    {
+      campusId: 'CAMP010',
+      campusName: 'Vellore Institute of Technology',
+      approvalStatus: 'APPROVED',
+      isEmailVerified: true,
+    },
+  ] as const;
 
 

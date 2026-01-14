@@ -3,6 +3,29 @@ import {
   StudentWorkPreferences,
 } from '../../../shared/components/forms/student-form/student-form.component';
 
+export interface CampusResponse {
+  campusId?: string;
+  campusName?: string;
+  campusLogoUrl?: string;
+  campusRank?: number;
+  adminName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  websiteUrl?: string;
+  aboutCampus?: string;
+  campusAddress?: string;
+  approvalStatus?: string;
+}
+
+export interface ApiResponseCampusResponse {
+  success?: boolean;
+  message?: string;
+  data?: CampusResponse[];
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 export interface StudentPersonalInfo {
   firstName: string;
   lastName: string;
@@ -18,6 +41,8 @@ export interface StudentPersonalInfo {
 export interface StudentEducationDetails {
   qualifications: string[];
   institutionName: string[];
+  campusId?: string[];
+  other?: boolean;
   degrees: string[];
   specializations: string[];
   yearOfPassing?: string;
@@ -164,6 +189,37 @@ export interface ApiResponseStudentProfileResponse {
   success?: boolean;
   message?: string;
   data?: StudentFullProfileObject;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface StudentPublicProfileResponse {
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  dateOfBirth?: string;
+  profilePhotoUrl?: string;
+  phoneNumber?: string;
+  email?: string;
+  address?: string;
+  about?: string;
+  campusName?: string;
+  batch?: string;
+  rank?: string;
+  resumeUrl?: string;
+  projects?: ProjectResponse[];
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  [key: string]: unknown;
+}
+
+export interface ApiResponseStudentPublicProfileResponse {
+  success?: boolean;
+  message?: string;
+  data?: StudentPublicProfileResponse;
   error?: string;
   statusCode?: number;
   timestamp?: string;
@@ -363,7 +419,8 @@ function getYearForSorting(value: string | null | undefined): number {
 
 export function mapStudentFormValueToRegisterRequest(
   formValue: StudentFormValue,
-  userId?: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userId?: string,
 ): StudentCompleteRegistrationRequest {
   const education = formValue.education.filter((e) => e.qualification || e.institution || e.degree);
   const workExperience = formValue.workExperience.filter(
@@ -395,6 +452,8 @@ export function mapStudentFormValueToRegisterRequest(
   const educationDetails: StudentEducationDetails = {
     qualifications: toTrimmedStringArray(education.map((e) => e.qualification).filter(Boolean)),
     institutionName: toTrimmedStringArray(education.map((e) => e.institution).filter(Boolean)),
+    campusId: toTrimmedStringArray(education.map((e) => e.campusId || '').filter(Boolean)), // Map campusId from education items, filter out empty/undefined
+    other: false, // Backend expects boolean, but not available in form - send false
     degrees: toTrimmedStringArray(education.map((e) => e.degree).filter(Boolean)),
     specializations: toTrimmedStringArray(education.map((e) => e.specialization).filter(Boolean)),
     yearOfPassing: extractYearFromDate(mostRecentEducation?.yearOfPassing),
@@ -414,7 +473,7 @@ export function mapStudentFormValueToRegisterRequest(
     softSkills: toTrimmedStringArray(Array.from(formValue.softSkills).filter(Boolean)),
     proficiencyLevel: toTrimmedString(
       formValue.technicalSkills.length > 0 ? formValue.technicalSkills[0].proficiency : '',
-    ),
+    ) || 'BEGINNER', // Default to BEGINNER if empty to satisfy backend requirement
     languagesKnown: toTrimmedStringArray(Array.from(formValue.languagesKnown).filter(Boolean)),
     jobRolesOfInterest: jobRolesInterestedTrimmed ? [jobRolesInterestedTrimmed] : [],
     preferredLocation: preferredLocationTrimmed ? [preferredLocationTrimmed] : [],
@@ -429,7 +488,6 @@ export function mapStudentFormValueToRegisterRequest(
   };
 
   const mappedProjects: StudentProject[] = projects.map((p) => ({
-    userId: toTrimmedString(userId),
     projectName: toTrimmedString(p.projectName),
     description: toTrimmedString(p.description),
     technologiesUsed: toTrimmedStringArray(Array.from(p.technologiesUsed).filter(Boolean)),

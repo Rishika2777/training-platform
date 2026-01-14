@@ -236,13 +236,9 @@ export class AdminStudentComponent implements OnInit {
 
     // Use userId from the root data object (data.userId) for the query parameter
     // Use studentId from the root data object (data.studentId) for the path parameter
-    if (!this.selectedStudentUserId) {
-      console.error('Cannot update student: userId is missing');
-      this.viewSubmitting = false;
-      return;
-    }
+
     this.studentApi
-      .updateStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, updateRequest)
+      .updateStudentFullProfile(this.selectedStudentId, 'userId', updateRequest)
       .subscribe({
         next: () => {
           // Show success notification
@@ -252,8 +248,13 @@ export class AdminStudentComponent implements OnInit {
           // Reload students list in background (don't wait for it)
           this.loadStudents();
         },
-        error: () => {
+        error: (error) => {
           this.viewSubmitting = false;
+          // Extract and display validation errors
+          const errorMessage = this.extractValidationErrorMessage(error);
+          if (errorMessage) {
+            this.notify.error(errorMessage);
+          }
           this.cdr.detectChanges();
         },
       });
@@ -269,12 +270,16 @@ export class AdminStudentComponent implements OnInit {
     const { personalInfo, educationDetails, skillsAndExperience, additionalInfo } = registerRequest;
     const { skills, projects } = skillsAndExperience;
     
-    // Flatten projects arrays
-    const projectNames = projects.map((p) => p.projectName).filter(Boolean);
-    const projectDescriptions = projects.map((p) => p.description).filter(Boolean);
-    const technologiesUsed = projects.flatMap((p) => p.technologiesUsed).filter(Boolean);
+    // Map projects to array of objects as expected by backend
+    const mappedProjects = projects
+      .filter((p) => p.projectName || p.description)
+      .map((p) => ({
+        projectName: p.projectName || '',
+        description: p.description || '',
+        technologiesUsed: p.technologiesUsed || [],
+      }));
     
-    // Combine all into a flat structure
+    // Combine all into a flat structure matching the backend payload
     return {
       // Personal info fields
       firstName: personalInfo.firstName,
@@ -291,6 +296,8 @@ export class AdminStudentComponent implements OnInit {
       // Education details
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
+      campusId: [], // Backend expects array, but not available in form - send empty array
+      other: false, // Backend expects boolean, but not available in form - send false
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
       yearOfPassing: educationDetails.yearOfPassing || '',
@@ -300,7 +307,7 @@ export class AdminStudentComponent implements OnInit {
       // Skills
       technicalSkills: skills.technicalSkills,
       softSkills: skills.softSkills,
-      proficiencyLevel: skills.proficiencyLevel || '',
+      proficiencyLevel: skills.proficiencyLevel && skills.proficiencyLevel.trim() ? skills.proficiencyLevel : 'BEGINNER', // Default to BEGINNER if empty
       languagesKnown: skills.languagesKnown,
       jobRolesOfInterest: skills.jobRolesOfInterest,
       preferredLocation: skills.preferredLocation,
@@ -313,10 +320,8 @@ export class AdminStudentComponent implements OnInit {
       endDate: skills.endDate || '',
       currentlyWorking: skills.currentlyWorking || false,
       
-      // Projects (flattened)
-      projectNames: projectNames,
-      description: projectDescriptions.length > 0 ? projectDescriptions[0] : '', // Backend expects single description
-      technologiesUsed: technologiesUsed,
+      // Projects as array of objects
+      projects: mappedProjects,
       
       // Additional info
       govtIdProofUrl: additionalInfo.govtIdProofUrl || '',
@@ -325,6 +330,8 @@ export class AdminStudentComponent implements OnInit {
       otherWebsites: additionalInfo.otherWebsites || [],
       offersInHand: additionalInfo.offersInHand || false,
       jobAlertPreference: additionalInfo.jobAlertPreference || 'NONE',
+      howDidYouHear: additionalInfo.howDidYouHear || '',
+      termsAndCondition: additionalInfo.termsAndCondition || false,
     };
   }
 
@@ -442,6 +449,52 @@ export class AdminStudentComponent implements OnInit {
     return status === 'APPROVED' || status === 'REJECTED';
   }
 
+  private extractValidationErrorMessage(error: unknown): string {
+    if (error && typeof error === 'object' && 'error' in error) {
+      const httpError = error as { error?: unknown };
+      const errorResponse = httpError.error;
+      
+      if (errorResponse && typeof errorResponse === 'object') {
+        const response = errorResponse as {
+          message?: string;
+          data?: Record<string, string>;
+          error?: string;
+        };
+        
+        // Extract field-specific validation errors from data
+        if (response.data && typeof response.data === 'object') {
+          const fieldErrors: string[] = [];
+          for (const [field, message] of Object.entries(response.data)) {
+            if (typeof message === 'string' && message.trim()) {
+              // Format field name: convert camelCase to Title Case
+              const fieldName = field
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, (str) => str.toUpperCase())
+                .trim();
+              fieldErrors.push(`${fieldName}: ${message}`);
+            }
+          }
+          
+          if (fieldErrors.length > 0) {
+            const baseMessage = response.message || 'Validation failed';
+            // Join with semicolon for better toaster display
+            return `${baseMessage} - ${fieldErrors.join('; ')}`;
+          }
+        }
+        
+        // Fallback to message or error field
+        if (response.message && typeof response.message === 'string') {
+          return response.message;
+        }
+        if (response.error && typeof response.error === 'string') {
+          return response.error;
+        }
+      }
+    }
+    
+    return 'Failed to update student profile. Please try again.';
+  }
+
   private mapFullProfileToFormValue(data: Record<string, unknown>): StudentFormValue {
     // API response has flat structure, not nested - all fields are in the root
     const firstName = readString(data, 'firstName');
@@ -463,9 +516,11 @@ export class AdminStudentComponent implements OnInit {
     ];
 
     // Skills from flat structure
-    const technicalSkills = readStringArray(data, 'technicalSkills').map((s) => ({
+    const proficiencyLevel = readString(data, 'proficiencyLevel');
+    const technicalSkills = readStringArray(data, 'technicalSkills').map((s, index) => ({
       skill: s,
-      proficiency: '',
+      // Use proficiencyLevel for the first skill if available, otherwise empty
+      proficiency: index === 0 && proficiencyLevel ? proficiencyLevel : '',
     }));
 
     const softSkills = readStringArray(data, 'softSkills');
@@ -617,6 +672,7 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
 
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
+  const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
   const yearOfPassing = readString(education, 'yearOfPassing');
@@ -629,6 +685,7 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
     out.push({
       qualification: qualifications[i] ?? '',
       institution: institutions[i] ?? '',
+      campusId: campusIds[i] ?? undefined, // Map campusId from API response
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
       yearOfPassing: convertYearToDate(yearOfPassing),

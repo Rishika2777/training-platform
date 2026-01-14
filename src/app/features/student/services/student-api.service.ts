@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN } from '../../../core/config/app.constants';
+import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, STATIC_CAMPUSES } from '../../../core/config/app.constants';
 import {
   ApiResponseObject,
   ApiResponseListStudentProfileResponse,
@@ -14,6 +14,8 @@ import {
   ApiResponsePlacedStudentsResponse,
   CareerCheckInRequest,
   ApiResponseCareerCheckInResponse,
+  ApiResponseCampusResponse,
+  CampusResponse,
 } from '../models/student.models';
 
 /**
@@ -58,6 +60,7 @@ export class StudentApiService {
     return this.http.get<ApiResponseObject>(url, { params });
   }
 
+
   /**
    * PATCH /student/{studentId}/update
    * Swagger: requires userId query param.
@@ -101,9 +104,11 @@ export class StudentApiService {
   /**
    * GET /students/{studentId}/alumni
    * Fetch alumni from student database (paginated)
+   * Requires campusName and yearOfPassing as query parameters
    */
   getAlumniForStudent(
     studentId: string,
+    campusName: string,
     yearOfPassing: string,
     page = 1,
     limit = 12,
@@ -111,7 +116,8 @@ export class StudentApiService {
     const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.ALUMNI, { studentId });
     const url = this.buildUrl(endpoint);
     const params = new HttpParams()
-      .set('yearOfPassing', yearOfPassing)
+      .set('campusName', campusName)
+      .set('yearOfPassing', yearOfPassing) 
       .set('page', page.toString())
       .set('limit', limit.toString());
     console.log('StudentApiService: getAlumniForStudent - URL:', url, 'Params:', params.toString());
@@ -119,17 +125,24 @@ export class StudentApiService {
   }
 
   /**
-   * GET /batchmates/{studentId}/batchmates
-   * Get batchmates (same batch and section)
+   * GET /student/{studentId}/myBatchmates
+   * Get batchmates for logged-in student
+   * Requires campusName and yearOfPassing as query parameters
    */
   getBatchmates(
     studentId: string,
+    campusName: string,
+    yearOfPassing: string,
     page = 1,
     limit = 12,
   ): Observable<ApiResponseBatchmateResponse> {
     const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.BATCHMATES, { studentId });
     const url = this.buildUrl(endpoint);
-    const params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());
+    const params = new HttpParams()
+      .set('campusName', campusName)
+      .set('yearOfPassing', yearOfPassing)
+      .set('page', page.toString())
+      .set('limit', limit.toString());
     console.log('StudentApiService: getBatchmates - URL:', url, 'Params:', params.toString());
     return this.http.get<ApiResponseBatchmateResponse>(url, { params });
   }
@@ -177,6 +190,39 @@ export class StudentApiService {
     const url = this.buildUrl(API_ENDPOINTS.STUDENT.CAREER_CHECKIN);
     const params = new HttpParams().set('userId', userId);
     return this.http.post<ApiResponseCareerCheckInResponse>(url, request, { params });
+  }
+
+  /**
+   * GET /campuses
+   * Get all registered campuses (approved and email-verified)
+   * Used for populating institution dropdown in student registration and profile
+   * Note: This endpoint does not require authentication
+   * 
+   * TEMPORARILY DISABLED: Using static data from STATIC_CAMPUSES constant instead
+   */
+  getRegisteredCampuses(): Observable<ApiResponseCampusResponse> {
+    // API call commented out - using static data instead
+    // const url = this.buildUrl(API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
+    // console.log('getRegisteredCampuses: Fetching campuses from:', url);
+    // 
+    // // Skip authentication for this public endpoint
+    // const headers = new HttpHeaders({
+    //   'X-Skip-Auth': 'true',
+    // });
+    // 
+    // console.log('getRegisteredCampuses: Making GET request with X-Skip-Auth header');
+    // return this.http.get<ApiResponseCampusResponse>(url, { headers });
+    
+    // Return static data wrapped in Observable
+    return new Observable<ApiResponseCampusResponse>((subscriber) => {
+      subscriber.next({
+        success: true,
+        message: 'Campuses retrieved successfully',
+        data: STATIC_CAMPUSES as unknown as CampusResponse[],
+        statusCode: 200,
+      });
+      subscriber.complete();
+    });
   }
 
   private buildUrl(endpoint: string): string {
