@@ -1,9 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
-import { API_ENDPOINTS, EnumLoginStatus, LOGIN_STATUS, UserRole, UserType } from '../config/app.constants';
+import { API_ENDPOINTS, EnumLoginStatus, LOGIN_STATUS, STORAGE_KEYS, UserRole, UserType } from '../config/app.constants';
 import { ApiService } from '../api/api.service';
 import { AuthStateService } from './auth-state.service';
 import { UserData } from '../models/user.model';
+import { StorageService } from '../storage/storage.service';
 
 export interface LoginRequest {
   email: string;
@@ -138,8 +139,14 @@ function unwrapResponse<T>(raw: T | ApiResponse<T>): T {
 
 function mergeUserPayload(payload: AuthPayload): AuthPayload {
   const u = payload.user;
+  // Map campusId to profileServiceId if profileServiceId is not present
+  const profileServiceId = payload.profileServiceId ?? u?.profileServiceId ?? payload.campusId;
+  
   if (!u) {
-    return payload;
+    return {
+      ...payload,
+      profileServiceId,
+    };
   }
   return {
     ...payload,
@@ -192,6 +199,7 @@ function buildUserData(payload: AuthPayload): UserData | null {
 export class AuthService {
   private readonly api = inject(ApiService);
   private readonly authState = inject(AuthStateService);
+  private readonly storage = inject(StorageService);
 
   // Temporary storage for registration flow steps (client-only UX)
   private registrationData: RegistrationDraft | null = null;
@@ -351,6 +359,15 @@ export class AuthService {
     const user = buildUserData(payload);
     if (user) {
       this.authState.setUser(user);
+      
+      // Store campusId in storage if available (for campus users)
+      // Use campusId if available, otherwise fall back to profileServiceId
+      if (user.userType === 'CAMPUS') {
+        const campusId = user.campusId || user.profileServiceId;
+        if (campusId) {
+          this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
+        }
+      }
     }
   }
 

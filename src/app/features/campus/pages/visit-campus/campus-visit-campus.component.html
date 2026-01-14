@@ -92,13 +92,25 @@
       [disabled]="submitting"
       (valueChange)="patch({ dateOfVisit: $event })"
     />
-    <app-input
-      label="Time of Visit"
-      type="time"
-      [value]="value.timeOfVisit"
-      [disabled]="submitting"
-      (valueChange)="patch({ timeOfVisit: $event })"
-    />
+    <div class="time-input-wrapper">
+      <app-input
+        label="Time of Visit"
+        type="text"
+        [value]="value.timeOfVisit"
+        [disabled]="submitting"
+        placeholder="HH:MM"
+        (valueChange)="onTimeInputChange($event)"
+      />
+      <select
+        class="am-pm-selector"
+        [value]="value.timeOfVisitAmPm"
+        [disabled]="submitting"
+        (change)="patch({ timeOfVisitAmPm: $any($event.target).value })"
+      >
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
   </div>
 
   <!-- Fourth Row: Attachments and Additional Requirements -->

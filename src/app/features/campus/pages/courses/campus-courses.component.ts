@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, inject, OnInit, OnDestroy, signal, PLATFORM_ID } from '@angular/core';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CampusApiService } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -19,23 +19,46 @@ export interface CourseCard {
   templateUrl: './campus-courses.component.html',
   styleUrl: './campus-courses.component.css',
 })
-export class CampusCoursesComponent implements OnInit {
+export class CampusCoursesComponent implements OnInit, OnDestroy {
   private readonly modalService = inject(ModalService);
   private readonly campusApi = inject(CampusApiService);
   private readonly notify = inject(NotificationService);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId as object);
 
   readonly courses = signal<readonly CourseCard[]>([]);
   readonly loadingCourses = signal(false);
   readonly deletingCourseId = signal<string | null>(null);
+  
+  // Store event handler reference for cleanup
+  private courseAddedHandler: (() => void) | null = null;
 
   ngOnInit(): void {
     this.loadCourses();
+    
+    // Listen for courseAdded event to refresh courses list (only in browser)
+    if (this.isBrowser) {
+    this.courseAddedHandler = () => {
+        console.log('CampusCoursesComponent: Received courseAdded event, refreshing courses list...');
+      this.loadCourses();
+    };
+    window.addEventListener('courseAdded', this.courseAddedHandler);
+      console.log('CampusCoursesComponent: Registered courseAdded event listener');
+    }
+  }
+  
+  ngOnDestroy(): void {
+    // Remove event listener to prevent memory leaks (only in browser)
+    if (this.isBrowser && this.courseAddedHandler) {
+      window.removeEventListener('courseAdded', this.courseAddedHandler);
+      this.courseAddedHandler = null;
+    }
   }
 
   /**
    * Load courses from API
-   * GET /courses
-   * Fetches all courses and maps them to CourseCard format
+   * GET /campus/{campusId}/courses
+   * Fetches all courses for the campus and maps them to CourseCard format
    */
   loadCourses(): void {
     this.loadingCourses.set(true);
@@ -66,8 +89,8 @@ export class CampusCoursesComponent implements OnInit {
 
   /**
    * Get course by ID
-   * GET /courses/{courseId}
-   * Fetches detailed course information by course ID
+   * GET /campus/{campusId}/courses/{courseId}
+   * Fetches detailed course information by course ID. Validates that the course belongs to the specified campus.
    */
   getCourseById(courseId: string): void {
     if (!courseId || !courseId.trim()) {
@@ -97,8 +120,8 @@ export class CampusCoursesComponent implements OnInit {
 
   /**
    * Delete course by ID
-   * DELETE /courses/{courseId}
-   * Deletes a course from the campus catalog
+   * DELETE /campus/{campusId}/courses/{courseId}
+   * Deletes a course from the campus catalog. Validates that the course belongs to the specified campus.
    */
   deleteCourse(courseId: string, courseName: string): void {
     if (!courseId || !courseId.trim()) {

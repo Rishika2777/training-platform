@@ -114,11 +114,65 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
           return throwError(() => err);
         }
         
-        // IMPORTANT: For 401 errors on public/landing endpoints (feedback, visit campus), don't clear token or redirect
-        // These are public endpoints but may return 401 for other reasons
-        if (err.status === 401 && req.url.includes('/public/landing')) {
+        // IMPORTANT: For ALL errors on public/landing endpoints (feedback, visit campus), don't clear token or redirect
+        // These are public endpoints and should not trigger auth redirects for any error
+        if (req.url.includes('/public/landing/feedback') || req.url.includes('/public/landing/visit') || req.url.includes('/public/landing')) {
           notifications.error(getErrorMessage(err));
           return throwError(() => err);
+        }
+        
+        // IMPORTANT: For 401 errors on campus-related endpoints, don't clear token or redirect
+        // Let the component handle the error gracefully
+        if (err.status === 401 && (
+          req.url.includes('/campus/') || 
+          req.url.includes('/dashboard/placed-students') ||
+          req.url.includes('/dashboard/alumni') ||
+          req.url.includes('/testimonials') ||
+          req.url.includes('/research') ||
+          req.url.includes('/placement-insights') ||
+          req.url.includes('/alumni')
+        )) {
+          // Silently handle 401 errors for campus endpoints - don't show error notification
+          // The component will handle these errors gracefully
+          console.warn('HTTP Error Interceptor: 401 error on campus endpoint, letting component handle it:', req.url);
+          return throwError(() => err);
+        }
+        
+        // IMPORTANT: For 502/503 errors (service unavailable/not configured) on campus endpoints,
+        // suppress error notification - these are infrastructure/configuration issues
+        if ((err.status === 502 || err.status === 503) && (
+          req.url.includes('/campus/') || 
+          req.url.includes('/dashboard/placed-students') ||
+          req.url.includes('/dashboard/alumni') ||
+          req.url.includes('/testimonials') ||
+          req.url.includes('/research') ||
+          req.url.includes('/placement-insights') ||
+          req.url.includes('/alumni') ||
+          req.url.includes('/courses') ||
+          req.url.includes('/faculty') ||
+          req.url.includes('/prospectus') ||
+          req.url.includes('/public/landing/visit') ||
+          req.url.includes('/public/landing/feedback')
+        )) {
+          const errorMessage = getErrorMessage(err);
+          // Suppress error notification for backend configuration issues
+          if (errorMessage.includes('not configured') || errorMessage.includes('Upstream service URL')) {
+            console.warn('HTTP Error Interceptor: Backend service not configured for campus endpoint, suppressing error notification:', req.url);
+            return throwError(() => err);
+          }
+          // Suppress all 502/503 errors for these endpoints (infrastructure issues)
+          console.warn('HTTP Error Interceptor: Backend service unavailable (502/503) for endpoint, suppressing error notification:', req.url);
+          return throwError(() => err);
+        }
+        
+        // IMPORTANT: Suppress "Campus not found" errors for campus endpoints
+        // These are expected when viewing a new campus or when backend service is not configured
+        if (req.url.includes('/campus/') || req.url.includes('/public/landing/campus/')) {
+          const errorMessage = getErrorMessage(err);
+          if (errorMessage.includes('Campus not found') || errorMessage.includes('campus not found')) {
+            console.warn('HTTP Error Interceptor: Campus not found error, suppressing notification (expected for new campuses or configuration issues):', req.url);
+            return throwError(() => err);
+          }
         }
       }
       

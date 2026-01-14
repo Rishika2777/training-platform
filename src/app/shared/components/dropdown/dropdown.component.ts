@@ -38,6 +38,7 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   @Input() apiFetchFn?: ApiFetchFunction<TValue>; // Function to fetch data from API
   @Input() debounceTime = 300; // Debounce time in ms for API calls
   @Input() minSearchLength = 0; // Minimum characters before API call (0 = call immediately)
+  @Input() allowCustom = false; // Allow free text input (custom values not in the list)
 
   @Output() valueChange = new EventEmitter<TValue>();
 
@@ -225,8 +226,55 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       if (this.dropdownMenu?.nativeElement?.contains(relatedTarget)) {
         return;
       }
+      
+      // If allowCustom is enabled and user typed a value that's not in the list, emit it
+      this.handleCustomValue();
+      
       this.isDropdownOpen = false;
     }, 200);
+  }
+
+  onEnterKey(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    // If Enter is pressed and we have a search term, handle it
+    if (this.searchTerm && this.searchTerm.trim().length > 0) {
+      // If there's exactly one filtered item, select it
+      if (this.filteredItems.length === 1) {
+        keyboardEvent.preventDefault();
+        this.selectItem(this.filteredItems[0]);
+        return;
+      }
+      
+      // If allowCustom is enabled and no item is selected, emit the custom value
+      if (this.allowCustom && !this.selectedItem) {
+        keyboardEvent.preventDefault();
+        this.handleCustomValue();
+      }
+    }
+  }
+
+  private handleCustomValue(): void {
+    // If allowCustom is enabled and user typed a value that's not in the list, emit it
+    if (this.allowCustom && this.autocomplete && this.searchTerm && this.searchTerm.trim().length > 0) {
+      const trimmedSearchTerm = this.searchTerm.trim();
+      // Check if the typed value matches any item
+      const matchesItem = this.items.some(item => 
+        item.value.toLowerCase() === trimmedSearchTerm.toLowerCase() ||
+        item.label.toLowerCase() === trimmedSearchTerm.toLowerCase()
+      );
+      
+      // Also check filtered items
+      const matchesFilteredItem = this.filteredItems.some(item => 
+        item.value.toLowerCase() === trimmedSearchTerm.toLowerCase() ||
+        item.label.toLowerCase() === trimmedSearchTerm.toLowerCase()
+      );
+      
+      // If it doesn't match any item and we have a valid search term, emit it as a custom value
+      if (!matchesItem && !matchesFilteredItem && !this.selectedItem) {
+        this.value = trimmedSearchTerm as TValue;
+        this.valueChange.emit(trimmedSearchTerm as TValue);
+      }
+    }
   }
 
   selectItem(item: DropdownItem<TValue>): void {
