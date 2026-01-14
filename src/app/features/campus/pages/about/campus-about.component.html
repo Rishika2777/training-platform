@@ -52,7 +52,7 @@
     } @else {
       <app-carousel 
         type="pagination" 
-        [currentPage]="risingStarsPage" 
+        [currentPage]="risingStarsPage + 1" 
         [totalPages]="risingStarsTotalPages()" 
         (pageChange)="onRisingStarsPageChange($event)"
       >
@@ -61,6 +61,8 @@
             <div class="avatar-card">
               <img class="avatar" [src]="star.imageUrl" [alt]="star.name" />
               <div class="avatar-name">{{ star.name }}</div>
+              <div class="avatar-sub">{{ star.company }}</div>
+              <div class="avatar-sub">{{ star.designation }}</div>
             </div>
           } @empty {
             <div class="empty-state">No rising stars found</div>
@@ -70,8 +72,8 @@
     }
   </section>
 
-  <!-- Research Section -->
-  <section class="section research">
+  <!-- Research Section - Temporarily commented out (API returning 502 errors) -->
+  <!-- <section class="section research">
     <h2 class="section-title">Research</h2>
     <div class="research-content">
       @if (loadingResearch()) {
@@ -100,7 +102,7 @@
         </p>
       }
     </div>
-  </section>
+  </section> -->
 
   <!-- Success Stories Section -->
   <section class="section success-stories">
@@ -112,13 +114,13 @@
         <button 
           class="carousel-arrow left" 
           (click)="previousSuccessStory()" 
-          [disabled]="successStoryPage === 1 || loadingSuccessStories()"
+          [disabled]="successStoryPage === 0 || loadingSuccessStories()"
         >
           <i class="fa-solid fa-chevron-left"></i>
         </button>
         <app-carousel 
           type="none" 
-          [currentPage]="successStoryPage" 
+          [currentPage]="successStoryPage + 1" 
           [totalPages]="successStoriesTotalPages()"
         >
           <div class="avatar-row">
@@ -137,7 +139,7 @@
         <button 
           class="carousel-arrow right" 
           (click)="nextSuccessStory()" 
-          [disabled]="successStoryPage === successStoriesTotalPages() || loadingSuccessStories()"
+          [disabled]="successStoryPage >= successStoriesTotalPages() - 1 || loadingSuccessStories()"
         >
           <i class="fa-solid fa-chevron-right"></i>
         </button>
@@ -228,8 +230,8 @@
     }
   </section>
 
-  <!-- Placement Highlights Section -->
-  <section class="section placement-highlights">
+  <!-- Placement Highlights Section - Temporarily commented out (API returning 502 errors) -->
+  <!-- <section class="section placement-highlights">
     <div class="placement-grid">
       <div class="placement-chart-card">
         <h3 class="chart-title">Placement Chart</h3>
@@ -263,20 +265,12 @@
         </div>
       </div>
     </div>
-  </section>
+  </section> -->
 
   <!-- Meet Our Faculties Section -->
   <section class="section faculties">
     <div class="section-header">
       <h2 class="section-title">Meet Our Faculties</h2>
-      <button
-        class="section-add-btn"
-        type="button"
-        title="Add Faculty"
-        (click)="modalService.openModal('faculty')"
-      >
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-      </button>
     </div>
     @if (loadingFaculties()) {
       <div class="loading-indicator">Loading...</div>
@@ -289,10 +283,12 @@
       >
         <div class="avatar-row">
           @for (faculty of facultiesPageItems(); track faculty.id) {
-            <div class="avatar-card" (click)="onFacultyClick(faculty)" (keydown.enter)="onFacultyClick(faculty)" (keydown.space)="onFacultyClick(faculty)" tabindex="0" style="cursor: pointer;" role="button" aria-label="View {{ faculty.name }} details">
-              <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
-              <div class="avatar-name">{{ faculty.name }}</div>
-              <div class="avatar-sub">{{ faculty.designation }}</div>
+            <div class="avatar-card">
+              <div class="avatar-card-content" (click)="onFacultyClick(faculty)" (keydown.enter)="onFacultyClick(faculty)" (keydown.space)="onFacultyClick(faculty)" tabindex="0" style="cursor: pointer;" role="button" aria-label="View {{ faculty.name }} details">
+                <img class="avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
+                <div class="avatar-name">{{ faculty.name }}</div>
+                <div class="avatar-sub">{{ faculty.designation }}</div>
+              </div>
             </div>
           } @empty {
             <div class="empty-state">No faculties found</div>
@@ -419,7 +415,7 @@
       </div>
       <div class="footer-right">
         <h3 class="footer-title">Feedback</h3>
-        <form class="feedback-form" (ngSubmit)="submitFeedback($event)">
+        <form class="feedback-form" novalidate (ngSubmit)="submitFeedback($event)">
           <div class="feedback-question">
             <p>Would you recommend promoting this campus based on their performance and potential?</p>
             <div class="feedback-buttons">
@@ -470,6 +466,7 @@
             variant="secondary" 
             type="submit"
             [disabled]="submittingFeedback"
+            (buttonClick)="submitFeedback($event)"
           />
         </form>
       </div>
@@ -491,15 +488,24 @@
   />
 </app-modal>
 
-<!-- Add Faculty Modal -->
+<!-- Add/Edit Faculty Modal -->
 <app-modal
   [visible]="isFacultyModalOpen()"
-  title="Add Faculty"
+  [title]="isEditMode() ? 'Edit Faculty' : 'Add Faculty'"
   size="lg"
   (closed)="closeModal()"
 >
   <app-campus-faculty
     [submitting]="submittingFaculty"
+    [value]="facultyFormValue || {
+      fullName: '',
+      photo: null,
+      email: '',
+      dateOfBirth: '',
+      phoneNumber: '',
+      professionalInfo: [{ designation: '', department: '', specialization: '', yearsOfExperience: '', qualifications: '', certificates: null }]
+    }"
+    [isEditMode]="isEditMode()"
     (submitted)="handleFacultySubmit($event)"
   />
 </app-modal>
@@ -516,6 +522,18 @@
     [faculty]="selectedFaculty()" 
     (closed)="handleFacultyDetailClose()"
     (deleteRequested)="handleFacultyDeleteRequest($event)"
+  />
+</app-modal>
+
+<!-- Placed Students Modal -->
+<app-modal
+  [visible]="isPlacedStudentsModalOpen()"
+  title="Placed Students"
+  (closed)="closeModal()"
+>
+  <app-campus-placed-students
+    [submitting]="submittingPlacedStudents"
+    (submitted)="handlePlacedStudentsSubmit($event)"
   />
 </app-modal>
 

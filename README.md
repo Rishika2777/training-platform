@@ -2,10 +2,24 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.4.
 
+## Setup
+
+If you encounter npm segmentation fault or out of memory errors on Windows (especially in Git Bash), see [SETUP.md](./SETUP.md) for troubleshooting steps.
+
 ## Development server
 
 To start a local development server, run:
 
+```bash
+npm start
+```
+
+**For memory issues**, use the local development scripts (gitignored, won't affect other systems):
+- PowerShell: `.\start-dev.ps1` (or `.\start-dev-low-memory.ps1` for < 8GB RAM)
+- CMD: `start-dev.bat` (or `start-dev-low-memory.bat` for < 8GB RAM)
+- Git Bash: `bash start-dev.sh` (or `bash start-dev-low-memory.sh` for < 8GB RAM)
+
+Or use Angular CLI directly:
 ```bash
 ng serve
 ```

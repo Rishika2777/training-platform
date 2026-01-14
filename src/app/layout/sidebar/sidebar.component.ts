@@ -67,49 +67,9 @@ export class SidebarComponent implements OnInit {
     return userType === 'CAMPUS' && (path === '/campus/home' || path === '/campus/about');
   });
 
-  // Static fallback data
-  private readonly staticFacultyData: readonly FacultyCard[] = [
-    { name: 'Akshay Sharma', imageUrl: 'assets/images/login-news-image.png' },
-    { name: 'Ankitha Wilson', imageUrl: 'assets/images/landing-card-campus.png' },
-    { name: 'Amith Deshpande', imageUrl: 'assets/images/landing-card-company.png' },
-  ];
-
-  // Faculty list from API or static fallback
-  readonly faculty = signal<readonly FacultyCard[]>(this.staticFacultyData);
+  // Faculty list from API (no static fallback - show empty if no faculties)
+  readonly faculty = signal<readonly FacultyCard[]>([]);
   loadingFaculties = signal(false);
-
-  private readonly facultyDetailData: Record<string, FacultyDetailData> = {
-    'Akshay Sharma': {
-      name: 'Akshay Sharma',
-      imageUrl: 'assets/images/login-news-image.png',
-      designation: 'Assistant Professor',
-      department: 'Department of Computer Science',
-      qualifications: 'Ph.D. in [Specialization], [University Name]',
-      experience: '15 years of teaching experience',
-      email: 'akshay.sharma@gmail.com',
-      phone: '+91 9870978541',
-    },
-    'Ankitha Wilson': {
-      name: 'Ankitha Wilson',
-      imageUrl: 'assets/images/landing-card-campus.png',
-      designation: 'Assistant Professor',
-      department: 'Department of Computer Science',
-      qualifications: 'Ph.D. in [Specialization], [University Name]',
-      experience: '12 years of teaching experience',
-      email: 'ankitha.wilson@gmail.com',
-      phone: '+91 9870978542',
-    },
-    'Amith Deshpande': {
-      name: 'Amith Deshpande',
-      imageUrl: 'assets/images/landing-card-company.png',
-      designation: 'Assistant Professor',
-      department: 'Department of Computer Science',
-      qualifications: 'Ph.D. in [Specialization], [University Name]',
-      experience: '10 years of teaching experience',
-      email: 'amith.deshpande@gmail.com',
-      phone: '+91 9870978543',
-    },
-  };
 
   facultyPage = 1;
   readonly facultyPageSize = 3;
@@ -128,20 +88,30 @@ export class SidebarComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadFaculties();
-    // Listen for faculty refresh events (add, delete, update)
-    window.addEventListener('facultyAdded', () => {
+    // Only load faculties and add event listeners in browser environment (not during SSR)
+    if (typeof window !== 'undefined') {
       this.loadFaculties();
-    });
-    window.addEventListener('facultyDeleted', () => {
-      this.loadFaculties();
-    });
+      // Listen for faculty refresh events (add, delete, update)
+      window.addEventListener('facultyAdded', () => {
+        this.loadFaculties();
+      });
+      window.addEventListener('facultyDeleted', () => {
+        this.loadFaculties();
+      });
+    }
   }
 
   /**
-   * Load faculties from API, fallback to static data on error
+   * Load faculties from API - shows empty list if no faculties or on error
+   * No static fallback - new campuses should show empty until faculties are added
    */
   loadFaculties(): void {
+    // Skip loading during SSR or if window is not available
+    if (typeof window === 'undefined') {
+      this.faculty.set([]);
+      return;
+    }
+
     this.loadingFaculties.set(true);
 
     this.campusApi.getAllFaculties().subscribe({
@@ -176,13 +146,15 @@ export class SidebarComponent implements OnInit {
 
           this.faculty.set(apiFacultyCards);
         } else {
-          this.faculty.set(this.staticFacultyData);
+          // No faculties found - show empty list (correct for new campuses)
+          this.faculty.set([]);
         }
       },
       error: () => {
         this.loadingFaculties.set(false);
-        // Fallback to static data on error - page continues to work
-        this.faculty.set(this.staticFacultyData);
+        // Show empty list on error - no static fallback
+        // New campuses should show empty until faculties are added
+        this.faculty.set([]);
       },
     });
   }
@@ -259,12 +231,8 @@ export class SidebarComponent implements OnInit {
             this.facultyDetailService.setSelectedFaculty(detailData);
             this.modalService.openModal('faculty-detail');
           } else {
-            // Fallback to static data if API returns no data
-            const detailData = this.facultyDetailData[faculty.name];
-            if (detailData) {
-              this.facultyDetailService.setSelectedFaculty(detailData);
-              this.modalService.openModal('faculty-detail');
-            }
+            // No data from API - show error
+            this.notifications.error('Faculty details not available');
           }
         },
         error: (err) => {
@@ -275,23 +243,13 @@ export class SidebarComponent implements OnInit {
             message: err?.message,
             error: err?.error
           });
-          // Fallback to static data on error
-          const detailData = this.facultyDetailData[faculty.name];
-          if (detailData) {
-            this.facultyDetailService.setSelectedFaculty(detailData);
-            this.modalService.openModal('faculty-detail');
-          } else {
-            this.notifications.error('Failed to load faculty details');
-          }
+          // Show error - no static fallback
+          this.notifications.error('Failed to load faculty details');
         },
       });
     } else {
-      // Fallback to static data if no ID
-      const detailData = this.facultyDetailData[faculty.name];
-      if (detailData) {
-        this.facultyDetailService.setSelectedFaculty(detailData);
-        this.modalService.openModal('faculty-detail');
-      }
+      // No faculty ID - cannot load details
+      this.notifications.error('Faculty ID not available');
     }
   }
 

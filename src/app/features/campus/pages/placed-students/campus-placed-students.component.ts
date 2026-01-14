@@ -62,11 +62,17 @@ export class CampusPlacedStudentsComponent implements OnInit {
   readonly sectorItems = signal<readonly { label: string; value: string }[]>([]);
   loadingSectors = signal(false);
 
+  // Student name items - loaded from previously placed students
+  // Automatically populated from existing placed students and updated when new ones are added
+  readonly studentNameItems = signal<readonly { label: string; value: string }[]>([]);
+  loadingStudentNames = signal(false);
+
   ngOnInit(): void {
     this.loadCourses();
     this.loadBatches();
     this.loadDesignations();
     this.loadSectors();
+    this.loadStudentNames();
   }
 
   /**
@@ -243,10 +249,82 @@ export class CampusPlacedStudentsComponent implements OnInit {
     });
   }
 
+  /**
+   * Load student names from previously placed students
+   * Fetches all placed students and extracts unique student names for the dropdown
+   */
+  loadStudentNames(): void {
+    this.loadingStudentNames.set(true);
+    
+    // Fetch placed students with a large limit to get all names
+    // We'll fetch multiple pages if needed to get all student names
+    this.campusApi.getPlacedStudents(0, 100).subscribe({
+      next: (response) => {
+        if (response?.success && response.data?.content) {
+          // Extract unique student names from placed students
+          const studentNamesSet = new Set<string>();
+          
+          response.data.content.forEach((student) => {
+            if (student.studentName && typeof student.studentName === 'string') {
+              const name = student.studentName.trim();
+              if (name.length > 0) {
+                studentNamesSet.add(name);
+              }
+            }
+          });
+          
+          // Convert to dropdown items format: { label: string, value: string }
+          const studentNameDropdownItems = Array.from(studentNamesSet)
+            .sort() // Sort alphabetically for better UX
+            .map(name => ({
+              label: name,
+              value: name,
+            }));
+          
+          this.studentNameItems.set(studentNameDropdownItems);
+        } else {
+          this.studentNameItems.set([]);
+        }
+        
+        this.loadingStudentNames.set(false);
+      },
+      error: (error) => {
+        console.error('CampusPlacedStudentsComponent: Failed to load student names:', error);
+        this.studentNameItems.set([]);
+        this.loadingStudentNames.set(false);
+        // Don't show error notification as this is a convenience feature
+      },
+    });
+  }
+
+  /**
+   * Public method to reload student names.
+   * Can be called after successfully adding a new placed student.
+   */
+  reloadStudentNames(): void {
+    this.loadStudentNames();
+  }
+
   patch(patch: Partial<PlacedStudentsFormValue>): void {
     const next: PlacedStudentsFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
+    
+    // If a new student name is typed that's not in the list, add it to the dropdown
+    if (patch.studentName && patch.studentName.trim().length > 0) {
+      const trimmedName = patch.studentName.trim();
+      const currentItems = this.studentNameItems();
+      const nameExists = currentItems.some(item => item.value.toLowerCase() === trimmedName.toLowerCase());
+      
+      if (!nameExists) {
+        // Add the new name to the dropdown
+        const newItem = { label: trimmedName, value: trimmedName };
+        const updatedItems = [...currentItems, newItem].sort((a, b) => 
+          a.label.localeCompare(b.label)
+        );
+        this.studentNameItems.set(updatedItems);
+      }
+    }
   }
 
   triggerStudentPhotoSelect(): void {

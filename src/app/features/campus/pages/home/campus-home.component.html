@@ -63,7 +63,7 @@
               @if (currentBatchPageItems().length === 0) {
                 <div class="empty-state">No students found for this batch</div>
               } @else {
-                @for (p of currentBatchPageItems(); track p.imageUrl) {
+                @for (p of currentBatchPageItems(); track p.id || p.name + p.imageUrl) {
                   <div class="avatar-card">
                     <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
                     <div class="avatar-name">{{ p.name }}</div>
@@ -87,7 +87,7 @@
       </div>
 
       <div class="feed">
-        @for (post of posts; track post.imageUrl) {
+        @for (post of posts; track post.authorId || post.author + post.imageUrl) {
           <article class="post">
             <div class="post-head">
               <img class="post-avatar" [src]="post.imageUrl" [alt]="post.author" />
@@ -133,7 +133,7 @@
           (pageChange)="onPlacedStudentsPageChange($event)"
         >
           <div class="avatar-row small">
-            @for (p of placedStudentsPageItems(); track p.imageUrl) {
+            @for (p of placedStudentsPageItems(); track p.id || p.name + p.imageUrl) {
               <div class="avatar-card">
                 <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
                 <div class="avatar-name">{{ p.name }}</div>
@@ -249,7 +249,7 @@
               @if (alumniPageItems().length === 0) {
                 <div class="empty-state">No alumni found</div>
               } @else {
-                @for (p of alumniPageItems(); track p.imageUrl) {
+                @for (p of alumniPageItems(); track p.id || p.name + p.imageUrl) {
                   <div class="avatar-card">
                     <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
                     <div class="avatar-name">{{ p.name }}</div>

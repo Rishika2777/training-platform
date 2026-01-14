@@ -1,12 +1,15 @@
 <form class="placed-students-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-grid">
     <div class="form-row">
-      <app-input
+      <app-dropdown
         label="Student Name"
-        type="text"
+        [items]="studentNameItems()"
         [value]="value.studentName"
-        [disabled]="submitting"
+        [disabled]="submitting || loadingStudentNames()"
         (valueChange)="patch({ studentName: $event })"
+        [autocomplete]="true"
+        [allowCustom]="true"
+        placeholder="Select or type student name"
       />
     </div>
 

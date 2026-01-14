@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, effect, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
@@ -48,6 +48,9 @@ import { map } from 'rxjs/operators';
 export class CampusHomeComponent implements OnInit {
   readonly modalService = inject(ModalService);
   private readonly campusApi = inject(CampusApiService);
+  
+  @ViewChild(CampusProspectusComponent) prospectusComponent!: CampusProspectusComponent;
+  @ViewChild(CampusPlacedStudentsComponent) placedStudentsComponent!: CampusPlacedStudentsComponent;
   private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
@@ -134,7 +137,7 @@ export class CampusHomeComponent implements OnInit {
   ];
 
   // Carousel / pagination state (shared component usage)
-  readonly peoplePageSize = 4; // Reduced to 4 per page for better pagination visibility
+  readonly peoplePageSize = 3; // 3 students per page
   placedStudentsPage = 0; // API uses 0-indexed pagination (page=0 for first page)
 
   placedStudentsTotalPages = signal(1);
@@ -158,6 +161,28 @@ export class CampusHomeComponent implements OnInit {
     this.selectedAlumniYear.set('2024');
     this.useCarouselAPI.set(false);
     this.loadAlumni('2024');
+    
+    // Watch for prospectus modal opening to initialize with campusId
+    effect(() => {
+      if (this.isProspectusModalOpen() && this.prospectusComponent) {
+        // Modal just opened, initialize prospectus component with campusId
+        setTimeout(() => {
+          this.initializeProspectusComponent();
+        }, 0);
+      }
+    });
+  }
+  
+  /**
+   * Initialize prospectus component with campusId when modal opens
+   */
+  private initializeProspectusComponent(): void {
+    const campusId = this.getCampusId();
+    if (campusId && this.prospectusComponent) {
+      console.log('CampusHomeComponent: Initializing prospectus component with campusId:', campusId);
+      // Pass campusId to prospectus component so it can load the list
+      this.prospectusComponent.refreshProspectusList(campusId);
+    }
   }
 
   // Announcements - API Integration (for top banner)
@@ -239,10 +264,17 @@ export class CampusHomeComponent implements OnInit {
     console.log('CampusHomeComponent: Page size:', this.peoplePageSize);
     this.loadingPlacedStudents.set(true);
     
+    const campusId = this.getCampusId();
+    if (!campusId) {
+      console.error('CampusHomeComponent: Campus ID not found for getPlacedStudents');
+      this.loadingPlacedStudents.set(false);
+      return;
+    }
+    
     // Use dashboard API endpoint: GET /dashboard/placed-students
     // API uses 0-indexed pagination (page=0 for first page)
     this.campusApi
-      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
+      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize, undefined, undefined, campusId)
       .pipe(
         catchError((error) => {
           console.error('CampusHomeComponent: Error loading placed students:', error);
@@ -312,8 +344,15 @@ export class CampusHomeComponent implements OnInit {
     
     this.loadingCompaniesVisited.set(true);
     
+    const campusId = this.getCampusId();
+    if (!campusId) {
+      console.error('CampusHomeComponent: Campus ID not found for getCompaniesVisited');
+      this.loadingCompaniesVisited.set(false);
+      return;
+    }
+    
     this.campusApi
-      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize)
+      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize, campusId)
       .pipe(
         catchError((error) => {
           console.error('CampusHomeComponent: Error loading companies visited:', error);
@@ -568,7 +607,20 @@ export class CampusHomeComponent implements OnInit {
           const items = rawItems.map((item) => this.mapStudentByBatchToPersonCard(item));
           
           this.currentBatch.set(items);
-          this.currentBatchTotalPages.set(response.data.totalPages || 1);
+          
+          // Calculate total pages based on whether page 1 is full
+          // Only show page 2 if page 1 is full (has exactly pageSize items)
+          // If page 1 has fewer items than pageSize, only show 1 page
+          let totalPages = response.data.totalPages || 1;
+          
+          // If we're on page 1 and it's not full, only show 1 page
+          if (this.currentBatchPage === 1 && items.length < this.currentBatchPageSize) {
+            totalPages = 1;
+          }
+          // If we're on page 1 and it's full, use the API's totalPages
+          // If we're on page 2 or later, always use the API's totalPages
+          
+          this.currentBatchTotalPages.set(totalPages);
         } else {
           this.currentBatch.set([]);
           this.currentBatchTotalPages.set(1);
@@ -592,6 +644,7 @@ export class CampusHomeComponent implements OnInit {
                      'assets/images/login-news-image.png';
     
     return {
+      id: student.studentId || student.userId || student.id || `${name}-${student.batch || ''}`,
       name,
       subtitle,
       imageUrl,
@@ -620,15 +673,16 @@ export class CampusHomeComponent implements OnInit {
     userId?: string | null;
     campusId?: string;
     courseId?: string | null;
-    courseName?: string;
+    courseName?: string | null;
     studentName?: string;
     photoUrl?: string; // Relative path like "student/0cf39251-9301-4650-bafe-b86597396368.jpg"
+    photourl?: string; // Backend may return lowercase 'photourl'
     batch?: string;
     rollNumber?: string | null;
     email?: string | null;
     phone?: string | null;
     placementCompanyId?: string | null;
-    placementCompanyName?: string;
+    placementCompanyName?: string | null;
     placementDate?: string;
     designation?: string;
     sector?: string;
@@ -641,24 +695,28 @@ export class CampusHomeComponent implements OnInit {
     profilePhotoUrl?: string;
     companyName?: string;
   }): PersonCard {
-    // Construct image URL from photoUrl (API returns relative path)
-    // photoUrl format: "student/0cf39251-9301-4650-bafe-b86597396368.jpg"
+    // Construct image URL from photoUrl or photourl (API returns relative path or full URL)
+    // Backend may return 'photourl' (lowercase) or 'photoUrl' (camelCase)
+    // photoUrl format: "student/0cf39251-9301-4650-bafe-b86597396368.jpg" or full URL
     // Need to construct full URL using API base URL
     let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
     
-    if (item.photoUrl) {
+    // Handle both photoUrl (camelCase) and photourl (lowercase) from backend
+    const photoUrl = item.photoUrl || item.photourl;
+    
+    if (photoUrl) {
       // If photoUrl is already a full URL (starts with http:// or https://), use it as is
-      if (item.photoUrl.startsWith('http://') || item.photoUrl.startsWith('https://')) {
-        imageUrl = item.photoUrl;
-      } else if (item.photoUrl.startsWith('/')) {
+      if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+        imageUrl = photoUrl;
+      } else if (photoUrl.startsWith('/')) {
         // If it starts with /, it's an absolute path - prepend API base URL
         // Construct URL: /api/v1/files/{photoUrl} or similar based on your file serving endpoint
         // For now, try common patterns
-        imageUrl = `/api/v1/files/${item.photoUrl.substring(1)}`; // Remove leading /
+        imageUrl = `/api/v1/files/${photoUrl.substring(1)}`; // Remove leading /
       } else {
         // Relative path like "student/filename.jpg" - construct full URL
         // Based on API, files are typically served from /api/v1/files/ endpoint
-        imageUrl = `/api/v1/files/${item.photoUrl}`;
+        imageUrl = `/api/v1/files/${photoUrl}`;
       }
     } else if (item.profilePhotoUrl) {
       // Fallback to profilePhotoUrl for backward compatibility
@@ -803,6 +861,7 @@ export class CampusHomeComponent implements OnInit {
                     'assets/images/login-news-image.png';
     
     return {
+      id: item.studentId || item.userId || `${name}-${item.yearOfPassing || ''}`,
       name,
       subtitle,
       imageUrl,
@@ -914,6 +973,11 @@ export class CampusHomeComponent implements OnInit {
     if (formValueCampus && formValueCampus.trim()) {
       const trimmedCampus = formValueCampus.trim();
       // Check if it's a valid ID (not a file name)
+      // MongoDB ObjectId: 24-character hex string
+      if (/^[0-9a-fA-F]{24}$/.test(trimmedCampus) && !/\.\w+$/.test(trimmedCampus)) {
+        return trimmedCampus;
+      }
+      // Numeric ID (legacy support)
       if (/^\d+$/.test(trimmedCampus) && !/\.\w+$/.test(trimmedCampus)) {
         return trimmedCampus;
       }
@@ -966,12 +1030,15 @@ export class CampusHomeComponent implements OnInit {
 
     // Create FormData for multipart/form-data request
     const formData = new FormData();
-    formData.append('courseName', value.course.trim());
+    const courseName = value.course.trim();
+    formData.append('courseName', courseName);
     
     // Append all files to the 'files' field (as array)
     files.forEach((file) => {
       formData.append('files', file);
     });
+
+    console.log('CampusHomeComponent: Upload Prospectus - campusId:', campusId, 'courseName:', courseName);
 
     this.campusApi.uploadProspectus(campusId, formData).subscribe({
       next: (response) => {
@@ -980,7 +1047,22 @@ export class CampusHomeComponent implements OnInit {
         if (response?.success) {
           const successMessage = response.message || 'Prospectus uploaded successfully';
           this.notify.success(successMessage);
-          this.closeModal();
+          
+          // Refresh prospectus list to show the newly uploaded prospectus
+          // Pass campusId and courseName to ensure list loads correctly
+          // Use setTimeout to ensure the backend has processed the upload and component is ready
+          setTimeout(() => {
+            if (this.prospectusComponent) {
+              console.log('CampusHomeComponent: Refreshing prospectus list after successful upload', {
+                campusId,
+                courseName
+              });
+              this.prospectusComponent.refreshProspectusList(campusId, courseName);
+            }
+          }, 1000); // Wait 1 second for backend to process
+          
+          // Don't close modal immediately - let user see the uploaded prospectus and download it
+          // The modal stays open so user can see the list refresh and download the file
           
           try {
             this.cdr.detectChanges();
@@ -1199,6 +1281,10 @@ export class CampusHomeComponent implements OnInit {
           this.submittingPlacedStudents = false;
           if (response?.success) {
             this.notify.success(response?.message || 'Placed student added successfully');
+            // Reload student names in the form component before closing modal
+            if (this.placedStudentsComponent) {
+              this.placedStudentsComponent.reloadStudentNames();
+            }
             this.closeModal();
             // Reset to page 0 (first page) to see the newest students first
             this.placedStudentsPage = 0;
@@ -1803,6 +1889,10 @@ export class CampusHomeComponent implements OnInit {
 
     this.submittingCourseForm = true;
 
+    // Get campus ID for logging and verification
+    const campusId = this.getCampusId();
+    console.log('CampusHomeComponent: Campus ID being used:', campusId);
+
     const request = {
       courseName: value.courseName.trim(),
       duration: durationNum,
@@ -1811,6 +1901,7 @@ export class CampusHomeComponent implements OnInit {
     };
 
     console.log('CampusHomeComponent: ========== CALLING addCourse API ==========');
+    console.log('CampusHomeComponent: Campus ID:', campusId);
     console.log('CampusHomeComponent: Request object:', request);
     console.log('CampusHomeComponent: Auth token exists:', !!this.authState.token());
     console.log('CampusHomeComponent: Auth token value:', this.authState.token() ? '***TOKEN_EXISTS***' : 'NO_TOKEN');
@@ -1819,11 +1910,33 @@ export class CampusHomeComponent implements OnInit {
       this.campusApi.addCourse(request).subscribe({
       next: (response) => {
         console.log('CampusHomeComponent: ✅ addCourse API success');
-        console.log('CampusHomeComponent: Response:', response);
+        console.log('CampusHomeComponent: Full Response:', response);
+        
+        // Log response data with campus ID
+        if (response?.data) {
+          console.log('CampusHomeComponent: Response Data:', {
+            id: response.data.id,
+            campusId: response.data.campusId,
+            courseName: response.data.courseName,
+            duration: response.data.duration,
+            totalSeats: response.data.totalSeats,
+            availableSeats: response.data.availableSeats,
+            description: response.data.description,
+            createdAt: response.data.createdAt,
+            updatedAt: response.data.updatedAt,
+          });
+          console.log('CampusHomeComponent: ✅ Campus ID in response:', response.data.campusId);
+        }
+        
         this.submittingCourseForm = false;
         const successMessage = response?.message || 'Course added successfully';
         this.notify.success(successMessage);
         this.closeModal();
+        
+        // Dispatch event to refresh courses list immediately
+        window.dispatchEvent(new Event('courseAdded'));
+        console.log('CampusHomeComponent: Dispatched courseAdded event');
+        
         try {
           this.cdr.detectChanges();
         } catch {
@@ -1862,6 +1975,7 @@ export class CampusHomeComponent implements OnInit {
 }
 
 interface PersonCard {
+  id?: string;
   name: string;
   subtitle: string;
   imageUrl: string;

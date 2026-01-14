@@ -38,6 +38,7 @@ export class CampusFacultyComponent {
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
+  @Input() isEditMode = false; // When true, skip email validation
   emailExists = false;
   checkingEmail = false;
   emailErrorMessage = '';
@@ -207,8 +208,8 @@ export class CampusFacultyComponent {
     this.value = next;
     this.valueChange.emit(next);
 
-    // Check email when it changes
-    if (patch.email !== undefined) {
+    // Check email when it changes (skip if in edit mode)
+    if (patch.email !== undefined && !this.isEditMode) {
       this.checkEmailExists(next.email);
     }
   }
@@ -282,14 +283,17 @@ export class CampusFacultyComponent {
   }
 
   submit(): void {
-    // Prevent submission if email already exists
-    if (this.emailExists) {
-      return;
-    }
-    
-    // Prevent submission if email is being checked
-    if (this.checkingEmail) {
-      return;
+    // Skip email validation if in edit mode
+    if (!this.isEditMode) {
+      // Prevent submission if email already exists
+      if (this.emailExists) {
+        return;
+      }
+      
+      // Prevent submission if email is being checked
+      if (this.checkingEmail) {
+        return;
+      }
     }
     
     this.submitted.emit(this.value);
