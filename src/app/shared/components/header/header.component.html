@@ -22,7 +22,7 @@
     <h1 class="page-title">{{ pageTitle() }}</h1>
   </div>
 
-  @if (!isSimpleHeader()) {
+  @if (!isSimpleHeader() && !isCampusAbout()) {
     <div class="header-right">
       <div class="search">
         <input

@@ -22,6 +22,10 @@ function isSimpleHeaderRoute(path: string): boolean {
   );
 }
 
+function isCampusAboutRoute(path: string): boolean {
+  return path.startsWith('/campus/about');
+}
+
 function titleFromPath(path: string): string {
   const parts = path.split('/').filter((p) => p.length > 0);
   
@@ -92,6 +96,7 @@ export class AppHeaderComponent {
   private readonly path = signal<string>(this.currentPath());
   readonly searchValue = signal('');
   readonly isSimpleHeader = computed(() => isSimpleHeaderRoute(this.path()));
+  readonly isCampusAbout = computed(() => isCampusAboutRoute(this.path()));
   readonly isAuthenticated = computed(() => this.roles.isAuthenticated());
   readonly notificationsOpen = signal(false);
   readonly settingsOpen = signal(false);

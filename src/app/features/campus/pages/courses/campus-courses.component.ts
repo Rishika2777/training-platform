@@ -73,7 +73,7 @@ export class CampusCoursesComponent implements OnInit, OnDestroy {
             name: course.courseName || '',
             fullName: course.description || course.courseName || '',
             seats: course.availableSeats || course.totalSeats || 0,
-            duration: course.duration ? `${course.duration} ${course.duration === 1 ? 'month' : 'months'}` : 'N/A',
+            duration: course.duration ? `${course.duration} ${course.duration === 1 ? 'year' : 'years'}` : 'N/A',
           }));
         
         this.courses.set(courseCards);

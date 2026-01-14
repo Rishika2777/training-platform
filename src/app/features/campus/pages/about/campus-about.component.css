@@ -206,6 +206,202 @@
   padding-top: 20px;
 }
 
+/* Prospectus Download Section */
+.prospectus-download-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.course-selection {
+  width: 100%;
+}
+
+:host ::ng-deep .course-selection app-dropdown {
+  width: 100%;
+}
+
+:host ::ng-deep .course-selection app-dropdown .select-wrapper {
+  border-color: #f4a261;
+  width: 100%;
+}
+
+:host ::ng-deep .course-selection app-dropdown .select-wrapper select:focus {
+  border-color: #f4a261;
+  outline-color: #f4a261;
+}
+
+.prospectus-list-section {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  width: 100%;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  color: #64748b;
+}
+
+.loading-state i {
+  font-size: 24px;
+  color: #628a8e;
+}
+
+.loading-state span {
+  font-size: 14px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.empty-state i {
+  font-size: 48px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 16px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 0;
+}
+
+.empty-state span {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+/* Prospectus List */
+.prospectus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prospectus-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.prospectus-item:hover {
+  border-color: #628a8e;
+  box-shadow: 0 2px 4px rgba(98, 138, 142, 0.1);
+}
+
+.prospectus-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.prospectus-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #fee2e2;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.prospectus-icon i {
+  font-size: 20px;
+  color: #dc2626;
+}
+
+.prospectus-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.prospectus-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prospectus-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.prospectus-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.download-btn {
+  background: #628a8e;
+  color: white;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: #4a6d70;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn i {
+  font-size: 14px;
+}
+
 .rising-stars {
   background: var(--color-white);
 }

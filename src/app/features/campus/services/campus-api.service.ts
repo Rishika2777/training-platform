@@ -99,6 +99,9 @@ export class CampusApiService {
             const campusData = response['data'] as Campus;
             console.log('CampusApiService: getPublicCampusById - Extracted campus data:', campusData);
             console.log('CampusApiService: getPublicCampusById - Campus ID from response:', campusData.campusId || campusData.id);
+            console.log('CampusApiService: getPublicCampusById - ALL FIELDS IN RESPONSE:', Object.keys(campusData));
+            console.log('CampusApiService: getPublicCampusById - aboutCampus field:', campusData.aboutCampus ? `✅ Present (length: ${campusData.aboutCampus.length})` : '❌ Missing or empty');
+            console.log('CampusApiService: getPublicCampusById - Full response data:', JSON.stringify(campusData, null, 2));
             return campusData;
           }
           

@@ -24,10 +24,11 @@
       [label]="''"
       type="text"
       [value]="displayValue"
-      [disabled]="disabled"
+      [disabled]="disabled || readonly"
       [required]="false"
       [invalid]="invalid"
-      (valueChange)="onTextChange($event)"
+      [readonly]="readonly"
+      (valueChange)="readonly ? null : onTextChange($event)"
     />
     <button
       type="button"

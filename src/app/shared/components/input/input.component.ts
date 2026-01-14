@@ -24,6 +24,7 @@ export class InputComponent implements OnChanges {
   @Input() maxlength: number | null = null;
   @Input() min: string | null = null;
   @Input() max: string | null = null;
+  @Input() readonly = false;
 
   @Output() valueChange = new EventEmitter<string>();
   @Output() filesSelected = new EventEmitter<FileList>();

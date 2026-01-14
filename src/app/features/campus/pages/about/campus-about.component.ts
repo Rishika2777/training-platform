@@ -12,8 +12,9 @@ import { CampusVisitCampusComponent, VisitCampusFormValue } from '../visit-campu
 import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-faculty.component';
 import { CampusFacultyDetailComponent, FacultyDetailData } from '../faculty-detail/campus-faculty-detail.component';
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
+import { CampusDownloadProspectusComponent } from '../download-prospectus/campus-download-prospectus.component';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, GetProspectusResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
 import { ApiResponsePlacedStudentsResponse } from '../../../student/models/student.models';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -57,6 +58,7 @@ interface CourseCard {
     CampusFacultyComponent,
     CampusFacultyDetailComponent,
     CampusPlacedStudentsComponent,
+    CampusDownloadProspectusComponent,
   ],
   templateUrl: './campus-about.component.html',
   styleUrl: './campus-about.component.css',
@@ -84,6 +86,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   readonly isFacultyModalOpen = computed(() => this.activeModal() === 'faculty');
   readonly isFacultyDetailModalOpen = computed(() => this.activeModal() === 'faculty-detail');
   readonly isPlacedStudentsModalOpen = computed(() => this.activeModal() === 'placed-students');
+  readonly isDownloadProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-download');
   readonly selectedFaculty = computed(() => this.facultyDetailService.selectedFaculty());
   
   // Delete faculty modal state
@@ -123,8 +126,6 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   readonly campusWebsiteUrl = signal<string | null>(null);
   readonly currentCampusId = signal<string | null>(null);
   
-  // Prospectus Download
-  readonly downloadingProspectus = signal(false);
 
   ngOnInit(): void {
     // Extract route parameters (for new tab scenario) - properly unsubscribe on destroy
@@ -300,6 +301,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         this.loadingAboutCampus.set(false);
         
         console.log('CampusAboutComponent: Campus data received:', campus);
+        console.log('CampusAboutComponent: Checking for aboutCampus field...');
+        console.log('CampusAboutComponent: campus.aboutCampus value:', campus?.aboutCampus);
+        console.log('CampusAboutComponent: campus.aboutCampus type:', typeof campus?.aboutCampus);
+        console.log('CampusAboutComponent: campus.aboutCampus length:', campus?.aboutCampus?.length);
         
         if (campus) {
           // Store campusId from the response - prioritize campusId field, then id field
@@ -319,10 +324,12 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
           
           // Fetch and display the aboutCampus field (from campus registration form's "About" field)
           if (campus.aboutCampus && campus.aboutCampus.trim()) {
-            console.log('CampusAboutComponent: Found aboutCampus content, length:', campus.aboutCampus.length);
+            console.log('CampusAboutComponent: ✅ Found aboutCampus content, length:', campus.aboutCampus.length);
+            console.log('CampusAboutComponent: aboutCampus content preview:', campus.aboutCampus.substring(0, 100) + '...');
             this.aboutCampusText.set(campus.aboutCampus);
           } else {
-            console.log('CampusAboutComponent: No aboutCampus content found in response');
+            console.warn('CampusAboutComponent: ⚠️ No aboutCampus content found in response');
+            console.warn('CampusAboutComponent: Available campus fields:', Object.keys(campus));
             this.aboutCampusText.set('');
           }
           
@@ -2265,109 +2272,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Download Prospectus Handler
-   * Fetches prospectuses for the campus and downloads the first available one
+   * Open Download Prospectus modal
    */
-  downloadProspectusHandler(): void {
-    // Check if already downloading
-    if (this.downloadingProspectus()) {
-      return;
-    }
-
-    // Get campusId using helper method
-    const campusId = this.getCampusId();
-
-    if (!campusId) {
-      console.error('CampusAboutComponent: Campus ID not found for prospectus download.');
-      this.notify.error('Campus ID not found. Please ensure you are logged in as a campus admin and try again.');
-      return;
-    }
-    
-    console.log('CampusAboutComponent: Using campusId for prospectus download:', campusId);
-
-    this.downloadingProspectus.set(true);
-
-    // First, get prospectuses for the campus
-    this.campusApi.getProspectusByCampus(campusId).pipe(
-      catchError((error) => {
-        this.downloadingProspectus.set(false);
-        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus information';
-        this.notify.error(errorMessage);
-        return of(null);
-      })
-    ).subscribe({
-      next: (response: GetProspectusResponse | null) => {
-        if (!response) {
-          this.downloadingProspectus.set(false);
-          this.notify.error('Failed to fetch prospectus information');
-          return;
-        }
-
-        // Check if we have prospectus data
-        if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-          this.downloadingProspectus.set(false);
-          this.notify.error('No prospectus available for this campus');
-          return;
-        }
-
-        // Get the first prospectus (or you could show a selection modal if multiple)
-        const firstProspectus = response.data[0];
-        const courseId = firstProspectus.courseId;
-
-        if (!courseId) {
-          this.downloadingProspectus.set(false);
-          this.notify.error('Course ID is missing in prospectus data');
-          return;
-        }
-
-        // Find courseName from courses list by matching courseId
-        const course = this.courses().find(c => c.id === courseId);
-        if (!course || !course.name) {
-          this.downloadingProspectus.set(false);
-          this.notify.error('Course name not found. Please ensure courses are loaded.');
-          return;
-        }
-
-        const courseName = course.name;
-
-        // Download the prospectus file using campusId and courseName
-        this.campusApi.downloadProspectus(campusId, courseName).subscribe({
-          next: (response) => {
-            if (response?.success && response.data?.fileUrls && response.data.fileUrls.length > 0) {
-              // Backend returns fileUrls array - download the first file
-              const fileUrl = response.data.fileUrls[0];
-              
-              // Create download link
-              const link = document.createElement('a');
-              link.href = fileUrl;
-              link.download = `prospectus-${courseName}.pdf`;
-              link.target = '_blank';
-              
-              // Trigger download
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              
-              this.downloadingProspectus.set(false);
-              this.notify.success('Prospectus downloaded successfully');
-            } else {
-              this.downloadingProspectus.set(false);
-              this.notify.error('No file URL found in response');
-            }
-          },
-          error: (error) => {
-            this.downloadingProspectus.set(false);
-            const errorMessage = error?.error?.message || error?.message || 'Failed to download prospectus file';
-            this.notify.error(errorMessage);
-          }
-        });
-      },
-      error: (error) => {
-        this.downloadingProspectus.set(false);
-        const errorMessage = error?.error?.message || error?.message || 'Failed to fetch prospectus';
-        this.notify.error(errorMessage);
-      }
-    });
+  openDownloadProspectusModal(): void {
+    this.modalService.openModal('prospectus-download');
   }
 
   /**

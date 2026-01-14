@@ -20,11 +20,12 @@
     <div class="insights-content">
       <div class="insights-image">
         <img src="assets/images/landing-card-campus.png" alt="Campus" />
+        
+        <!-- Download Prospectus Button -->
         <app-button 
-          [label]="downloadingProspectus() ? 'Downloading...' : 'Download Prospectus'" 
+          label="Download Prospectus" 
           variant="primary" 
-          [disabled]="downloadingProspectus()"
-          (buttonClick)="downloadProspectusHandler()" 
+          (buttonClick)="openDownloadProspectusModal()" 
         />
       </div>
       <div class="insights-text">
@@ -486,6 +487,16 @@
     [submitting]="submittingVisitCampus"
     (submitted)="handleVisitCampusSubmit($event)"
   />
+</app-modal>
+
+<!-- Download Prospectus Modal -->
+<app-modal
+  [visible]="isDownloadProspectusModalOpen()"
+  title="Download Prospectus"
+  size="md"
+  (closed)="closeModal()"
+>
+  <app-campus-download-prospectus />
 </app-modal>
 
 <!-- Add/Edit Faculty Modal -->

@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 
 export type ModalType =
   | 'prospectus-upload'
+  | 'prospectus-download'
   | 'companies-visited'
   | 'placed-students'
   | 'courses'

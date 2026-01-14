@@ -1,43 +1,26 @@
-<div class="prospectus-container">
-  <form class="prospectus-form" (ngSubmit)="onFormSubmit($event)">
-    <div class="form-row">
-      <app-input-with-file
-        label="Prospectus"
-        [value]="displayCampusValue()"
-        [disabled]="submitting"
-        [required]="true"
-        [readonly]="true"
-        (valueChange)="patch({ campus: $event })"
-        (fileSelected)="onCampusFileSelected($event)"
-      />
-    </div>
-
-    <div class="form-row">
-      <app-dropdown
-        label="Course"
-        placeholder="Select"
-        [items]="courseItems()"
-        [value]="value.course"
-        [disabled]="submitting || loadingCourses()"
-        (valueChange)="patch({ course: $event })"
-        [autocomplete]="true"
-      />
-    </div>
-
-    <div class="form-actions">
-      <app-button type="button" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="submit()" />
-    </div>
-  </form>
+<div class="prospectus-download-container">
+  <!-- Course Selection -->
+  <div class="course-selection">
+    <app-dropdown
+      label="Course"
+      placeholder="Select a course"
+      [items]="courseItems()"
+      [value]="selectedCourse()"
+      [disabled]="loadingCourses() || loadingProspectus()"
+      (valueChange)="onCourseSelected($event)"
+      [autocomplete]="true"
+    />
+  </div>
 
   <!-- Prospectus List Section -->
-  @if (value.course.trim() || prospectusList().length > 0) {
+  @if (selectedCourse()) {
     <div class="prospectus-list-section">
       <div class="list-header">
         <h3 class="list-title">Uploaded Prospectuses</h3>
         <button
           type="button"
           class="refresh-btn"
-          (click)="loadProspectusListIfNeeded()"
+          (click)="refreshProspectusList()"
           [disabled]="loadingProspectus()"
           title="Refresh list"
         >
@@ -54,7 +37,7 @@
         <div class="empty-state">
           <i class="fa-solid fa-file-pdf"></i>
           <p>No prospectuses found</p>
-          <span>Upload a prospectus to see it here</span>
+          <span>No prospectuses available for this course</span>
         </div>
       } @else {
         <div class="prospectus-list">
@@ -80,20 +63,12 @@
                 <button
                   type="button"
                   class="action-btn download-btn"
-                  (click)="downloadProspectus(prospectus.id || '', getFileName(prospectus))"
+                  (click)="downloadProspectus(prospectus)"
+                  [disabled]="downloadingProspectus()"
                   title="Download prospectus"
                 >
                   <i class="fa-solid fa-download"></i>
-                  <span>Download</span>
-                </button>
-                <button
-                  type="button"
-                  class="action-btn delete-btn"
-                  (click)="deleteProspectus(prospectus.id || '')"
-                  title="Delete prospectus"
-                >
-                  <i class="fa-solid fa-trash"></i>
-                  <span>Delete</span>
+                  <span>{{ downloadingProspectus() ? 'Downloading...' : 'Download' }}</span>
                 </button>
               </div>
             </div>
@@ -103,3 +78,4 @@
     </div>
   }
 </div>
+

@@ -19,6 +19,7 @@ export class InputWithFileComponent {
   @Input() invalid = false;
   @Input() accept: string | null = null;
   @Input() fileInputId = '';
+  @Input() readonly = false;
 
   @Output() valueChange = new EventEmitter<string>();
   @Output() fileSelected = new EventEmitter<File | null>();
