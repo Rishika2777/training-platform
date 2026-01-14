@@ -13,7 +13,7 @@ import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-facu
 import { CampusFacultyDetailComponent, FacultyDetailData } from '../faculty-detail/campus-faculty-detail.component';
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, ResearchResponse, GetProspectusResponse, PlacementInsightsResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime, StudentByBatchData, StudentsByBatchResponse, RisingStarsResponse, CoursesResponse, CourseData, RisingStarData } from '../../services/campus-api.service';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, GetProspectusResponse, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
 import { ApiResponsePlacedStudentsResponse } from '../../../student/models/student.models';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -388,7 +388,32 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         if (response?.success && response.data?.content && Array.isArray(response.data.content)) {
           console.log('CampusAboutComponent: ✅ Rising stars (placed students) loaded successfully, count:', response.data.content.length);
           // Map PlacedStudentData to PersonCard format (same as Placed Students section)
-          const mappedStars = response.data.content.map((student: any) => this.mapPlacedStudentToPersonCard(student));
+          const mappedStars = response.data.content.map((student: {
+            id?: string;
+            userId?: string | null;
+            campusId?: string;
+            courseId?: string | null;
+            courseName?: string;
+            studentName?: string;
+            photoUrl?: string;
+            batch?: string;
+            rollNumber?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            placementCompanyId?: string | null;
+            placementCompanyName?: string;
+            placementDate?: string;
+            designation?: string;
+            sector?: string;
+            createdAt?: string;
+            updatedAt?: string;
+            placed?: boolean;
+            firstName?: string;
+            lastName?: string;
+            profilePhotoUrl?: string;
+            companyName?: string;
+            studentId?: string;
+          }) => this.mapPlacedStudentToPersonCard(student));
           this.risingStars.set(mappedStars);
           
           const totalPages = response.data.totalPages ?? 1;
@@ -2452,7 +2477,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         // Handle HttpErrorResponse
         if (error && typeof error === 'object' && 'status' in error) {
           console.error('CampusAboutComponent: This is an HttpErrorResponse');
-          const httpError = error as any;
+          const httpError = error as HttpErrorResponse;
           console.error('CampusAboutComponent: HTTP Status:', httpError.status);
           console.error('CampusAboutComponent: HTTP Status Text:', httpError.statusText);
           console.error('CampusAboutComponent: HTTP Error Body:', httpError.error);
