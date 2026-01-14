@@ -449,21 +449,24 @@ export class CampusApiService {
   }
 
   /**
-   * GET /dashboard/companies
+   * GET /dashboard/{campusId}/companies
    * Get companies visited with pagination.
+   * Path param: campusId (required)
    * Query params: page (default 0), limit (default 6)
    * Response: Spring Page object with content array and pagination metadata at root level
    */
   getCompaniesVisited(page = 0, limit = 6, campusId?: string): Observable<GetCompaniesVisitedResponse | null> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COMPANIES_VISITED);
     // Automatically inject campus ID from storage if not provided
     const finalCampusId = this.getCampusId(campusId);
-    let params = new HttpParams()
+    if (!finalCampusId) {
+      console.error('CampusApiService: getCompaniesVisited - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get companies visited'));
+    }
+    
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COMPANIES_VISITED, { campusId: finalCampusId });
+    const params = new HttpParams()
       .set('page', page.toString())
       .set('limit', limit.toString());
-    if (finalCampusId) {
-      params = params.set('campusId', finalCampusId);
-    }
     
     console.log('CampusApiService: ========== GET COMPANIES VISITED API CALL ==========');
     console.log('CampusApiService: getCompaniesVisited - URL:', url);
@@ -571,8 +574,12 @@ export class CampusApiService {
               if (data && typeof data === 'object' && 'content' in data && Array.isArray(data['content'])) {
                 const contentArray = data['content'] as CompanyVisitedItem[];
                 const pageable = data['pageable'] as PageableInfo | undefined;
-                const totalPages = (data['totalPages'] as number) ?? 1;
+                const totalPages = (data['totalPages'] as number) ?? 0;
                 const totalElements = (data['totalElements'] as number) ?? contentArray.length;
+                
+                console.log('CampusApiService: Wrapped format - Content array length:', contentArray.length);
+                console.log('CampusApiService: Wrapped format - Total pages:', totalPages);
+                console.log('CampusApiService: Wrapped format - Total elements:', totalElements);
                 
                 const result = {
                   success: response['success'] as boolean,
@@ -588,6 +595,43 @@ export class CampusApiService {
                 
                 console.log('CampusApiService: ✅ Parsed response (wrapped format):', result);
                 return result;
+              } else if (data && typeof data === 'object' && !('content' in data)) {
+                // Data might be a single company object or array directly
+                if (Array.isArray(data)) {
+                  // Data is an array of companies
+                  const contentArray = data as CompanyVisitedItem[];
+                  console.log('CampusApiService: Data is direct array, length:', contentArray.length);
+                  const result = {
+                    success: response['success'] as boolean,
+                    message: (response['message'] as string) || 'Companies fetched successfully',
+                    data: {
+                      content: contentArray,
+                      pageable: undefined,
+                      totalPages: 1,
+                      totalElements: contentArray.length,
+                    },
+                    error: (response['error'] as string) || null,
+                  } as GetCompaniesVisitedResponse;
+                  console.log('CampusApiService: ✅ Parsed response (data as array):', result);
+                  return result;
+                } else if ('companyName' in data || 'id' in data) {
+                  // Data is a single company object, wrap it in array
+                  const contentArray = [data as CompanyVisitedItem];
+                  console.log('CampusApiService: Data is single company object');
+                  const result = {
+                    success: response['success'] as boolean,
+                    message: (response['message'] as string) || 'Companies fetched successfully',
+                    data: {
+                      content: contentArray,
+                      pageable: undefined,
+                      totalPages: 1,
+                      totalElements: 1,
+                    },
+                    error: (response['error'] as string) || null,
+                  } as GetCompaniesVisitedResponse;
+                  console.log('CampusApiService: ✅ Parsed response (single company):', result);
+                  return result;
+                }
               }
             }
             
@@ -2159,14 +2203,14 @@ export class CampusApiService {
                   message: (responseObj['message'] as string) || null,
                   data: {
                     content: dataObj['content'] as RisingStarData[],
-                    pageable: dataObj['pageable'] as any,
+                    pageable: dataObj['pageable'] as PageableInfo | undefined,
                     last: dataObj['last'] as boolean,
                     totalPages: dataObj['totalPages'] as number,
                     totalElements: dataObj['totalElements'] as number,
                     first: dataObj['first'] as boolean,
                     size: dataObj['size'] as number,
                     number: dataObj['number'] as number,
-                    sort: dataObj['sort'] as any,
+                    sort: dataObj['sort'] as { sorted?: boolean; empty?: boolean; unsorted?: boolean; } | undefined,
                     numberOfElements: dataObj['numberOfElements'] as number,
                   },
                   error: (responseObj['error'] as string) || null,
@@ -2710,7 +2754,8 @@ export interface CompanyVisitedItem {
   id?: string;
   campusId?: string;
   companyName?: string;
-  logourl?: string; // Note: backend returns "logourl" not "logoUrl"
+  logourl?: string; // Backend may return "logourl"
+  logoUrl?: string; // Backend may also return "logoUrl"
   visitedDate?: string;
   createdAt?: string;
   updatedAt?: string;

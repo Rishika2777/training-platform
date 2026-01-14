@@ -1,9 +1,9 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, PLATFORM_ID, signal, computed, SimpleChanges } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputWithFileComponent } from '../../../../shared/components/input-with-file/input-with-file.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
-import { CampusApiService, ProspectusData, AddCourseResponseData } from '../../services/campus-api.service';
+import { CampusApiService, ProspectusData, AddCourseResponseData, Campus } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 
 export interface ProspectusUploadFormValue {
@@ -81,8 +81,29 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   private loadedCourses = signal<readonly AddCourseResponseData[]>([]);
   loadingCourses = signal(false);
 
+  // Store actual campus objects for getting campus name
+  private loadedCampuses = signal<readonly Campus[]>([]);
+
+  // Computed signal to get display value for campus field (show name instead of ID)
+  readonly displayCampusValue = computed(() => {
+    const campusId = this.actualCampusId || this.value.campus.trim();
+    if (!campusId || !this.isValidId(campusId)) {
+      return this.value.campus.trim(); // Return as-is if not a valid ID
+    }
+    
+    // Find campus by ID to get the name
+    const campus = this.loadedCampuses().find(c => 
+      (c.id && c.id.trim() === campusId) || 
+      (c.campusId && c.campusId.trim() === campusId)
+    );
+    
+    // Return campus name if found, otherwise return the ID
+    return campus?.campusName?.trim() || campusId;
+  });
+
   ngOnInit(): void {
-    // Load courses from API
+    // Load campuses (for getting campus names) and courses from API
+    this.loadCampuses();
     this.loadCourses();
     // Fetch prospectus list on component initialization if campus or course is already selected
     this.loadProspectusListIfNeeded();
@@ -104,6 +125,34 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       window.removeEventListener('courseAdded', this.courseAddedHandler);
       this.courseAddedHandler = null;
     }
+  }
+
+  /**
+   * Load campuses from API (for getting campus names to display)
+   * GET /campus/getAll
+   */
+  loadCampuses(): void {
+    this.campusApi.getAllCampuses().subscribe({
+      next: (campuses) => {
+        // Store actual campus objects for getting campus names
+        this.loadedCampuses.set(campuses);
+        
+        // If we have a campus ID in the form, try to find and set it
+        if (this.value.campus.trim() && this.isValidId(this.value.campus.trim())) {
+          const existingCampus = campuses.find(c => 
+            (c.id && c.id.trim() === this.value.campus.trim()) || 
+            (c.campusId && c.campusId.trim() === this.value.campus.trim())
+          );
+          if (existingCampus) {
+            this.actualCampusId = existingCampus.campusId?.trim() || existingCampus.id?.trim() || this.value.campus.trim();
+          }
+        }
+      },
+      error: () => {
+        this.loadedCampuses.set([]);
+        // Don't show error for campus loading as it's only for display names
+      },
+    });
   }
 
   /**
@@ -276,11 +325,37 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     // Store actual campus ID when user types (not file name)
     if (patch.campus !== undefined) {
       const campusValue = patch.campus.trim();
-      // Only store as actualCampusId if it's a valid ID (numeric)
-      if (this.isValidId(campusValue)) {
-        // Always update actualCampusId when a valid numeric ID is entered
+      
+      // Check if it's a campus name (not an ID) - try to find the ID
+      const campusByName = this.loadedCampuses().find(c => 
+        c.campusName && c.campusName.trim().toLowerCase() === campusValue.toLowerCase()
+      );
+      
+      if (campusByName) {
+        // User typed a campus name, get the ID
+        const campusId = campusByName.campusId?.trim() || campusByName.id?.trim() || '';
+        if (campusId && this.isValidId(campusId)) {
+          this.actualCampusId = campusId;
+          // Update display value to show name
+          const updatedValue = { ...this.value, campus: campusValue };
+          this.value = updatedValue;
+        }
+      } else if (this.isValidId(campusValue)) {
+        // It's a valid ID, store it and find the name to display
         const previousCampusId = this.actualCampusId;
         this.actualCampusId = campusValue;
+        
+        // Find campus name to display
+        const campus = this.loadedCampuses().find(c => 
+          (c.id && c.id.trim() === campusValue) || 
+          (c.campusId && c.campusId.trim() === campusValue)
+        );
+        const displayName = campus?.campusName?.trim() || campusValue;
+        
+        // Update display value
+        const updatedValue = { ...this.value, campus: displayName };
+        this.value = updatedValue;
+        
         // If campus ID changed, trigger API call
         if (previousCampusId !== this.actualCampusId) {
           // Use setTimeout to avoid calling API during patch
@@ -302,16 +377,24 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
           course => course.courseName && course.courseName.trim().toLowerCase() === courseValue.toLowerCase()
         );
         
-        // If course found and has campusId, store it
+        // If course found and has campusId, store it and update display
         if (selectedCourse && selectedCourse.campusId) {
           const campusId = selectedCourse.campusId.trim();
           if (this.isValidId(campusId)) {
             console.log('CampusProspectusComponent: Extracted campusId from selected course:', campusId);
             this.actualCampusId = campusId;
-            // Also update the form value if it's empty or not a valid ID
-            if (!this.value.campus.trim() || !this.isValidId(this.value.campus.trim())) {
-              // Directly update the value to avoid recursion
-              const updatedValue = { ...this.value, campus: campusId };
+            
+            // Find campus name to display instead of ID
+            const campus = this.loadedCampuses().find(c => 
+              (c.id && c.id.trim() === campusId) || 
+              (c.campusId && c.campusId.trim() === campusId)
+            );
+            const campusDisplayValue = campus?.campusName?.trim() || campusId;
+            
+            // Update the form value with campus name (for display) but keep ID internally
+            if (!this.value.campus.trim() || !this.isValidId(this.value.campus.trim()) || this.value.campus.trim() !== campusDisplayValue) {
+              // Directly update the value to avoid recursion - use campus name for display
+              const updatedValue = { ...this.value, campus: campusDisplayValue };
               this.value = updatedValue;
               this.valueChange.emit(updatedValue);
             }
@@ -330,12 +413,18 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
 
   onCampusFileSelected(file: File | null): void {
     // Store the file, but DON'T overwrite the campus field with file name
-    // Keep the campus ID in the input field
+    // Keep the campus name in the input field
     this.patch({ campusFile: file });
     
-    // If file is removed and we have a stored campus ID, restore it
+    // If file is removed and we have a stored campus ID, restore the campus name for display
     if (!file && this.actualCampusId) {
-      this.patch({ campus: this.actualCampusId });
+      // Find campus name to display
+      const campus = this.loadedCampuses().find(c => 
+        (c.id && c.id.trim() === this.actualCampusId) || 
+        (c.campusId && c.campusId.trim() === this.actualCampusId)
+      );
+      const displayName = campus?.campusName?.trim() || this.actualCampusId;
+      this.patch({ campus: displayName });
       // Reload prospectus list if we have a valid campus ID
       if (this.isValidId(this.actualCampusId)) {
         this.loadProspectusListIfNeeded();
@@ -388,10 +477,22 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
-    // Campus ID will be retrieved by parent from auth state
-    const campusValue = this.actualCampusId.trim() || this.value.campus.trim();
+    // Get campus ID - prioritize actualCampusId, otherwise try to find ID from campus name
+    let campusValue = this.actualCampusId.trim();
+    if (!campusValue || !this.isValidId(campusValue)) {
+      // Try to find campus ID from the display name
+      const campusByName = this.loadedCampuses().find(c => 
+        c.campusName && c.campusName.trim().toLowerCase() === this.value.campus.trim().toLowerCase()
+      );
+      if (campusByName) {
+        campusValue = campusByName.campusId?.trim() || campusByName.id?.trim() || '';
+      } else if (this.isValidId(this.value.campus.trim())) {
+        // If it's already a valid ID, use it
+        campusValue = this.value.campus.trim();
+      }
+    }
     
-    // Prepare form value to emit to parent
+    // Prepare form value to emit to parent (use campus ID, not name)
     const formValueToEmit: ProspectusUploadFormValue = {
       campus: campusValue,
       campusFile: this.value.campusFile,

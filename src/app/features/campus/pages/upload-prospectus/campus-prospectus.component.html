@@ -3,7 +3,7 @@
     <div class="form-row">
       <app-input-with-file
         label="Campus"
-        [value]="value.campus"
+        [value]="displayCampusValue()"
         [disabled]="submitting"
         [required]="true"
         (valueChange)="patch({ campus: $event })"

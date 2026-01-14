@@ -158,7 +158,7 @@
       GET_ALL_BATCHES: '/dashboard/students/batches',
       GET_STUDENTS_BY_BATCH: '/dashboard/students/batch',
       ADD_COMPANY_VISITED: '/dashboard/companies',
-      GET_COMPANIES_VISITED: '/dashboard/companies',
+      GET_COMPANIES_VISITED: '/dashboard/:campusId/companies',
       ADD_COURSE: '/campus/:campusId/courses',
       GET_ALL_COURSES: '/campus/:campusId/courses',
       GET_COURSE_BY_ID: '/campus/:campusId/courses/:courseId',

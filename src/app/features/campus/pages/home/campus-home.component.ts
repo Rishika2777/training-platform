@@ -372,23 +372,55 @@ export class CampusHomeComponent implements OnInit {
           console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
           
           this.loadingCompaniesVisited.set(false);
-          if (response?.success && response.data) {
+          
+          if (!response) {
+            console.warn('CampusHomeComponent: ⚠️ Response is null or undefined');
+            this.companiesVisited.set([]);
+            this.companiesVisitedTotalPages.set(1);
+            return;
+          }
+          
+          console.log('CampusHomeComponent: Response structure check:', {
+            hasSuccess: 'success' in response,
+            success: response.success,
+            hasData: 'data' in response,
+            hasContent: response.data && 'content' in response.data,
+            contentIsArray: Array.isArray(response.data?.content),
+            contentLength: response.data?.content?.length || 0
+          });
+          
+          if (response.success && response.data) {
             const rawItems = response.data.content || [];
-            const items = rawItems.map((item) => this.mapCompanyVisitedToCard(item));
+            console.log('CampusHomeComponent: Raw items from API:', rawItems);
+            console.log('CampusHomeComponent: Raw items count:', rawItems.length);
             
-            this.companiesVisited.set(items);
-            const totalPages = response.data.totalPages ?? 1;
-            this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
-            
-            console.log('CampusHomeComponent: ✅ Companies visited list updated');
-            console.log('CampusHomeComponent: Mapped items count:', items.length);
-            console.log('CampusHomeComponent: Total pages:', totalPages);
-            console.log('CampusHomeComponent: Current companies visited signal:', this.companiesVisited());
+            if (rawItems.length > 0) {
+              const items = rawItems.map((item) => {
+                console.log('CampusHomeComponent: Mapping item:', item);
+                return this.mapCompanyVisitedToCard(item);
+              });
+              
+              this.companiesVisited.set(items);
+              const totalPages = response.data.totalPages ?? 1;
+              this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
+              
+              console.log('CampusHomeComponent: ✅ Companies visited list updated');
+              console.log('CampusHomeComponent: Mapped items count:', items.length);
+              console.log('CampusHomeComponent: Total pages:', totalPages);
+              console.log('CampusHomeComponent: Current companies visited signal:', this.companiesVisited());
+              console.log('CampusHomeComponent: Companies visited signal value:', JSON.stringify(this.companiesVisited(), null, 2));
+            } else {
+              console.log('CampusHomeComponent: ⚠️ No companies in response (empty content array)');
+              this.companiesVisited.set([]);
+              const totalPages = response.data.totalPages ?? 0;
+              this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
+            }
           } else {
             console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
             console.warn('CampusHomeComponent: Response success:', response?.success);
             console.warn('CampusHomeComponent: Response message:', response?.message);
             console.warn('CampusHomeComponent: Response data exists:', !!response?.data);
+            console.warn('CampusHomeComponent: Full response:', JSON.stringify(response, null, 2));
             this.companiesVisited.set([]);
             this.companiesVisitedTotalPages.set(1);
           }
@@ -480,30 +512,38 @@ export class CampusHomeComponent implements OnInit {
   }
 
   private mapCompanyVisitedToCard(item: CompanyVisitedItem): CompanyVisitedCard {
-    // Construct full image URL from logourl
-    // Backend returns logourl like "company/ed38e166-3f2a-45e4-8fe7-c441dd068764.jpg"
+    // Construct full image URL from logourl or logoUrl
+    // Backend may return either "logourl" or "logoUrl"
     let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
     
-    if (item.logourl) {
-      const logourl = item.logourl.trim();
+    // Try both field names (logourl and logoUrl)
+    const logoUrlValue = item.logourl || item.logoUrl;
+    
+    if (logoUrlValue) {
+      const logoUrl = logoUrlValue.trim();
       console.log('CampusHomeComponent: mapCompanyVisitedToCard - Company:', item.companyName);
-      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Raw logourl:', logourl);
+      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Raw logo URL:', logoUrl);
       
-      if (logourl.startsWith('http://') || logourl.startsWith('https://')) {
+      // Remove trailing comma if present (sometimes API returns "url,")
+      const cleanUrl = logoUrl.endsWith(',') ? logoUrl.slice(0, -1) : logoUrl;
+      
+      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
         // Already a full URL
-        imageUrl = logourl;
+        imageUrl = cleanUrl;
         console.log('CampusHomeComponent: Using full URL:', imageUrl);
-      } else if (logourl.startsWith('/')) {
+      } else if (cleanUrl.startsWith('/')) {
         // Absolute path, add /api/v1/files prefix
-        imageUrl = `/api/v1/files${logourl}`;
+        imageUrl = `/api/v1/files${cleanUrl}`;
         console.log('CampusHomeComponent: Constructed URL from absolute path:', imageUrl);
-      } else {
+      } else if (cleanUrl.trim() !== '') {
         // Relative path like "company/filename.jpg", add /api/v1/files/ prefix
-        imageUrl = `/api/v1/files/${logourl}`;
+        imageUrl = `/api/v1/files/${cleanUrl}`;
         console.log('CampusHomeComponent: Constructed URL from relative path:', imageUrl);
+      } else {
+        console.warn('CampusHomeComponent: mapCompanyVisitedToCard - Empty logo URL for company:', item.companyName);
       }
     } else {
-      console.warn('CampusHomeComponent: mapCompanyVisitedToCard - No logourl found for company:', item.companyName);
+      console.warn('CampusHomeComponent: mapCompanyVisitedToCard - No logo URL found for company:', item.companyName);
     }
     
     const result = {
