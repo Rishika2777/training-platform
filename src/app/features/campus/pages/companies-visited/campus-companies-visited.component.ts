@@ -29,6 +29,23 @@ export class CampusCompaniesVisitedComponent {
 
   submitAttempted = false;
 
+  /**
+   * Reset form to initial empty state
+   * Called when modal opens or after successful submission
+   */
+  resetForm(): void {
+    this.value = {
+      companyLogo: null,
+      companyName: '',
+    };
+    this.submitAttempted = false;
+    // Clear file input
+    if (this.companyLogoFileInput?.nativeElement) {
+      this.companyLogoFileInput.nativeElement.value = '';
+    }
+    this.valueChange.emit(this.value);
+  }
+
   patch(patch: Partial<CompaniesVisitedFormValue>): void {
     const next: CompaniesVisitedFormValue = { ...this.value, ...patch };
     this.value = next;

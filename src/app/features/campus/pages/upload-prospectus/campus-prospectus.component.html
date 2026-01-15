@@ -2,6 +2,7 @@
   <form class="prospectus-form" (ngSubmit)="onFormSubmit($event)">
     <div class="form-row">
       <app-input-with-file
+        #prospectusFileInput
         label="Prospectus"
         [value]="displayCampusValue()"
         [disabled]="submitting"

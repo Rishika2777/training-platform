@@ -116,23 +116,46 @@
   <!-- Fourth Row: Attachments and Additional Requirements -->
   <div class="form-row-two">
     <div class="form-row-attachment">
-      <app-input
-        label="Attachments"
-        type="text"
-        [value]="attachmentsName || 'Select file'"
-        [disabled]="true"
-        placeholder="Select file"
-      />
-      <button type="button" class="file-attach-btn" (click)="triggerAttachmentsSelect()">
-        <i class="fa-solid fa-paperclip"></i>
-      </button>
-      <input
-        #attachmentsFileInput
-        type="file"
-        style="display: none"
-        [disabled]="submitting"
-        (change)="onAttachmentsSelected($any($event.target).files)"
-      />
+      <div class="form-label">Attachments</div>
+      <div class="attachment-input-wrapper">
+        <app-input
+          label=""
+          type="text"
+          [value]="attachmentsList.length > 0 ? `${attachmentsList.length} file(s) selected` : 'Select files'"
+          [disabled]="true"
+          placeholder="Select files"
+        />
+        <button type="button" class="file-attach-btn" (click)="triggerAttachmentsSelect()" [disabled]="submitting">
+          <i class="fa-solid fa-paperclip"></i>
+        </button>
+        <input
+          #attachmentsFileInput
+          type="file"
+          style="display: none"
+          [disabled]="submitting"
+          [multiple]="true"
+          (change)="onAttachmentsSelected($any($event.target).files)"
+        />
+      </div>
+      @if (attachmentsList.length > 0) {
+        <div class="attachment-files-list">
+          @for (file of attachmentsList; track $index) {
+            <div class="attachment-file-item">
+              <span class="file-name" [title]="file.name">{{ file.name }}</span>
+              <span class="file-size">({{ formatFileSize(file.size) }})</span>
+              <button
+                type="button"
+                class="remove-file-btn"
+                [disabled]="submitting"
+                (click)="removeAttachment($index)"
+                title="Remove file"
+              >
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+          }
+        </div>
+      }
     </div>
     <app-textarea
       label="Additional requirements"

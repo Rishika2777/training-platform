@@ -31,6 +31,21 @@ export class CampusCourseFormComponent {
 
   submitAttempted = false;
 
+  /**
+   * Reset form to initial empty state
+   * Called when modal opens or after successful submission
+   */
+  resetForm(): void {
+    this.value = {
+      courseName: '',
+      duration: '',
+      totalSeats: '',
+      description: '',
+    };
+    this.submitAttempted = false;
+    this.valueChange.emit(this.value);
+  }
+
   patch(patch: Partial<CourseFormValue>): void {
     console.log('CampusCourseFormComponent: patch() called with:', patch);
     const next: CourseFormValue = { ...this.value, ...patch };

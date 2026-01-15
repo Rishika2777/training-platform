@@ -211,9 +211,32 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
           // If items are empty, clear filtered items to avoid showing stale data
           this.filteredItems = [];
         }
-      } else if (this.apiFetchFn !== undefined && !this.searchTerm && this.minSearchLength === 0) {
-        // Trigger initial API call if minSearchLength is 0
-        this.searchSubject.next('');
+      } else if (this.apiFetchFn !== undefined) {
+        // API fetch mode
+        const currentTerm = this.searchTerm || '';
+        
+        // If minSearchLength is 0, trigger API call immediately (even with empty term)
+        // This loads initial data when user focuses on the field
+        if (this.minSearchLength === 0) {
+          console.log('DropdownComponent: onInputFocus - Triggering API call (minSearchLength=0)');
+          console.log('DropdownComponent: onInputFocus - Search term:', currentTerm);
+          
+          // Ensure searchTerm is set for the loading indicator
+          if (!this.searchTerm) {
+            this.searchTerm = '';
+          }
+          
+          // Trigger API call via subject
+          this.searchSubject.next(currentTerm);
+        } else if (currentTerm.length >= this.minSearchLength) {
+          // If we have a search term that meets minSearchLength, trigger API
+          console.log('DropdownComponent: onInputFocus - Triggering API call (search term meets minLength)');
+          this.searchSubject.next(currentTerm);
+        } else {
+          // If minSearchLength > 0 and no valid search term, don't trigger API yet
+          console.log('DropdownComponent: onInputFocus - Waiting for user input (minSearchLength > 0)');
+          this.filteredItems = [];
+        }
       }
     } else {
       // Non-autocomplete mode: open dropdown (for mobile compatibility)

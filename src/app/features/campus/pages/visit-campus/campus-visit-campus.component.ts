@@ -19,7 +19,7 @@ export interface VisitCampusFormValue {
   timeOfVisit: string;
   timeOfVisitAmPm: 'AM' | 'PM';
   additionalRequirements: string;
-  attachments: File | null;
+  attachments: File[]; // Array of files for upload
 }
 
 @Component({
@@ -49,7 +49,7 @@ export class CampusVisitCampusComponent {
     timeOfVisit: '',
     timeOfVisitAmPm: 'AM',
     additionalRequirements: '',
-    attachments: null,
+    attachments: [],
   };
 
   @Output() valueChange = new EventEmitter<VisitCampusFormValue>();
@@ -72,7 +72,7 @@ export class CampusVisitCampusComponent {
     timeOfVisit: '',
     timeOfVisitAmPm: 'AM',
     additionalRequirements: '',
-    attachments: null,
+    attachments: [],
   };
 
   /**
@@ -157,12 +157,46 @@ export class CampusVisitCampusComponent {
   }
 
   onAttachmentsSelected(files: FileList | null): void {
-    const file = files && files.length > 0 ? files.item(0) : null;
-    this.patch({ attachments: file });
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    // Add all selected files to attachments array
+    const newFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files.item(i);
+      if (file) {
+        // Check if file already exists (by name and size)
+        const exists = this.value.attachments.some(
+          f => f.name === file.name && f.size === file.size
+        );
+        if (!exists) {
+          newFiles.push(file);
+        }
+      }
+    }
+
+    if (newFiles.length > 0) {
+      this.patch({ attachments: [...this.value.attachments, ...newFiles] });
+    }
   }
 
-  get attachmentsName(): string {
-    return this.value.attachments?.name ?? '';
+  removeAttachment(index: number): void {
+    const files = [...this.value.attachments];
+    files.splice(index, 1);
+    this.patch({ attachments: files });
+  }
+
+  get attachmentsList(): File[] {
+    return this.value.attachments || [];
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
 
   onFormSubmit(event: Event): void {

@@ -135,6 +135,20 @@
   padding-right: 10px !important;
 }
 
+.course-filter-wrapper {
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+:host ::ng-deep .course-filter-wrapper app-dropdown {
+  width: 100%;
+}
+
+:host ::ng-deep .course-filter-wrapper app-dropdown .select-wrapper {
+  width: 100%;
+}
+
 .section-title {
   font-size: 42px;
   font-weight: 800;

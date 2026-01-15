@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, PLATFORM_ID, signal, computed, SimpleChanges } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, PLATFORM_ID, signal, computed, SimpleChanges, ViewChild } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputWithFileComponent } from '../../../../shared/components/input-with-file/input-with-file.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
@@ -49,6 +49,82 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   // Store actual campus ID separately (for API)
   private actualCampusId = '';
 
+  @ViewChild('prospectusFileInput') prospectusFileInputComponent?: InputWithFileComponent;
+
+  /**
+   * Reset form to initial empty state
+   * Called when modal opens or after successful submission
+   */
+  resetForm(): void {
+    console.log('CampusProspectusComponent: resetForm() called - Starting reset');
+    
+    // STEP 1: Clear actualCampusId FIRST to ensure displayCampusValue() shows empty
+    this.actualCampusId = '';
+    
+    // STEP 2: Reset form values - create completely new object to ensure Angular detects the change
+    this.value = {
+      campus: '',
+      campusFile: null,
+      course: '',
+      courseFile: null,
+    };
+    
+    // STEP 3: Clear prospectus list to ensure fresh state
+    this.prospectusList.set([]);
+    
+    // STEP 4: Emit the reset value to parent component immediately
+    this.valueChange.emit(this.value);
+    
+    // STEP 5: Clear file input component's internal file state
+    // Use multiple attempts to ensure it's cleared
+    setTimeout(() => {
+      if (this.prospectusFileInputComponent) {
+        console.log('CampusProspectusComponent: Clearing file input component');
+        // Clear the file input element
+        if (this.prospectusFileInputComponent.fileInputRef?.nativeElement) {
+          this.prospectusFileInputComponent.fileInputRef.nativeElement.value = '';
+        }
+        // Use the clearFile method to clear internal selectedFile state
+        this.prospectusFileInputComponent.clearFile();
+      }
+    }, 0);
+    
+    // STEP 6: Force change detection to update the view
+    this.cdr.detectChanges();
+    
+    // STEP 7: Additional cleanup after a short delay to ensure everything is cleared
+    setTimeout(() => {
+      // Double-check that values are cleared
+      if (this.value.course || this.value.campus) {
+        console.warn('CampusProspectusComponent: Values still present after reset, forcing clear');
+        this.value = {
+          campus: '',
+          campusFile: null,
+          course: '',
+          courseFile: null,
+        };
+        this.valueChange.emit(this.value);
+        this.cdr.detectChanges();
+      }
+      
+      // Double-check file input
+      if (this.prospectusFileInputComponent) {
+        if (this.prospectusFileInputComponent.fileInputRef?.nativeElement) {
+          this.prospectusFileInputComponent.fileInputRef.nativeElement.value = '';
+        }
+        this.prospectusFileInputComponent.clearFile();
+      }
+    }, 50);
+    
+    console.log('CampusProspectusComponent: Form reset completed', {
+      value: this.value,
+      actualCampusId: this.actualCampusId,
+      prospectusListLength: this.prospectusList().length,
+      displayCampusValue: this.displayCampusValue(),
+      courseValue: this.value.course
+    });
+  }
+
   /**
    * Check if a string is a valid ID (MongoDB ObjectId or numeric ID, not a file name)
    */
@@ -86,19 +162,33 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
 
   // Computed signal to get display value for campus field (show name instead of ID)
   readonly displayCampusValue = computed(() => {
-    const campusId = this.actualCampusId || this.value.campus.trim();
-    if (!campusId || !this.isValidId(campusId)) {
-      return this.value.campus.trim(); // Return as-is if not a valid ID
+    // If actualCampusId is set, use it (this is set by initializeProspectusComponent)
+    if (this.actualCampusId) {
+      const campus = this.loadedCampuses().find(c => 
+        (c.id && c.id.trim() === this.actualCampusId) || 
+        (c.campusId && c.campusId.trim() === this.actualCampusId)
+      );
+      return campus?.campusName?.trim() || this.actualCampusId;
     }
     
-    // Find campus by ID to get the name
-    const campus = this.loadedCampuses().find(c => 
-      (c.id && c.id.trim() === campusId) || 
-      (c.campusId && c.campusId.trim() === campusId)
-    );
+    // If value.campus is empty, return empty string
+    const campusValue = this.value.campus.trim();
+    if (!campusValue) {
+      return '';
+    }
     
-    // Return campus name if found, otherwise return the ID
-    return campus?.campusName?.trim() || campusId;
+    // If it's a valid ID, find campus name
+    if (this.isValidId(campusValue)) {
+      const campus = this.loadedCampuses().find(c => 
+        (c.id && c.id.trim() === campusValue) || 
+        (c.campusId && c.campusId.trim() === campusValue)
+      );
+      return campus?.campusName?.trim() || campusValue;
+    }
+    
+    // If it's not a valid ID (like a file name), return empty string (should not happen after reset)
+    // This ensures file names don't show up in the field
+    return '';
   });
 
   ngOnInit(): void {

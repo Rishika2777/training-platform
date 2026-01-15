@@ -1,11 +1,15 @@
 @if (isAuthenticated()) {
   <aside class="sidebar" [class.collapsed]="collapsed">
     <div class="profile">
-      <div class="avatar" aria-hidden="true">{{ initials(userLabel()) }}</div>
+      @if (userImageUrl()) {
+        <img class="avatar-image" [src]="userImageUrl()!" [alt]="userLabel()" />
+      } @else {
+        <div class="avatar" aria-hidden="true">{{ initials(userLabel()) }}</div>
+      }
       @if (!collapsed) {
         <div class="profile-meta">
           <div class="profile-name">{{ userLabel() }}</div>
-          <div class="profile-rank">Rank</div>
+          <div class="profile-rank">{{ userRank() }}</div>
         </div>
       }
     </div>

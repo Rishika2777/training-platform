@@ -47,7 +47,19 @@
 
   <!-- Our Rising Stars Section -->
   <section class="section rising-stars">
-    <h2 class="section-title">Our Rising Stars</h2>
+    <div class="section-header">
+      <h2 class="section-title">Our Rising Stars</h2>
+      <div class="course-filter-wrapper">
+        <app-dropdown
+          label=""
+          placeholder="All Courses"
+          [items]="courseFilterItems()"
+          [value]="selectedCourseFilter() || ''"
+          (valueChange)="onRisingStarsCourseFilterChange($event)"
+          [autocomplete]="false"
+        />
+      </div>
+    </div>
     @if (loadingRisingStars()) {
       <div class="loading-indicator">Loading...</div>
     } @else {
@@ -106,7 +118,7 @@
   </section> -->
 
   <!-- Success Stories Section -->
-  <section class="section success-stories">
+  <!-- <section class="section success-stories">
     <h2 class="section-title">Success Stories</h2>
     @if (loadingSuccessStories()) {
       <div class="loading-indicator">Loading...</div>
@@ -146,7 +158,7 @@
         </button>
       </div>
     }
-  </section>
+  </section> -->
 
   <!-- Overview Section -->
   <section class="section overview">
@@ -200,10 +212,13 @@
     @if (loadingCourses()) {
       <div class="loading-state">Loading courses...</div>
     } @else {
-      <div class="carousel-wrapper">
-        <button class="carousel-arrow left" (click)="previousCourse()" [disabled]="coursePage === 1 || loadingCourses()">
-          <i class="fa-solid fa-chevron-left"></i>
-        </button>
+      <app-carousel
+        type="pagination"
+        [currentPage]="coursePage()"
+        [totalPages]="coursesTotalPages()"
+        [maxVisible]="4"
+        (pageChange)="onCoursePageChange($event)"
+      >
         <div class="courses-carousel">
           @if (coursesPageItems().length === 0) {
             <div class="empty-state">No courses found</div>
@@ -224,10 +239,7 @@
             }
           }
         </div>
-        <button class="carousel-arrow right" (click)="nextCourse()" [disabled]="coursePage === coursesTotalPages() || loadingCourses()">
-          <i class="fa-solid fa-chevron-right"></i>
-        </button>
-      </div>
+      </app-carousel>
     }
   </section>
 
@@ -351,23 +363,23 @@
         <button 
           class="testimonial-arrow left" 
           (click)="previousTestimonial()"
-          [disabled]="testimonialPage <= 1"
+          [disabled]="testimonialPage <= 1 && currentTestimonialIndex() <= 0"
         >
           <i class="fa-solid fa-chevron-left"></i>
         </button>
         @if (currentTestimonial) {
           <div class="testimonial-quote">
             <p class="quote-text">
-              "{{ currentTestimonial.testimonial || currentTestimonial.review || currentTestimonial.text || currentTestimonial.quote || 'No testimonial text available.' }}"
+              "{{ currentTestimonial.message || currentTestimonial.testimonial || currentTestimonial.review || currentTestimonial.text || currentTestimonial.quote || 'No testimonial text available.' }}"
             </p>
             <div class="quote-author">
               <img 
                 class="author-avatar" 
                 [src]="currentTestimonial.photoUrl || currentTestimonial.profilePhotoUrl || currentTestimonial.imageUrl || currentTestimonial.avatarUrl || 'assets/images/landing-card-campus.png'" 
-                [alt]="currentTestimonial.studentName || currentTestimonial.name || currentTestimonial.fullName || 'Student'" 
+                [alt]="currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || 'Student'" 
               />
               <div class="author-name">
-                {{ currentTestimonial.studentName || currentTestimonial.name || currentTestimonial.fullName || 'Student' }}
+                {{ currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || 'Student' }}
               </div>
             </div>
           </div>
@@ -381,7 +393,7 @@
         <button 
           class="testimonial-arrow right" 
           (click)="nextTestimonial()"
-          [disabled]="testimonialPage >= testimonialsTotalPages()"
+          [disabled]="testimonialPage >= testimonialsTotalPages() && currentTestimonialIndex() >= testimonials().length - 1"
         >
           <i class="fa-solid fa-chevron-right"></i>
         </button>

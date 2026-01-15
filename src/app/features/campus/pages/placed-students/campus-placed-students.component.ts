@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, EventEmitter, inject, Input, OnInit, Output, signal, ViewChild } from '@angular/core';
-import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { Observable, map, catchError, of } from 'rxjs';
+import { DropdownComponent, ApiFetchFunction, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { CampusApiService } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -62,9 +63,8 @@ export class CampusPlacedStudentsComponent implements OnInit {
   readonly sectorItems = signal<readonly { label: string; value: string }[]>([]);
   loadingSectors = signal(false);
 
-  // Student name items - loaded from previously placed students
-  // Automatically populated from existing placed students and updated when new ones are added
-  readonly studentNameItems = signal<readonly { label: string; value: string }[]>([]);
+  // Student name items - loaded via API autocomplete
+  // Using API fetch function for real-time search from registered students
   loadingStudentNames = signal(false);
 
   ngOnInit(): void {
@@ -72,8 +72,75 @@ export class CampusPlacedStudentsComponent implements OnInit {
     this.loadBatches();
     this.loadDesignations();
     this.loadSectors();
-    this.loadStudentNames();
   }
+
+  /**
+   * API fetch function for student names autocomplete
+   * Fetches students by campus ID with search query
+   * GET /student/campus/{campusId}?search={searchTerm}
+   * 
+   * Behavior:
+   * - If search is empty or < 2 chars: Returns first 20 students
+   * - If search has 2+ chars: Searches by firstName/lastName
+   */
+  fetchStudentNames: ApiFetchFunction = (searchTerm: string): Observable<DropdownItem[]> => {
+    console.log('CampusPlacedStudentsComponent: fetchStudentNames called with searchTerm:', searchTerm);
+    this.loadingStudentNames.set(true);
+    
+    return this.campusApi.getStudentsByCampusId(searchTerm).pipe(
+      map((response) => {
+        console.log('CampusPlacedStudentsComponent: fetchStudentNames response received:', response);
+        
+        if (response?.success && response.data?.content) {
+          // Convert student objects to dropdown items
+          // Combine firstName and lastName for display
+          const dropdownItems: DropdownItem[] = response.data.content
+            .filter(student => {
+              // Filter out students without a name
+              const firstName = student.firstName?.trim() || '';
+              const lastName = student.lastName?.trim() || '';
+              return firstName.length > 0 || lastName.length > 0;
+            })
+            .map(student => {
+              const firstName = student.firstName?.trim() || '';
+              const lastName = student.lastName?.trim() || '';
+              const fullName = `${firstName} ${lastName}`.trim();
+              
+              // Use full name as both label and value
+              return {
+                label: fullName,
+                value: fullName,
+              };
+            })
+            // Remove duplicates (in case of duplicate names)
+            .filter((item, index, self) => 
+              index === self.findIndex((t) => t.value.toLowerCase() === item.value.toLowerCase())
+            );
+          
+          console.log('CampusPlacedStudentsComponent: fetchStudentNames returning items:', dropdownItems.length);
+          this.loadingStudentNames.set(false);
+          return dropdownItems;
+        }
+        
+        console.warn('CampusPlacedStudentsComponent: fetchStudentNames - No content in response or response not successful');
+        this.loadingStudentNames.set(false);
+        return [];
+      }),
+      catchError((error) => {
+        console.error('CampusPlacedStudentsComponent: Failed to fetch student names:', error);
+        console.error('CampusPlacedStudentsComponent: Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          url: error?.url,
+          error: error?.error
+        });
+        this.loadingStudentNames.set(false);
+        // Don't show error notification as this is called frequently during typing
+        return of([]);
+      })
+    );
+  };
 
   /**
    * Public method to reload courses.
@@ -249,82 +316,20 @@ export class CampusPlacedStudentsComponent implements OnInit {
     });
   }
 
-  /**
-   * Load student names from previously placed students
-   * Fetches all placed students and extracts unique student names for the dropdown
-   */
-  loadStudentNames(): void {
-    this.loadingStudentNames.set(true);
-    
-    // Fetch placed students with a large limit to get all names
-    // We'll fetch multiple pages if needed to get all student names
-    this.campusApi.getPlacedStudents(0, 100).subscribe({
-      next: (response) => {
-        if (response?.success && response.data?.content) {
-          // Extract unique student names from placed students
-          const studentNamesSet = new Set<string>();
-          
-          response.data.content.forEach((student) => {
-            if (student.studentName && typeof student.studentName === 'string') {
-              const name = student.studentName.trim();
-              if (name.length > 0) {
-                studentNamesSet.add(name);
-              }
-            }
-          });
-          
-          // Convert to dropdown items format: { label: string, value: string }
-          const studentNameDropdownItems = Array.from(studentNamesSet)
-            .sort() // Sort alphabetically for better UX
-            .map(name => ({
-              label: name,
-              value: name,
-            }));
-          
-          this.studentNameItems.set(studentNameDropdownItems);
-        } else {
-          this.studentNameItems.set([]);
-        }
-        
-        this.loadingStudentNames.set(false);
-      },
-      error: (error) => {
-        console.error('CampusPlacedStudentsComponent: Failed to load student names:', error);
-        this.studentNameItems.set([]);
-        this.loadingStudentNames.set(false);
-        // Don't show error notification as this is a convenience feature
-      },
-    });
-  }
 
   /**
    * Public method to reload student names.
-   * Can be called after successfully adding a new placed student.
+   * Note: Student names are now loaded via API autocomplete, so this method is kept for backward compatibility
+   * but doesn't need to do anything since the dropdown handles fetching automatically.
    */
   reloadStudentNames(): void {
-    this.loadStudentNames();
+    // No-op: Student names are fetched automatically via API fetch function when user types
   }
 
   patch(patch: Partial<PlacedStudentsFormValue>): void {
     const next: PlacedStudentsFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
-    
-    // If a new student name is typed that's not in the list, add it to the dropdown
-    if (patch.studentName && patch.studentName.trim().length > 0) {
-      const trimmedName = patch.studentName.trim();
-      const currentItems = this.studentNameItems();
-      const nameExists = currentItems.some(item => item.value.toLowerCase() === trimmedName.toLowerCase());
-      
-      if (!nameExists) {
-        // Add the new name to the dropdown
-        const newItem = { label: trimmedName, value: trimmedName };
-        const updatedItems = [...currentItems, newItem].sort((a, b) => 
-          a.label.localeCompare(b.label)
-        );
-        this.studentNameItems.set(updatedItems);
-      }
-    }
   }
 
   triggerStudentPhotoSelect(): void {

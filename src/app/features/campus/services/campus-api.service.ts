@@ -101,7 +101,7 @@ export class CampusApiService {
             console.log('CampusApiService: getPublicCampusById - Campus ID from response:', campusData.campusId || campusData.id);
             console.log('CampusApiService: getPublicCampusById - ALL FIELDS IN RESPONSE:', Object.keys(campusData));
             console.log('CampusApiService: getPublicCampusById - aboutCampus field:', campusData.aboutCampus ? `✅ Present (length: ${campusData.aboutCampus.length})` : '❌ Missing or empty');
-            console.log('CampusApiService: getPublicCampusById - Full response data:', JSON.stringify(campusData, null, 2));
+            console.log('CampusApiService: getPublicCampusById - Full response data:', JSON.stringify(campusData, null, 2));  
             return campusData;
           }
           
@@ -117,6 +117,55 @@ export class CampusApiService {
       }),
       catchError((error) => {
         console.error('CampusApiService: Error getting public campus by ID:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /public/landing/campus/{campusId}/about
+   * Get About Campus content.
+   * Retrieves the About Campus content from the campus profile.
+   * Response format: { success: true, message: null, data: "about text", error: null }
+   */
+  getAboutCampus(campusId: string): Observable<string | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ABOUT_CAMPUS, { campusId });
+    
+    console.log('CampusApiService: Getting about campus - URL:', url, 'campusId:', campusId);
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getAboutCampus raw response:', raw);
+        
+        // Response structure: { success: true, message: null, data: "about text", error: null }
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const response = raw as Record<string, unknown>;
+          
+          // Check if response has 'success' and 'data' fields
+          if ('success' in response && 'data' in response) {
+            const aboutText = response['data'];
+            
+            // Data can be a string or other type
+            if (typeof aboutText === 'string') {
+              console.log('CampusApiService: getAboutCampus - Extracted about text, length:', aboutText.length);
+              console.log('CampusApiService: getAboutCampus - About text preview:', aboutText.substring(0, 100) + '...');
+              return aboutText;
+            } else if (aboutText !== null && aboutText !== undefined) {
+              // Convert to string if not null/undefined
+              const text = String(aboutText);
+              console.log('CampusApiService: getAboutCampus - Converted about text to string, length:', text.length);
+              return text;
+            }
+          }
+        }
+        
+        console.warn('CampusApiService: getAboutCampus - Response format unexpected or no data:', raw);
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error getting about campus:', error);
         console.error('CampusApiService: Error status:', error?.status);
         console.error('CampusApiService: Error URL:', error?.url);
         return throwError(() => error);
@@ -363,13 +412,123 @@ export class CampusApiService {
   }
 
   /**
-   * POST /dashboard/companies
+   * GET /student/campus/{campusId}
+   * Get students by campus ID with autocomplete search.
+   * 
+   * Behavior:
+   * - If search query is empty or < 2 characters: Returns first 20 students (default pagination 0-20)
+   * - If search query has 2+ characters: Searches by student name (firstName/lastName) and returns matching results
+   * 
+   * Response format: { success: true, message: "Students fetched successfully", data: { content: [...], ...pagination... }, error: null }
+   */
+  getStudentsByCampusId(
+    search = '',
+    campusId?: string,
+  ): Observable<StudentByCampusResponse> {
+    // Automatically inject campus ID from storage if not provided
+    const finalCampusId = this.getCampusId(campusId);
+    if (!finalCampusId) {
+      console.error('CampusApiService: getStudentsByCampusId - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get students'));
+    }
+    
+    const url = this.buildUrl(
+      resolvePathParams(API_ENDPOINTS.STUDENT.GET_STUDENTS_BY_CAMPUS, { campusId: finalCampusId })
+    );
+    
+    let params = new HttpParams();
+    if (search && search.trim().length >= 2) {
+      params = params.set('search', search.trim());
+    }
+    
+    console.log('CampusApiService: getStudentsByCampusId - URL:', url);
+    console.log('CampusApiService: getStudentsByCampusId - Campus ID:', finalCampusId);
+    console.log('CampusApiService: getStudentsByCampusId - Search term:', search);
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        console.log('CampusApiService: getStudentsByCampusId - Raw response:', raw);
+        console.log('CampusApiService: getStudentsByCampusId - Raw response type:', typeof raw);
+        console.log('CampusApiService: getStudentsByCampusId - Raw response keys:', raw && typeof raw === 'object' ? Object.keys(raw) : 'N/A');
+        
+        // Backend response format: { success: true, message: "Students fetched successfully", data: { content: [...], ... }, error: null }
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const responseObj = raw as Record<string, unknown>;
+          
+          // Check if response has the expected structure
+          if ('success' in responseObj && 'data' in responseObj) {
+            const dataObj = responseObj['data'] as Record<string, unknown>;
+            
+            // Log the data object structure for debugging
+            console.log('CampusApiService: getStudentsByCampusId - Data object:', dataObj);
+            console.log('CampusApiService: getStudentsByCampusId - Data object keys:', Object.keys(dataObj));
+            console.log('CampusApiService: getStudentsByCampusId - Content type:', typeof dataObj['content']);
+            console.log('CampusApiService: getStudentsByCampusId - Content is array:', Array.isArray(dataObj['content']));
+            console.log('CampusApiService: getStudentsByCampusId - Content length:', Array.isArray(dataObj['content']) ? dataObj['content'].length : 'N/A');
+            
+            const contentArray = Array.isArray(dataObj['content']) ? dataObj['content'] : [];
+            console.log('CampusApiService: getStudentsByCampusId - First student item (if any):', contentArray.length > 0 ? contentArray[0] : 'No students found');
+            
+            const response: StudentByCampusResponse = {
+              success: responseObj['success'] as boolean,
+              message: (responseObj['message'] as string) || 'Students fetched successfully',
+              data: {
+                content: contentArray as StudentByCampusItem[],
+                pageable: dataObj['pageable'] as PageableInfo | undefined,
+                totalPages: typeof dataObj['totalPages'] === 'number' ? dataObj['totalPages'] : undefined,
+                totalElements: typeof dataObj['totalElements'] === 'number' ? dataObj['totalElements'] : undefined,
+                first: typeof dataObj['first'] === 'boolean' ? dataObj['first'] : undefined,
+                last: typeof dataObj['last'] === 'boolean' ? dataObj['last'] : undefined,
+                size: typeof dataObj['size'] === 'number' ? dataObj['size'] : undefined,
+                number: typeof dataObj['number'] === 'number' ? dataObj['number'] : undefined,
+                numberOfElements: typeof dataObj['numberOfElements'] === 'number' ? dataObj['numberOfElements'] : undefined,
+                empty: typeof dataObj['empty'] === 'boolean' ? dataObj['empty'] : undefined,
+              },
+              error: (responseObj['error'] as string) || undefined,
+            };
+            
+            console.log('CampusApiService: getStudentsByCampusId - Parsed response, students count:', response.data.content.length);
+            console.log('CampusApiService: getStudentsByCampusId - Total elements:', response.data.totalElements);
+            
+            if (response.data.content.length === 0 && response.data.totalElements === 0) {
+              console.warn('CampusApiService: getStudentsByCampusId - ⚠️ No students found for campus ID:', finalCampusId);
+              console.warn('CampusApiService: getStudentsByCampusId - This could mean:');
+              console.warn('  1. No students are registered for this campus yet');
+              console.warn('  2. Students exist but are not associated with this campus ID');
+              console.warn('  3. Check if students need to be registered first');
+            }
+            
+            return response;
+          }
+        }
+        
+        console.warn('CampusApiService: getStudentsByCampusId - Response format unexpected:', raw);
+        // Return a default response structure
+        return {
+          success: false,
+          message: 'Unexpected response format',
+          data: { content: [] },
+          error: 'Invalid response structure',
+        } as StudentByCampusResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getStudentsByCampusId - Error occurred:', error);
+        console.error('CampusApiService: getStudentsByCampusId - Error status:', error?.status);
+        console.error('CampusApiService: getStudentsByCampusId - Error URL:', error?.url);
+        console.error('CampusApiService: getStudentsByCampusId - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * POST /dashboard/campus/{campusId}/companies
    * Add a company visited.
    * Request: multipart/form-data with companyName (string) and logo (file)
    * Response: { success: true, message: string, data: AddCompanyVisitedResponseData, error: null }
    */
-  addCompanyVisited(formData: FormData): Observable<AddCompanyVisitedResponse | null> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED);
+  addCompanyVisited(campusId: string, formData: FormData): Observable<AddCompanyVisitedResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED, { campusId });
     
     console.log('CampusApiService: ========== ADD COMPANY VISITED API CALL ==========');
     console.log('CampusApiService: addCompanyVisited - URL:', url);
@@ -2310,25 +2469,52 @@ export class CampusApiService {
   getTestimonials(
     campusId: string,
     page = 0,
-    size = 5,
+    size = 10,
   ): Observable<TestimonialsResponse | null> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.TESTIMONIALS, { campusId });
+    console.log('CampusApiService: ========== GET TESTIMONIALS API CALL ==========');
+    console.log('CampusApiService: Input campusId:', campusId);
+    console.log('CampusApiService: Input page:', page);
+    console.log('CampusApiService: Input size:', size);
+    
+    const endpoint = API_ENDPOINTS.CAMPUS.TESTIMONIALS;
+    const url = this.buildUrl(endpoint, { campusId });
     const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
     
-    console.log('CampusApiService: Getting testimonials - URL:', url, 'page:', page, 'size:', size);
+    console.log('CampusApiService: Built URL:', url);
+    console.log('CampusApiService: Query params:', { page, size });
+    console.log('CampusApiService: Base URL:', this.baseUrl);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
         console.log('CampusApiService: Testimonials raw response:', raw);
+        
+        // Handle response - backend returns { success, message, data, error }
         if (raw && typeof raw === 'object') {
-          const response = raw as TestimonialsResponse;
-          console.log('CampusApiService: Testimonials parsed response:', response);
-          return response;
+          const responseObj = raw as Record<string, unknown>;
+          
+          // Check if response is already in the correct format
+          if ('success' in responseObj && 'data' in responseObj) {
+            const response: TestimonialsResponse = {
+              success: Boolean(responseObj['success']),
+              message: responseObj['message'] !== null && responseObj['message'] !== undefined ? String(responseObj['message']) : null,
+              data: responseObj['data'] as TestimonialsResponse['data'],
+              error: responseObj['error'] !== null && responseObj['error'] !== undefined ? String(responseObj['error']) : null
+            };
+            console.log('CampusApiService: Testimonials parsed response:', response);
+            console.log('CampusApiService: Testimonials count:', response.data?.content?.length || 0);
+            console.log('CampusApiService: Testimonials data.last:', response.data?.last);
+            console.log('CampusApiService: Testimonials data.totalPages:', response.data?.totalPages);
+            return response;
+          }
         }
+        
+        console.warn('CampusApiService: Testimonials - Invalid response format:', raw);
         return null;
       }),
       catchError((error) => {
         console.error('CampusApiService: Testimonials API error:', error);
+        console.error('CampusApiService: Error status:', error?.status);
+        console.error('CampusApiService: Error URL:', error?.url);
         return throwError(() => error);
       })
     );
@@ -2454,17 +2640,19 @@ export class CampusApiService {
   }
 
   /**
-   * POST /public/landing/feedback
-   * Submit feedback from contact form.
-   * Requires name, contact, and message. Feedback will be saved and can be approved by admin to display as testimonial.
+   * POST /public/landing/campus/{campusId}/feedback
+   * Submit feedback from contact form for a specific campus.
+   * Requires campusId, name, contact, and message. Feedback will be saved and can be approved by admin to display as testimonial.
    * Response: 201 Created with { success: true, message: string, data: FeedbackData, error: null }
    */
-  submitFeedback(request: FeedbackRequest): Observable<FeedbackResponse | null> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.FEEDBACK);
+  submitFeedback(campusId: string, request: FeedbackRequest): Observable<FeedbackResponse | null> {
+    const endpoint = API_ENDPOINTS.CAMPUS.FEEDBACK;
+    const url = this.buildUrl(endpoint, { campusId });
     
     console.log('CampusApiService: ========== SUBMIT FEEDBACK API CALL ==========');
     console.log('CampusApiService: submitFeedback - URL:', url);
-    console.log('CampusApiService: submitFeedback - Endpoint:', API_ENDPOINTS.CAMPUS.FEEDBACK);
+    console.log('CampusApiService: submitFeedback - Endpoint:', endpoint);
+    console.log('CampusApiService: submitFeedback - CampusId:', campusId);
     console.log('CampusApiService: submitFeedback - Base URL:', this.baseUrl);
     console.log('CampusApiService: submitFeedback - Request:', JSON.stringify(request, null, 2));
     console.log('CampusApiService: submitFeedback - About to make HTTP POST request...');
@@ -2510,10 +2698,11 @@ export class CampusApiService {
    * Submit a campus visit request via JSON.
    * Use 'attachmentUrls' field for file URLs/names. Supports recruitment type (Internship/Full-time/Both), visit date/time, positions, package, and requirements.
    */
-  submitVisitCampusRequest(campusId: string, request: VisitCampusRequest): Observable<VisitCampusResponse | null> {
+  submitVisitCampusRequest(campusId: string, request: VisitCampusRequest, attachments: File[] = []): Observable<VisitCampusResponse | null> {
     console.log('CampusApiService: ========== SUBMIT VISIT CAMPUS REQUEST API CALL ==========');
     console.log('CampusApiService: Input campusId:', campusId);
     console.log('CampusApiService: Input request:', JSON.stringify(request, null, 2));
+    console.log('CampusApiService: Input attachments count:', attachments.length);
     
     const endpoint = API_ENDPOINTS.CAMPUS.VISIT_CAMPUS;
     console.log('CampusApiService: Endpoint template:', endpoint);
@@ -2528,29 +2717,47 @@ export class CampusApiService {
       return throwError(() => new Error('Invalid API URL'));
     }
     
-    // Set Content-Type header explicitly for JSON
+    // Create FormData for multipart/form-data
+    const formData = new FormData();
+    
+    // Add request as JSON string in 'request' field
+    const requestJson = JSON.stringify(request);
+    formData.append('request', requestJson);
+    console.log('CampusApiService: Added request JSON to FormData:', requestJson);
+    
+    // Add attachment files to 'attachment' field (backend expects MultipartFile[])
+    if (attachments && attachments.length > 0) {
+      attachments.forEach((file, index) => {
+        formData.append('attachment', file, file.name);
+        console.log(`CampusApiService: Added attachment ${index + 1}:`, file.name, 'Size:', file.size, 'Type:', file.type);
+      });
+    }
+    
+    // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
     const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
       'Accept': 'application/json'
+      // Note: Do NOT set 'Content-Type' - browser will set it automatically with boundary
     });
     
     console.log('CampusApiService: Headers:', headers.keys());
-    console.log('CampusApiService: Request body (stringified):', JSON.stringify(request, null, 2));
+    console.log('CampusApiService: FormData entries:');
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}:`, value);
+      }
+    }
     console.log('CampusApiService: About to make HTTP POST request to:', url);
-    console.log('CampusApiService: Full request details:', {
-      method: 'POST',
-      url: url,
-      headers: Object.fromEntries(headers.keys().map(key => [key, headers.get(key)])),
-      body: request
-    });
     
-    const httpCall = this.http.post<unknown>(url, request, { headers });
+    const httpCall = this.http.post<unknown>(url, formData, { headers });
     console.log('CampusApiService: HTTP call observable created');
     
     return httpCall.pipe(
       tap(() => {
         console.log('CampusApiService: ✅ HTTP POST request sent to server');
         console.log('CampusApiService: Request URL:', url);
+        console.log('CampusApiService: Request type: multipart/form-data');
       }),
       map((raw) => {
         console.log('CampusApiService: submitVisitCampusRequest - Raw response:', raw);
@@ -3127,10 +3334,15 @@ export interface FacultiesResponse {
 
 export interface TestimonialData {
   id?: string;
+  campusId?: string;
+  name?: string;
+  contact?: string;
+  message?: string;
+  createdAt?: string;
+  // Legacy fields for backward compatibility
   studentId?: string;
   userId?: string;
   studentName?: string;
-  name?: string;
   fullName?: string;
   testimonial?: string;
   review?: string;
@@ -3140,7 +3352,6 @@ export interface TestimonialData {
   profilePhotoUrl?: string;
   imageUrl?: string;
   avatarUrl?: string;
-  createdAt?: string;
   updatedAt?: string;
 }
 
@@ -3292,7 +3503,7 @@ export interface VisitCampusRequest {
   packageAmount: string;
   recruitmentType: 'INTERNSHIP' | 'FULL_TIME' | 'BOTH';
   visitDate: string; // Format: YYYY-MM-DD
-  visitTime: VisitTime;
+  visitTime: string; // Format: HH:mm:ss (backend expects string, not VisitTime object)
   attachmentUrls: string[];
   additionalRequirements?: string;
 }
@@ -3383,6 +3594,41 @@ export interface BatchesResponse {
   message: string | null;
   data: string[];
   error: string | null;
+}
+
+export interface StudentByCampusItem {
+  id?: string;
+  studentId?: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  studentName?: string;
+  profilePhotoUrl?: string;
+  imageUrl?: string;
+  batch?: string;
+  courseId?: string;
+  courseName?: string;
+  email?: string;
+  phoneNumber?: string;
+  campusId?: string;
+}
+
+export interface StudentByCampusResponse {
+  success: boolean;
+  message: string;
+  data: {
+    content: StudentByCampusItem[];
+    pageable?: PageableInfo;
+    totalPages?: number;
+    totalElements?: number;
+    first?: boolean;
+    last?: boolean;
+    size?: number;
+    number?: number;
+    numberOfElements?: number;
+    empty?: boolean;
+  };
+  error?: string;
 }
 
 export interface StudentByBatchData {

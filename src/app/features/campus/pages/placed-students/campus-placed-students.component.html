@@ -3,12 +3,14 @@
     <div class="form-row">
       <app-dropdown
         label="Student Name"
-        [items]="studentNameItems()"
         [value]="value.studentName"
         [disabled]="submitting || loadingStudentNames()"
         (valueChange)="patch({ studentName: $event })"
         [autocomplete]="true"
+        [apiFetchFn]="fetchStudentNames"
         [allowCustom]="true"
+        [minSearchLength]="0"
+        [debounceTime]="300"
         placeholder="Select or type student name"
       />
     </div>

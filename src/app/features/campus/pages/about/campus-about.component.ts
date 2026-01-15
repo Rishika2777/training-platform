@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, DestroyRef } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, computed, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, DestroyRef, PLATFORM_ID } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
@@ -13,8 +13,9 @@ import { CampusFacultyComponent, FacultyFormValue } from '../faculty/campus-facu
 import { CampusFacultyDetailComponent, FacultyDetailData } from '../faculty-detail/campus-faculty-detail.component';
 import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../placed-students/campus-placed-students.component';
 import { CampusDownloadProspectusComponent } from '../download-prospectus/campus-download-prospectus.component';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, VisitTime, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
 import { ApiResponsePlacedStudentsResponse } from '../../../student/models/student.models';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
@@ -31,6 +32,7 @@ interface PersonCard {
   batch?: string;
   company?: string;
   designation?: string;
+  courseName?: string; // For filtering rising stars by course
 }
 
 interface CourseCard {
@@ -59,6 +61,7 @@ interface CourseCard {
     CampusFacultyDetailComponent,
     CampusPlacedStudentsComponent,
     CampusDownloadProspectusComponent,
+    DropdownComponent,
   ],
   templateUrl: './campus-about.component.html',
   styleUrl: './campus-about.component.css',
@@ -74,7 +77,11 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   private readonly facultyDetailService = inject(FacultyDetailService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly platformId = inject(PLATFORM_ID);
   readonly pageSize = 8;
+  
+  // Browser check for SSR
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   // Route parameters (for opening in new tab)
   readonly routeCampusId = signal<string | null>(null);
@@ -119,6 +126,24 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   risingStarsPage = 0; // API uses 0-based pagination
   readonly risingStarsPageSize = 8;
   readonly risingStarsTotalPages = signal(1);
+  
+  // Course filter for Rising Stars
+  readonly selectedCourseFilter = signal<string | null>(null); // null = "All Courses"
+  
+  // Course dropdown items for filter (from getAllCourses API)
+  readonly courseFilterItems = computed(() => {
+    const allCourses = [
+      { label: 'All Courses', value: '' }
+    ];
+    
+    const courses = this.courses();
+    const courseItems = courses.map(course => ({
+      label: course.name,
+      value: course.name
+    }));
+    
+    return [...allCourses, ...courseItems];
+  });
 
   // Campus Insights - About Campus Content
   readonly aboutCampusText = signal<string>('');
@@ -169,7 +194,9 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     this.facultyAddedHandler = () => {
       this.loadFaculties();
     };
-    window.addEventListener('facultyAdded', this.facultyAddedHandler);
+    if (this.isBrowser) {
+      window.addEventListener('facultyAdded', this.facultyAddedHandler);
+    }
   }
 
   /**
@@ -178,6 +205,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
    */
   private loadAllData(): void {
     this.loadAboutCampus();
+    this.loadCampusWebsiteUrl(); // Load campus website URL for Read More button
     this.loadRisingStars(); // Load placed students data for Rising Stars section
     this.loadBatchesForSuccessStories(); // This will also load success stories after batches are loaded
     this.loadFaculties();
@@ -193,7 +221,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     // Remove event listener to prevent memory leaks
-    if (this.facultyAddedHandler) {
+    if (this.isBrowser && this.facultyAddedHandler) {
       window.removeEventListener('facultyAdded', this.facultyAddedHandler);
       this.facultyAddedHandler = null;
     }
@@ -252,25 +280,32 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   }
 
   loadAboutCampus(): void {
-    const campusId = this.getCampusId();
+    // Get campusId from storage (same as courses/faculties/feedback/testimonials APIs use - set during login)
+    // This ensures we use the correct MongoDB ObjectId format, not UUID from route
+    const storedCampusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
     
-    if (!campusId) {
-      console.warn('CampusAboutComponent: ❌ No campusId found, cannot load campus data');
+    if (!storedCampusId) {
+      console.warn('CampusAboutComponent: ❌ No campusId found in storage, cannot load about campus content');
       console.warn('CampusAboutComponent: This means aboutCampus content will not be fetched');
+      this.aboutCampusText.set('');
+      this.loadingAboutCampus.set(false);
       return;
     }
     
+    // Clean campusId (remove any unwanted prefixes)
+    const cleanCampusId = storedCampusId.replace(/^CAMPUS-/i, '').trim();
+    
     // Store the campusId for future use
-    this.currentCampusId.set(campusId);
+    this.currentCampusId.set(cleanCampusId);
     
     this.loadingAboutCampus.set(true);
 
-    console.log('CampusAboutComponent: Loading campus data for aboutCampus field - campusId:', campusId);
+    console.log('CampusAboutComponent: Loading about campus content - campusId:', cleanCampusId);
 
-    // Use GET /public/landing/campus/{campusId} (public landing endpoint)
-    this.campusApi.getPublicCampusById(campusId).pipe(
+    // Use GET /public/landing/campus/{campusId}/about (dedicated about endpoint)
+    this.campusApi.getAboutCampus(cleanCampusId).pipe(
       catchError((error) => {
-        console.error('CampusAboutComponent: Error loading campus data:', error);
+        console.error('CampusAboutComponent: Error loading about campus content:', error);
         this.loadingAboutCampus.set(false);
         
         // Don't show error notification for backend configuration issues (502) or service unavailable (503)
@@ -297,58 +332,81 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         return of(null);
       })
     ).subscribe({
-      next: (campus) => {
+      next: (aboutText) => {
         this.loadingAboutCampus.set(false);
         
-        console.log('CampusAboutComponent: Campus data received:', campus);
-        console.log('CampusAboutComponent: Checking for aboutCampus field...');
-        console.log('CampusAboutComponent: campus.aboutCampus value:', campus?.aboutCampus);
-        console.log('CampusAboutComponent: campus.aboutCampus type:', typeof campus?.aboutCampus);
-        console.log('CampusAboutComponent: campus.aboutCampus length:', campus?.aboutCampus?.length);
+        console.log('CampusAboutComponent: About campus content received');
+        console.log('CampusAboutComponent: About text value:', aboutText);
+        console.log('CampusAboutComponent: About text type:', typeof aboutText);
+        console.log('CampusAboutComponent: About text length:', aboutText?.length);
         
+        if (aboutText && aboutText.trim()) {
+          console.log('CampusAboutComponent: ✅ Found about campus content, length:', aboutText.length);
+          console.log('CampusAboutComponent: About content preview:', aboutText.substring(0, 100) + '...');
+          // Set the about text - this will replace Lorem Ipsum in the template
+          this.aboutCampusText.set(aboutText);
+        } else {
+          console.warn('CampusAboutComponent: ⚠️ No about campus content found in response');
+          // If no content, leave empty - template will show Lorem Ipsum as fallback
+          this.aboutCampusText.set('');
+        }
+      },
+      error: (error) => {
+        console.error('CampusAboutComponent: Error in about campus subscription:', error);
+        this.loadingAboutCampus.set(false);
+        // If error, leave empty - template will show Lorem Ipsum as fallback
+        this.aboutCampusText.set('');
+      }
+    });
+  }
+
+  /**
+   * Load campus website URL from API
+   * Fetches campus data by campusId and extracts websiteUrl for Read More button
+   */
+  loadCampusWebsiteUrl(): void {
+    // Get campusId from storage (same as loadAboutCampus - ensures correct MongoDB ObjectId, not UUID from route)
+    const storedCampusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    
+    if (!storedCampusId) {
+      console.warn('CampusAboutComponent: ❌ No campusId found in storage, cannot load campus website URL');
+      this.campusWebsiteUrl.set(null);
+      return;
+    }
+    
+    // Clean campusId (remove any unwanted prefixes) - same as loadAboutCampus
+    const campusId = storedCampusId.replace(/^CAMPUS-/i, '').trim();
+    
+    console.log('CampusAboutComponent: Loading campus website URL - campusId:', campusId);
+    
+    // Fetch campus data by ID to get website URL
+    this.campusApi.getCampusById(campusId).pipe(
+      catchError((error) => {
+        console.error('CampusAboutComponent: Error loading campus website URL:', error);
+        this.campusWebsiteUrl.set(null);
+        return of(null);
+      })
+    ).subscribe({
+      next: (campus) => {
         if (campus) {
-          // Store campusId from the response - prioritize campusId field, then id field
-          // This is important for subsequent API calls
-          const campusIdFromResponse = campus.campusId || campus.id;
-          if (campusIdFromResponse) {
-            console.log('CampusAboutComponent: Storing campusId from API response:', campusIdFromResponse);
-            this.currentCampusId.set(campusIdFromResponse);
-            // Also store in storage for other components to use
-            this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusIdFromResponse);
-          } else {
-            // Fallback to the campusId we used for the request
-            console.log('CampusAboutComponent: No campusId in response, using request campusId:', campusId);
-            this.currentCampusId.set(campusId);
-            this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
-          }
+          // Extract website URL from campus data
+          // Priority: campusWebsiteUrl > otherWebsiteUrl
+          const websiteUrl = campus.campusWebsiteUrl || campus.otherWebsiteUrl || null;
           
-          // Fetch and display the aboutCampus field (from campus registration form's "About" field)
-          if (campus.aboutCampus && campus.aboutCampus.trim()) {
-            console.log('CampusAboutComponent: ✅ Found aboutCampus content, length:', campus.aboutCampus.length);
-            console.log('CampusAboutComponent: aboutCampus content preview:', campus.aboutCampus.substring(0, 100) + '...');
-            this.aboutCampusText.set(campus.aboutCampus);
+          if (websiteUrl && websiteUrl.trim()) {
+            console.log('CampusAboutComponent: ✅ Found campus website URL:', websiteUrl);
+            this.campusWebsiteUrl.set(websiteUrl.trim());
           } else {
-            console.warn('CampusAboutComponent: ⚠️ No aboutCampus content found in response');
-            console.warn('CampusAboutComponent: Available campus fields:', Object.keys(campus));
-            this.aboutCampusText.set('');
-          }
-          
-          // Store campus website URL
-          if (campus.campusWebsiteUrl) {
-            this.campusWebsiteUrl.set(campus.campusWebsiteUrl);
-          } else {
+            console.warn('CampusAboutComponent: ⚠️ No website URL found in campus data');
             this.campusWebsiteUrl.set(null);
           }
         } else {
-          console.warn('CampusAboutComponent: Campus data is null');
-          this.aboutCampusText.set('');
+          console.warn('CampusAboutComponent: ⚠️ Campus data not found');
           this.campusWebsiteUrl.set(null);
         }
       },
       error: (error) => {
-        console.error('CampusAboutComponent: Error in campus data subscription:', error);
-        this.loadingAboutCampus.set(false);
-        this.aboutCampusText.set('');
+        console.error('CampusAboutComponent: Error in campus website URL subscription:', error);
         this.campusWebsiteUrl.set(null);
       }
     });
@@ -368,7 +426,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     // API uses 0-indexed pagination (page=0 for first page)
     this.campusApi.getPlacedStudents(this.risingStarsPage, this.risingStarsPageSize).pipe(
       catchError((error) => {
-        console.error('CampusAboutComponent: ❌ Error loading rising stars (placed students):', error);
+        console.error('CampusAboutComponent:  Error loading rising stars (placed students):', error);
         console.error('CampusAboutComponent: Error details:', {
           status: error?.status,
           message: error?.message,
@@ -381,7 +439,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       })
     ).subscribe({
       next: (response: ApiResponsePlacedStudentsResponse | null) => {
-        console.log('CampusAboutComponent: ✅ GET RISING STARS API RESPONSE RECEIVED');
+        console.log('CampusAboutComponent:  GET RISING STARS API RESPONSE RECEIVED');
         console.log('CampusAboutComponent: Response:', response);
         console.log('CampusAboutComponent: Response success:', response?.success);
         console.log('CampusAboutComponent: Response message:', response?.message);
@@ -393,7 +451,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         this.loadingRisingStars.set(false);
         
         if (response?.success && response.data?.content && Array.isArray(response.data.content)) {
-          console.log('CampusAboutComponent: ✅ Rising stars (placed students) loaded successfully, count:', response.data.content.length);
+          console.log('CampusAboutComponent: Rising stars (placed students) loaded successfully, count:', response.data.content.length);
           // Map PlacedStudentData to PersonCard format (same as Placed Students section)
           const mappedStars = response.data.content.map((student: {
             id?: string;
@@ -426,10 +484,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
           const totalPages = response.data.totalPages ?? 1;
           this.risingStarsTotalPages.set(Math.max(1, totalPages));
           
-          console.log('CampusAboutComponent: ✅ Rising stars mapped, total:', mappedStars.length, 'pages:', totalPages);
+          console.log('CampusAboutComponent:  Rising stars mapped, total:', mappedStars.length, 'pages:', totalPages);
           console.log('CampusAboutComponent: Mapped stars:', mappedStars);
         } else {
-          console.warn('CampusAboutComponent: ⚠️ No rising stars (placed students) found (empty array or unsuccessful response)');
+          console.warn('CampusAboutComponent:  No rising stars (placed students) found (empty array or unsuccessful response)');
           console.warn('CampusAboutComponent: Response success:', response?.success);
           console.warn('CampusAboutComponent: Response data exists:', !!response?.data);
           console.warn('CampusAboutComponent: Response content exists:', !!response?.data?.content);
@@ -439,7 +497,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         }
       },
       error: (error) => {
-        console.error('CampusAboutComponent: ❌❌❌ RISING STARS SUBSCRIPTION ERROR ❌❌❌');
+        console.error('CampusAboutComponent: RISING STARS SUBSCRIPTION ERROR ');
         console.error('CampusAboutComponent: Error:', error);
         this.loadingRisingStars.set(false);
         this.risingStars.set([]);
@@ -509,11 +567,55 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       batch: item.batch,
       company: item.placementCompanyName || item.companyName,
       designation: item.designation,
+      courseName: item.courseName, // Store courseName for filtering
     };
   }
 
   risingStarsPageItems(): readonly PersonCard[] {
-    return this.risingStars();
+    const allStars = this.risingStars();
+    const selectedCourse = this.selectedCourseFilter();
+    
+    // Filter by selected course
+    let filteredStars: readonly PersonCard[];
+    if (!selectedCourse || selectedCourse.trim() === '') {
+      // If no course selected or "All Courses" selected, return all stars
+      filteredStars = allStars;
+    } else {
+      // Filter by selected course
+      filteredStars = allStars.filter(star => 
+        star.courseName && star.courseName.trim().toLowerCase() === selectedCourse.trim().toLowerCase()
+      );
+    }
+    
+    // Apply pagination to filtered results
+    const start = this.risingStarsPage * this.risingStarsPageSize;
+    const end = start + this.risingStarsPageSize;
+    return filteredStars.slice(start, end);
+  }
+  
+  /**
+   * Handle course filter change for Rising Stars
+   */
+  onRisingStarsCourseFilterChange(courseName: string): void {
+    // If empty string or "All Courses", set to null
+    const filterValue = courseName && courseName.trim() !== '' ? courseName.trim() : null;
+    this.selectedCourseFilter.set(filterValue);
+    
+    // Reset to page 1 when filter changes
+    this.risingStarsPage = 0;
+    
+    // Recalculate total pages based on filtered results
+    const allStars = this.risingStars();
+    let filteredStars: readonly PersonCard[];
+    if (!filterValue) {
+      filteredStars = allStars;
+    } else {
+      filteredStars = allStars.filter(star => 
+        star.courseName && star.courseName.trim().toLowerCase() === filterValue.trim().toLowerCase()
+      );
+    }
+    const totalPages = Math.max(1, Math.ceil(filteredStars.length / this.risingStarsPageSize));
+    this.risingStarsTotalPages.set(totalPages);
   }
 
   onRisingStarsPageChange(page: number): void {
@@ -706,7 +808,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   // This shows all courses that the campus has added, same as the "Courses" menu section
   readonly courses = signal<readonly CourseCard[]>([]);
   readonly loadingCourses = signal(false);
-  coursePage = 1;
+  coursePage = signal(1); // Changed to signal for carousel component
   readonly coursePageSize = 4;
   readonly coursesTotalPages = signal(1);
 
@@ -774,20 +876,21 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   coursesPageItems(): readonly CourseCard[] {
     // Client-side pagination - slice courses array for current page
     const allCourses = this.courses();
-    const startIndex = (this.coursePage - 1) * this.coursePageSize;
+    const startIndex = (this.coursePage() - 1) * this.coursePageSize;
     const endIndex = startIndex + this.coursePageSize;
     return allCourses.slice(startIndex, endIndex);
   }
 
-  previousCourse(): void {
-    if (this.coursePage > 1) {
-      this.coursePage--;
-    }
-  }
-
-  nextCourse(): void {
-    if (this.coursePage < this.coursesTotalPages()) {
-      this.coursePage++;
+  /**
+   * Handle page change from carousel component
+   * Carousel emits 1-based page numbers
+   */
+  onCoursePageChange(page: number): void {
+    // Carousel emits 1-based page numbers, convert to 0-based for API if needed
+    const newPage = page;
+    if (newPage !== this.coursePage()) {
+      console.log('CampusAboutComponent: Changing course page from', this.coursePage(), 'to', newPage);
+      this.coursePage.set(newPage);
     }
   }
 
@@ -1092,26 +1195,37 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   readonly loadingTestimonials = signal(false);
   readonly testimonialsTotalPages = signal(1);
   testimonialPage = 1;
-  readonly testimonialPageSize = 5;
+  readonly testimonialPageSize = 10; // Backend default is 10 per page
 
   loadTestimonials(): void {
-    // Get campusId explicitly to ensure we're loading testimonials for the correct campus
-    const campusId = this.getCampusId();
+    // Get campusId from storage (same as courses/faculties/feedback APIs use - set during login)
+    // This ensures we use the correct MongoDB ObjectId format, not UUID from route
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
 
-    if (!campusId) {
-      console.warn('CampusAboutComponent: No campusId found, cannot load testimonials');
+    if (!campusId || !campusId.trim()) {
+      console.warn('CampusAboutComponent: No campusId found in storage, cannot load testimonials');
       this.testimonials.set([]);
       this.testimonialsTotalPages.set(1);
       return;
     }
 
+    // Clean campusId (remove any prefixes)
+    const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
+
     this.loadingTestimonials.set(true);
+    console.log('CampusAboutComponent: Loading testimonials for campusId from storage:', cleanCampusId);
 
     // Use GET /public/landing/campus/{campusId}/testimonials
     // API uses 0-based page indexing, so convert from 1-based (UI) to 0-based (API)
     const apiPage = this.testimonialPage - 1;
 
-    this.campusApi.getTestimonials(campusId, apiPage, this.testimonialPageSize).pipe(
+    console.log('CampusAboutComponent: Calling getTestimonials with:', {
+      campusId: cleanCampusId,
+      page: apiPage,
+      size: this.testimonialPageSize
+    });
+
+    this.campusApi.getTestimonials(cleanCampusId, apiPage, this.testimonialPageSize).pipe(
       catchError((error) => {
         console.error('CampusAboutComponent: Error loading testimonials:', error);
         this.loadingTestimonials.set(false);
@@ -1127,12 +1241,31 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         if (response?.success && response?.data?.content && Array.isArray(response.data.content)) {
           const testimonialsData = response.data.content;
           
-          console.log('CampusAboutComponent: Loaded testimonials:', testimonialsData.length);
+          console.log('CampusAboutComponent: ✅ Loaded testimonials:', testimonialsData.length);
+          console.log('CampusAboutComponent: Testimonials data:', testimonialsData);
           this.testimonials.set(testimonialsData);
           
-          const totalPages = response.data.totalPages ?? 0;
-          this.testimonialsTotalPages.set(Math.max(1, totalPages));
+          // Reset carousel index to 0 when new page loads
+          this.currentTestimonialIndex.set(0);
+          
+          // Calculate total pages from response
+          // If 'last' is true, this is the last page
+          // If totalPages is provided, use it; otherwise calculate from totalElements
+          let totalPages = 1;
+          if (response.data.totalPages !== undefined && response.data.totalPages !== null) {
+            totalPages = Math.max(1, response.data.totalPages);
+          } else if (response.data.totalElements !== undefined && response.data.totalElements !== null) {
+            totalPages = Math.max(1, Math.ceil(response.data.totalElements / this.testimonialPageSize));
+          } else if (response.data.last === true) {
+            // If this is the last page and we're on page 1, there's only 1 page
+            totalPages = this.testimonialPage;
+          }
+          
+          this.testimonialsTotalPages.set(totalPages);
           console.log('CampusAboutComponent: Total pages:', totalPages);
+          console.log('CampusAboutComponent: Current page:', this.testimonialPage);
+          console.log('CampusAboutComponent: Is last page:', response.data.last);
+          console.log('CampusAboutComponent: Testimonials on current page:', testimonialsData.length);
         } else {
           console.log('CampusAboutComponent: No testimonials data or unsuccessful response');
           this.testimonials.set([]);
@@ -1148,17 +1281,49 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Current testimonial index for carousel navigation
+  readonly currentTestimonialIndex = signal(0);
+
   previousTestimonial(): void {
-    if (this.testimonialPage > 1) {
-      this.testimonialPage--;
-      this.loadTestimonials();
+    const allTestimonials = this.testimonials();
+    if (allTestimonials.length === 0) {
+      return;
+    }
+    
+    const currentIndex = this.currentTestimonialIndex();
+    if (currentIndex > 0) {
+      // Go to previous testimonial
+      this.currentTestimonialIndex.set(currentIndex - 1);
+    } else {
+      // If on first testimonial, check if we can load previous page
+      if (this.testimonialPage > 1) {
+        this.testimonialPage--;
+        this.loadTestimonials();
+        // After loading, set index to last item of new page
+        // We'll set it after testimonials are loaded
+      }
     }
   }
 
   nextTestimonial(): void {
-    if (this.testimonialPage < this.testimonialsTotalPages()) {
-      this.testimonialPage++;
-      this.loadTestimonials();
+    const allTestimonials = this.testimonials();
+    if (allTestimonials.length === 0) {
+      return;
+    }
+    
+    const currentIndex = this.currentTestimonialIndex();
+    const maxIndex = allTestimonials.length - 1;
+    
+    if (currentIndex < maxIndex) {
+      // Go to next testimonial in current page
+      this.currentTestimonialIndex.set(currentIndex + 1);
+    } else {
+      // If on last testimonial of current page, check if we can load next page
+      if (this.testimonialPage < this.testimonialsTotalPages()) {
+        this.testimonialPage++;
+        this.currentTestimonialIndex.set(0); // Reset to first item of new page
+        this.loadTestimonials();
+      }
     }
   }
 
@@ -1167,8 +1332,11 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     if (allTestimonials.length === 0) {
       return null;
     }
-    // Show first testimonial from current page data
-    return allTestimonials[0] || null;
+    
+    const currentIndex = this.currentTestimonialIndex();
+    // Ensure index is within bounds
+    const safeIndex = Math.max(0, Math.min(currentIndex, allTestimonials.length - 1));
+    return allTestimonials[safeIndex] || null;
   }
 
   // Research - API Integration
@@ -1237,8 +1405,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'https://' + url;
       }
-      // Open in new tab
-      window.open(url, '_blank', 'noopener,noreferrer');
+      // Open in new tab (only in browser)
+      if (this.isBrowser) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     }
     // If no URL, button still enabled but does nothing (as per requirement)
   }
@@ -1377,15 +1547,13 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Get campusId using helper method
-    const campusId = this.getCampusId();
-    console.log('CampusAboutComponent: getCampusId() returned:', campusId);
+    // Get campusId from storage (same as courses/faculties/feedback/testimonials APIs use - set during login)
+    // This ensures we use the correct MongoDB ObjectId format, not UUID from route
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    console.log('CampusAboutComponent: CampusId from storage:', campusId);
 
-    if (!campusId) {
-      console.error('CampusAboutComponent: ❌ Campus ID not found. Please ensure you are logged in as a campus admin.');
-      console.error('CampusAboutComponent: Route campusId:', this.routeCampusId());
-      console.error('CampusAboutComponent: Current campusId:', this.currentCampusId());
-      console.error('CampusAboutComponent: Auth state user:', this.authState.user());
+    if (!campusId || !campusId.trim()) {
+      console.error('CampusAboutComponent: ❌ Campus ID not found in storage. Please ensure you are logged in as a campus admin.');
       this.notify.error('Campus ID not found. Please ensure you are logged in as a campus admin and try again. If the issue persists, please refresh the page or login again.');
       return;
     }
@@ -1394,7 +1562,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     const cleanCampusId = campusId.replace(/^CAMPUS-/i, '').trim();
     
     console.log('CampusAboutComponent: ✅ Using campusId for visit request:', cleanCampusId);
-    console.log('CampusAboutComponent: Original campusId:', campusId);
+    console.log('CampusAboutComponent: Original campusId from storage:', campusId);
 
     this.submittingVisitCampus = true;
     console.log('CampusAboutComponent: Starting visit campus request submission...');
@@ -1414,8 +1582,8 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       recruitmentType = 'BOTH';
     }
 
-    // Parse time from "HH:MM" format (24-hour) to { hour, minute, second, nano }
-    // value.timeOfVisit is already in 24-hour format (HH:MM) from form component
+    // Parse time from "HH:MM" format (24-hour) to "HH:mm:ss" string format
+    // Backend expects visitTime as "HH:mm:ss" string, not VisitTime object
     const timeParts = value.timeOfVisit.trim().split(':');
     const hour = parseInt(timeParts[0] || '0', 10);
     const minute = parseInt(timeParts[1] || '0', 10);
@@ -1424,14 +1592,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     const validHour = Math.max(0, Math.min(23, isNaN(hour) ? 0 : hour));
     const validMinute = Math.max(0, Math.min(59, isNaN(minute) ? 0 : minute));
     
-    const visitTime: VisitTime = {
-      hour: validHour,
-      minute: validMinute,
-      second: 0,
-      nano: 0
-    };
+    // Format as HH:mm:ss (backend expects this format)
+    const visitTimeString = `${String(validHour).padStart(2, '0')}:${String(validMinute).padStart(2, '0')}:00`;
     
-    console.log('CampusAboutComponent: Parsed visitTime:', visitTime);
+    console.log('CampusAboutComponent: Parsed visitTime string:', visitTimeString);
     console.log('CampusAboutComponent: Original time string:', value.timeOfVisit);
 
     // Format date to YYYY-MM-DD if needed (input type="date" already provides this format)
@@ -1448,31 +1612,42 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     const packageAmountValue = (value.package || '').trim();
     const additionalRequirementsValue = (value.additionalRequirements || '').trim();
     
+    // Backend expects attachmentUrls as empty array (files are sent separately in multipart)
+    // The actual files will be sent in the 'attachment' field of FormData
+    const attachmentUrls: string[] = [];
+    
     const request: VisitCampusRequest = {
       companyName: value.companyName.trim(),
       contactPersonName: value.contactPersonName.trim(),
       contactPersonEmail: value.contactPersonEmail.trim(),
-      contactPersonPhone: value.contactPersonPhoneNo.trim(),
+      contactPersonPhone: value.contactPersonPhoneNo.trim() || '', // Optional field
       numberOfPositions: numberOfPositionsNum,
-      packageAmount: packageAmountValue || '', // Empty string if not provided
+      packageAmount: packageAmountValue || '', // Optional field
       recruitmentType: recruitmentType,
       visitDate: visitDate,
-      visitTime: visitTime,
-      attachmentUrls: [], // Empty array for now (file upload not implemented)
+      visitTime: visitTimeString, // Backend expects "HH:mm:ss" string format
+      attachmentUrls: attachmentUrls, // Empty array - files sent separately
       additionalRequirements: additionalRequirementsValue || undefined
     };
     
     // Log the exact request being sent
     console.log('CampusAboutComponent: ✅ Final request payload (matching Swagger spec):', JSON.stringify(request, null, 2));
-    console.log('CampusAboutComponent: visitTime object:', JSON.stringify(visitTime, null, 2));
+    console.log('CampusAboutComponent: visitTime string:', visitTimeString);
 
     console.log('CampusAboutComponent: Visit Campus request payload:', JSON.stringify(request, null, 2));
     console.log('CampusAboutComponent: Calling API: submitVisitCampusRequest with campusId:', cleanCampusId);
     console.log('CampusAboutComponent: Request object:', request);
 
-    // Call API
-    console.log('CampusAboutComponent: About to call submitVisitCampusRequest...');
-    const apiCall = this.campusApi.submitVisitCampusRequest(cleanCampusId, request);
+    // Get attachment files from form value
+    const attachmentFiles = (value.attachments || []).filter(file => file instanceof File);
+    console.log('CampusAboutComponent: Attachment files to upload:', attachmentFiles.length);
+    attachmentFiles.forEach((file, index) => {
+      console.log(`  File ${index + 1}: ${file.name} (${file.size} bytes, ${file.type})`);
+    });
+    
+    // Call API with multipart/form-data (request JSON + attachment files)
+    console.log('CampusAboutComponent: About to call submitVisitCampusRequest with multipart/form-data...');
+    const apiCall = this.campusApi.submitVisitCampusRequest(cleanCampusId, request, attachmentFiles);
     console.log('CampusAboutComponent: API call observable created:', apiCall);
     
     apiCall.subscribe({
@@ -1845,7 +2020,9 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
               this.submittingFaculty = false;
               this.notify.warn('Faculty might have been updated, but response format was unexpected. Please refresh the page.');
               this.closeModal();
-              window.dispatchEvent(new Event('facultyAdded'));
+              if (this.isBrowser) {
+                window.dispatchEvent(new Event('facultyAdded'));
+              }
               
               try {
                 this.cdr.detectChanges();
@@ -1864,7 +2041,9 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
               this.closeModal();
             }, 500);
 
-            window.dispatchEvent(new Event('facultyAdded'));
+            if (this.isBrowser) {
+              window.dispatchEvent(new Event('facultyAdded'));
+            }
 
             try {
               this.cdr.detectChanges();
@@ -1938,7 +2117,9 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
               this.submittingFaculty = false;
               this.notify.warn('Faculty might have been added, but response format was unexpected. Please refresh the page.');
               this.closeModal();
-              window.dispatchEvent(new Event('facultyAdded'));
+              if (this.isBrowser) {
+                window.dispatchEvent(new Event('facultyAdded'));
+              }
               
               try {
                 this.cdr.detectChanges();
@@ -1957,7 +2138,9 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
               this.closeModal();
             }, 500);
 
-            window.dispatchEvent(new Event('facultyAdded'));
+            if (this.isBrowser) {
+              window.dispatchEvent(new Event('facultyAdded'));
+            }
 
             try {
               this.cdr.detectChanges();
@@ -2060,8 +2243,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
           this.handleFacultyDetailClose();
           
           // Refresh faculty list by dispatching event
-          window.dispatchEvent(new Event('facultyAdded'));
-          window.dispatchEvent(new Event('facultyDeleted'));
+          if (this.isBrowser) {
+            window.dispatchEvent(new Event('facultyAdded'));
+            window.dispatchEvent(new Event('facultyDeleted'));
+          }
           
           // Reload faculties
           this.loadFaculties();
@@ -2326,6 +2511,25 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     this.submittingFeedback = true;
     console.log('CampusAboutComponent: ✅ Validation passed, setting submittingFeedback to true');
 
+    // Get campusId from storage (same as courses/faculties APIs use - set during login)
+    // This ensures we use the correct MongoDB ObjectId format, not UUID from route
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    console.log('CampusAboutComponent: CampusId from storage:', campusId);
+
+    if (!campusId || !campusId.trim()) {
+      console.error('CampusAboutComponent: ❌ Campus ID not found in storage. Cannot submit feedback.');
+      console.error('CampusAboutComponent: Route campusId:', this.routeCampusId());
+      console.error('CampusAboutComponent: Current campusId:', this.currentCampusId());
+      this.notify.error('Campus ID not found. Please ensure you are logged in and try again.');
+      this.submittingFeedback = false;
+      return;
+    }
+    
+    // Clean campusId (remove any prefixes)
+    const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
+    
+    console.log('CampusAboutComponent: ✅ Using campusId from storage for feedback:', cleanCampusId);
+
     // Prepare request payload - only send name, contact, and message (as per API spec)
     const requestData: FeedbackRequest = {
       name: this.feedbackForm.name.trim(),
@@ -2334,10 +2538,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     };
 
     console.log('CampusAboutComponent: ✅ Request payload prepared:', JSON.stringify(requestData, null, 2));
-    console.log('CampusAboutComponent: About to call campusApi.submitFeedback()...');
+    console.log('CampusAboutComponent: About to call campusApi.submitFeedback() with campusId:', cleanCampusId);
 
     // Call API - ensure the observable is subscribed to
-    const apiCall = this.campusApi.submitFeedback(requestData);
+    const apiCall = this.campusApi.submitFeedback(cleanCampusId, requestData);
     console.log('CampusAboutComponent: API call observable created:', apiCall);
     
     apiCall.subscribe({
@@ -2389,6 +2593,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
           console.error('CampusAboutComponent: HTTP Status:', httpError.status);
           console.error('CampusAboutComponent: HTTP Status Text:', httpError.statusText);
           console.error('CampusAboutComponent: HTTP Error Body:', httpError.error);
+          
         }
         
         let errorMessage = 'Failed to submit feedback. Please try again.';

@@ -47,6 +47,15 @@
   flex: 0 0 auto;
 }
 
+.avatar-image {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: color-mix(in srgb, var(--color-secondary) 70%, white);
+}
+
 .profile-name {
   font-weight: 800;
   line-height: 1.1;

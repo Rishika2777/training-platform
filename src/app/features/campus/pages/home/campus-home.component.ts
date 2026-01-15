@@ -51,6 +51,8 @@ export class CampusHomeComponent implements OnInit {
   
   @ViewChild(CampusProspectusComponent) prospectusComponent!: CampusProspectusComponent;
   @ViewChild(CampusPlacedStudentsComponent) placedStudentsComponent!: CampusPlacedStudentsComponent;
+  @ViewChild(CampusCompaniesVisitedComponent) companiesVisitedComponent!: CampusCompaniesVisitedComponent;
+  @ViewChild(CampusCourseFormComponent) courseFormComponent!: CampusCourseFormComponent;
   private readonly studentApiService = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
@@ -156,21 +158,63 @@ export class CampusHomeComponent implements OnInit {
     this.loadBatches();
     this.loadCompaniesVisited();
     // Load dashboard announcements
+    
+    // Reset companies visited form when modal opens
+    effect(() => {
+      const isOpen = this.isCompaniesModalOpen();
+      if (isOpen && this.companiesVisitedComponent) {
+        // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
+        setTimeout(() => {
+          if (this.companiesVisitedComponent) {
+            this.companiesVisitedComponent.resetForm();
+          }
+        }, 0);
+      }
+    });
+
+    // Reset course form when modal opens
+    effect(() => {
+      const isOpen = this.isCourseFormModalOpen();
+      if (isOpen && this.courseFormComponent) {
+        // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
+        setTimeout(() => {
+          if (this.courseFormComponent) {
+            this.courseFormComponent.resetForm();
+          }
+        }, 0);
+      }
+    });
+
+    // Reset prospectus form when modal opens
+    effect(() => {
+      const isOpen = this.isProspectusModalOpen();
+      if (isOpen) {
+        // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
+        setTimeout(() => {
+          if (this.prospectusComponent) {
+            console.log('CampusHomeComponent: Modal opened - Resetting prospectus form');
+            // First reset the form to clear all old data (course, file, etc.)
+            this.prospectusComponent.resetForm();
+            // Then initialize with campusId after a longer delay to ensure reset completes fully
+            // This sets campus name (readonly field) but form fields (course, file) remain empty
+            setTimeout(() => {
+              if (this.prospectusComponent) {
+                console.log('CampusHomeComponent: Initializing prospectus component with campusId');
+                this.initializeProspectusComponent();
+              }
+            }, 200); // Increased delay to ensure reset completes
+          } else {
+            console.warn('CampusHomeComponent: prospectusComponent ViewChild not available');
+          }
+        }, 200); // Increased timeout to ensure component is fully initialized and ViewChild is available
+      }
+    });
+
     this.loadAnnouncements();
     // Load alumni with default year (2024) using regular API
     this.selectedAlumniYear.set('2024');
     this.useCarouselAPI.set(false);
     this.loadAlumni('2024');
-    
-    // Watch for prospectus modal opening to initialize with campusId
-    effect(() => {
-      if (this.isProspectusModalOpen() && this.prospectusComponent) {
-        // Modal just opened, initialize prospectus component with campusId
-        setTimeout(() => {
-          this.initializeProspectusComponent();
-        }, 0);
-      }
-    });
   }
   
   /**
@@ -342,17 +386,25 @@ export class CampusHomeComponent implements OnInit {
     console.log('CampusHomeComponent: Current page (0-indexed):', this.companiesVisitedPage);
     console.log('CampusHomeComponent: Page size:', this.companiesVisitedPageSize);
     
-    this.loadingCompaniesVisited.set(true);
+    // Get campusId from storage (same as other APIs use - set during login)
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
     
-    const campusId = this.getCampusId();
-    if (!campusId) {
-      console.error('CampusHomeComponent: Campus ID not found for getCompaniesVisited');
+    if (!campusId || !campusId.trim()) {
+      console.error('CampusHomeComponent: ❌ Campus ID not found in storage for getCompaniesVisited');
       this.loadingCompaniesVisited.set(false);
+      this.companiesVisited.set([]);
+      this.companiesVisitedTotalPages.set(1);
       return;
     }
     
+    // Clean campusId (remove any prefixes)
+    const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
+    console.log('CampusHomeComponent: ✅ Using campusId from storage for get companies:', cleanCampusId);
+    
+    this.loadingCompaniesVisited.set(true);
+    
     this.campusApi
-      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize, campusId)
+      .getCompaniesVisited(this.companiesVisitedPage, this.companiesVisitedPageSize, cleanCampusId)
       .pipe(
         catchError((error) => {
           console.error('CampusHomeComponent: Error loading companies visited:', error);
@@ -450,24 +502,18 @@ export class CampusHomeComponent implements OnInit {
   }
 
   onCompaniesVisitedPageChange(page: number): void {
-    // page can be either 0-based (from prev/next buttons) or 1-based (from page number buttons)
-    // Convert to 0-based if it's 1-based (greater than 0 and less than or equal to totalPages)
-    let apiPage: number;
+    // Carousel component sends 1-based page numbers, convert to 0-based for API
+    const apiPage = page - 1;
     const totalPages = this.companiesVisitedTotalPages();
     
-    if (page >= 1 && page <= totalPages) {
-      // 1-based page number from UI buttons
-      apiPage = page - 1;
-    } else if (page >= 0 && page < totalPages) {
-      // Already 0-based (from prev/next buttons)
-      apiPage = page;
-    } else {
+    // Validate page number
+    if (apiPage < 0 || apiPage >= totalPages) {
       console.warn('CampusHomeComponent: Invalid page number:', page, 'Total pages:', totalPages);
       return;
     }
     
     if (apiPage !== this.companiesVisitedPage) {
-      console.log('CampusHomeComponent: Changing page from', this.companiesVisitedPage, 'to', apiPage);
+      console.log('CampusHomeComponent: Changing companies visited page from', this.companiesVisitedPage, 'to', apiPage);
       this.companiesVisitedPage = apiPage;
       this.loadCompaniesVisited();
     }
@@ -1098,6 +1144,21 @@ export class CampusHomeComponent implements OnInit {
                 courseName
               });
               this.prospectusComponent.refreshProspectusList(campusId, courseName);
+              
+              // Reset form fields after successful upload so they are blank for next upload
+              // Use a small delay to ensure the list refresh completes first
+              setTimeout(() => {
+                if (this.prospectusComponent) {
+                  console.log('CampusHomeComponent: Resetting form after successful upload');
+                  this.prospectusComponent.resetForm();
+                  // Re-initialize with campusId to show campus name (readonly field) but keep form fields blank
+                  setTimeout(() => {
+                    if (this.prospectusComponent) {
+                      this.initializeProspectusComponent();
+                    }
+                  }, 100);
+                }
+              }, 500);
             }
           }, 1000); // Wait 1 second for backend to process
           
@@ -1169,16 +1230,31 @@ export class CampusHomeComponent implements OnInit {
 
     this.submittingCompanies = true;
 
+    // Get campusId from storage (same as other APIs use - set during login)
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    
+    if (!campusId || !campusId.trim()) {
+      console.error('CampusHomeComponent: ❌ Campus ID not found in storage. Cannot add company visited.');
+      this.submittingCompanies = false;
+      this.notify.error('Campus ID not found. Please ensure you are logged in and try again.');
+      return;
+    }
+    
+    // Clean campusId (remove any prefixes)
+    const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
+    console.log('CampusHomeComponent: ✅ Using campusId from storage for add company:', cleanCampusId);
+
     // Create FormData for multipart/form-data request
     const formData = new FormData();
     formData.append('companyName', value.companyName.trim());
     formData.append('logo', value.companyLogo);
 
     console.log('CampusHomeComponent: ========== CALLING ADD COMPANY VISITED API ==========');
+    console.log('CampusHomeComponent: CampusId:', cleanCampusId);
     console.log('CampusHomeComponent: FormData companyName:', formData.get('companyName'));
     console.log('CampusHomeComponent: FormData logo file:', formData.get('logo'));
 
-    this.campusApi.addCompanyVisited(formData).subscribe({
+    this.campusApi.addCompanyVisited(cleanCampusId, formData).subscribe({
       next: (response) => {
         console.log('CampusHomeComponent: ✅✅✅ ADD COMPANY VISITED API SUCCESS ✅✅✅');
         console.log('CampusHomeComponent: Response:', response);
@@ -1192,6 +1268,12 @@ export class CampusHomeComponent implements OnInit {
           const successMessage = response?.message || 'Company visited added successfully';
           console.log('CampusHomeComponent: Showing success message:', successMessage);
           this.notify.success(successMessage);
+          
+          // Reset form before closing modal
+          if (this.companiesVisitedComponent) {
+            this.companiesVisitedComponent.resetForm();
+          }
+          
           this.closeModal();
           
           // Refresh the companies visited list after adding
@@ -1217,6 +1299,12 @@ export class CampusHomeComponent implements OnInit {
           // Response is null but HTTP was 200 - treat as success
           console.log('CampusHomeComponent: Response is null but HTTP 200 - treating as success');
           this.notify.success('Company visited added successfully');
+          
+          // Reset form before closing modal
+          if (this.companiesVisitedComponent) {
+            this.companiesVisitedComponent.resetForm();
+          }
+          
           this.closeModal();
           
           // Refresh the companies visited list after adding
@@ -1971,6 +2059,12 @@ export class CampusHomeComponent implements OnInit {
         this.submittingCourseForm = false;
         const successMessage = response?.message || 'Course added successfully';
         this.notify.success(successMessage);
+        
+        // Reset form before closing modal
+        if (this.courseFormComponent) {
+          this.courseFormComponent.resetForm();
+        }
+        
         this.closeModal();
         
         // Dispatch event to refresh courses list immediately

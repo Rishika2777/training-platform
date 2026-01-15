@@ -13,6 +13,9 @@ import { FacultyDetailService } from '../../features/campus/services/faculty-det
 import { FacultyDetailData } from '../../features/campus/pages/faculty-detail/campus-faculty-detail.component';
 import { CampusApiService } from '../../features/campus/services/campus-api.service';
 import { OnInit } from '@angular/core';
+import { StorageService } from '../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../core/config/app.constants';
+import { catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-sidebar',
@@ -33,6 +36,7 @@ export class SidebarComponent implements OnInit {
   private readonly modalService = inject(ModalService);
   private readonly facultyDetailService = inject(FacultyDetailService);
   private readonly campusApi = inject(CampusApiService);
+  private readonly storage = inject(StorageService);
 
   @Input() collapsed = false;
 
@@ -40,12 +44,60 @@ export class SidebarComponent implements OnInit {
 
   readonly isAuthenticated = computed(() => this.roles.isAuthenticated());
   readonly menuItems = computed(() => this.menu.menuItems());
+  
+  // Campus data signals (for CAMPUS users)
+  readonly campusName = signal<string | null>(null);
+  readonly campusRank = signal<number | null>(null);
+  readonly campusImageUrl = signal<string | null>(null);
+  
   readonly userLabel = computed(() => {
+    const userType = this.roles.getUserType();
+    
+    // For CAMPUS users, show campus name instead of email
+    if (userType === 'CAMPUS') {
+      const name = this.campusName();
+      if (name && name.trim()) {
+        return name;
+      }
+    }
+    
+    // For other users, show email as before
     const user = this.auth.getCurrentUser();
     if (!user) {
       return 'Student';
     }
     return user.email ?? 'Student';
+  });
+  
+  readonly userRank = computed(() => {
+    const userType = this.roles.getUserType();
+    
+    // For CAMPUS users, show dynamic rank
+    if (userType === 'CAMPUS') {
+      const rank = this.campusRank();
+      if (rank !== null) {
+        return `Rank ${rank}`;
+      }
+      return 'Rank';
+    }
+    
+    // For other users, show static "Rank"
+    return 'Rank';
+  });
+  
+  readonly userImageUrl = computed(() => {
+    const userType = this.roles.getUserType();
+    
+    // For CAMPUS users, show campus image if available
+    if (userType === 'CAMPUS') {
+      const imageUrl = this.campusImageUrl();
+      if (imageUrl && imageUrl.trim()) {
+        return imageUrl;
+      }
+    }
+    
+    // For other users or if no image, return null (will show initials)
+    return null;
   });
   readonly sidebarTitle = computed(() => {
     const role = this.roles.getPrimaryRole();
@@ -94,8 +146,9 @@ export class SidebarComponent implements OnInit {
     const isAdmin = primaryRole === 'ADMIN' || primaryRole === 'SUPER_ADMIN';
     const isCampus = userType === 'CAMPUS';
     
-    // Only load faculties for CAMPUS users (not for students or admins)
+    // Load campus data (name, rank, image) for CAMPUS users
     if (isCampus && !isAdmin) {
+      this.loadCampusData();
       this.loadFaculties();
       // Listen for faculty refresh events (add, delete, update)
       window.addEventListener('facultyAdded', () => {
@@ -105,6 +158,74 @@ export class SidebarComponent implements OnInit {
         this.loadFaculties();
       });
     }
+  }
+
+  /**
+   * Load campus data (name, rank, image) from API
+   * Fetches campus by campusId and updates sidebar profile
+   */
+  loadCampusData(): void {
+    // Get campusId from storage (same as other campus APIs use)
+    const storedCampusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    
+    if (!storedCampusId) {
+      console.warn('SidebarComponent: ❌ No campusId found in storage, cannot load campus data');
+      return;
+    }
+    
+    // Clean campusId (remove any unwanted prefixes)
+    const campusId = storedCampusId.replace(/^CAMPUS-/i, '').trim();
+    
+    console.log('SidebarComponent: Loading campus data - campusId:', campusId);
+    
+    // Fetch campus data by ID
+    this.campusApi.getCampusById(campusId).pipe(
+      catchError((error) => {
+        console.error('SidebarComponent: Error loading campus data:', error);
+        return of(null);
+      })
+    ).subscribe({
+      next: (campus) => {
+        if (campus) {
+          // Set campus name
+          if (campus.campusName && campus.campusName.trim()) {
+            this.campusName.set(campus.campusName.trim());
+            console.log('SidebarComponent: ✅ Campus name loaded:', campus.campusName);
+          }
+          
+          // Set campus rank
+          if (campus.campusRank !== null && campus.campusRank !== undefined) {
+            this.campusRank.set(campus.campusRank);
+            console.log('SidebarComponent: ✅ Campus rank loaded:', campus.campusRank);
+          }
+          
+          // Set campus image URL
+          if (campus.photoUrl && campus.photoUrl.trim()) {
+            // Construct full image URL from photoUrl (API returns relative path or full URL)
+            let imageUrl = campus.photoUrl.trim();
+            
+            // If photoUrl is already a full URL (starts with http:// or https://), use it as is
+            if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+              if (imageUrl.startsWith('/')) {
+                // If it starts with /, it's an absolute path - construct full URL
+                imageUrl = `/api/v1/files${imageUrl}`;
+              } else {
+                // Relative path like "campus/filename.jpg" - construct full URL
+                imageUrl = `/api/v1/files/${imageUrl}`;
+              }
+            }
+            
+            this.campusImageUrl.set(imageUrl);
+            console.log('SidebarComponent: ✅ Campus image URL loaded:', imageUrl);
+          }
+        } else {
+          console.warn('SidebarComponent: ⚠️ Campus data not found');
+        }
+      },
+      error: (error) => {
+        console.error('SidebarComponent: Error in campus data subscription:', error);
+      }
+    });
   }
 
   /**
