@@ -13,6 +13,7 @@
       class="file-wrapper"
       [class.invalid]="invalid"
       [class.disabled]="disabled"
+      [class.has-file]="selectedFileNames || existingFileName"
       tabindex="0"
       role="button"
       [attr.aria-disabled]="disabled"
@@ -20,7 +21,7 @@
       (keydown.enter)="!disabled && fileInput.click()"
       (keydown.space)="$event.preventDefault(); !disabled && fileInput.click()"
     >
-      <span class="file-placeholder">{{ getFileDisplayText() }}</span>
+      <span class="file-placeholder" [class.has-file]="selectedFileNames || existingFileName">{{ getFileDisplayText() }}</span>
       <i class="fa-solid fa-paperclip file-icon" aria-hidden="true"></i>
 
       <input

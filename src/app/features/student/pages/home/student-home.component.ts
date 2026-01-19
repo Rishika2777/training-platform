@@ -2,8 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
-import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
+import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../../../../shared/components/dropdown/dropdown.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
+import { AvatarComponent } from '../../../../shared/components/avatar/avatar.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { StudentResumeUploadComponent } from '../resume-upload/student-resume-upload.component';
 import { StudentCareerCheckinComponent } from '../career-checkin/student-career-checkin.component';
@@ -12,8 +13,11 @@ import { StudentIdeasSubmissionComponent } from '../ideas-submission/student-ide
 import { StudentAiToolkitComponent } from '../ai-toolkit/ai-toolkit.component';
 import { StudentApiService } from '../../services/student-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { catchError, of } from 'rxjs';
+import { catchError, of, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { CampusResponse } from '../../models/student.models';
+import { APP_CONFIG_TOKEN, APP_CONFIG } from '../../../../core/config/app.constants';
+import { CampusApiService, CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
 
 @Component({
   selector: 'app-student-home',
@@ -24,6 +28,7 @@ import { CampusResponse } from '../../models/student.models';
     ModalComponent,
     DropdownComponent,
     ButtonComponent,
+    AvatarComponent,
     StudentResumeUploadComponent,
     StudentCareerCheckinComponent,
     StudentLearningPathwayComponent,
@@ -37,6 +42,8 @@ export class StudentHomeComponent implements OnInit {
   readonly modalService = inject(ModalService);
   readonly studentApiService = inject(StudentApiService);
   readonly authService = inject(AuthService);
+  private readonly campusApiService = inject(CampusApiService);
+  private readonly config = inject(APP_CONFIG_TOKEN, { optional: true }) ?? APP_CONFIG;
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isResumeModalOpen = computed(() => this.activeModal() === 'resume-upload');
@@ -109,45 +116,130 @@ export class StudentHomeComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    console.log('StudentHomeComponent: ngOnInit called');
-    this.loadCampuses();
+    this.loadInitialCampuses();
     this.loadData();
   }
 
-  loadCampuses(): void {
-    this.studentApiService.getRegisteredCampuses().subscribe({
-      next: (response) => {
-        if (response.data && Array.isArray(response.data)) {
-          console.log('StudentHomeComponent: Campuses loaded:', response.data);
-          console.log('StudentHomeComponent: Total campuses:', response.data.length);
-          this.campuses.set(response.data);
-          // Debug: Log campus items
-          console.log('StudentHomeComponent: Campus items for dropdown:', this.getCampusItems());
-        } else {
-          console.warn('StudentHomeComponent: No campus data in response:', response);
+  /**
+   * Load initial campuses on component init using search API
+   * This populates the dropdown with initial data so users see options immediately
+   */
+  loadInitialCampuses(): void {
+    this.campusApiService.getCampusBySearch('', 0, 20).subscribe({
+      next: (response) => {        
+        if (response) {
+          let content: CampusAutocompleteResponse[] | undefined;
+          
+          // Check if content is in response.data.content
+          if (response.data?.content && Array.isArray(response.data.content)) {
+            content = response.data.content;
+          }
+          // Check if content is directly in response.data (array)
+          else if (response.data && Array.isArray(response.data)) {
+            content = response.data as CampusAutocompleteResponse[];
+          }
+          // Check if content is at root level
+          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
+            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
+          }
+          
+          if (content && content.length > 0) {
+            // Convert to CampusResponse format for compatibility
+            const campusResponses: CampusResponse[] = content
+              .filter((campus) => {
+                const campusId = campus.campusId || campus.id;
+                return !!campusId && !!campus.campusName;
+              })
+              .map((campus) => ({
+                campusId: campus.campusId || campus.id || '',
+                campusName: campus.campusName || '',
+                campusAddress: campus.campusAddress,
+              }));
+            this.campuses.set(campusResponses);
+          } else {
+            console.warn('StudentHomeComponent: No campus content in initial response');
+          }
         }
       },
       error: (error) => {
-        console.error('Failed to load campuses:', error);
+        console.error('StudentHomeComponent: Failed to load initial campuses:', error);
       },
     });
   }
 
   loadData(): void {
-    console.log('StudentHomeComponent: loadData called');
     const currentUser = this.authService.getCurrentUser();
-    console.log('StudentHomeComponent: currentUser =', currentUser);
     const studentId = currentUser?.studentId;
+    const userId = currentUser?.userId?.toString();
 
-    console.log('StudentHomeComponent: studentId =', studentId);
-    console.log('StudentHomeComponent: currentUser =', currentUser);
-
-    if (!studentId) {
-      console.warn('Student ID not found. Cannot load batchmates, alumni, or placed students.');
+    if (!studentId || !userId) {
+      console.warn('Student ID or User ID not found. Cannot load profile and related data.');
       return;
     }
 
-    // Try to get campusName and yearOfPassing from localStorage (stored during registration/profile update)
+    // Call getStudentFullProfile API to get fresh data
+    this.studentApiService.getStudentFullProfile(studentId, userId, 'STUDENT').subscribe({
+      next: (response) => {
+        if (response?.success && response.data) {
+          const profileData = response.data as Record<string, unknown>;
+          
+          // Store profile data in localStorage for navbar and other components
+          try {
+            localStorage.setItem('student_profile_data', JSON.stringify(profileData));
+            // Dispatch event to notify sidebar and other components
+            window.dispatchEvent(new Event('studentProfileUpdated'));
+          } catch (error) {
+            console.error('Error storing profile data:', error);
+          }
+          
+          // Update signal with profile data
+          this.studentProfile.set(profileData);
+          
+          // Extract firstName and lastName for navbar
+          const firstName = profileData['firstName'] ? String(profileData['firstName']) : '';
+          const lastName = profileData['lastName'] ? String(profileData['lastName']) : '';
+          console.log('Student name loaded:', firstName, lastName);
+          
+          // Extract institutionName and yearOfPassing
+          console.log('📊 Profile data institutionName:', profileData['institutionName']);
+          console.log('📊 Profile data campusName:', profileData['campusName']);
+          
+          const institutionName = Array.isArray(profileData['institutionName']) && profileData['institutionName'].length > 0
+            ? String(profileData['institutionName'][0])
+            : null;
+          const yearOfPassing = profileData['yearOfPassing'] ? String(profileData['yearOfPassing']) : null;
+          
+          console.log('✅ Setting selectedCampusName to:', institutionName);
+          console.log('✅ Setting selectedYearOfPassing to:', yearOfPassing);
+          
+          this.selectedCampusName.set(institutionName);
+          this.selectedYearOfPassing.set(yearOfPassing);
+          
+          // Load batchmates and alumni with the profile data
+          if (institutionName && yearOfPassing) {
+            this.loadBatchmates(studentId);
+            this.loadAlumni(studentId);
+          } else {
+            console.warn('Cannot load batchmates/alumni: institutionName or yearOfPassing is missing');
+          }
+        } else {
+          console.warn('Profile data not found in API response');
+          // Fallback to localStorage if API fails
+          this.loadDataFromStorage(studentId);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading student profile:', error);
+        // Fallback to localStorage if API fails
+        this.loadDataFromStorage(studentId);
+      },
+    });
+  }
+
+  /**
+   * Fallback method to load data from localStorage if API fails
+   */
+  private loadDataFromStorage(studentId: string): void {
     const storedProfile = this.getStoredProfileData();
     if (storedProfile) {
       this.studentProfile.set(storedProfile);
@@ -168,8 +260,6 @@ export class StudentHomeComponent implements OnInit {
     } else {
       console.warn('Profile data not found in storage. Batchmates and alumni will not be loaded.');
     }
-    // Load placed students as it doesn't require profile data
-    // this.loadPlacedStudents();
   }
 
   /**
@@ -188,9 +278,7 @@ export class StudentHomeComponent implements OnInit {
     return null;
   }
 
-  loadBatchmates(studentId: string): void {
-    console.log('StudentHomeComponent: loadBatchmates called with studentId =', studentId);
-    
+  loadBatchmates(studentId: string): void {    
     const profile = this.studentProfile();
     if (!profile) {
       console.warn('Student profile not loaded yet. Cannot load batchmates.');
@@ -201,6 +289,9 @@ export class StudentHomeComponent implements OnInit {
       ? String(profile['institutionName'][0])
       : null;
     const yearOfPassing = profile['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
+    
+    console.log('👥 loadBatchmates using institutionName:', institutionName);
+    console.log('👥 loadBatchmates using yearOfPassing:', yearOfPassing);
 
     if (!institutionName || !yearOfPassing) {
       console.warn('Cannot load batchmates: institutionName or yearOfPassing is missing', { institutionName, yearOfPassing });
@@ -219,15 +310,18 @@ export class StudentHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          console.log('StudentHomeComponent: Batchmates response received:', response);
           this.loadingBatchmates.set(false);
           if (response?.success && response.data) {
-            const items = response.data.map((item) => this.mapBatchmateToPersonCard(item));
-            console.log('StudentHomeComponent: Mapped batchmates items:', items);
+            // API returns data.content array with pagination metadata, or data as array directly
+            const data = response.data as Record<string, unknown> | unknown[];
+            const content = Array.isArray(data) ? data : ((data as Record<string, unknown>)['content'] as unknown[] || []);
+            const items = content.map((item) => this.mapBatchmateToPersonCard(item as Record<string, unknown>));
             this.batchmates.set(items);
-            // For batchmates, API returns array, calculate pages from length
-            // Note: If API returns pagination metadata, use that instead
-            this.batchmatesTotalPages.set(Math.max(1, Math.ceil(items.length / this.peoplePageSize)));
+            // Use pagination metadata from API if available
+            const totalPages = Array.isArray(data) 
+              ? Math.max(1, Math.ceil(items.length / this.peoplePageSize)) 
+              : (typeof (data as Record<string, unknown>)['totalPages'] === 'number' ? (data as Record<string, unknown>)['totalPages'] as number : 1);
+            this.batchmatesTotalPages.set(totalPages);
           } else {
             console.warn('StudentHomeComponent: Batchmates response not successful or no data:', response);
           }
@@ -240,7 +334,6 @@ export class StudentHomeComponent implements OnInit {
   }
 
   loadPlacedStudents(): void {
-    console.log('StudentHomeComponent: loadPlacedStudents called');
     this.loadingPlacedStudents.set(true);
     this.studentApiService
       .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
@@ -253,11 +346,9 @@ export class StudentHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          console.log('StudentHomeComponent: Placed students response received:', response);
           this.loadingPlacedStudents.set(false);
           if (response?.success && response.data) {
             const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
-            console.log('StudentHomeComponent: Mapped placed students items:', items);
             this.placedStudents.set(items);
             this.placedStudentsTotalPages.set(response.data.totalPages || 1);
           } else {
@@ -271,11 +362,12 @@ export class StudentHomeComponent implements OnInit {
       });
   }
 
-  loadAlumni(studentId: string): void {
-    console.log('StudentHomeComponent: loadAlumni called with studentId =', studentId);
-    
+  loadAlumni(studentId: string): void {    
     const campusName = this.selectedCampusName();
     const yearOfPassing = this.selectedYearOfPassing();
+    
+    console.log('🎓 loadAlumni called with selectedCampusName:', campusName);
+    console.log('🎓 loadAlumni called with selectedYearOfPassing:', yearOfPassing);
 
     if (!campusName || !yearOfPassing) {
       console.warn('Cannot load alumni: campusName or yearOfPassing is missing', { campusName, yearOfPassing });
@@ -283,7 +375,6 @@ export class StudentHomeComponent implements OnInit {
     }
 
     this.loadingAlumni.set(true);
-    console.log('StudentHomeComponent: Loading alumni for campus =', campusName, 'year =', yearOfPassing);
     this.studentApiService
       .getAlumniForStudent(studentId, campusName, yearOfPassing, this.alumniPage, 12)
       .pipe(
@@ -295,11 +386,9 @@ export class StudentHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          console.log('StudentHomeComponent: Alumni response received:', response);
           this.loadingAlumni.set(false);
           if (response?.success && response.data) {
             const items = (response.data.content || []).map((item) => this.mapAlumniToPersonCard(item));
-            console.log('StudentHomeComponent: Mapped alumni items:', items);
             this.alumni.set(items);
             this.alumniTotalPages.set(response.data.totalPages || 1);
           } else {
@@ -347,21 +436,82 @@ export class StudentHomeComponent implements OnInit {
    * Close filter modal
    */
   closeFilterModal(): void {
+    console.log('✅ Apply button clicked - Applying filters with:', {
+      campusName: this.selectedCampusName(),
+      yearOfPassing: this.selectedYearOfPassing()
+    });
+    
+    // Apply filters before closing
+    this.applyFilters();
     this.modalService.closeModal();
   }
 
   /**
    * Get campus dropdown items (computed to always have latest data)
+   * This is kept for backward compatibility, but apiFetchFn is preferred
    */
   readonly campusItems = computed<DropdownItem[]>(() => {
     const items = this.campuses().map((campus) => ({
       value: campus.campusName || '',
       label: campus.campusName || '',
     })).filter(item => item.value && item.label); // Filter out empty values
-    
-    console.log('StudentHomeComponent: campusItems computed - Total items:', items.length, items);
     return items;
   });
+
+  /**
+   * API fetch function for campus autocomplete (called when user types)
+   * This is used for filtering/searching campuses as user types
+   */
+  fetchCampuses: ApiFetchFunction<string> = (searchTerm: string): Observable<DropdownItem<string>[]> => {    
+    // Always call the API to ensure fresh data
+    return this.campusApiService.getCampusBySearch(searchTerm || '', 0, 20).pipe(
+      map((response) => {        
+        const items: DropdownItem<string>[] = [];
+        
+        if (response) {
+          // Try different response structures
+          let content: CampusAutocompleteResponse[] | undefined;
+          
+          // Check if content is in response.data.content
+          if (response.data?.content && Array.isArray(response.data.content)) {
+            content = response.data.content;
+          }
+          // Check if content is directly in response.data (array)
+          else if (response.data && Array.isArray(response.data)) {
+            content = response.data as CampusAutocompleteResponse[];
+          }
+          // Check if content is at root level
+          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
+            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
+          }
+          
+          if (content && content.length > 0) {
+            const campusItems = content
+              .filter((campus) => {
+                const campusId = campus.campusId || campus.id;
+                const hasId = !!campusId;
+                const hasName = !!campus.campusName;
+                return hasId && hasName;
+              })
+              .map((campus) => {
+                const campusName = campus.campusName || '';
+                const item = {
+                  label: campusName,
+                  value: campusName, // Use campusName as value for filter dropdown
+                };
+                return item;
+              });
+            items.push(...campusItems);
+          }
+        }
+        return items;
+      }),
+      catchError((error) => {
+        console.error('StudentHomeComponent: Error in fetchCampuses:', error);
+        return of([]);
+      })
+    );
+  };
 
   /**
    * Get campus dropdown items (legacy method for compatibility)
@@ -387,22 +537,19 @@ export class StudentHomeComponent implements OnInit {
    * Handle campus selection change
    */
   onCampusChange(campusName: string): void {
+    console.log('⚠️ onCampusChange called with:', campusName);
+    console.log('⚠️ Current selectedCampusName:', this.selectedCampusName());
+    
+    // Just update the value, don't apply filters yet (wait for Apply button)
     this.selectedCampusName.set(campusName);
-    // Apply filters immediately when value changes
-    if (this.selectedYearOfPassing()) {
-      this.applyFilters();
-    }
   }
 
   /**
    * Handle year selection change
    */
   onYearChange(year: string): void {
+    // Just update the value, don't apply filters yet (wait for Apply button)
     this.selectedYearOfPassing.set(year);
-    // Apply filters immediately when value changes
-    if (this.selectedCampusName()) {
-      this.applyFilters();
-    }
   }
 
   /**
@@ -441,7 +588,7 @@ export class StudentHomeComponent implements OnInit {
     return {
       name,
       subtitle,
-      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
     };
   }
 
@@ -460,23 +607,54 @@ export class StudentHomeComponent implements OnInit {
     return {
       name,
       subtitle,
-      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
     };
   }
 
+  /**
+   * Build full image URL from profilePhotoUrl
+   * If it's just a filename, construct the full URL
+   * If it's already a full URL, return as-is
+   */
+  private buildImageUrl(profilePhotoUrl?: string | null): string | null {
+    if (!profilePhotoUrl) {
+      return null; // Return null so AvatarComponent can show initials
+    }
+    
+    // If it's already a full URL (starts with http:// or https://), return as-is
+    if (profilePhotoUrl.startsWith('http://') || profilePhotoUrl.startsWith('https://')) {
+      return profilePhotoUrl;
+    }
+    
+    // If it's a data URL, return as-is
+    if (profilePhotoUrl.startsWith('data:')) {
+      return profilePhotoUrl;
+    }
+    
+    // Otherwise, assume it's a filename and construct the full URL
+    // Use the API base URL from config
+    const baseUrl = this.config.API_BASE_URL || '/api/v1';
+    // Remove leading slash from profilePhotoUrl if present
+    const cleanUrl = profilePhotoUrl.startsWith('/') ? profilePhotoUrl.slice(1) : profilePhotoUrl;
+    return `${baseUrl}/images/${cleanUrl}`;
+  }
+
   private mapAlumniToPersonCard(item: {
+    name?: string;
     firstName?: string;
     lastName?: string;
     profilePhotoUrl?: string;
     designation?: string;
     companyName?: string;
+    company?: string;
   }): PersonCard {
-    const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    const subtitle = [item.designation, item.companyName].filter(Boolean).join(' ') || '';
+    // API returns 'name' field directly, fallback to firstName + lastName
+    const name = item.name || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
+    const subtitle = [item.designation, item.companyName || item.company].filter(Boolean).join(' ') || '';
     return {
       name,
       subtitle,
-      imageUrl: item.profilePhotoUrl || 'assets/images/login-news-image.png',
+      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
     };
   }
 
@@ -491,81 +669,23 @@ export class StudentHomeComponent implements OnInit {
     // TODO: Call API service
   }
 
-  handleCareerCheckinSubmit(value: {
-    companyName: string;
-    jobTitle: string;
-    startDate: string;
-    endDate: string;
-    currentlyWorking: boolean;
-    recnHelped: boolean;
-  }): void {
-    const currentUser = this.authService.getCurrentUser();
-    const userId = currentUser?.userId?.toString();
-
-    if (!userId) {
-      console.error('User ID not found. Cannot submit career check-in.');
-      this.submittingCareerCheckin = false;
-      return;
-    }
-
-    this.submittingCareerCheckin = true;
-
-    // Map form value to API request format
-    // If currently working, endDate is optional (can be empty string)
-    const request = {
-      companyName: value.companyName.trim(),
-      jobTitle: value.jobTitle.trim(),
-      startDate: value.startDate,
-      endDate: value.currentlyWorking ? (value.endDate || '') : value.endDate,
-      isCurrentlyWorking: value.currentlyWorking,
-      recnHelped: value.recnHelped,
-    };
-
-    this.studentApiService
-      .createOrUpdateCareerCheckIn(userId, request)
-      .pipe(
-        catchError((error) => {
-          console.error('Error submitting career check-in:', error);
-          console.error('Error status:', error?.status);
-          console.error('Error message:', error?.message);
-          console.error('Error response:', error?.error);
-          this.submittingCareerCheckin = false;
-          // Don't close modal on error - let user see the error and try again
-          return of(null);
-        }),
-      )
-      .subscribe({
-        next: (response) => {
-          this.submittingCareerCheckin = false;
-          if (response?.success) {
-            console.log('Career check-in saved successfully:', response);
-            // Only close modal on successful submission
-            this.closeModal();
-          } else {
-            console.error('Failed to save career check-in:', response);
-            // Don't close modal on failure - let user see the error
-          }
-        },
-        error: (error) => {
-          // This should not be reached due to catchError, but just in case
-          console.error('Unexpected error in subscribe:', error);
-          this.submittingCareerCheckin = false;
-        },
-      });
+  handleCareerCheckinSubmit(): void {
+    // Submission now handled inside career-checkin component
+    this.submittingCareerCheckin = false;
+    this.closeModal();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleIdeasSubmit(_value: unknown): void {
-    // API call will be implemented here
-    this.submittingIdeas = true;
-    // TODO: Call API service
+  handleIdeasSubmit(): void {
+    // Submission now handled inside ideas-submission component
+    this.submittingIdeas = false;
+    this.closeModal();
   }
 }
 
 interface PersonCard {
   name: string;
   subtitle: string;
-  imageUrl: string;
+  imageUrl: string | null;
 }
 
 interface FeedPost {

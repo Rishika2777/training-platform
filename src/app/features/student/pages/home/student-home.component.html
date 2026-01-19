@@ -26,9 +26,9 @@
           (pageChange)="onBatchmatesPageChange($event)"
         >
           <div class="avatar-row">
-            @for (p of batchmatesPageItems(); track p.imageUrl) {
+            @for (p of batchmatesPageItems(); track p.name) {
               <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                <app-avatar [imageUrl]="p.imageUrl" [name]="p.name" size="medium" />
                 <div class="avatar-name">{{ p.name }}</div>
               </div>
             }
@@ -89,9 +89,9 @@
           (pageChange)="onPlacedStudentsPageChange($event)"
         >
           <div class="avatar-row small">
-            @for (p of placedStudentsPageItems(); track p.imageUrl) {
+            @for (p of placedStudentsPageItems(); track p.name) {
               <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                <app-avatar [imageUrl]="p.imageUrl" [name]="p.name" size="small" />
                 <div class="avatar-name">{{ p.name }}</div>
                 <div class="avatar-sub">{{ p.subtitle }}</div>
               </div>
@@ -159,9 +159,9 @@
           (pageChange)="onAlumniPageChange($event)"
         >
           <div class="avatar-row small">
-            @for (p of alumniPageItems(); track p.imageUrl) {
+            @for (p of alumniPageItems(); track p.name) {
               <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                <app-avatar [imageUrl]="p.imageUrl" [name]="p.name" size="small" />
                 <div class="avatar-name">{{ p.name }}</div>
                 <div class="avatar-sub">{{ p.subtitle }}</div>
               </div>
@@ -192,10 +192,12 @@
     size="md"
     (closed)="closeModal()"
   >
-    <app-student-career-checkin
-      [submitting]="submittingCareerCheckin"
-      (submitted)="handleCareerCheckinSubmit($event)"
-    />
+    @if (isCareerCheckinModalOpen()) {
+      <app-student-career-checkin
+        [submitting]="submittingCareerCheckin"
+        (submitted)="closeModal()"
+      />
+    }
   </app-modal>
 
   <!-- Learning Pathway Modal -->
@@ -218,7 +220,7 @@
   >
     <app-student-ideas-submission
       [submitting]="submittingIdeas"
-      (submitted)="handleIdeasSubmit($event); closeModal()"
+      (submitted)="handleIdeasSubmit()"
     />
   </app-modal>
 
@@ -242,11 +244,13 @@
     <div class="filter-modal-content">
       <app-dropdown
         label="Select Campus"
-        [items]="campusItems()"
         [value]="selectedCampusName()"
         (valueChange)="onCampusChange($event)"
         [autocomplete]="true"
-        placeholder="Select a campus..."
+        [apiFetchFn]="fetchCampuses"
+        [debounceTime]="300"
+        [minSearchLength]="0"
+        placeholder="Type to search campuses..."
       />
       
       <app-dropdown
@@ -259,7 +263,7 @@
       
       <div class="filter-actions">
         <app-button 
-          label="Close" 
+          label="Apply" 
           variant="primary" 
           (buttonClick)="closeFilterModal()"
         />

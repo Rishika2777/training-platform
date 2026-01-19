@@ -25,6 +25,7 @@ export class InputComponent implements OnChanges {
   @Input() min: string | null = null;
   @Input() max: string | null = null;
   @Input() readonly = false;
+  @Input() existingFileName: string | undefined; // For displaying existing uploaded file
 
   @Output() valueChange = new EventEmitter<string>();
   @Output() filesSelected = new EventEmitter<FileList>();
@@ -105,13 +106,23 @@ export class InputComponent implements OnChanges {
     if (this.selectedFileNames && this.selectedFileNames.trim().length > 0) {
       return this.selectedFileNames;
     }
+    if (this.existingFileName && this.existingFileName.trim().length > 0) {
+      return `${this.existingFileName} - Uploaded`;
+    }
     return this.placeholder || 'Upload file';
   }
 
   // Reset file names when input is cleared
   ngOnChanges(changes: SimpleChanges): void {
-    if (this.type === 'file' && changes['value'] && !this.value) {
-      this.selectedFileNames = '';
+    if (this.type === 'file') {
+      // If value is cleared and no existing file name, reset selectedFileNames
+      if (changes['value'] && !this.value) {
+        this.selectedFileNames = '';
+      }
+      // If existingFileName is provided and no files selected yet, show it
+      if (changes['existingFileName'] && this.existingFileName && !this.selectedFileNames) {
+        // Don't set selectedFileNames here, let getFileDisplayText handle it
+      }
     }
   }
 }

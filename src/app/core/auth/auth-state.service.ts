@@ -97,8 +97,48 @@ export class AuthStateService {
   }
 
   clearAuth(): void {
-    this.setTokens(null, null);
-    this.setUser(null);
+    // Clear tokens and user data signals first
+    this.tokenSignal.set(null);
+    this.refreshTokenSignal.set(null);
+    this.userSignal.set(null);
+    
+    // Clear ALL localStorage items (including student_profile_data, campus_id, company_id, etc.)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.clear();
+        console.log('✅ All localStorage items cleared on logout');
+      } catch (error) {
+        console.warn('Failed to clear localStorage:', error);
+        // Fallback: clear known keys individually
+        this.clearKnownStorageKeys();
+      }
+    } else {
+      // Clear memory storage if not in browser
+      this.clearKnownStorageKeys();
+    }
+  }
+
+  /**
+   * Fallback method to clear known storage keys individually
+   */
+  private clearKnownStorageKeys(): void {
+    // Clear all known storage keys managed by StorageService
+    this.storage.remove(STORAGE_KEYS.AUTH_TOKEN);
+    this.storage.remove(STORAGE_KEYS.REFRESH_TOKEN);
+    this.storage.remove(STORAGE_KEYS.USER_DATA);
+    this.storage.remove(STORAGE_KEYS.MENU_CONFIG);
+    this.storage.remove(STORAGE_KEYS.COMPANY_ID);
+    this.storage.remove(STORAGE_KEYS.CAMPUS_ID);
+    this.storage.remove(STORAGE_KEYS.STUDENT_ID);
+    
+    // Clear custom localStorage items that are stored directly
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem('student_profile_data');
+      } catch (error) {
+        console.warn('Failed to remove student_profile_data:', error);
+      }
+    }
   }
 }
 

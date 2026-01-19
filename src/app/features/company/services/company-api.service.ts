@@ -88,6 +88,125 @@ export class CompanyApiService {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.DELETE, { companyId }));
     return this.http.delete<unknown>(url).pipe(map(() => void 0));
   }
+
+  /**
+   * GET /company/getCompanyBySearch
+   * Autosearch companies by name (partial, case-insensitive).
+   */
+  getCompanyBySearch(
+    searchTerm?: string,
+    page = 0,
+    size = 20,
+  ): Observable<CompanyAutoSearchResponse | null> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.GET_COMPANY_BY_SEARCH);
+    let params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    if (searchTerm && searchTerm.trim()) {
+      params = params.set('searchTerm', searchTerm.trim());
+    }
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object') {
+          const resp = raw as CompanyAutoSearchResponse;
+          return resp;
+        }
+        return null;
+      })
+    );
+  }
+
+  /**
+   * GET /company/{companyId}/preferred-campuses
+   * Gets preferred campuses for a company.
+   */
+  getPreferredCampuses(companyId: string): Observable<readonly PreferredCampusResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_PREFERRED_CAMPUSES, { companyId }));
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        const data = unwrapResponse<PreferredCampusResponse[]>(raw);
+        return Array.isArray(data) ? data : [];
+      }),
+    );
+  }
+
+  /**
+   * GET /company/{companyId}/clients
+   * Gets clients for a company with pagination.
+   */
+  getClients(companyId: string, page = 0, size = 10): Observable<readonly ClientResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_CLIENTS, { companyId }));
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        const data = unwrapResponse<ClientResponse[]>(raw);
+        return Array.isArray(data) ? data : [];
+      }),
+    );
+  }
+
+  /**
+   * POST /company/{companyId}/clients
+   * Adds a client for a company.
+   */
+  addClient(companyId: string, request: ClientRequest): Observable<ClientResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_CLIENT, { companyId }));
+    return this.http.post<unknown>(url, request).pipe(map(extractClientResponse));
+  }
+
+  /**
+   * POST /preferred-campus/{companyId}/addCampus
+   * Adds a preferred campus for a company.
+   */
+  addPreferredCampus(companyId: string, request: PreferredCampusRequest): Observable<PreferredCampusResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_PREFERRED_CAMPUS, { companyId }));
+    return this.http.post<unknown>(url, request).pipe(map(extractPreferredCampusResponse));
+  }
+
+  /**
+   * GET /specializations/{companyId}/technologies
+   * Gets specializations/technologies for a company.
+   */
+  getSpecializations(companyId: string): Observable<readonly SpecializationResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_SPECIALIZATIONS, { companyId }));
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        const data = unwrapResponse<SpecializationResponse[]>(raw);
+        return Array.isArray(data) ? data : [];
+      }),
+    );
+  }
+
+  /**
+   * POST /specializations/{companyId}/technologies/{technologyId}
+   * Adds a specialization/technology for a company.
+   */
+  addSpecialization(companyId: string, technologyId: string): Observable<SpecializationResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_SPECIALIZATION, { companyId, technologyId }));
+    return this.http.post<unknown>(url, {}).pipe(map(extractSpecializationResponse));
+  }
+
+  /**
+   * GET /company-landing/{companyId}/key-people
+   * Gets key people for a company.
+   * @param companyId - The company ID
+   * @param page - Page number (0-indexed, default: 0)
+   * @param size - Page size (default: 10)
+   */
+  getKeyPeople(companyId: string, page = 0, size = 10): Observable<readonly KeyPersonResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_KEY_PEOPLE, { companyId }));
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        const data = unwrapResponse<KeyPersonResponse[]>(raw);
+        return Array.isArray(data) ? data : [];
+      }),
+    );
+  }
 }
 
 export interface CompanyRegisterRequest {
@@ -142,9 +261,63 @@ export interface KeyPersonRequest {
 }
 
 export interface KeyPersonResponse {
+  keyPersonId?: string;
   name?: string;
   photoUrl?: string;
   designation?: string;
+}
+
+export interface PreferredCampusRequest {
+  campusName: string;
+  campusLogoUrl?: string;
+}
+
+export interface PreferredCampusResponse {
+  preferredCampusId?: string;
+  campusId?: string;
+  campusName?: string;
+  campusLogoUrl?: string;
+}
+
+export interface CompanyAutoSearchItem {
+  companyId?: string;
+  companyName?: string;
+  companyAddress?: string;
+}
+
+export interface CompanyAutoSearchResponse {
+  success?: boolean;
+  message?: string | null;
+  data?: {
+    content?: CompanyAutoSearchItem[];
+    totalPages?: number;
+    totalElements?: number;
+    page?: number;
+    size?: number;
+  };
+  error?: string | null;
+}
+
+export interface ClientRequest {
+  clientName: string;
+  clientLogoUrl?: string;
+}
+
+export interface ClientResponse {
+  clientId?: string;
+  clientName?: string;
+  clientLogoUrl?: string;
+}
+
+export interface SpecializationRequest {
+  technologyId: string;
+}
+
+export interface SpecializationResponse {
+  specializationId?: string;
+  companyId?: string;
+  technologyId?: string;
+  technologyName?: string;
 }
 
 interface ApiResponse<T> {
@@ -170,6 +343,30 @@ function extractCompanyRegistrationResponse(raw: unknown): CompanyRegistrationRe
     return null;
   }
   return wrapped as CompanyRegistrationResponse;
+}
+
+function extractPreferredCampusResponse(raw: unknown): PreferredCampusResponse | null {
+  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
+  if (!wrapped || typeof wrapped !== 'object') {
+    return null;
+  }
+  return wrapped as PreferredCampusResponse;
+}
+
+function extractClientResponse(raw: unknown): ClientResponse | null {
+  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
+  if (!wrapped || typeof wrapped !== 'object') {
+    return null;
+  }
+  return wrapped as ClientResponse;
+}
+
+function extractSpecializationResponse(raw: unknown): SpecializationResponse | null {
+  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
+  if (!wrapped || typeof wrapped !== 'object') {
+    return null;
+  }
+  return wrapped as SpecializationResponse;
 }
 
 function buildUserHeaders(options?: RegisterCompanyOptions): HttpHeaders {

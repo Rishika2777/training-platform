@@ -329,7 +329,12 @@
           <div class="avatar-row">
             @for (alumnus of alumniPageItems(); track alumnus.id) {
               <div class="avatar-card">
-                <img class="avatar" [src]="alumnus.imageUrl" [alt]="alumnus.name" />
+                <img
+                  class="avatar"
+                  [src]="avatarSrc(alumnus)"
+                  [alt]="alumnus.name"
+                  (error)="onAvatarError(alumnus, $event)"
+                />
                 <div class="avatar-name">{{ alumnus.name }}</div>
                 <div class="avatar-sub">{{ alumnus.designation }}</div>
                 <div class="avatar-sub">{{ alumnus.company }}</div>

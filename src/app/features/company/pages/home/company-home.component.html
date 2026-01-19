@@ -11,6 +11,7 @@
 
   <div class="grid">
     <div class="main">
+      
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Key people</div>
@@ -19,22 +20,26 @@
           </button>
         </div>
 
-        <app-carousel
-          type="pagination"
-          [currentPage]="keyPeoplePage"
-          [totalPages]="keyPeopleTotalPages"
-          (pageChange)="keyPeoplePage = $event"
-        >
-          <div class="avatar-row">
-            @for (p of keyPeoplePageItems(); track p.imageUrl) {
-              <div class="avatar-card">
-                <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
-                <div class="avatar-name">{{ p.name }}</div>
-                <div class="avatar-sub">{{ p.subtitle }}</div>
-              </div>
-            }
-          </div>
-        </app-carousel>
+        @if (loadingKeyPeople()) {
+          <div class="loading-text">Loading key people...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="keyPeoplePage"
+            [totalPages]="keyPeopleTotalPages"
+            (pageChange)="keyPeoplePage = $event"
+          >
+            <div class="avatar-row">
+              @for (p of keyPeoplePageItems(); track p.imageUrl) {
+                <div class="avatar-card">
+                  <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                  <div class="avatar-name">{{ p.name }}</div>
+                  <div class="avatar-sub">{{ p.subtitle }}</div>
+                </div>
+              }
+            </div>
+          </app-carousel>
+        }
       </section>
 
       <div class="composer">
@@ -89,7 +94,7 @@
           >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
-          @for (c of clients; track c.alt) {
+          @for (c of clients(); track c.alt) {
             <div class="company-tile">
               @if (c.imageUrl) {
                 <img class="tile-image" [src]="c.imageUrl" [alt]="c.alt" />
@@ -126,7 +131,7 @@
           >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
-          @for (t of preferredCampuses; track t.alt) {
+          @for (t of preferredCampuses(); track t.alt) {
             <div class="company-tile">
               @if (t.imageUrl) {
                 <img class="tile-image" [src]="t.imageUrl" [alt]="t.alt" />

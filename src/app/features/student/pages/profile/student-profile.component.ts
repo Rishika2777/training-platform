@@ -144,6 +144,8 @@ export class StudentProfileComponent implements OnInit {
           // Store profile data in localStorage for use on home page (to avoid calling profile API there)
           try {
             localStorage.setItem('student_profile_data', JSON.stringify(profileData));
+            // Dispatch event to notify sidebar and other components
+            window.dispatchEvent(new Event('studentProfileUpdated'));
           } catch (error) {
             console.warn('Failed to store profile data in localStorage:', error);
           }
@@ -177,8 +179,16 @@ export class StudentProfileComponent implements OnInit {
    * Load batchmates for the student
    */
   private loadBatchmates(studentId: string): void {
+    const profileData = this.profileData();
+    console.log('📋 PROFILE PAGE - Full profile data:', profileData);
+    console.log('📋 PROFILE PAGE - institutionName field:', profileData?.['institutionName']);
+    console.log('📋 PROFILE PAGE - campusName field:', profileData?.['campusName']);
+    
     const campusName = this.getInstitutionName();
     const yearOfPassing = this.getYearOfPassing();
+    
+    console.log('👥 PROFILE PAGE - loadBatchmates using campusName:', campusName);
+    console.log('👥 PROFILE PAGE - loadBatchmates using yearOfPassing:', yearOfPassing);
     
     if (!campusName || !yearOfPassing) {
       console.warn('Cannot load batchmates: campusName or yearOfPassing is missing', { campusName, yearOfPassing });
@@ -196,7 +206,10 @@ export class StudentProfileComponent implements OnInit {
         next: (response: ApiResponseBatchmateResponse | null) => {
           this.loadingBatchmates.set(false);
           if (response?.success && response.data) {
-            const items = response.data.map((item) => this.mapBatchmateToPersonCard(item as unknown));
+            // Check if data has content property (paginated response)
+            const data = response.data as unknown as { content?: unknown[] };
+            const batchmateList = data.content || (Array.isArray(response.data) ? response.data : []);
+            const items = batchmateList.map((item) => this.mapBatchmateToPersonCard(item as unknown));
             this.batchmates.set(items);
           }
         },
@@ -209,6 +222,9 @@ export class StudentProfileComponent implements OnInit {
   private loadAlumni(studentId: string): void {
     const campusName = this.getInstitutionName();
     const yearOfPassing = this.getYearOfPassing();
+    
+    console.log('🎓 PROFILE PAGE - loadAlumni using campusName:', campusName);
+    console.log('🎓 PROFILE PAGE - loadAlumni using yearOfPassing:', yearOfPassing);
     
     if (!campusName || !yearOfPassing) {
       console.warn('Cannot load alumni: campusName or yearOfPassing is missing', { campusName, yearOfPassing });
@@ -254,15 +270,24 @@ export class StudentProfileComponent implements OnInit {
    */
   private mapAlumniToPersonCard(item: unknown): PersonCard {
     const alumnus = item as { 
+      name?: string;
       firstName?: string; 
       lastName?: string; 
       profilePhotoUrl?: string;
       designation?: string;
+      company?: string;
       companyName?: string;
     };
-    const firstName = (alumnus.firstName || '').trim();
-    const lastName = (alumnus.lastName || '').trim();
-    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+    
+    // Try to get name from 'name' field first, then construct from firstName/lastName
+    let fullName = (alumnus.name || '').trim();
+    if (!fullName) {
+      const firstName = (alumnus.firstName || '').trim();
+      const lastName = (alumnus.lastName || '').trim();
+      fullName = [firstName, lastName].filter(Boolean).join(' ');
+    }
+    fullName = fullName || 'Unknown';
+    
     const photoUrl = alumnus.profilePhotoUrl || '';
     const imageUrl = photoUrl
       ? (photoUrl.startsWith('http') ? photoUrl : `/api/v1/files/${photoUrl}`)
@@ -272,7 +297,7 @@ export class StudentProfileComponent implements OnInit {
       name: fullName,
       imageUrl,
       designation: alumnus.designation,
-      company: alumnus.companyName,
+      company: alumnus.company || alumnus.companyName,
     };
   }
 

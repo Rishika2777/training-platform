@@ -18,11 +18,13 @@
     </div>
   }
 
+  @if (!isStudentProfile()) {
   <div class="header-center">
     <h1 class="page-title">{{ pageTitle() }}</h1>
   </div>
+  }
 
-  @if (!isSimpleHeader() && !isCampusAbout()) {
+  @if (!isSimpleHeader() && !isCampusAbout() && !isStudentProfile()) {
     <div class="header-right">
       <div class="search">
         <input

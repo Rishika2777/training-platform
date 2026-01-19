@@ -50,7 +50,13 @@ export class SidebarComponent implements OnInit {
   readonly campusRank = signal<number | null>(null);
   readonly campusImageUrl = signal<string | null>(null);
   
+  // Signal to track profile updates (for reactive updates)
+  readonly profileRefresh = signal<number>(0);
+  
   readonly userLabel = computed(() => {
+    // Depend on profileRefresh to make this reactive
+    this.profileRefresh();
+    
     const userType = this.roles.getUserType();
     
     // For CAMPUS users, show campus name instead of email
@@ -66,6 +72,29 @@ export class SidebarComponent implements OnInit {
     if (!user) {
       return 'Student';
     }
+    
+    // For students, try to get firstName and lastName from localStorage (stored profile data)
+    if (user.userType === 'STUDENT') {
+      try {
+        const storedProfile = localStorage.getItem('student_profile_data');
+        if (storedProfile) {
+          const profileData = JSON.parse(storedProfile) as Record<string, unknown>;
+          const firstName = profileData['firstName'] ? String(profileData['firstName']).trim() : '';
+          const lastName = profileData['lastName'] ? String(profileData['lastName']).trim() : '';
+          
+          if (firstName || lastName) {
+            const fullName = [firstName, lastName].filter(Boolean).join(' ');
+            if (fullName) {
+              return fullName;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to read student profile data from localStorage:', error);
+      }
+    }
+    
+    // Fallback to email if name not available
     return user.email ?? 'Student';
   });
   
@@ -158,11 +187,33 @@ export class SidebarComponent implements OnInit {
         this.loadFaculties();
       });
     }
+    
+    // Trigger initial profile refresh
+    this.refreshProfile();
+    
+    // Listen for storage events (triggered by other tabs or components)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'student_profile_data') {
+        this.refreshProfile();
+      }
+    });
+    
+    // Listen for custom profile update event (same-tab updates)
+    window.addEventListener('studentProfileUpdated', () => {
+      this.refreshProfile();
+    });
+  }
+  
+  /**
+   * Refreshes the profile signal to trigger computed re-evaluation
+   */
+  refreshProfile(): void {
+    this.profileRefresh.update(v => v + 1);
   }
 
   /**
    * Load campus data (name, rank, image) from API
-   * Fetches campus by campusId and updates sidebar profile
+   * Uses dedicated sidebar API for name and rank, and getCampusById for image
    */
   loadCampusData(): void {
     // Get campusId from storage (same as other campus APIs use)
@@ -178,52 +229,64 @@ export class SidebarComponent implements OnInit {
     
     console.log('SidebarComponent: Loading campus data - campusId:', campusId);
     
-    // Fetch campus data by ID
+    // Fetch campus sidebar data (name and rank) using dedicated sidebar API
+    this.campusApi.getCampusSidebar(campusId).pipe(
+      catchError((error) => {
+        console.error('SidebarComponent: Error loading campus sidebar data:', error);
+        return of(null);
+      })
+    ).subscribe({
+      next: (sidebarData) => {
+        if (sidebarData) {
+          // Set campus name
+          if (sidebarData.campusName && sidebarData.campusName.trim()) {
+            this.campusName.set(sidebarData.campusName.trim());
+            console.log('SidebarComponent: ✅ Campus name loaded:', sidebarData.campusName);
+          }
+          
+          // Set campus rank
+          if (sidebarData.campusRank !== null && sidebarData.campusRank !== undefined) {
+            this.campusRank.set(sidebarData.campusRank);
+            console.log('SidebarComponent: ✅ Campus rank loaded:', sidebarData.campusRank);
+          }
+        } else {
+          console.warn('SidebarComponent: ⚠️ Campus sidebar data not found');
+        }
+      },
+      error: (error) => {
+        console.error('SidebarComponent: Error in campus sidebar data subscription:', error);
+      }
+    });
+    
+    // Fetch campus image separately (sidebar API doesn't return image)
     this.campusApi.getCampusById(campusId).pipe(
       catchError((error) => {
-        console.error('SidebarComponent: Error loading campus data:', error);
+        console.error('SidebarComponent: Error loading campus image:', error);
         return of(null);
       })
     ).subscribe({
       next: (campus) => {
-        if (campus) {
-          // Set campus name
-          if (campus.campusName && campus.campusName.trim()) {
-            this.campusName.set(campus.campusName.trim());
-            console.log('SidebarComponent: ✅ Campus name loaded:', campus.campusName);
-          }
+        if (campus?.photoUrl && campus.photoUrl.trim()) {
+          // Construct full image URL from photoUrl (API returns relative path or full URL)
+          let imageUrl = campus.photoUrl.trim();
           
-          // Set campus rank
-          if (campus.campusRank !== null && campus.campusRank !== undefined) {
-            this.campusRank.set(campus.campusRank);
-            console.log('SidebarComponent: ✅ Campus rank loaded:', campus.campusRank);
-          }
-          
-          // Set campus image URL
-          if (campus.photoUrl && campus.photoUrl.trim()) {
-            // Construct full image URL from photoUrl (API returns relative path or full URL)
-            let imageUrl = campus.photoUrl.trim();
-            
-            // If photoUrl is already a full URL (starts with http:// or https://), use it as is
-            if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-              if (imageUrl.startsWith('/')) {
-                // If it starts with /, it's an absolute path - construct full URL
-                imageUrl = `/api/v1/files${imageUrl}`;
-              } else {
-                // Relative path like "campus/filename.jpg" - construct full URL
-                imageUrl = `/api/v1/files/${imageUrl}`;
-              }
+          // If photoUrl is already a full URL (starts with http:// or https://), use it as is
+          if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+            if (imageUrl.startsWith('/')) {
+              // If it starts with /, it's an absolute path - construct full URL
+              imageUrl = `/api/v1/files${imageUrl}`;
+            } else {
+              // Relative path like "campus/filename.jpg" - construct full URL
+              imageUrl = `/api/v1/files/${imageUrl}`;
             }
-            
-            this.campusImageUrl.set(imageUrl);
-            console.log('SidebarComponent: ✅ Campus image URL loaded:', imageUrl);
           }
-        } else {
-          console.warn('SidebarComponent: ⚠️ Campus data not found');
+          
+          this.campusImageUrl.set(imageUrl);
+          console.log('SidebarComponent: ✅ Campus image URL loaded:', imageUrl);
         }
       },
       error: (error) => {
-        console.error('SidebarComponent: Error in campus data subscription:', error);
+        console.error('SidebarComponent: Error loading campus image:', error);
       }
     });
   }

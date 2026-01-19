@@ -120,7 +120,25 @@ export class StudentApiService {
       .set('yearOfPassing', yearOfPassing) 
       .set('page', page.toString())
       .set('limit', limit.toString());
-    console.log('StudentApiService: getAlumniForStudent - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponsePageAlumniResponse>(url, { params });
+  }
+
+  /**
+   * GET /students/campus/{campusId}/batch
+   * Retrieves alumni by campusId and yearOfPassing (batch).
+   */
+  getAlumniByCampusBatch(
+    campusId: string,
+    yearOfPassing: string,
+    page = 1,
+    limit = 12,
+  ): Observable<ApiResponsePageAlumniResponse> {
+    const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.ALUMNI_BY_CAMPUS_BATCH, { campusId });
+    const url = this.buildUrl(endpoint);
+    const params = new HttpParams()
+      .set('yearOfPassing', yearOfPassing)
+      .set('page', page.toString())
+      .set('limit', limit.toString());
     return this.http.get<ApiResponsePageAlumniResponse>(url, { params });
   }
 
@@ -143,7 +161,25 @@ export class StudentApiService {
       .set('yearOfPassing', yearOfPassing)
       .set('page', page.toString())
       .set('limit', limit.toString());
-    console.log('StudentApiService: getBatchmates - URL:', url, 'Params:', params.toString());
+    return this.http.get<ApiResponseBatchmateResponse>(url, { params });
+  }
+
+  /**
+   * GET /student/batch/current
+   * Retrieves current batch students filtered by campus name and year of passing.
+   */
+  getCurrentBatch(
+    campusName: string,
+    yearOfPassing: string,
+    page = 1,
+    limit = 12,
+  ): Observable<ApiResponseBatchmateResponse> {
+    const url = this.buildUrl(API_ENDPOINTS.STUDENT.CURRENT_BATCH);
+    const params = new HttpParams()
+      .set('campusName', campusName)
+      .set('yearOfPassing', yearOfPassing)
+      .set('page', page.toString())
+      .set('limit', limit.toString());
     return this.http.get<ApiResponseBatchmateResponse>(url, { params });
   }
 
@@ -165,7 +201,6 @@ export class StudentApiService {
     if (batch) {
       params = params.set('batch', batch);
     }
-    console.log('StudentApiService: getPlacedStudents - URL:', url, 'Params:', params.toString());
     return this.http.get<ApiResponsePlacedStudentsResponse>(url, { params });
   }
 
@@ -173,9 +208,9 @@ export class StudentApiService {
    * GET /student/career-checkin
    * Get career check-in by userId
    */
-  getCareerCheckIn(userId: string): Observable<ApiResponseCareerCheckInResponse> {
+  getCareerCheckIn(studentId: string): Observable<ApiResponseCareerCheckInResponse> {
     const url = this.buildUrl(API_ENDPOINTS.STUDENT.CAREER_CHECKIN);
-    const params = new HttpParams().set('userId', userId);
+    const params = new HttpParams().set('studentId', studentId);
     return this.http.get<ApiResponseCareerCheckInResponse>(url, { params });
   }
 
@@ -184,12 +219,35 @@ export class StudentApiService {
    * Create or update career check-in
    */
   createOrUpdateCareerCheckIn(
-    userId: string,
+    studentId: string,
     request: CareerCheckInRequest,
   ): Observable<ApiResponseCareerCheckInResponse> {
     const url = this.buildUrl(API_ENDPOINTS.STUDENT.CAREER_CHECKIN);
-    const params = new HttpParams().set('userId', userId);
+    const params = new HttpParams().set('studentId', studentId);
     return this.http.post<ApiResponseCareerCheckInResponse>(url, request, { params });
+  }
+
+  /**
+   * POST /students/{studentId}/ideas
+   * Submit an idea for a student.
+   */
+  submitIdea(
+    studentId: string,
+    request: IdeaSubmissionRequest,
+  ): Observable<IdeaSubmissionResponse> {
+    const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.IDEA_SUBMISSION, { studentId });
+    const url = this.buildUrl(endpoint);
+    return this.http.post<IdeaSubmissionResponse>(url, request);
+  }
+
+  /**
+   * GET /students/{studentId}/ideas/template
+   * Returns template download info (typically a URL or storage key).
+   */
+  getIdeaTemplateInfo(studentId: string): Observable<IdeaTemplateInfoResponse> {
+    const endpoint = resolvePathParams(API_ENDPOINTS.STUDENT.IDEA_TEMPLATE_INFO, { studentId });
+    const url = this.buildUrl(endpoint);
+    return this.http.get<IdeaTemplateInfoResponse>(url);
   }
 
   /**
@@ -200,19 +258,7 @@ export class StudentApiService {
    * 
    * TEMPORARILY DISABLED: Using static data from STATIC_CAMPUSES constant instead
    */
-  getRegisteredCampuses(): Observable<ApiResponseCampusResponse> {
-    // API call commented out - using static data instead
-    // const url = this.buildUrl(API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
-    // console.log('getRegisteredCampuses: Fetching campuses from:', url);
-    // 
-    // // Skip authentication for this public endpoint
-    // const headers = new HttpHeaders({
-    //   'X-Skip-Auth': 'true',
-    // });
-    // 
-    // console.log('getRegisteredCampuses: Making GET request with X-Skip-Auth header');
-    // return this.http.get<ApiResponseCampusResponse>(url, { headers });
-    
+  getRegisteredCampuses(): Observable<ApiResponseCampusResponse> {    
     // Return static data wrapped in Observable
     return new Observable<ApiResponseCampusResponse>((subscriber) => {
       subscriber.next({
@@ -255,6 +301,29 @@ export class StudentApiService {
 
     return url + normalizedEndpoint;
   }
+}
+
+export interface IdeaSubmissionRequest {
+  documentUrl: string;
+  description: string;
+}
+
+export interface IdeaSubmissionResponse {
+  success: boolean;
+  message: string;
+  data?: unknown;
+  error?: unknown;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface IdeaTemplateInfoResponse {
+  success: boolean;
+  message: string;
+  data?: string;
+  error?: unknown;
+  statusCode?: number;
+  timestamp?: string;
 }
 
 function resolvePathParams(endpoint: string, params: Record<string, string>): string {

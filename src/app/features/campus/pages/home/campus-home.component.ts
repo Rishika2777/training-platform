@@ -90,7 +90,7 @@ export class CampusHomeComponent implements OnInit {
   readonly batches = signal<string[]>([]);
   readonly loadingBatches = signal(false);
   selectedBatch = signal<string | null>(null);
-  currentBatchPage = 1;
+  currentBatchPage = 0; // API uses 0-indexed pagination (page=0 for first page)
   readonly currentBatchPageSize = 6;
   readonly currentBatchTotalPages = signal(1);
 
@@ -109,17 +109,38 @@ export class CampusHomeComponent implements OnInit {
   readonly loadingAlumni = signal(false);
   selectedAlumniYear = signal<string | null>(null);
   alumniPage = 1;
-  readonly alumniPageSize = 6;
+  readonly alumniPageSize = 12; // Student API uses limit=12 (as per image)
   readonly alumniTotalPages = signal(1);
   readonly useCarouselAPI = signal(false); // Flag to switch between APIs
+  private alumniInitialized = false;
+  // Current Batch (student service)
+  readonly loadingCurrentBatchStudents = signal(false);
+  currentBatchYear = signal<string | null>(null);
+  currentBatchCampusName = signal<string | null>(null);
+  showBatchFilterModal = signal(false);
+  campusFilterOptions = signal<readonly { label: string; value: string }[]>([]);
+  selectedFilterCampus = signal<string>('');
+  selectedFilterYear = signal<string>('');
+
+  // Student's current batch from Student module
+  readonly studentCurrentBatch = signal<string | null>(null);
+  readonly noCurrentBatchAssigned = signal(false);
   
-  // Year filter options for alumni
-  readonly alumniYearOptions: readonly { label: string; value: string }[] = [
-    { label: '2022', value: '2022' },
-    { label: '2023', value: '2023' },
-    { label: '2024', value: '2024' },
-    { label: '2025', value: '2025' },
-  ];
+  // Year filter options for alumni/current batch
+  readonly alumniYearOptions: readonly { label: string; value: string }[] = (() => {
+    const current = new Date().getFullYear();
+    const years: { label: string; value: string }[] = [];
+    for (let y = current; y >= current - 5; y--) {
+      years.push({ label: `${y}`, value: `${y}` });
+    }
+    // Ensure expected fixed years are present
+    ['2022', '2023', '2024', '2025', '2026'].forEach((y) => {
+      if (!years.find((opt) => opt.value === y)) {
+        years.push({ label: y, value: y });
+      }
+    });
+    return years.sort((a, b) => Number(b.value) - Number(a.value));
+  })();
 
   readonly posts: readonly FeedPost[] = [
     {
@@ -155,9 +176,18 @@ export class CampusHomeComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPlacedStudents();
-    this.loadBatches();
     this.loadCompaniesVisited();
-    // Load dashboard announcements
+    const currentYear = new Date().getFullYear().toString();
+    this.selectedAlumniYear.set(currentYear);
+    this.useCarouselAPI.set(false);
+    this.currentBatchYear.set(currentYear);
+    const initialCampusId = this.getCampusId();
+    if (initialCampusId) {
+      this.alumniInitialized = true;
+      this.fetchAlumniByCampusBatch(initialCampusId, currentYear);
+      this.loadCurrentBatchStudents(initialCampusId, currentYear);
+    }
+    this.loadCampusFilterOptions();
     
     // Reset companies visited form when modal opens
     effect(() => {
@@ -192,14 +222,12 @@ export class CampusHomeComponent implements OnInit {
         // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
         setTimeout(() => {
           if (this.prospectusComponent) {
-            console.log('CampusHomeComponent: Modal opened - Resetting prospectus form');
             // First reset the form to clear all old data (course, file, etc.)
             this.prospectusComponent.resetForm();
             // Then initialize with campusId after a longer delay to ensure reset completes fully
             // This sets campus name (readonly field) but form fields (course, file) remain empty
             setTimeout(() => {
               if (this.prospectusComponent) {
-                console.log('CampusHomeComponent: Initializing prospectus component with campusId');
                 this.initializeProspectusComponent();
               }
             }, 200); // Increased delay to ensure reset completes
@@ -211,10 +239,6 @@ export class CampusHomeComponent implements OnInit {
     });
 
     this.loadAnnouncements();
-    // Load alumni with default year (2024) using regular API
-    this.selectedAlumniYear.set('2024');
-    this.useCarouselAPI.set(false);
-    this.loadAlumni('2024');
   }
   
   /**
@@ -223,7 +247,6 @@ export class CampusHomeComponent implements OnInit {
   private initializeProspectusComponent(): void {
     const campusId = this.getCampusId();
     if (campusId && this.prospectusComponent) {
-      console.log('CampusHomeComponent: Initializing prospectus component with campusId:', campusId);
       // Pass campusId to prospectus component so it can load the list
       this.prospectusComponent.refreshProspectusList(campusId);
     }
@@ -253,7 +276,6 @@ export class CampusHomeComponent implements OnInit {
         if (response?.success && Array.isArray(response.data)) {
           this.announcements.set(response.data);
           this.currentAnnouncementIndex = 0; // Reset to first announcement
-          console.log('CampusHomeComponent: Announcements loaded:', response.data.length, 'items');
         } else {
           this.announcements.set([]);
           console.warn('CampusHomeComponent: Announcements response not successful or no data');
@@ -303,9 +325,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   loadPlacedStudents(): void {
-    console.log('CampusHomeComponent: ========== LOADING PLACED STUDENTS ==========');
-    console.log('CampusHomeComponent: Current page (0-indexed):', this.placedStudentsPage);
-    console.log('CampusHomeComponent: Page size:', this.peoplePageSize);
     this.loadingPlacedStudents.set(true);
     
     const campusId = this.getCampusId();
@@ -328,16 +347,6 @@ export class CampusHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          console.log('CampusHomeComponent: ✅ GET PLACED STUDENTS API RESPONSE RECEIVED');
-          console.log('CampusHomeComponent: Response:', response);
-          console.log('CampusHomeComponent: Response success:', response?.success);
-          console.log('CampusHomeComponent: Response message:', response?.message);
-          console.log('CampusHomeComponent: Response data:', response?.data);
-          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
-          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
-          console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
-          console.log('CampusHomeComponent: Total elements:', response?.data?.totalElements);
-          
           this.loadingPlacedStudents.set(false);
           if (response?.success && response.data) {
             const rawItems = response.data.content || [];
@@ -346,14 +355,6 @@ export class CampusHomeComponent implements OnInit {
             this.placedStudents.set(items);
             const totalPages = response.data.totalPages ?? 1;
             this.placedStudentsTotalPages.set(Math.max(1, totalPages));
-            
-            // Log for debugging
-            console.log('CampusHomeComponent: Page conversion - API page:', this.placedStudentsPage, 'Display page:', this.placedStudentsPage + 1);
-            
-            console.log('CampusHomeComponent: ✅ Placed students list updated');
-            console.log('CampusHomeComponent: Mapped items count:', items.length);
-            console.log('CampusHomeComponent: Total pages:', totalPages);
-            console.log('CampusHomeComponent: Current placed students signal:', this.placedStudents());
           } else {
             console.warn('CampusHomeComponent: ⚠️ Response not successful or no data');
             console.warn('CampusHomeComponent: Response success:', response?.success);
@@ -382,10 +383,6 @@ export class CampusHomeComponent implements OnInit {
 
   // Companies Visited - API Integration
   loadCompaniesVisited(): void {
-    console.log('CampusHomeComponent: ========== LOADING COMPANIES VISITED ==========');
-    console.log('CampusHomeComponent: Current page (0-indexed):', this.companiesVisitedPage);
-    console.log('CampusHomeComponent: Page size:', this.companiesVisitedPageSize);
-    
     // Get campusId from storage (same as other APIs use - set during login)
     const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
     
@@ -399,7 +396,6 @@ export class CampusHomeComponent implements OnInit {
     
     // Clean campusId (remove any prefixes)
     const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
-    console.log('CampusHomeComponent: ✅ Using campusId from storage for get companies:', cleanCampusId);
     
     this.loadingCompaniesVisited.set(true);
     
@@ -414,15 +410,6 @@ export class CampusHomeComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          console.log('CampusHomeComponent: ✅ GET COMPANIES VISITED API RESPONSE RECEIVED');
-          console.log('CampusHomeComponent: Response:', response);
-          console.log('CampusHomeComponent: Response success:', response?.success);
-          console.log('CampusHomeComponent: Response message:', response?.message);
-          console.log('CampusHomeComponent: Response data:', response?.data);
-          console.log('CampusHomeComponent: Response content array:', response?.data?.content);
-          console.log('CampusHomeComponent: Content length:', response?.data?.content?.length || 0);
-          console.log('CampusHomeComponent: Total pages:', response?.data?.totalPages);
-          
           this.loadingCompaniesVisited.set(false);
           
           if (!response) {
@@ -432,37 +419,18 @@ export class CampusHomeComponent implements OnInit {
             return;
           }
           
-          console.log('CampusHomeComponent: Response structure check:', {
-            hasSuccess: 'success' in response,
-            success: response.success,
-            hasData: 'data' in response,
-            hasContent: response.data && 'content' in response.data,
-            contentIsArray: Array.isArray(response.data?.content),
-            contentLength: response.data?.content?.length || 0
-          });
-          
           if (response.success && response.data) {
             const rawItems = response.data.content || [];
-            console.log('CampusHomeComponent: Raw items from API:', rawItems);
-            console.log('CampusHomeComponent: Raw items count:', rawItems.length);
             
             if (rawItems.length > 0) {
               const items = rawItems.map((item) => {
-                console.log('CampusHomeComponent: Mapping item:', item);
                 return this.mapCompanyVisitedToCard(item);
               });
               
               this.companiesVisited.set(items);
               const totalPages = response.data.totalPages ?? 1;
               this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
-              
-              console.log('CampusHomeComponent: ✅ Companies visited list updated');
-              console.log('CampusHomeComponent: Mapped items count:', items.length);
-              console.log('CampusHomeComponent: Total pages:', totalPages);
-              console.log('CampusHomeComponent: Current companies visited signal:', this.companiesVisited());
-              console.log('CampusHomeComponent: Companies visited signal value:', JSON.stringify(this.companiesVisited(), null, 2));
             } else {
-              console.log('CampusHomeComponent: ⚠️ No companies in response (empty content array)');
               this.companiesVisited.set([]);
               const totalPages = response.data.totalPages ?? 0;
               this.companiesVisitedTotalPages.set(Math.max(1, totalPages));
@@ -513,7 +481,6 @@ export class CampusHomeComponent implements OnInit {
     }
     
     if (apiPage !== this.companiesVisitedPage) {
-      console.log('CampusHomeComponent: Changing companies visited page from', this.companiesVisitedPage, 'to', apiPage);
       this.companiesVisitedPage = apiPage;
       this.loadCompaniesVisited();
     }
@@ -567,8 +534,6 @@ export class CampusHomeComponent implements OnInit {
     
     if (logoUrlValue) {
       const logoUrl = logoUrlValue.trim();
-      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Company:', item.companyName);
-      console.log('CampusHomeComponent: mapCompanyVisitedToCard - Raw logo URL:', logoUrl);
       
       // Remove trailing comma if present (sometimes API returns "url,")
       const cleanUrl = logoUrl.endsWith(',') ? logoUrl.slice(0, -1) : logoUrl;
@@ -576,15 +541,12 @@ export class CampusHomeComponent implements OnInit {
       if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
         // Already a full URL
         imageUrl = cleanUrl;
-        console.log('CampusHomeComponent: Using full URL:', imageUrl);
       } else if (cleanUrl.startsWith('/')) {
         // Absolute path, add /api/v1/files prefix
         imageUrl = `/api/v1/files${cleanUrl}`;
-        console.log('CampusHomeComponent: Constructed URL from absolute path:', imageUrl);
       } else if (cleanUrl.trim() !== '') {
         // Relative path like "company/filename.jpg", add /api/v1/files/ prefix
         imageUrl = `/api/v1/files/${cleanUrl}`;
-        console.log('CampusHomeComponent: Constructed URL from relative path:', imageUrl);
       } else {
         console.warn('CampusHomeComponent: mapCompanyVisitedToCard - Empty logo URL for company:', item.companyName);
       }
@@ -597,41 +559,39 @@ export class CampusHomeComponent implements OnInit {
       companyName: item.companyName || 'Unknown Company',
       logoUrl: imageUrl,
     };
-    
-    console.log('CampusHomeComponent: mapCompanyVisitedToCard - Final card for', result.companyName, ':', {
-      id: result.id,
-      companyName: result.companyName,
-      logoUrl: result.logoUrl
-    });
     return result;
   }
 
   // Current Batch - API Integration
   loadBatches(): void {
     this.loadingBatches.set(true);
-    
-    // Use the same endpoint as placed students form for consistency
-    this.campusApi.getBatchesForDropdown().pipe(
-      map((batches: string[]) => {
-        // Filter and validate batch strings
-        return batches
-          .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
-          .map(batch => batch.trim());
+    // This endpoint should return batches for the current campus
+    this.campusApi.getAllBatches().pipe(
+      map((response: BatchesResponse | null) => {
+        if (response?.success && Array.isArray(response.data)) {
+          // Filter and validate batch strings
+          const batches = response.data
+            .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+            .map(batch => batch.trim());
+          return batches;
+        }
+        
+        console.warn('CampusHomeComponent: getAllBatches - No valid batches in response');
+        return [];
       }),
       catchError((error) => {
-        console.error('CampusHomeComponent: Error loading batches from getBatchesForDropdown, trying fallback:', error);
-        // Fallback to getAllBatches if getBatchesForDropdown fails
-        return this.campusApi.getAllBatches().pipe(
-          map((response: BatchesResponse | null) => {
-            if (response?.success && Array.isArray(response.data)) {
-              return response.data
-                .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
-                .map(batch => batch.trim());
-            }
-            return [];
+        console.error('CampusHomeComponent: Error loading batches from getAllBatches, trying fallback:', error);
+        // Fallback to getBatchesForDropdown if getAllBatches fails
+        return this.campusApi.getBatchesForDropdown().pipe(
+          map((batches: string[]) => {
+            // Filter and validate batch strings
+            const filtered = batches
+              .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
+              .map(batch => batch.trim());
+            return filtered;
           }),
           catchError((fallbackError) => {
-            console.error('CampusHomeComponent: Fallback also failed:', fallbackError);
+            console.error('CampusHomeComponent: Both batch endpoints failed:', fallbackError);
             return of([]);
           })
         );
@@ -639,80 +599,106 @@ export class CampusHomeComponent implements OnInit {
     ).subscribe({
       next: (batches: string[]) => {
         this.loadingBatches.set(false);
-        
         if (batches.length > 0) {
           this.batches.set(batches);
-          
-          // Auto-select first batch if available and no batch is selected
-          if (!this.selectedBatch()) {
-            const firstBatch = batches[0];
-            this.selectedBatch.set(firstBatch);
-            this.loadStudentsByBatch(firstBatch);
-          } else if (this.selectedBatch() && batches.includes(this.selectedBatch()!)) {
-            // Reload students for currently selected batch if it still exists
-            this.loadStudentsByBatch(this.selectedBatch()!);
-          } else if (this.selectedBatch() && !batches.includes(this.selectedBatch()!)) {
-            // If selected batch no longer exists, select first available
-            const firstBatch = batches[0];
-            this.selectedBatch.set(firstBatch);
-            this.loadStudentsByBatch(firstBatch);
-          }
+
+          // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+          setTimeout(() => {
+            // Use student's current batch from Student module (NOT first batch)
+            const studentBatch = this.studentCurrentBatch();
+
+            if (!this.selectedBatch()) {
+              if (studentBatch && batches.includes(studentBatch)) {
+                // Select student's current batch
+                this.selectedBatch.set(studentBatch);
+                this.noCurrentBatchAssigned.set(false);
+                this.loadStudentsByBatch(studentBatch);
+              } else if (studentBatch && !batches.includes(studentBatch)) {
+                // Student batch not in available batches
+                console.warn('CampusHomeComponent: Student batch not found in available batches:', studentBatch);
+                this.noCurrentBatchAssigned.set(true);
+                this.selectedBatch.set(null);
+              } else {
+                // No student batch available
+                this.noCurrentBatchAssigned.set(true);
+                this.selectedBatch.set(null);
+              }
+            } else if (this.selectedBatch() && batches.includes(this.selectedBatch()!)) {
+              // Reload students for currently selected batch if it still exists
+              this.loadStudentsByBatch(this.selectedBatch()!);
+            } else if (this.selectedBatch() && !batches.includes(this.selectedBatch()!)) {
+              // If selected batch no longer exists, show no batch assigned
+              this.noCurrentBatchAssigned.set(true);
+              this.selectedBatch.set(null);
+            }
+          }, 0);
         } else {
+          console.warn('CampusHomeComponent: No batches available - This campus may not have any students with batch information');
           this.batches.set([]);
           this.selectedBatch.set(null);
         }
-        
-        console.log('CampusHomeComponent: Batches loaded:', batches.length, 'items');
       },
       error: (error) => {
         console.error('CampusHomeComponent: Error in batches subscription:', error);
         this.loadingBatches.set(false);
         this.batches.set([]);
+        this.selectedBatch.set(null);
       }
     });
   }
 
   loadStudentsByBatch(batch: string): void {
     if (!batch) {
+      console.warn('CampusHomeComponent: loadStudentsByBatch - No batch provided');
       return;
     }
     
     this.loadingCurrentBatch.set(true);
     
+    // API uses 0-indexed pagination, so pass currentBatchPage directly
     this.campusApi.getStudentsByBatch(batch, this.currentBatchPage, this.currentBatchPageSize).pipe(
-      catchError(() => {
+      catchError((error) => {
+        console.error('CampusHomeComponent: loadStudentsByBatch - API Error:', error);
+        console.error('CampusHomeComponent: Error details:', {
+          status: error?.status,
+          message: error?.message,
+          error: error?.error,
+          url: error?.url
+        });
         this.loadingCurrentBatch.set(false);
         return of(null);
       })
     ).subscribe({
       next: (response: StudentsByBatchResponse | null) => {
         this.loadingCurrentBatch.set(false);
+        if (!response) {
+          console.warn('CampusHomeComponent: loadStudentsByBatch - Response is null');
+          this.currentBatch.set([]);
+          this.currentBatchTotalPages.set(1);
+          return;
+        }
         
         if (response?.success && response.data) {
           const rawItems = response.data.content || [];
-          const items = rawItems.map((item) => this.mapStudentByBatchToPersonCard(item));
           
+          const items = rawItems.map((item) => {
+            return this.mapStudentByBatchToPersonCard(item);
+          });
           this.currentBatch.set(items);
           
-          // Calculate total pages based on whether page 1 is full
-          // Only show page 2 if page 1 is full (has exactly pageSize items)
-          // If page 1 has fewer items than pageSize, only show 1 page
-          let totalPages = response.data.totalPages || 1;
-          
-          // If we're on page 1 and it's not full, only show 1 page
-          if (this.currentBatchPage === 1 && items.length < this.currentBatchPageSize) {
-            totalPages = 1;
-          }
-          // If we're on page 1 and it's full, use the API's totalPages
-          // If we're on page 2 or later, always use the API's totalPages
-          
+          // Use API's totalPages directly (API returns correct pagination info)
+          const totalPages = response.data.totalPages || 1;
           this.currentBatchTotalPages.set(totalPages);
         } else {
+          console.warn('CampusHomeComponent: loadStudentsByBatch - Response not successful or no data');
+          console.warn('CampusHomeComponent: Response success:', response?.success);
+          console.warn('CampusHomeComponent: Response data:', response?.data);
           this.currentBatch.set([]);
           this.currentBatchTotalPages.set(1);
         }
       },
-      error: () => {
+      error: (error) => {
+        console.error('CampusHomeComponent: loadStudentsByBatch - Subscription Error:', error);
         this.loadingCurrentBatch.set(false);
         this.currentBatch.set([]);
         this.currentBatchTotalPages.set(1);
@@ -729,17 +715,22 @@ export class CampusHomeComponent implements OnInit {
                      student.imageUrl || 
                      'assets/images/login-news-image.png';
     
-    return {
+    const mapped = {
       id: student.studentId || student.userId || student.id || `${name}-${student.batch || ''}`,
       name,
       subtitle,
       imageUrl,
     };
+    return mapped;
   }
 
   onCurrentBatchPageChange(page: number): void {
-    if (page !== this.currentBatchPage && page >= 1) {
-      this.currentBatchPage = page;
+    // Carousel component uses 1-indexed pages (1, 2, 3...), but API uses 0-indexed (0, 1, 2...)
+    // Convert from 1-indexed to 0-indexed
+    const apiPage = page - 1;
+    
+    if (apiPage !== this.currentBatchPage && apiPage >= 0) {
+      this.currentBatchPage = apiPage;
       const selectedBatch = this.selectedBatch();
       if (selectedBatch) {
         this.loadStudentsByBatch(selectedBatch);
@@ -749,7 +740,7 @@ export class CampusHomeComponent implements OnInit {
 
   onBatchSelect(batch: string): void {
     this.selectedBatch.set(batch);
-    this.currentBatchPage = 1; // Reset to first page when batch changes
+    this.currentBatchPage = 0; // Reset to first page (0-indexed) when batch changes
     this.loadStudentsByBatch(batch);
   }
 
@@ -842,14 +833,32 @@ export class CampusHomeComponent implements OnInit {
     return this.alumni();
   }
 
-  // Alumni - API Integration (Both APIs: regular with year filter and carousel)
+  avatarSrc(card: PersonCard): string {
+    const src = (card.imageUrl || '').trim();
+    return src ? src : createInitialsAvatar(card.name);
+  }
+
+  onAvatarError(card: PersonCard, event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.src = createInitialsAvatar(card.name);
+    img.alt = `${card.name} (initials)`;
+  }
+
+  // Alumni - API Integration (Using Student API)
   loadAlumni(year?: string, useCarousel = false): void {
-    this.loadingAlumni.set(true);
+    const campusId = this.getCampusId();
+    const selectedYear = year || this.selectedAlumniYear() || new Date().getFullYear().toString();
+    
+    if (!campusId) {
+      console.warn('CampusHomeComponent: Cannot load alumni - missing campusId');
+      this.alumni.set([]);
+      this.alumniTotalPages.set(1);
+      return;
+    }
     
     // Determine which API to use
     if (useCarousel) {
       // Use carousel API (GET /dashboard/alumni/carousel?limit=10)
-      console.log('CampusHomeComponent: loadAlumni (CAROUSEL API) called with limit: 10');
       this.campusApi.getAlumniForCarousel(10).pipe(
         catchError((error) => {
           console.error('CampusHomeComponent: Error loading alumni from carousel API:', error);
@@ -865,8 +874,6 @@ export class CampusHomeComponent implements OnInit {
             this.alumni.set(items);
             // Carousel API doesn't have pagination, so set to 1 page
             this.alumniTotalPages.set(1);
-            
-            console.log('CampusHomeComponent: Alumni loaded from CAROUSEL API:', items.length, 'items');
           } else {
             this.alumni.set([]);
             this.alumniTotalPages.set(1);
@@ -881,41 +888,196 @@ export class CampusHomeComponent implements OnInit {
         }
       });
     } else {
-      // Use regular alumni API with year filter (GET /dashboard/alumni?year=2024)
-      const selectedYear = year || this.selectedAlumniYear() || '2024';
-      console.log('CampusHomeComponent: loadAlumni (REGULAR API) called with year:', selectedYear);
-      
-      this.campusApi.getAlumniForDashboard(selectedYear, this.alumniPage, this.alumniPageSize).pipe(
-        catchError((error) => {
-          console.error('CampusHomeComponent: Error loading alumni from regular API:', error);
-          this.loadingAlumni.set(false);
-          return of(null);
-        })
-      ).subscribe({
-        next: (response: AlumniDashboardResponse | null) => {
-          this.loadingAlumni.set(false);
+      this.fetchAlumniByCampusBatch(campusId, selectedYear);
+    }
+  }
+
+  private fetchAlumniByCampusBatch(campusId: string, yearOfPassing: string): void {
+    this.loadingAlumni.set(true);
+    
+    this.studentApiService.getAlumniByCampusBatch(
+      campusId,
+      yearOfPassing,
+      this.alumniPage,
+      this.alumniPageSize
+    ).pipe(
+      catchError((error) => {
+        console.error('CampusHomeComponent: Error loading alumni from student API:', error);
+        this.loadingAlumni.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response) => {
+        this.loadingAlumni.set(false);
+        
+        if (response?.success && response.data) {
+          const items = (response.data.content || []).map((item) => this.mapStudentAlumniToPersonCard(item));
+          this.alumni.set(items);
           
-          if (response?.success && Array.isArray(response.data)) {
-            const items = response.data.map((item) => this.mapAlumniToPersonCard(item));
-            this.alumni.set(items);
-            // Calculate total pages based on data length
-            this.alumniTotalPages.set(Math.max(1, Math.ceil(items.length / this.alumniPageSize)));
-            
-            console.log('CampusHomeComponent: Alumni loaded from REGULAR API:', items.length, 'items for year', selectedYear);
+          // Use pagination info from API response
+          const totalPages = response.data.totalPages || 1;
+          this.alumniTotalPages.set(Math.max(1, totalPages));
+        } else {
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+          console.warn('CampusHomeComponent: Alumni student API response not successful or no data:', response?.message);
+        }
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // ignore if view is destroyed
+        }
+      },
+      error: (error) => {
+        console.error('CampusHomeComponent: Error in alumni student API subscription:', error);
+        this.loadingAlumni.set(false);
+        this.alumni.set([]);
+        this.alumniTotalPages.set(1);
+        try {
+          this.cdr.detectChanges();
+        } catch {
+          // ignore if view is destroyed
+        }
+      }
+    });
+  }
+
+  private loadCurrentBatchStudents(campusId: string, year: string): void {
+    const campusName = this.currentBatchCampusName();
+    if (!campusName) {
+      // Attempt to fetch campus name from profile
+      this.campusApi.getCampusById(campusId).subscribe({
+        next: (profile) => {
+          const name = profile?.campusName || profile?.campusId || null;
+          if (name) {
+            this.currentBatchCampusName.set(name);
+            this.loadCurrentBatchStudents(campusId, year);
+          }
+        },
+        error: () => {
+          // ignore
+        },
+      });
+      return;
+    }
+    this.loadingCurrentBatch.set(true);
+    this.loadingCurrentBatchStudents.set(true);
+    this.studentApiService
+      .getCurrentBatch(campusName, year, this.currentBatchPage + 1, this.currentBatchPageSize)
+      .pipe(
+        catchError((error) => {
+          console.error('CampusHomeComponent: Error loading current batch students:', error);
+          this.loadingCurrentBatch.set(false);
+          this.loadingCurrentBatchStudents.set(false);
+          this.currentBatch.set([]);
+          this.currentBatchTotalPages.set(1);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // ignore
+          }
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingCurrentBatch.set(false);
+          this.loadingCurrentBatchStudents.set(false);
+          const data = response?.data;
+          const pageObj =
+            data && !Array.isArray(data) && typeof data === 'object'
+              ? (data as Record<string, unknown>)
+              : null;
+          const contentArray: unknown[] = Array.isArray(data)
+            ? data
+            : Array.isArray(pageObj?.['content'])
+              ? (pageObj?.['content'] as unknown[])
+              : [];
+
+          if (response?.success && contentArray.length > 0) {
+            const items = contentArray.map((item) =>
+              this.mapCurrentBatchToPersonCard(
+                item as import('../../../student/models/student.models').BatchmateResponse,
+              ),
+            );
+            this.currentBatch.set(items);
+            const totalPages = typeof pageObj?.['totalPages'] === 'number' ? pageObj['totalPages'] : 1;
+            this.currentBatchTotalPages.set(Math.max(1, totalPages));
           } else {
-            this.alumni.set([]);
-            this.alumniTotalPages.set(1);
-            console.warn('CampusHomeComponent: Alumni regular API response not successful or no data');
+            this.currentBatch.set([]);
+            this.currentBatchTotalPages.set(1);
+            console.warn('CampusHomeComponent: Current batch response empty or unsuccessful');
+          }
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // ignore
           }
         },
         error: (error) => {
-          console.error('CampusHomeComponent: Error in alumni regular API subscription:', error);
-          this.loadingAlumni.set(false);
-          this.alumni.set([]);
-          this.alumniTotalPages.set(1);
-        }
+          console.error('CampusHomeComponent: Error in current batch subscription:', error);
+          this.loadingCurrentBatch.set(false);
+          this.loadingCurrentBatchStudents.set(false);
+          this.currentBatch.set([]);
+          this.currentBatchTotalPages.set(1);
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // ignore
+          }
+        },
       });
+  }
+
+  private sidebarCampusName(): string | null {
+    return null;
+  }
+
+  private loadCampusFilterOptions(): void {
+    this.campusApi.getAllCampuses().subscribe({
+      next: (campuses) => {
+        if (Array.isArray(campuses)) {
+          const opts = campuses
+            .filter((c) => c?.campusName)
+            .map((c) => ({ label: c.campusName as string, value: c.campusName as string }));
+          this.campusFilterOptions.set(opts);
+          if (!this.currentBatchCampusName() && opts.length > 0) {
+            this.currentBatchCampusName.set(opts[0].value);
+            this.selectedFilterCampus.set(opts[0].value);
+          }
+        }
+      },
+      error: () => {
+        // ignore
+      },
+    });
+  }
+
+  openBatchFilterModal(): void {
+    this.selectedFilterCampus.set(this.currentBatchCampusName() || '');
+    this.selectedFilterYear.set(this.currentBatchYear() || this.selectedAlumniYear() || '');
+    this.showBatchFilterModal.set(true);
+  }
+
+  closeBatchFilterModal(): void {
+    this.showBatchFilterModal.set(false);
+  }
+
+  applyBatchFilters(): void {
+    const campusName = (this.selectedFilterCampus() || '').trim();
+    const year = (this.selectedFilterYear() || this.currentBatchYear() || this.selectedAlumniYear() || '').trim();
+    if (!campusName || !year) {
+      this.showBatchFilterModal.set(false);
+      return;
     }
+    this.currentBatchCampusName.set(campusName);
+    this.currentBatchYear.set(year);
+    this.currentBatchPage = 0;
+    const campusId = this.getCampusId();
+    if (campusId) {
+      this.loadCurrentBatchStudents(campusId, year);
+    }
+    this.showBatchFilterModal.set(false);
   }
 
   onAlumniYearChange(year: string): void {
@@ -935,6 +1097,22 @@ export class CampusHomeComponent implements OnInit {
     }
   }
 
+  loadCurrentBatchFromFilters(): void {
+    const year = this.currentBatchYear() || this.selectedAlumniYear() || new Date().getFullYear().toString();
+    const campusId = this.getCampusId();
+    if (!campusId) {
+      return;
+    }
+    this.currentBatchYear.set(year);
+    this.loadCurrentBatchStudents(campusId, year);
+  }
+
+  onCurrentBatchYearChange(year: string): void {
+    this.currentBatchYear.set(year);
+    this.currentBatchPage = 1;
+    this.loadCurrentBatchFromFilters();
+  }
+
   private mapAlumniToPersonCard(item: AlumniDashboardData): PersonCard {
     const name = item.studentName || 
                  [item.firstName, item.lastName].filter(Boolean).join(' ') || 
@@ -942,12 +1120,58 @@ export class CampusHomeComponent implements OnInit {
     const subtitle = [item.designation, item.companyName].filter(Boolean).join(' at ') || 
                     item.yearOfPassing || 
                     '';
-    const imageUrl = item.profilePhotoUrl || 
-                    item.imageUrl || 
-                    'assets/images/login-news-image.png';
+    const imageUrl = resolveImageUrl(item.profilePhotoUrl || item.imageUrl, name);
     
     return {
       id: item.studentId || item.userId || `${name}-${item.yearOfPassing || ''}`,
+      name,
+      subtitle,
+      imageUrl,
+    };
+  }
+
+  /**
+   * Map AlumniResponse from Student API to PersonCard
+   */
+  private mapStudentAlumniToPersonCard(item: import('../../../student/models/student.models').AlumniResponse): PersonCard {
+    const extended = item as Record<string, unknown>;
+    const name =
+      (extended['name'] as string) ||
+      [item.firstName, item.lastName].filter(Boolean).join(' ') ||
+      'Unknown';
+    const subtitle =
+      [item.designation, (extended['company'] as string) ?? item.companyName]
+        .filter(Boolean)
+        .join(' at ') ||
+      (extended['graduationYear'] as string) ||
+      item.yearOfPassing ||
+      '';
+    const imageUrl = resolveImageUrl(
+      item.profilePhotoUrl || (extended['imageUrl'] as string),
+      name,
+    );
+    
+    return {
+      id:
+        (extended['alumniId'] as string) ||
+        item.studentId ||
+        item.userId ||
+        `${name}-${(extended['graduationYear'] as string) || item.yearOfPassing || ''}`,
+      name,
+      subtitle,
+      imageUrl,
+    };
+  }
+
+  private mapCurrentBatchToPersonCard(item: import('../../../student/models/student.models').BatchmateResponse): PersonCard {
+    const name =
+      item.firstName && item.lastName
+        ? `${item.firstName} ${item.lastName}`
+        : item.firstName || item.lastName || 'Unknown';
+    const subtitle = item.batch || item.yearOfPassing || '';
+    const imageUrl = resolveImageUrl(item.profilePhotoUrl, name);
+    return {
+      id: item.studentId || item.userId || `${name}-${subtitle}`,
       name,
       subtitle,
       imageUrl,
@@ -1044,7 +1268,7 @@ export class CampusHomeComponent implements OnInit {
   private getCampusId(formValueCampus?: string): string | null {
     // Try from auth state (user profile) - profileServiceId contains campusId
     const currentUser = this.authState.user();
-    const campusIdFromUser = currentUser?.profileServiceId;
+    const campusIdFromUser = currentUser?.profileServiceId || currentUser?.campusId;
     if (campusIdFromUser) {
       return campusIdFromUser;
     }
@@ -1124,8 +1348,6 @@ export class CampusHomeComponent implements OnInit {
       formData.append('files', file);
     });
 
-    console.log('CampusHomeComponent: Upload Prospectus - campusId:', campusId, 'courseName:', courseName);
-
     this.campusApi.uploadProspectus(campusId, formData).subscribe({
       next: (response) => {
         this.submittingProspectus = false;
@@ -1139,17 +1361,12 @@ export class CampusHomeComponent implements OnInit {
           // Use setTimeout to ensure the backend has processed the upload and component is ready
           setTimeout(() => {
             if (this.prospectusComponent) {
-              console.log('CampusHomeComponent: Refreshing prospectus list after successful upload', {
-                campusId,
-                courseName
-              });
               this.prospectusComponent.refreshProspectusList(campusId, courseName);
               
               // Reset form fields after successful upload so they are blank for next upload
               // Use a small delay to ensure the list refresh completes first
               setTimeout(() => {
                 if (this.prospectusComponent) {
-                  console.log('CampusHomeComponent: Resetting form after successful upload');
                   this.prospectusComponent.resetForm();
                   // Re-initialize with campusId to show campus name (readonly field) but keep form fields blank
                   setTimeout(() => {
@@ -1206,13 +1423,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handleCompaniesSubmit(value: CompaniesVisitedFormValue): void {
-    console.log('CampusHomeComponent: ========== COMPANIES VISITED SUBMIT CALLED ==========');
-    console.log('CampusHomeComponent: Form value:', {
-      companyName: value.companyName,
-      hasLogo: !!value.companyLogo,
-      logoName: value.companyLogo?.name || 'null'
-    });
-
     // Validate required fields
     if (!value.companyLogo) {
       console.warn('CampusHomeComponent: Validation failed - company logo is required');
@@ -1242,23 +1452,14 @@ export class CampusHomeComponent implements OnInit {
     
     // Clean campusId (remove any prefixes)
     const cleanCampusId = campusId.trim().replace(/^CAMPUS-/i, '');
-    console.log('CampusHomeComponent: ✅ Using campusId from storage for add company:', cleanCampusId);
 
     // Create FormData for multipart/form-data request
     const formData = new FormData();
     formData.append('companyName', value.companyName.trim());
     formData.append('logo', value.companyLogo);
 
-    console.log('CampusHomeComponent: ========== CALLING ADD COMPANY VISITED API ==========');
-    console.log('CampusHomeComponent: CampusId:', cleanCampusId);
-    console.log('CampusHomeComponent: FormData companyName:', formData.get('companyName'));
-    console.log('CampusHomeComponent: FormData logo file:', formData.get('logo'));
-
     this.campusApi.addCompanyVisited(cleanCampusId, formData).subscribe({
       next: (response) => {
-        console.log('CampusHomeComponent: ✅✅✅ ADD COMPANY VISITED API SUCCESS ✅✅✅');
-        console.log('CampusHomeComponent: Response:', response);
-        
         this.submittingCompanies = false;
         
         // If we get a response (even if null), HTTP request was successful (200)
@@ -1266,7 +1467,6 @@ export class CampusHomeComponent implements OnInit {
         if (response && response.success !== false) {
           // Response has success=true or success is undefined (treat as success for HTTP 200)
           const successMessage = response?.message || 'Company visited added successfully';
-          console.log('CampusHomeComponent: Showing success message:', successMessage);
           this.notify.success(successMessage);
           
           // Reset form before closing modal
@@ -1297,7 +1497,6 @@ export class CampusHomeComponent implements OnInit {
           }
         } else {
           // Response is null but HTTP was 200 - treat as success
-          console.log('CampusHomeComponent: Response is null but HTTP 200 - treating as success');
           this.notify.success('Company visited added successfully');
           
           // Reset form before closing modal
@@ -1341,18 +1540,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   handlePlacedStudentsSubmit(value: PlacedStudentsFormValue): void {
-    console.log('CampusHomeComponent: ========== PLACED STUDENTS SUBMIT CALLED ==========');
-    console.log('CampusHomeComponent: Form value:', {
-      studentName: value.studentName,
-      course: value.course,
-      batch: value.batch,
-      placementCompany: value.placementCompany,
-      designation: value.designation,
-      sector: value.sector,
-      hasPhoto: !!value.studentPhoto,
-      photoName: value.studentPhoto?.name || 'null'
-    });
-    
     // Validate required fields
     if (!value.studentPhoto) {
       this.notify.error('Please select a student photo');
@@ -1385,25 +1572,8 @@ export class CampusHomeComponent implements OnInit {
     // Optional fields - only append if they have values
     // Note: courseId and placementCompanyId are optional according to API docs
 
-    console.log('CampusHomeComponent: ========== CALLING ADD PLACED STUDENT API ==========');
-    console.log('CampusHomeComponent: FormData fields:', {
-      studentName: value.studentName.trim(),
-      courseName: value.course.trim(),
-      batch: value.batch.trim(),
-      placementCompanyName: value.placementCompany.trim(),
-      designation: value.designation.trim(),
-      sector: value.sector.trim(),
-      photoFile: value.studentPhoto.name
-    });
-    console.log('CampusHomeComponent: ⚠️ This should appear in Network tab as POST /dashboard/students/placed with multipart/form-data');
-
     this.campusApi.addPlacedStudent(formData).subscribe({
       next: (response) => {
-        console.log('CampusHomeComponent: ✅✅✅ ADD PLACED STUDENT API SUCCESS ✅✅✅');
-        console.log('CampusHomeComponent: Response:', response);
-        console.log('CampusHomeComponent: Response success:', response?.success);
-        console.log('CampusHomeComponent: Response message:', response?.message);
-        
         // Defer state changes to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
           this.submittingPlacedStudents = false;
@@ -1656,17 +1826,6 @@ export class CampusHomeComponent implements OnInit {
           certificates: certificatesArray,
         };
         
-        // Debug log for each professional info entry
-        console.log(`Professional Info Entry ${index + 1}:`, JSON.stringify(professionalInfoObj, null, 2));
-        console.log(`Professional Info Entry ${index + 1} - All fields:`, {
-          hasDesignation: !!professionalInfoObj.designation && professionalInfoObj.designation.length > 0,
-          hasDepartment: !!professionalInfoObj.department && professionalInfoObj.department.length > 0,
-          hasSpecialization: !!professionalInfoObj.specialization && professionalInfoObj.specialization.length > 0,
-          hasYearsOfExperience: Array.isArray(professionalInfoObj.yearsOfExperience) && professionalInfoObj.yearsOfExperience.length > 0,
-          hasQualifications: Array.isArray(professionalInfoObj.qualifications),
-          hasCertificates: Array.isArray(professionalInfoObj.certificates),
-        });
-        
         return professionalInfoObj;
       });
     } catch (error) {
@@ -1777,21 +1936,6 @@ export class CampusHomeComponent implements OnInit {
       professionalInformation: professionalInformationObj,
     };
 
-    // Debug: Log the complete request data to console
-    console.log('=== FACULTY SUBMIT - COMPLETE REQUEST DATA ===');
-    console.log('Basic Information:', JSON.stringify(basicInformation, null, 2));
-    console.log('Professional Information (OBJECT, not array):', JSON.stringify(professionalInformationObj, null, 2));
-    console.log('Complete Request Data (stringified):', JSON.stringify(requestData, null, 2));
-    console.log('Professional Information Type Check:');
-    console.log('  - Is professionalInformation an object?', typeof requestData.professionalInformation === 'object' && !Array.isArray(requestData.professionalInformation));
-    console.log('  - designation:', requestData.professionalInformation.designation, '(isArray:', Array.isArray(requestData.professionalInformation.designation), ')');
-    console.log('  - department:', requestData.professionalInformation.department, '(isArray:', Array.isArray(requestData.professionalInformation.department), ')');
-    console.log('  - specialization:', requestData.professionalInformation.specialization, '(isArray:', Array.isArray(requestData.professionalInformation.specialization), ')');
-    console.log('  - yearsOfExperience:', requestData.professionalInformation.yearsOfExperience, '(isArray:', Array.isArray(requestData.professionalInformation.yearsOfExperience), ')');
-    console.log('  - qualifications:', requestData.professionalInformation.qualifications, '(isArray:', Array.isArray(requestData.professionalInformation.qualifications), ')');
-    console.log('  - certificates:', requestData.professionalInformation.certificates, '(isArray:', Array.isArray(requestData.professionalInformation.certificates), ')');
-    console.log('===========================================');
-
     // Check authentication
     const token = this.authState.token();
     
@@ -1800,11 +1944,6 @@ export class CampusHomeComponent implements OnInit {
       this.notify.error('Authentication required. Please login again.');
       return;
     }
-    
-    // Log the exact request being sent
-    console.log('🚀 SENDING REQUEST TO BACKEND 🚀');
-    console.log('URL: POST /api/v1/faculty');
-    console.log('Request Data (complete):', JSON.stringify(requestData, null, 2));
     
     this.campusApi.addFaculty(requestData).subscribe({
       next: (response) => {
@@ -1965,16 +2104,6 @@ export class CampusHomeComponent implements OnInit {
 
   handleCourseFormSubmit(value: CourseFormValue): void {
     try {
-      console.log('CampusHomeComponent: ========== handleCourseFormSubmit CALLED ==========');
-      console.log('CampusHomeComponent: Form value received:', value);
-      console.log('CampusHomeComponent: Value type:', typeof value);
-      console.log('CampusHomeComponent: All fields:', {
-        courseName: value?.courseName,
-        duration: value?.duration,
-        totalSeats: value?.totalSeats,
-        description: value?.description,
-      });
-      
       if (!value || !value.courseName || !value.duration || !value.totalSeats || !value.description) {
         console.error('CampusHomeComponent: ❌ Validation failed - value or fields are missing');
         console.error('CampusHomeComponent: Value object:', value);
@@ -2017,10 +2146,6 @@ export class CampusHomeComponent implements OnInit {
 
     this.submittingCourseForm = true;
 
-    // Get campus ID for logging and verification
-    const campusId = this.getCampusId();
-    console.log('CampusHomeComponent: Campus ID being used:', campusId);
-
     const request = {
       courseName: value.courseName.trim(),
       duration: durationNum,
@@ -2028,34 +2153,9 @@ export class CampusHomeComponent implements OnInit {
       description: value.description.trim(),
     };
 
-    console.log('CampusHomeComponent: ========== CALLING addCourse API ==========');
-    console.log('CampusHomeComponent: Campus ID:', campusId);
-    console.log('CampusHomeComponent: Request object:', request);
-    console.log('CampusHomeComponent: Auth token exists:', !!this.authState.token());
-    console.log('CampusHomeComponent: Auth token value:', this.authState.token() ? '***TOKEN_EXISTS***' : 'NO_TOKEN');
-
     try {
       this.campusApi.addCourse(request).subscribe({
       next: (response) => {
-        console.log('CampusHomeComponent: ✅ addCourse API success');
-        console.log('CampusHomeComponent: Full Response:', response);
-        
-        // Log response data with campus ID
-        if (response?.data) {
-          console.log('CampusHomeComponent: Response Data:', {
-            id: response.data.id,
-            campusId: response.data.campusId,
-            courseName: response.data.courseName,
-            duration: response.data.duration,
-            totalSeats: response.data.totalSeats,
-            availableSeats: response.data.availableSeats,
-            description: response.data.description,
-            createdAt: response.data.createdAt,
-            updatedAt: response.data.updatedAt,
-          });
-          console.log('CampusHomeComponent: ✅ Campus ID in response:', response.data.campusId);
-        }
-        
         this.submittingCourseForm = false;
         const successMessage = response?.message || 'Course added successfully';
         this.notify.success(successMessage);
@@ -2069,7 +2169,6 @@ export class CampusHomeComponent implements OnInit {
         
         // Dispatch event to refresh courses list immediately
         window.dispatchEvent(new Event('courseAdded'));
-        console.log('CampusHomeComponent: Dispatched courseAdded event');
         
         try {
           this.cdr.detectChanges();
@@ -2113,6 +2212,45 @@ interface PersonCard {
   name: string;
   subtitle: string;
   imageUrl: string;
+}
+
+function buildInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'A';
+  const first = parts[0][0] || '';
+  const second = parts.length > 1 ? parts[1][0] : '';
+  return (first + second).toUpperCase();
+}
+
+/**
+ * Create a data URL avatar with initials for cases where no photo URL is available.
+ */
+function createInitialsAvatar(name: string): string {
+  const initials = buildInitials(name || 'A');
+  const bg = '#E6F0FF';
+  const fg = '#2F4A80';
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="32" ry="32" fill="${bg}"/>
+  <text x="50%" y="54%" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="${fg}" text-anchor="middle" dominant-baseline="middle">${initials}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`;
+}
+
+function resolveImageUrl(value: string | undefined, name: string): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return createInitialsAvatar(name);
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    // If already a /files/... path, keep it; otherwise prefix with /api/v1
+    return trimmed.startsWith('/files') ? `/api/v1${trimmed}` : `/api/v1/files${trimmed}`;
+  }
+  // Treat as relative filename
+  return `/api/v1/files/${trimmed}`;
 }
 
 interface FeedPost {

@@ -296,8 +296,9 @@ export class AdminStudentComponent implements OnInit {
       // Education details
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
-      campusId: [], // Backend expects array, but not available in form - send empty array
-      other: false, // Backend expects boolean, but not available in form - send false
+      campusId: educationDetails.campusId || [], // Include campusId array from form
+      campusAddress: educationDetails.campusAddress || [], // Include campusAddress array from form
+      other: educationDetails.other ?? false, // Include other flag from form
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
       yearOfPassing: educationDetails.yearOfPassing || '',
@@ -566,6 +567,7 @@ export class AdminStudentComponent implements OnInit {
       address: address || '',
       dateOfBirth,
       gender,
+      photoUrl: readString(data, 'profilePhotoUrl'), // Map profile photo URL
       education,
       technicalSkills,
       softSkills,
@@ -586,6 +588,8 @@ export class AdminStudentComponent implements OnInit {
       additional: {
         ...createEmptyStudentFormValue().additional,
         portfolioUrl: readString(data, 'portfolioUrl'),
+        govtIdProofUrl: readString(data, 'govtIdProofUrl'), // Map govt ID proof URL
+        resumeUrl: readString(data, 'resumeUrl'), // Map resume URL
         otherWebsites,
         offersInHand,
         heardAboutPortal: readString(data, 'howDidYouHear'),
@@ -673,19 +677,29 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
   const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
+  const campusAddresses = readStringArray(education, 'campusAddress'); // Read campusAddress array from API
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
   const yearOfPassing = readString(education, 'yearOfPassing');
   const cgpa = readString(education, 'cgpa');
   const certificates = readStringArray(education, 'certificates');
+  const other = readBoolean(education, 'other') ?? false; // Read "other" flag
 
   const maxLen = Math.max(qualifications.length, institutions.length, degrees.length, specializations.length, 1);
   const out: StudentFormValue['education'] = [];
   for (let i = 0; i < maxLen; i++) {
+    const campusId = campusIds[i];
+    const institutionName = institutions[i] ?? '';
+    
+    // If "other" is true and campusId is empty/null, this is a custom institution
+    // Set campusId to undefined and keep the custom institution name
+    const isCustomInstitution = other && (!campusId || campusId === 'null' || campusId.trim() === '');
+    
     out.push({
       qualification: qualifications[i] ?? '',
-      institution: institutions[i] ?? '',
-      campusId: campusIds[i] ?? undefined, // Map campusId from API response
+      institution: isCustomInstitution ? institutionName : institutionName, // Keep the institution name as-is
+      campusId: isCustomInstitution ? undefined : campusId, // Clear campusId for custom institutions
+      campusAddress: isCustomInstitution ? undefined : campusAddresses[i], // Clear campusAddress for custom institutions
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
       yearOfPassing: convertYearToDate(yearOfPassing),

@@ -177,14 +177,15 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   handleFormSubmit(value: CompanyFormValue): void {
-    if (!this.isEditMode || !this.selectedCompanyId || !this.selectedCompanyUserId) {
+    if (!this.isEditMode || !this.selectedCompanyId) {
       return;
     }
 
+    const userIdForUpdate = this.selectedCompanyUserId ?? this.selectedCompanyId;
     const updateRequest = this.mapFormValueToUpdateRequest(value);
     this.viewSubmitting = true;
 
-    this.companyApi.updateCompany(this.selectedCompanyId, this.selectedCompanyUserId, updateRequest).subscribe({
+    this.companyApi.updateCompany(this.selectedCompanyId, userIdForUpdate, updateRequest).subscribe({
       next: () => {
         // Show success notification
         this.notify.success('Company profile updated successfully');

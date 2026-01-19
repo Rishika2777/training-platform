@@ -22,7 +22,7 @@
     [isEditMode]="isEditMode() || !isAdmin"
     [campuses]="campuses"
     (submitted)="handleFormSubmit($event)"
-    (cancelled)="toggleEditMode()"
+    (cancelled)="handleCancel()"
   ></app-student-form>
 } @else if (userType === 'COMPANY') {
   <app-company-form
@@ -33,7 +33,7 @@
     [adminEmailLocked]="true"
     [isEditMode]="isEditMode()"
     (submitted)="handleFormSubmit($event)"
-    (cancelled)="toggleEditMode()"
+    (cancelled)="handleCancel()"
   />
 } @else if (userType === 'CAMPUS') {
   <app-campus-form
@@ -44,7 +44,7 @@
     [adminEmailLocked]="true"
     [isEditMode]="isEditMode()"
     (submitted)="handleFormSubmit($event)"
-    (cancelled)="toggleEditMode()"
+    (cancelled)="handleCancel()"
   />
 }
 

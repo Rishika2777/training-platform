@@ -32,30 +32,24 @@
     <div class="main">
       <section class="panel">
         <div class="panel-head">
-          <div class="panel-title">Current Batch</div>
-          @if (batches().length > 0) {
-            <select 
-              class="batch-select" 
-              [value]="selectedBatch() || ''"
-              (change)="onBatchSelect($any($event.target).value)"
-              [disabled]="loadingBatches() || loadingCurrentBatch()"
-              title="Select Batch"
-            >
-              @for (batch of batches(); track batch) {
-                <option [value]="batch">{{ batch }}</option>
-              }
-            </select>
-          } @else if (loadingBatches()) {
-            <span class="loading-text">Loading batches...</span>
-          }
-        </div>
+        <div class="panel-title">Current Batch</div>
+        <button
+          class="panel-icon"
+          type="button"
+          title="Filter"
+          (click)="openBatchFilterModal()"
+          [disabled]="loadingCurrentBatchStudents()"
+        >
+          <i class="fa-solid fa-filter" aria-hidden="true"></i>
+        </button>
+      </div>
 
-        @if (loadingCurrentBatch()) {
+        @if (loadingCurrentBatch() || loadingCurrentBatchStudents()) {
           <div class="loading-state">Loading students...</div>
         } @else {
           <app-carousel
             type="pagination"
-            [currentPage]="currentBatchPage"
+            [currentPage]="currentBatchPage + 1"
             [totalPages]="currentBatchTotalPages()"
             (pageChange)="onCurrentBatchPageChange($event)"
           >
@@ -65,7 +59,12 @@
               } @else {
                 @for (p of currentBatchPageItems(); track p.id || p.name + p.imageUrl) {
                   <div class="avatar-card">
-                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <img
+                      class="avatar"
+                      [src]="avatarSrc(p)"
+                      [alt]="p.name"
+                      (error)="onAvatarError(p, $event)"
+                    />
                     <div class="avatar-name">{{ p.name }}</div>
                   </div>
                 }
@@ -223,7 +222,12 @@
               } @else {
                 @for (p of alumniPageItems(); track p.id || p.name + p.imageUrl) {
                   <div class="avatar-card">
-                    <img class="avatar" [src]="p.imageUrl" [alt]="p.name" />
+                    <img
+                      class="avatar"
+                      [src]="avatarSrc(p)"
+                      [alt]="p.name"
+                      (error)="onAvatarError(p, $event)"
+                    />
                     <div class="avatar-name">{{ p.name }}</div>
                     <div class="avatar-sub">{{ p.subtitle }}</div>
                   </div>
@@ -236,6 +240,57 @@
     </aside>
   </div>
 </div>
+
+<!-- Current Batch Filter Modal -->
+<app-modal
+  [visible]="showBatchFilterModal()"
+  title="Filter Current Batch"
+  size="sm"
+  (closed)="closeBatchFilterModal()"
+>
+  <div style="display: flex; flex-direction: column; gap: 14px; padding: 4px 2px;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="filter-label">Select Campus</div>
+      <app-dropdown
+        class="filter-select"
+        style="width: 100%;"
+        [items]="campusFilterOptions()"
+        [value]="selectedFilterCampus()"
+        [disabled]="loadingCurrentBatchStudents()"
+        placeholder="Type to search campuses..."
+        (valueChange)="selectedFilterCampus.set($event)"
+      />
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div class="filter-label">Select Year of Passing</div>
+      <app-dropdown
+        class="filter-select"
+        style="width: 100%;"
+        [items]="alumniYearOptions"
+        [value]="selectedFilterYear() || currentBatchYear() || selectedAlumniYear() || ''"
+        [disabled]="loadingCurrentBatchStudents()"
+        placeholder="Select year"
+        (valueChange)="selectedFilterYear.set($event)"
+      />
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+      <app-button
+        type="button"
+        variant="outline"
+        label="Cancel"
+        (buttonClick)="closeBatchFilterModal()"
+      ></app-button>
+      <app-button
+        type="button"
+        variant="primary"
+        label="Apply"
+        (buttonClick)="applyBatchFilters()"
+      ></app-button>
+    </div>
+  </div>
+</app-modal>
 
 <!-- Prospectus Upload Modal -->
 <app-modal

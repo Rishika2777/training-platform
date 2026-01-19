@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener, ChangeDetectorRef, inject } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize, tap } from 'rxjs/operators';
 
@@ -29,6 +29,7 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   @Input() placeholder = 'Select';
   @Input() items: readonly DropdownItem<TValue>[] = [];
   @Input() value: TValue | null = null;
+  @Input() displayText = ''; // Custom display text when value doesn't exist in items
   @Input() disabled = false;
   @Input() required = false;
   @Input() invalid = false;
@@ -49,25 +50,31 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   isLoading = false;
   selectedItem: DropdownItem<TValue> | null = null;
 
+  private readonly cdr = inject(ChangeDetectorRef);
+
   private searchSubject = new Subject<string>();
   private searchSubscription = this.searchSubject
     .pipe(
       debounceTime(this.debounceTime),
       distinctUntilChanged(),
-      tap(() => {
-        if (this.apiFetchFn && this.searchTerm.length >= this.minSearchLength) {
+      tap((term: string) => {
+        // Set loading state when API function is available and term meets minSearchLength
+        if (this.apiFetchFn && term.length >= this.minSearchLength) {
           this.isLoading = true;
+          this.cdr.detectChanges();
         }
       }),
       switchMap((term: string) => {
         if (this.apiFetchFn) {
           // API mode
           if (term.length < this.minSearchLength) {
+            this.isLoading = false;
             return of([]);
           }
           return this.apiFetchFn(term).pipe(
             catchError((error) => {
               console.error('Error fetching dropdown items:', error);
+              this.isLoading = false;
               return of([]);
             }),
             finalize(() => {
@@ -84,6 +91,13 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     .subscribe((items) => {
       this.filteredItems = items;
       this.isLoading = false;
+      // Ensure dropdown stays open when items are loaded
+      if (items.length > 0 && this.autocomplete) {
+        this.isDropdownOpen = true;
+      }
+      
+      // Force change detection to update the view
+      this.cdr.detectChanges();
     });
 
   ngOnInit(): void {
@@ -109,8 +123,8 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Handle value changes from parent
-    if (changes['value']) {
+    // Handle value or displayText changes from parent
+    if (changes['value'] || changes['displayText']) {
       this.updateSelectedItem();
     }
     
@@ -129,13 +143,6 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       }
       
       this.updateSelectedItem();
-      
-      console.log('DropdownComponent: Items changed, filteredItems updated:', {
-        itemsCount: this.items.length,
-        filteredCount: this.filteredItems.length,
-        isDropdownOpen: this.isDropdownOpen,
-        searchTerm: this.searchTerm
-      });
     }
   }
 
@@ -159,7 +166,19 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       if (foundInFiltered) {
         this.selectedItem = foundInFiltered;
         this.searchTerm = foundInFiltered.label;
+        return;
       }
+      
+      // If not found in items but we have displayText, use it
+      if (this.displayText) {
+        this.selectedItem = { label: this.displayText, value: this.value };
+        this.searchTerm = this.displayText;
+        return;
+      }
+      
+      // Value exists but not found in items and no displayText
+      this.selectedItem = null;
+      this.searchTerm = '';
     } else {
       this.selectedItem = null;
       this.searchTerm = '';
@@ -218,8 +237,8 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
         // If minSearchLength is 0, trigger API call immediately (even with empty term)
         // This loads initial data when user focuses on the field
         if (this.minSearchLength === 0) {
-          console.log('DropdownComponent: onInputFocus - Triggering API call (minSearchLength=0)');
-          console.log('DropdownComponent: onInputFocus - Search term:', currentTerm);
+          // Set loading state immediately to show loading indicator
+          this.isLoading = true;
           
           // Ensure searchTerm is set for the loading indicator
           if (!this.searchTerm) {
@@ -230,11 +249,10 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
           this.searchSubject.next(currentTerm);
         } else if (currentTerm.length >= this.minSearchLength) {
           // If we have a search term that meets minSearchLength, trigger API
-          console.log('DropdownComponent: onInputFocus - Triggering API call (search term meets minLength)');
+          this.isLoading = true;
           this.searchSubject.next(currentTerm);
         } else {
           // If minSearchLength > 0 and no valid search term, don't trigger API yet
-          console.log('DropdownComponent: onInputFocus - Waiting for user input (minSearchLength > 0)');
           this.filteredItems = [];
         }
       }
@@ -250,6 +268,24 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       // Check if the new focus target is within the dropdown
       const relatedTarget = event.relatedTarget as HTMLElement;
       if (this.dropdownMenu?.nativeElement?.contains(relatedTarget)) {
+        return;
+      }
+      
+      // If we're still loading, don't close the dropdown yet - wait for data to arrive
+      if (this.isLoading) {
+        // Set up a check to close after loading completes
+        const checkInterval = setInterval(() => {
+          if (!this.isLoading) {
+            clearInterval(checkInterval);
+            // Only close if user hasn't refocused
+            if (document.activeElement !== this.inputElement?.nativeElement) {
+              this.handleCustomValue();
+              this.isDropdownOpen = false;
+            }
+          }
+        }, 100);
+        // Clear interval after 5 seconds max to avoid infinite loop
+        setTimeout(() => clearInterval(checkInterval), 5000);
         return;
       }
       

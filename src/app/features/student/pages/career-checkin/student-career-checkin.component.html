@@ -1,11 +1,15 @@
-<form class="career-checkin-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="career-checkin-form" (submit)="submit($event)">
   <div class="form-row">
-    <app-input
+    <app-dropdown
       label="Company Name"
-      type="text"
+      [items]="[]"
       [value]="value.companyName"
-      [disabled]="submitting"
+      [displayText]="value.companyName"
+      [disabled]="submitting || submittingInternal"
       [required]="true"
+      placeholder="Type to search companies..."
+      [autocomplete]="true"
+      [apiFetchFn]="fetchCompanies"
       (valueChange)="patch({ companyName: $event })"
     />
   </div>
@@ -15,7 +19,7 @@
       label="Job Title"
       [items]="jobTitleItems"
       [value]="value.jobTitle"
-      [disabled]="submitting"
+      [disabled]="submitting || submittingInternal"
       [required]="true"
       placeholder="Select job title"
       (valueChange)="patch({ jobTitle: $event })"
@@ -28,7 +32,7 @@
       label="Start Date"
       type="date"
       [value]="value.startDate"
-      [disabled]="submitting"
+      [disabled]="submitting || submittingInternal"
       [required]="true"
       (valueChange)="patch({ startDate: $event })"
     />
@@ -39,7 +43,7 @@
       label="End Date"
       type="date"
       [value]="value.endDate"
-      [disabled]="submitting || value.currentlyWorking"
+      [disabled]="submitting || submittingInternal || value.currentlyWorking"
       [required]="!value.currentlyWorking"
       (valueChange)="patch({ endDate: $event })"
     />
@@ -51,7 +55,7 @@
         <input
           type="checkbox"
           [checked]="value.currentlyWorking"
-          [disabled]="submitting"
+          [disabled]="submitting || submittingInternal"
           (change)="toggleCurrentlyWorking()"
         />
         <span class="checkbox-text">I am currently working here</span>
@@ -63,7 +67,7 @@
         <input
           type="checkbox"
           [checked]="value.recnHelped"
-          [disabled]="submitting"
+          [disabled]="submitting || submittingInternal"
           (change)="toggleRecnHelped()"
         />
         <span class="checkbox-text">Synkup helped me to get this job</span>
@@ -72,7 +76,7 @@
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Update" variant="primary" [disabled]="submitting" />
+    <app-button type="submit" label="Update" variant="primary" [disabled]="submitting || submittingInternal" />
   </div>
 </form>
 

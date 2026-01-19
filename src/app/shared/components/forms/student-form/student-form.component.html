@@ -1,6 +1,6 @@
 <div class="app-form-container">
-  @if (!isReviewMode) {
-  <h2 class="app-form-title">{{ isEditModeDisplay ? 'Edit Profile' : 'Student Registration' }}</h2>
+  @if (!isReviewMode && !isEditModeDisplay) {
+  <h2 class="app-form-title">Student Registration</h2>
   }
 
   @if (!isReviewMode && !isEditModeDisplay) {
@@ -35,9 +35,10 @@
             <app-input
               label="Upload Photo"
               [required]="true"
-              [invalid]="isRequiredInvalidFiles(value.photoFiles)"
+              [invalid]="isRequiredInvalidFilesWithUrl(value.photoFiles, value.photoUrl)"
               type="file"
               accept="image/*"
+              [existingFileName]="value.photoUrl"
               (filesSelected)="patch({ photoFiles: $event })"
               [disabled]="isFieldsDisabled"
             />
@@ -158,12 +159,17 @@
               <app-dropdown
                 label="Institution Name"
                 [required]="true"
-                [invalid]="isEducationFieldInvalid($index, 'institution')"
+                [invalid]="isEducationFieldInvalid($index, 'institution') && !isOtherInstitutionSelected($index)"
                 [items]="institutionItems"
-                [value]="edu.campusId || edu.institution"
+                [value]="edu.campusId || (edu.institution && !edu.campusId ? 'OTHER' : edu.institution)"
+                [displayText]="edu.campusId ? edu.institution : 'Other'"
                 (valueChange)="patchEducationAt($index, { institution: $event })"
                 [disabled]="isFieldsDisabled"
                 [autocomplete]="true"
+                [apiFetchFn]="fetchCampuses"
+                [debounceTime]="300"
+                [minSearchLength]="0"
+                placeholder="Type to search campuses..."
               />
               <app-dropdown
                 label="Degree"
@@ -176,6 +182,21 @@
                 [autocomplete]="true"
               />
             </div>
+
+            @if (isOtherInstitutionSelected($index)) {
+              <div class="app-form-row">
+                <app-input
+                  label="Enter Institution Name"
+                  [required]="true"
+                  [invalid]="isEducationFieldInvalid($index, 'institution')"
+                  type="text"
+                  [value]="edu.institution === 'OTHER' ? '' : (edu.institution || '')"
+                  (valueChange)="onCustomInstitutionChange($index, $event)"
+                  [disabled]="isFieldsDisabled"
+                  placeholder="Type institution name..."
+                />
+              </div>
+            }
 
             <div class="app-form-row">
               <app-dropdown
@@ -442,8 +463,7 @@
               />
               <app-dropdown
                 label="Role"
-                [required]="true"
-                [invalid]="isWorkExperienceFieldInvalid($index, 'role')"
+                [required]="false"
                 [items]="workExperienceRoleItems"
                 [value]="exp.role"
                 (valueChange)="patchWorkExperienceAt($index, { role: $event })"
@@ -496,72 +516,91 @@
 
         <div class="app-form-section">
           <h3 class="app-form-section-title">Project Details</h3>
+          
           @for (proj of value.projects; track $index; let projIndex = $index) {
-            <div class="app-form-row app-form-row-textarea app-form-row-project">
-              <div class="app-form-col-textarea">
-                <app-input
-                  label="Project Name"
-                  type="text"
-                  [value]="proj.projectName"
-                  (valueChange)="patchProjectAt(projIndex, { projectName: $event })"
-                  [disabled]="isFieldsDisabled"
-                />
-              </div>
-              <div class="app-form-col-textarea">
-                <app-textarea
-                  label="Description"
-                  [rows]="4"
-                  [value]="proj.description"
-                  (valueChange)="patchProjectAt(projIndex, { description: $event })"
-                  [disabled]="isFieldsDisabled"
-                />
-              </div>
-            </div>
-            @if (!isReviewMode || isEditMode || isEditModeDisplay) {
-              <div class="app-form-row">
-                <app-dropdown
-                  label="Technologies Used"
-                  [items]="projectTechnologyItems"
-                  [value]="getProjectTechnologyValue(projIndex)"
-                  (valueChange)="onProjectTechnologySelected(projIndex, $event)"
-                  [disabled]="submitting"
-                  placeholder="Select Technology"
-                  [autocomplete]="true"
-                />
-              </div>
-            }
-            @if (proj.technologiesUsed.length > 0) {
-              <div class="app-form-tags">
-                @for (t of proj.technologiesUsed; track $index; let techIndex = $index) {
-                  <span class="app-form-tag">
-                    {{ t }}
+            <div class="project-card">
+              @if (!isReviewMode || isEditMode || isEditModeDisplay) {
+                @if (value.projects.length > 1) {
+                  <div class="project-card-actions">
                     <button
                       type="button"
-                      class="app-form-tag-remove"
-                      (click)="removeProjectTechnologyAt(projIndex, techIndex)"
-                      [disabled]="isFieldsDisabled"
+                      class="project-remove-btn"
+                      [disabled]="submitting"
+                      (click)="removeProjectAt(projIndex)"
+                      title="Remove Project"
                     >
-                      ×
+                      <i class="fa-solid fa-trash-can"></i>
                     </button>
-                  </span>
+                  </div>
                 }
-              </div>
-            }
-            @if (!isReviewMode || isEditMode || isEditModeDisplay) {
-              <div class="app-form-row">
-                <div class="app-form-action-col app-form-action-col-right mini-btns">
-                  <app-button class="mini-btn" type="button" variant="outline" label="Add Project" [disabled]="submitting" (buttonClick)="addProject()" />
-                  <app-button
-                    class="mini-btn"
-                    type="button"
-                    variant="outline"
-                    label="Remove Project"
-                    [disabled]="submitting || value.projects.length <= 1"
-                    (buttonClick)="removeProjectAt(projIndex)"
+              }
+              
+              <div class="app-form-row app-form-row-textarea app-form-row-project">
+                <div class="app-form-col-textarea">
+                  <app-input
+                    label="Project Name"
+                    type="text"
+                    [value]="proj.projectName"
+                    (valueChange)="patchProjectAt(projIndex, { projectName: $event })"
+                    [disabled]="isFieldsDisabled"
+                  />
+                </div>
+                <div class="app-form-col-textarea">
+                  <app-textarea
+                    label="Description"
+                    [rows]="4"
+                    [value]="proj.description"
+                    (valueChange)="patchProjectAt(projIndex, { description: $event })"
+                    [disabled]="isFieldsDisabled"
                   />
                 </div>
               </div>
-            }
+              
+              @if (!isReviewMode || isEditMode || isEditModeDisplay) {
+                <div class="app-form-row">
+                  <app-dropdown
+                    label="Technologies Used"
+                    [items]="projectTechnologyItems"
+                    [value]="getProjectTechnologyValue(projIndex)"
+                    (valueChange)="onProjectTechnologySelected(projIndex, $event)"
+                    [disabled]="submitting"
+                    placeholder="Select Technology"
+                    [autocomplete]="true"
+                  />
+                </div>
+              }
+              
+              @if (proj.technologiesUsed.length > 0) {
+                <div class="app-form-tags">
+                  @for (t of proj.technologiesUsed; track $index; let techIndex = $index) {
+                    <span class="app-form-tag">
+                      {{ t }}
+                      <button
+                        type="button"
+                        class="app-form-tag-remove"
+                        (click)="removeProjectTechnologyAt(projIndex, techIndex)"
+                        [disabled]="isFieldsDisabled"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  }
+                </div>
+              }
+            </div>
+          }
+          
+          @if (!isReviewMode || isEditMode || isEditModeDisplay) {
+            <div class="add-project-container">
+              <app-button 
+                class="mini-btn add-project-btn" 
+                type="button" 
+                variant="outline" 
+                label="Add Project" 
+                [disabled]="submitting" 
+                (buttonClick)="addProject()" 
+              />
+            </div>
           }
         </div>
       </div>
@@ -573,19 +612,23 @@
           <app-input
             label="GOVT ID Proof (Aadhar/PAN etc.)"
             [required]="true"
-            [invalid]="isRequiredInvalidFiles(value.additional.govtIdProofFiles)"
+            [invalid]="isRequiredInvalidFilesWithUrl(value.additional.govtIdProofFiles, value.additional.govtIdProofUrl)"
             type="file"
+            [existingFileName]="value.additional.govtIdProofUrl"
             [disabled]="isFieldsDisabled"
             (filesSelected)="setAdditionalField('govtIdProofFiles', $event)"
           />
+
           <app-input
             label="Resume/CV"
             [required]="true"
-            [invalid]="isRequiredInvalidFiles(value.additional.resumeFiles)"
+            [invalid]="isRequiredInvalidFilesWithUrl(value.additional.resumeFiles, value.additional.resumeUrl)"
             type="file"
+            [existingFileName]="value.additional.resumeUrl"
             [disabled]="isFieldsDisabled"
             (filesSelected)="setAdditionalField('resumeFiles', $event)"
           />
+
           <app-input
             label="Certificates"
             type="file"
@@ -620,6 +663,10 @@
             (valueChange)="setAdditionalField('otherWebsites', $event)"
             [disabled]="isFieldsDisabled"
           />
+          <div></div>
+        </div>
+
+        <div class="app-form-row">
           <div class="app-form-col-full">
             <span class="app-inline-label">Offers in hand? <span class="required">*</span></span>
             <div class="app-radio-group">

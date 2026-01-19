@@ -42,6 +42,7 @@ export interface StudentEducationDetails {
   qualifications: string[];
   institutionName: string[];
   campusId?: string[];
+  campusAddress?: string[];
   other?: boolean;
   degrees: string[];
   specializations: string[];
@@ -435,8 +436,8 @@ export function mapStudentFormValueToRegisterRequest(
     gender: mapGenderToApi(formValue.gender),
     email: toTrimmedString(formValue.email).toLowerCase(),
     phoneNumber: toTrimmedString(formValue.mobile),
-    // File uploads are not wired to backend yet; send filename if chosen, else empty.
-    profilePhotoUrl: toTrimmedString(formValue.photoFiles?.item(0)?.name),
+    // Use new file name if uploaded, otherwise use existing URL
+    profilePhotoUrl: toTrimmedString(formValue.photoFiles?.item(0)?.name || formValue.photoUrl),
     address: toTrimmedString(formValue.address),
     about: toTrimmedString(formValue.profileSummary),
   };
@@ -449,11 +450,18 @@ export function mapStudentFormValueToRegisterRequest(
   });
   const mostRecentEducation = sortedEducation.length > 0 ? sortedEducation[0] : null;
 
+  // Check if any education item has a custom institution (no campusId or institution is "OTHER")
+  const hasOtherInstitution = education.some((e) => {
+    // If institution is "OTHER" or if there's no campusId but institution exists, it's a custom institution
+    return e.institution === 'OTHER' || (!e.campusId && !!e.institution);
+  });
+
   const educationDetails: StudentEducationDetails = {
     qualifications: toTrimmedStringArray(education.map((e) => e.qualification).filter(Boolean)),
     institutionName: toTrimmedStringArray(education.map((e) => e.institution).filter(Boolean)),
     campusId: toTrimmedStringArray(education.map((e) => e.campusId || '').filter(Boolean)), // Map campusId from education items, filter out empty/undefined
-    other: false, // Backend expects boolean, but not available in form - send false
+    campusAddress: toTrimmedStringArray(education.map((e) => e.campusAddress || '').filter(Boolean)), // Map campusAddress from education items, filter out empty/undefined
+    other: hasOtherInstitution, // Set to true if any institution is custom (no campusId)
     degrees: toTrimmedStringArray(education.map((e) => e.degree).filter(Boolean)),
     specializations: toTrimmedStringArray(education.map((e) => e.specialization).filter(Boolean)),
     yearOfPassing: extractYearFromDate(mostRecentEducation?.yearOfPassing),
@@ -499,9 +507,11 @@ export function mapStudentFormValueToRegisterRequest(
   };
 
   const additionalInfo: StudentAdditionalInfo = {
-    govtIdProofUrl: toTrimmedString(formValue.additional.govtIdProofFiles?.item(0)?.name),
+    // Use new file name if uploaded, otherwise use existing URL
+    govtIdProofUrl: toTrimmedString(formValue.additional.govtIdProofFiles?.item(0)?.name || formValue.additional.govtIdProofUrl),
     portfolioUrl: toTrimmedString(formValue.additional.portfolioUrl),
-    resumeUrl: toTrimmedString(formValue.additional.resumeFiles?.item(0)?.name),
+    // Use new file name if uploaded, otherwise use existing URL
+    resumeUrl: toTrimmedString(formValue.additional.resumeFiles?.item(0)?.name || formValue.additional.resumeUrl),
     otherWebsites: toTrimmedStringArray(
       formValue.additional.otherWebsites ? [formValue.additional.otherWebsites].filter(Boolean) : [],
     ),

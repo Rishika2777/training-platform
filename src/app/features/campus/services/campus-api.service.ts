@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, catchError, throwError, tap } from 'rxjs';
+import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType, STORAGE_KEYS } from '../../../core/config/app.constants';
 import { ApiResponsePlacedStudentsResponse, ApiResponsePageAlumniResponse, PlacedStudentResponse } from '../../student/models/student.models';
 import { StorageService } from '../../../core/storage/storage.service';
@@ -15,6 +15,20 @@ export class CampusApiService {
   private readonly config = inject(APP_CONFIG_TOKEN, { optional: true }) ?? APP_CONFIG;
   private readonly baseUrl = this.config.CAMPUS_API_BASE_URL || this.config.API_BASE_URL;
   private readonly storage = inject(StorageService);
+
+  /**
+   * Removes undefined values so partial update payloads only include
+   * fields the caller explicitly set.
+   */
+  private stripUndefined<T extends Record<string, unknown>>(request: T): T {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(request)) {
+      if (value !== undefined) {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned as T;
+  }
 
   /**
    * Get campus ID from storage if not provided.
@@ -54,23 +68,189 @@ export class CampusApiService {
   }
 
   /**
+   * GET /public/landing/campuses/carousel
+   * Retrieves campuses for carousel display. Limited to specified number.
+   */
+  getCampusesCarousel(limit = 10): Observable<ApiResponseListCarouselItemResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CAMPUSES_CAROUSEL);
+    const params = new HttpParams().set('limit', limit.toString());
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+        return raw as ApiResponseListCarouselItemResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getCampusesCarousel - Error:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  /**
+   * GET /public/landing/companies/carousel
+   * Retrieves companies for carousel display. Limited to specified number.
+   */
+  getCompaniesCarousel(limit = 10): Observable<ApiResponseListCarouselItemResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.COMPANIES_CAROUSEL);
+    const params = new HttpParams().set('limit', limit.toString());
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+        return raw as ApiResponseListCarouselItemResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getCompaniesCarousel - Error:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  /**
+   * GET /campus/getCampusBySearch
+   * Autocomplete API for campus names.
+   * If query has more than 2 characters, returns campuses that start with or contain those characters.
+   * If query is empty or has 0-2 characters, returns 20 campuses sorted by name.
+   * Returns 20 results per page with pagination support for infinite scrolling.
+   */
+  getCampusBySearch(
+    campusName?: string,
+    page = 0,
+    size = 20,
+  ): Observable<ApiResponsePageCampusAutocompleteResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_CAMPUS_BY_SEARCH);
+    let params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    if (campusName && campusName.trim().length > 0) {
+      params = params.set('campusName', campusName.trim());
+    }
+        
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+        
+        const response = raw as Record<string, unknown>;
+        
+        // Check if response is wrapped with data property
+        if ('data' in response) {
+          const data = response['data'];
+          
+          // If data is an array directly (Spring Page format)
+          if (Array.isArray(data)) {
+            return {
+              success: true,
+              message: null,
+              data: {
+                content: data as CampusAutocompleteResponse[],
+                totalPages: response['totalPages'] as number,
+                totalElements: response['totalElements'] as number,
+                first: response['first'] as boolean,
+                last: response['last'] as boolean,
+                size: response['size'] as number,
+                number: response['number'] as number,
+                numberOfElements: response['numberOfElements'] as number,
+              },
+              error: null,
+            } as ApiResponsePageCampusAutocompleteResponse;
+          }
+          
+          // If data is an object with content property
+          if (data && typeof data === 'object' && 'content' in data) {
+            const dataObj = data as Record<string, unknown>;
+            return {
+              success: response['success'] as boolean ?? true,
+              message: (response['message'] as string) || null,
+              data: {
+                content: dataObj['content'] as CampusAutocompleteResponse[],
+                totalPages: dataObj['totalPages'] as number,
+                totalElements: dataObj['totalElements'] as number,
+                first: dataObj['first'] as boolean,
+                last: dataObj['last'] as boolean,
+                size: dataObj['size'] as number,
+                number: dataObj['number'] as number,
+                numberOfElements: dataObj['numberOfElements'] as number,
+              },
+              error: (response['error'] as string) || null,
+            } as ApiResponsePageCampusAutocompleteResponse;
+          }
+        }
+        
+        // Check if response is a Spring Page object directly (has content property at root)
+        if ('content' in response && Array.isArray(response['content'])) {
+          return {
+            success: true,
+            message: null,
+            data: {
+              content: response['content'] as CampusAutocompleteResponse[],
+              totalPages: response['totalPages'] as number,
+              totalElements: response['totalElements'] as number,
+              first: response['first'] as boolean,
+              last: response['last'] as boolean,
+              size: response['size'] as number,
+              number: response['number'] as number,
+              numberOfElements: response['numberOfElements'] as number,
+            },
+            error: null,
+          } as ApiResponsePageCampusAutocompleteResponse;
+        }
+        
+        // Fallback: try to cast as-is
+        return raw as ApiResponsePageCampusAutocompleteResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error fetching campuses by search:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * GET /campus/{campusId}
    * Public endpoint (no auth required).
    */
   getCampusById(campusId: string): Observable<Campus | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.BY_ID, { campusId });
+        
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        const unwrapped = unwrapApiResponse<Campus>(raw);
+        return unwrapped;
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/campus/{campusId}/sidebar
+   * Get campus sidebar info (name and rank).
+   * Retrieves campus name and rank for sidebar display in the dashboard.
+   * Response format: { success: true, message: null, data: { campusName, campusRank }, error: null }
+   */
+  getCampusSidebar(campusId?: string): Observable<CampusSidebarResponse | null> {
+    // Automatically inject campus ID from storage if not provided
+    const finalCampusId = this.getCampusId(campusId);
+    if (!finalCampusId) {
+      console.error('CampusApiService: getCampusSidebar - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get campus sidebar'));
+    }
     
-    console.log('CampusApiService: Getting campus by ID - URL:', url, 'campusId:', campusId);
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_CAMPUS_SIDEBAR, { campusId: finalCampusId });
+    
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getCampusById raw response:', raw);
-        const unwrapped = unwrapApiResponse<Campus>(raw);
-        console.log('CampusApiService: getCampusById unwrapped response:', unwrapped);
-        if (unwrapped) {
-          console.log('CampusApiService: aboutCampus field value:', unwrapped.aboutCampus);
-        }
+        const unwrapped = unwrapApiResponse<CampusSidebarResponse>(raw);
         return unwrapped;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error getting campus sidebar:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -84,11 +264,9 @@ export class CampusApiService {
   getPublicCampusById(campusId: string): Observable<Campus | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.PUBLIC_CAMPUS_BY_ID, { campusId });
     
-    console.log('CampusApiService: Getting public campus by ID - URL:', url, 'campusId:', campusId);
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getPublicCampusById raw response:', raw);
         
         // Response structure: { message: null, data: { id, campusId, email, campusName, ... } }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -97,17 +275,11 @@ export class CampusApiService {
           // Check if response has 'data' field (public landing endpoint structure)
           if ('data' in response && response['data']) {
             const campusData = response['data'] as Campus;
-            console.log('CampusApiService: getPublicCampusById - Extracted campus data:', campusData);
-            console.log('CampusApiService: getPublicCampusById - Campus ID from response:', campusData.campusId || campusData.id);
-            console.log('CampusApiService: getPublicCampusById - ALL FIELDS IN RESPONSE:', Object.keys(campusData));
-            console.log('CampusApiService: getPublicCampusById - aboutCampus field:', campusData.aboutCampus ? `✅ Present (length: ${campusData.aboutCampus.length})` : '❌ Missing or empty');
-            console.log('CampusApiService: getPublicCampusById - Full response data:', JSON.stringify(campusData, null, 2));  
             return campusData;
           }
           
           // If no 'data' field, check if it's a direct campus object
           if ('campusId' in response || 'id' in response || 'campusName' in response) {
-            console.log('CampusApiService: getPublicCampusById - Direct campus object');
             return raw as Campus;
           }
         }
@@ -133,11 +305,9 @@ export class CampusApiService {
   getAboutCampus(campusId: string): Observable<string | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ABOUT_CAMPUS, { campusId });
     
-    console.log('CampusApiService: Getting about campus - URL:', url, 'campusId:', campusId);
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAboutCampus raw response:', raw);
         
         // Response structure: { success: true, message: null, data: "about text", error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -149,13 +319,10 @@ export class CampusApiService {
             
             // Data can be a string or other type
             if (typeof aboutText === 'string') {
-              console.log('CampusApiService: getAboutCampus - Extracted about text, length:', aboutText.length);
-              console.log('CampusApiService: getAboutCampus - About text preview:', aboutText.substring(0, 100) + '...');
               return aboutText;
             } else if (aboutText !== null && aboutText !== undefined) {
               // Convert to string if not null/undefined
               const text = String(aboutText);
-              console.log('CampusApiService: getAboutCampus - Converted about text to string, length:', text.length);
               return text;
             }
           }
@@ -182,6 +349,35 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPDATE, { campusId });
     const params = new HttpParams().set('email', email);
     return this.http.put<unknown>(url, request, { params }).pipe(map((raw) => unwrapApiResponse<Campus>(raw)));
+  }
+
+  /**
+   * PUT /campus/{campusId}/update (Profile)
+   * Updates campus profile with validation and partial payload support.
+   * Requires campus email as query parameter for ownership checks.
+   */
+  updateCampusProfile(
+    email: string,
+    request: CampusProfileUpdateRequest,
+  ): Observable<Campus | null> {
+    const trimmedEmail = (email || '').trim();
+    if (!trimmedEmail) {
+      console.error('CampusApiService: updateCampusProfile - Email is required');
+      return throwError(() => new Error('Email is required to update campus profile'));
+    }
+
+    // New profile update endpoint uses email query param and no path ID.
+    const url = this.buildUrl('/campus/profile');
+    const params = new HttpParams().set('email', trimmedEmail);
+    const payload = this.stripUndefined(request);
+
+    return this.http.put<unknown>(url, payload, { params }).pipe(
+      map((raw) => unwrapApiResponse<Campus>(raw)),
+      catchError((error) => {
+        console.error('CampusApiService: Error updating campus profile:', error);
+        return throwError(() => error);
+      }),
+    );
   }
 
   /**
@@ -231,14 +427,10 @@ export class CampusApiService {
     }
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_PLACED_STUDENT, { campusId: finalCampusId });
-    console.log('CampusApiService: addPlacedStudent - URL:', url);
-    console.log('CampusApiService: addPlacedStudent - Campus ID:', finalCampusId);
-    console.log('CampusApiService: addPlacedStudent - FormData keys:', Array.from(formData.keys()));
     
     // Let Angular automatically set Content-Type to multipart/form-data with boundary
     return this.http.post<unknown>(url, formData).pipe(
       map((raw) => {
-        console.log('CampusApiService: addPlacedStudent - Raw response:', raw);
         
         // Backend response format: { success: true, message: "Placed student added successfully", data: {...}, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -253,7 +445,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: addPlacedStudent - Parsed response:', response);
             return response;
           }
         }
@@ -300,13 +491,9 @@ export class CampusApiService {
       params = params.set('batch', batch);
     }
     
-    console.log('CampusApiService: getPlacedStudents - URL:', url);
-    console.log('CampusApiService: getPlacedStudents - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getPlacedStudents - Page:', page, 'Limit:', limit);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getPlacedStudents - Raw response:', raw);
         
         // Backend response format: { success: true, message: "Placed students fetched successfully", data: { content: [...], ... }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -332,7 +519,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || undefined,
             };
             
-            console.log('CampusApiService: getPlacedStudents - Parsed response:', response);
             return response;
           }
         }
@@ -361,34 +547,65 @@ export class CampusApiService {
    * Get all batches for the campus.
    * Returns list of all available batches.
    */
-  getAllBatches(): Observable<BatchesResponse | null> {
+  /**
+   * GET /dashboard/students/batches
+   * Get all available batches for the campus.
+   * This endpoint should return batches that have students in the current campus.
+   * Optionally accepts campusId as query parameter if backend requires it.
+   */
+  getAllBatches(campusId?: string): Observable<BatchesResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_BATCHES);
     
-    return this.http.get<unknown>(url).pipe(
+    // Automatically inject campus ID from storage if not provided
+    const finalCampusId = this.getCampusId(campusId);
+    
+    let params = new HttpParams();
+    if (finalCampusId) {
+      params = params.set('campusId', finalCampusId);
+    }
+    
+    
+    return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
+        
         if (raw && typeof raw === 'object') {
-          return raw as BatchesResponse;
+          const response = raw as BatchesResponse;
+          return response;
         }
+        
+        console.warn('CampusApiService: getAllBatches - Response is not an object');
         return null;
       }),
       catchError((error) => {
+        console.error('CampusApiService: getAllBatches - Error:', error);
+        console.error('CampusApiService: getAllBatches - Error status:', error?.status);
+        console.error('CampusApiService: getAllBatches - Error URL:', error?.url);
         return throwError(() => error);
       })
     );
   }
 
   /**
-   * GET /dashboard/students/batch
+   * GET /dashboard/campus/{campusId}/students/batch
    * Get students by batch with pagination.
    * Maximum 6 students per page. Supports sorting by name, batch, or performance.
+   * Note: API uses 0-indexed pagination (page=0 for first page)
    */
   getStudentsByBatch(
     batch: string,
-    page = 1,
+    page = 0,
     size = 6,
     sortBy?: string,
+    campusId?: string,
   ): Observable<StudentsByBatchResponse | null> {
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_STUDENTS_BY_BATCH);
+    // Automatically inject campus ID from storage if not provided
+    const finalCampusId = this.getCampusId(campusId);
+    if (!finalCampusId) {
+      console.error('CampusApiService: getStudentsByBatch - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get students by batch'));
+    }
+    
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_STUDENTS_BY_BATCH, { campusId: finalCampusId });
     let params = new HttpParams()
       .set('batch', batch)
       .set('page', page.toString())
@@ -398,6 +615,7 @@ export class CampusApiService {
       params = params.set('sortBy', sortBy);
     }
     
+    
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
         if (raw && typeof raw === 'object') {
@@ -406,6 +624,7 @@ export class CampusApiService {
         return null;
       }),
       catchError((error) => {
+        console.error('CampusApiService: Error getting students by batch:', error);
         return throwError(() => error);
       })
     );
@@ -441,15 +660,9 @@ export class CampusApiService {
       params = params.set('search', search.trim());
     }
     
-    console.log('CampusApiService: getStudentsByCampusId - URL:', url);
-    console.log('CampusApiService: getStudentsByCampusId - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getStudentsByCampusId - Search term:', search);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getStudentsByCampusId - Raw response:', raw);
-        console.log('CampusApiService: getStudentsByCampusId - Raw response type:', typeof raw);
-        console.log('CampusApiService: getStudentsByCampusId - Raw response keys:', raw && typeof raw === 'object' ? Object.keys(raw) : 'N/A');
         
         // Backend response format: { success: true, message: "Students fetched successfully", data: { content: [...], ... }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -460,14 +673,8 @@ export class CampusApiService {
             const dataObj = responseObj['data'] as Record<string, unknown>;
             
             // Log the data object structure for debugging
-            console.log('CampusApiService: getStudentsByCampusId - Data object:', dataObj);
-            console.log('CampusApiService: getStudentsByCampusId - Data object keys:', Object.keys(dataObj));
-            console.log('CampusApiService: getStudentsByCampusId - Content type:', typeof dataObj['content']);
-            console.log('CampusApiService: getStudentsByCampusId - Content is array:', Array.isArray(dataObj['content']));
-            console.log('CampusApiService: getStudentsByCampusId - Content length:', Array.isArray(dataObj['content']) ? dataObj['content'].length : 'N/A');
             
             const contentArray = Array.isArray(dataObj['content']) ? dataObj['content'] : [];
-            console.log('CampusApiService: getStudentsByCampusId - First student item (if any):', contentArray.length > 0 ? contentArray[0] : 'No students found');
             
             const response: StudentByCampusResponse = {
               success: responseObj['success'] as boolean,
@@ -487,8 +694,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || undefined,
             };
             
-            console.log('CampusApiService: getStudentsByCampusId - Parsed response, students count:', response.data.content.length);
-            console.log('CampusApiService: getStudentsByCampusId - Total elements:', response.data.totalElements);
             
             if (response.data.content.length === 0 && response.data.totalElements === 0) {
               console.warn('CampusApiService: getStudentsByCampusId - ⚠️ No students found for campus ID:', finalCampusId);
@@ -530,31 +735,16 @@ export class CampusApiService {
   addCompanyVisited(campusId: string, formData: FormData): Observable<AddCompanyVisitedResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COMPANY_VISITED, { campusId });
     
-    console.log('CampusApiService: ========== ADD COMPANY VISITED API CALL ==========');
-    console.log('CampusApiService: addCompanyVisited - URL:', url);
-    console.log('CampusApiService: addCompanyVisited - FormData keys:', Array.from(formData.keys()));
-    console.log('CampusApiService: FormData companyName:', formData.get('companyName'));
-    console.log('CampusApiService: FormData logo:', formData.get('logo'));
     
     return this.http.post<unknown>(url, formData, { observe: 'response' }).pipe(
       map((httpResponse) => {
-        console.log('CampusApiService: ========== ADD COMPANY VISITED RESPONSE RECEIVED ==========');
-        console.log('CampusApiService: HTTP Status:', httpResponse.status);
-        console.log('CampusApiService: HTTP Status Text:', httpResponse.statusText);
-        console.log('CampusApiService: Response Headers:', httpResponse.headers.keys());
         
         const raw = httpResponse.body;
-        console.log('CampusApiService: addCompanyVisited - Raw response body:', raw);
-        console.log('CampusApiService: Raw response type:', typeof raw);
         
         // For 201 Created or 200 OK, treat as success even if response format is unexpected
         if (httpResponse.status === 201 || httpResponse.status === 200) {
           if (raw && typeof raw === 'object' && raw !== null) {
             const response = raw as Record<string, unknown>;
-            console.log('CampusApiService: Response keys:', Object.keys(response));
-            console.log('CampusApiService: Response success:', response['success']);
-            console.log('CampusApiService: Response message:', response['message']);
-            console.log('CampusApiService: Response data:', response['data']);
             
             // Check if response has expected structure: { success, message, data, error }
             if ('success' in response && 'data' in response) {
@@ -565,7 +755,6 @@ export class CampusApiService {
                 error: (response['error'] as string) || null,
               } as AddCompanyVisitedResponse;
               
-              console.log('CampusApiService: ✅ Parsed response:', result);
               return result;
             } else {
               // HTTP 201/200 but unexpected response format - still treat as success
@@ -576,7 +765,6 @@ export class CampusApiService {
                 data: raw as AddCompanyVisitedResponseData,
                 error: null,
               } as AddCompanyVisitedResponse;
-              console.log('CampusApiService: ✅ Returning success response:', result);
               return result;
             }
           } else {
@@ -588,7 +776,6 @@ export class CampusApiService {
               data: {} as AddCompanyVisitedResponseData,
               error: null,
             } as AddCompanyVisitedResponse;
-            console.log('CampusApiService: ✅ Returning success response:', result);
             return result;
           }
         } else {
@@ -630,25 +817,14 @@ export class CampusApiService {
       .set('page', page.toString())
       .set('limit', limit.toString());
     
-    console.log('CampusApiService: ========== GET COMPANIES VISITED API CALL ==========');
-    console.log('CampusApiService: getCompaniesVisited - URL:', url);
-    console.log('CampusApiService: getCompaniesVisited - Params:', { page, limit });
-    console.log('CampusApiService: Full URL with params:', `${url}?page=${page}&limit=${limit}`);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: ========== GET COMPANIES VISITED RESPONSE RECEIVED ==========');
-        console.log('CampusApiService: getCompaniesVisited - Raw response:', raw);
-        console.log('CampusApiService: Raw response type:', typeof raw);
-        console.log('CampusApiService: Raw response is array?', Array.isArray(raw));
-        console.log('CampusApiService: Raw response is object?', typeof raw === 'object' && raw !== null);
         
         if (raw && typeof raw === 'object' && raw !== null) {
           // Check if response is an array (Spring Page can return array directly)
           if (Array.isArray(raw)) {
             const contentArray = raw as CompanyVisitedItem[];
-            console.log('CampusApiService: Response is array, length:', contentArray.length);
-            console.log('CampusApiService: Content array:', contentArray);
             
             // If it's just an array, we need to check for pagination info in a different way
             // But based on the API doc, it should have pagination metadata
@@ -660,10 +836,6 @@ export class CampusApiService {
               const totalPages = (response['totalPages'] as number) ?? 1;
               const totalElements = (response['totalElements'] as number) ?? contentArray.length;
               const pageable = response['pageable'] as PageableInfo | undefined;
-              const size = (response['size'] as number) ?? limit;
-              
-              console.log('CampusApiService: Found pagination metadata:', { totalPages, totalElements, size });
-              
               const result = {
                 success: true,
                 message: 'Companies fetched successfully',
@@ -676,7 +848,6 @@ export class CampusApiService {
                 error: null,
               } as GetCompaniesVisitedResponse;
               
-              console.log('CampusApiService: ✅ Parsed response (array with metadata):', result);
               return result;
             } else {
               // Pure array response - create pagination info
@@ -692,13 +863,11 @@ export class CampusApiService {
                 error: null,
               } as GetCompaniesVisitedResponse;
               
-              console.log('CampusApiService: ✅ Parsed response (pure array):', result);
               return result;
             }
           } else {
             // Response is an object - check for Spring Page structure
             const response = raw as Record<string, unknown>;
-            console.log('CampusApiService: Response keys:', Object.keys(response));
             
             // Check if it has content array (Spring Page structure)
             if ('content' in response && Array.isArray(response['content'])) {
@@ -706,13 +875,6 @@ export class CampusApiService {
               const pageable = response['pageable'] as PageableInfo | undefined;
               const totalPages = (response['totalPages'] as number) ?? 1;
               const totalElements = (response['totalElements'] as number) ?? contentArray.length;
-              const size = (response['size'] as number) ?? limit;
-              
-              console.log('CampusApiService: Found Spring Page structure');
-              console.log('CampusApiService: Content array length:', contentArray.length);
-              console.log('CampusApiService: Pagination:', { totalPages, totalElements, size });
-              console.log('CampusApiService: Content array:', contentArray);
-              
               const result = {
                 success: true,
                 message: 'Companies fetched successfully',
@@ -725,7 +887,6 @@ export class CampusApiService {
                 error: null,
               } as GetCompaniesVisitedResponse;
               
-              console.log('CampusApiService: ✅ Parsed response (Spring Page object):', result);
               return result;
             }
             
@@ -739,9 +900,6 @@ export class CampusApiService {
                 const totalPages = (data['totalPages'] as number) ?? 0;
                 const totalElements = (data['totalElements'] as number) ?? contentArray.length;
                 
-                console.log('CampusApiService: Wrapped format - Content array length:', contentArray.length);
-                console.log('CampusApiService: Wrapped format - Total pages:', totalPages);
-                console.log('CampusApiService: Wrapped format - Total elements:', totalElements);
                 
                 const result = {
                   success: response['success'] as boolean,
@@ -755,14 +913,12 @@ export class CampusApiService {
                   error: (response['error'] as string) || null,
                 } as GetCompaniesVisitedResponse;
                 
-                console.log('CampusApiService: ✅ Parsed response (wrapped format):', result);
                 return result;
               } else if (data && typeof data === 'object' && !('content' in data)) {
                 // Data might be a single company object or array directly
                 if (Array.isArray(data)) {
                   // Data is an array of companies
                   const contentArray = data as CompanyVisitedItem[];
-                  console.log('CampusApiService: Data is direct array, length:', contentArray.length);
                   const result = {
                     success: response['success'] as boolean,
                     message: (response['message'] as string) || 'Companies fetched successfully',
@@ -774,12 +930,10 @@ export class CampusApiService {
                     },
                     error: (response['error'] as string) || null,
                   } as GetCompaniesVisitedResponse;
-                  console.log('CampusApiService: ✅ Parsed response (data as array):', result);
                   return result;
                 } else if ('companyName' in data || 'id' in data) {
                   // Data is a single company object, wrap it in array
                   const contentArray = [data as CompanyVisitedItem];
-                  console.log('CampusApiService: Data is single company object');
                   const result = {
                     success: response['success'] as boolean,
                     message: (response['message'] as string) || 'Companies fetched successfully',
@@ -791,7 +945,6 @@ export class CampusApiService {
                     },
                     error: (response['error'] as string) || null,
                   } as GetCompaniesVisitedResponse;
-                  console.log('CampusApiService: ✅ Parsed response (single company):', result);
                   return result;
                 }
               }
@@ -836,18 +989,18 @@ export class CampusApiService {
     }
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_COURSE, { campusId: finalCampusId });
-    console.log('CampusApiService: addCourse - URL:', url);
-    console.log('CampusApiService: addCourse - Campus ID:', finalCampusId);
-    console.log('CampusApiService: addCourse - Request:', request);
     
     // Create headers object - Angular will merge with interceptor's Authorization header
+    // Add cache-control headers to ensure requests show in Network tab
     const headers = new HttpHeaders({
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     });
     
     return this.http.post<unknown>(url, request, { headers }).pipe(
       map((raw) => {
-        console.log('CampusApiService: addCourse - Raw response:', raw);
         
         // Backend response format: { success: true, message: string, data: {...}, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -862,12 +1015,10 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: addCourse - Parsed response:', response);
             
             // Ensure campusId is included in response data (backend should return it, but ensure it's there)
             if (response.data && !response.data.campusId) {
               response.data.campusId = finalCampusId;
-              console.log('CampusApiService: addCourse - Added campusId to response data:', finalCampusId);
             }
             
             return response;
@@ -902,12 +1053,16 @@ export class CampusApiService {
     }
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_COURSES, { campusId: finalCampusId });
-    console.log('CampusApiService: getAllCourses - URL:', url);
-    console.log('CampusApiService: getAllCourses - Campus ID:', finalCampusId);
     
-    return this.http.get<unknown>(url).pipe(
+    // Add cache-control headers to ensure requests show in Network tab
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+    
+    return this.http.get<unknown>(url, { headers }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAllCourses - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: AddCourseResponseData[], error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -920,7 +1075,6 @@ export class CampusApiService {
             
             if (success && Array.isArray(data)) {
               const courses = data as AddCourseResponseData[];
-              console.log('CampusApiService: getAllCourses - Parsed courses:', courses);
               return courses;
             }
           }
@@ -962,13 +1116,16 @@ export class CampusApiService {
       campusId: finalCampusId,
       courseId: courseId.trim()
     });
-    console.log('CampusApiService: getCourseById - URL:', url);
-    console.log('CampusApiService: getCourseById - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getCourseById - Course ID:', courseId.trim());
     
-    return this.http.get<unknown>(url).pipe(
+    // Add cache-control headers to ensure requests show in Network tab
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+    
+    return this.http.get<unknown>(url, { headers }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getCourseById - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: AddCourseResponseData, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -981,7 +1138,6 @@ export class CampusApiService {
             
             if (success && data && typeof data === 'object') {
               const course = data as AddCourseResponseData;
-              console.log('CampusApiService: getCourseById - Parsed course:', course);
               return course;
             }
           }
@@ -1022,13 +1178,16 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CHECK_COURSE_NAME, { campusId: finalCampusId });
     const params = new HttpParams().set('courseName', courseName.trim());
     
-    console.log('CampusApiService: checkCourseNameExists - URL:', url);
-    console.log('CampusApiService: checkCourseNameExists - Campus ID:', finalCampusId);
-    console.log('CampusApiService: checkCourseNameExists - Course Name:', courseName.trim());
     
-    return this.http.get<unknown>(url, { params }).pipe(
+    // Add cache-control headers to ensure requests show in Network tab
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+    
+    return this.http.get<unknown>(url, { params, headers }).pipe(
       map((raw) => {
-        console.log('CampusApiService: checkCourseNameExists - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: true, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1041,7 +1200,6 @@ export class CampusApiService {
             
             if (success && typeof data === 'boolean') {
               const exists = data as boolean;
-              console.log('CampusApiService: checkCourseNameExists - Course name exists:', exists);
               return exists;
             }
           }
@@ -1083,13 +1241,16 @@ export class CampusApiService {
       campusId: finalCampusId,
       courseId: courseId.trim()
     });
-    console.log('CampusApiService: deleteCourse - URL:', url);
-    console.log('CampusApiService: deleteCourse - Campus ID:', finalCampusId);
-    console.log('CampusApiService: deleteCourse - Course ID:', courseId.trim());
     
-    return this.http.delete<unknown>(url).pipe(
+    // Add cache-control headers to ensure requests show in Network tab
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+    
+    return this.http.delete<unknown>(url, { headers }).pipe(
       map((raw) => {
-        console.log('CampusApiService: deleteCourse - Raw response:', raw);
         
         // Backend response format: { success: true, message: "Course deleted successfully", data: null, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1104,7 +1265,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: deleteCourse - Parsed response:', response);
             return response;
           }
         }
@@ -1163,9 +1323,6 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.ADD_FACULTY, { campusId: finalCampusId });
     
     // Log the exact request being sent to backend
-    console.log('CampusApiService: addFaculty - URL:', url);
-    console.log('CampusApiService: addFaculty - Campus ID:', finalCampusId);
-    console.log('CampusApiService: addFaculty - Request Data:', JSON.stringify(data, null, 2));
     
     // Create headers object - Angular will merge with interceptor's Authorization header
     const headers = new HttpHeaders({
@@ -1177,7 +1334,6 @@ export class CampusApiService {
       headers: headers
     }).pipe(
       map((raw) => {
-        console.log('CampusApiService: addFaculty - Raw response:', raw);
         
         // Backend response structure: { success: true, message: string, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1206,7 +1362,6 @@ export class CampusApiService {
                 error: (responseObj['error'] as string) || null,
               };
               
-              console.log('CampusApiService: addFaculty - Parsed response:', response);
               return response;
             }
           }
@@ -1270,10 +1425,6 @@ export class CampusApiService {
       facultyId: facultyId.trim()
     });
     
-    console.log('CampusApiService: updateFaculty - URL:', url);
-    console.log('CampusApiService: updateFaculty - Campus ID:', finalCampusId);
-    console.log('CampusApiService: updateFaculty - Faculty ID:', facultyId.trim());
-    console.log('CampusApiService: updateFaculty - Request data:', data);
     
     // Prepare request body - only include fields that are provided
     const requestBody: {
@@ -1306,7 +1457,6 @@ export class CampusApiService {
     
     return this.http.put<unknown>(url, requestBody).pipe(
       map((raw) => {
-        console.log('CampusApiService: updateFaculty - Raw response:', raw);
         
         // Backend response structure: { success: true, message: string, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1331,7 +1481,6 @@ export class CampusApiService {
                   error: (responseObj['error'] as string) || null,
                 };
                 
-                console.log('CampusApiService: updateFaculty - Parsed response:', response);
                 return response;
               }
             }
@@ -1367,12 +1516,9 @@ export class CampusApiService {
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_ALL_FACULTY, { campusId: finalCampusId });
     
-    console.log('CampusApiService: getAllFaculties - URL:', url);
-    console.log('CampusApiService: getAllFaculties - Campus ID:', finalCampusId);
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAllFaculties - Raw response:', raw);
         
         // Backend response structure: { success: true, message: string, data: FacultyListItem[], error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1391,8 +1537,6 @@ export class CampusApiService {
                 error: (responseObj['error'] as string) || null,
               };
               
-              console.log('CampusApiService: getAllFaculties - Parsed response:', response);
-              console.log('CampusApiService: getAllFaculties - Data array length:', response.data.length);
               return response;
             }
           }
@@ -1436,13 +1580,9 @@ export class CampusApiService {
       facultyId: facultyId.trim()
     });
     
-    console.log('CampusApiService: getFacultyById - URL:', url);
-    console.log('CampusApiService: getFacultyById - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getFacultyById - Faculty ID:', facultyId.trim());
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getFacultyById - Raw response:', raw);
         
         // Backend response structure: { success: true, message: null, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1467,7 +1607,6 @@ export class CampusApiService {
                   error: (responseObj['error'] as string) || null,
                 };
                 
-                console.log('CampusApiService: getFacultyById - Parsed response:', response);
                 return response;
               }
             }
@@ -1512,13 +1651,9 @@ export class CampusApiService {
       facultyId: facultyId.trim()
     });
     
-    console.log('CampusApiService: getFacultyProfile - URL:', url);
-    console.log('CampusApiService: getFacultyProfile - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getFacultyProfile - Faculty ID:', facultyId.trim());
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getFacultyProfile - Raw response:', raw);
         
         // Backend response structure: { success: true, message: null, data: { basicInformation: {...}, professionalInformation: {...} }, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1543,7 +1678,6 @@ export class CampusApiService {
                   error: (responseObj['error'] as string) || null,
                 };
                 
-                console.log('CampusApiService: getFacultyProfile - Parsed response:', response);
                 return response;
               }
             }
@@ -1589,13 +1723,9 @@ export class CampusApiService {
       facultyId: facultyId.trim()
     });
     
-    console.log('CampusApiService: deleteFaculty - URL:', url);
-    console.log('CampusApiService: deleteFaculty - Campus ID:', finalCampusId);
-    console.log('CampusApiService: deleteFaculty - Faculty ID:', facultyId.trim());
     
     return this.http.delete<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: deleteFaculty - Raw response:', raw);
         
         // Backend response structure: { success: true, message: "Faculty deleted successfully", data: null, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1610,7 +1740,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: deleteFaculty - Parsed response:', response);
             return response;
           }
         }
@@ -1651,13 +1780,9 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.CHECK_FACULTY_EMAIL, { campusId: finalCampusId });
     const params = new HttpParams().set('email', email.trim());
     
-    console.log('CampusApiService: checkFacultyEmail - URL:', url);
-    console.log('CampusApiService: checkFacultyEmail - Campus ID:', finalCampusId);
-    console.log('CampusApiService: checkFacultyEmail - Email:', email.trim());
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: checkFacultyEmail - Raw response:', raw);
         
         // Backend response structure: { success: true, message: string, data: boolean, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -1672,7 +1797,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: checkFacultyEmail - Parsed response:', response);
             return response;
           }
         }
@@ -1750,7 +1874,6 @@ export class CampusApiService {
             // Remove duplicates and sort alphabetically
             const uniqueDesignations = Array.from(new Set(validDesignations)).sort();
             
-            console.log('Designations loaded from API:', uniqueDesignations.length, 'items');
             return uniqueDesignations;
           }
         }
@@ -1800,31 +1923,19 @@ export class CampusApiService {
    */
   getBatchesForDropdown(): Observable<string[]> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_BATCHES);
-    console.log('CampusApiService: getBatchesForDropdown - URL:', url);
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getBatchesForDropdown - Raw response:', raw);
-        console.log('CampusApiService: getBatchesForDropdown - Response type:', typeof raw);
         
         // Response format: { success: true, message: null, data: string[], error: null }
         if (raw && typeof raw === 'object') {
           const response = raw as { success?: boolean; data?: unknown; message?: unknown; error?: unknown };
-          console.log('CampusApiService: getBatchesForDropdown - Response structure:', {
-            success: response.success,
-            hasData: !!response.data,
-            dataType: typeof response.data,
-            isDataArray: Array.isArray(response.data),
-            dataLength: Array.isArray(response.data) ? response.data.length : 'N/A'
-          });
           
           if (response.success && Array.isArray(response.data)) {
             const batches = response.data as string[];
-            console.log('CampusApiService: getBatchesForDropdown - Extracted batches:', batches);
             return batches;
           } else if (Array.isArray(raw)) {
             // Handle case where API directly returns array
-            console.log('CampusApiService: getBatchesForDropdown - Response is direct array');
             return raw as string[];
           } else if (response.data && !Array.isArray(response.data)) {
             console.warn('CampusApiService: getBatchesForDropdown - Data is not an array:', response.data);
@@ -1855,11 +1966,9 @@ export class CampusApiService {
       params = params.set('campusId', finalCampusId);
     }
     
-    console.log('CampusApiService: getAlumniForCarousel - URL:', url, 'Params:', params.toString());
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAlumniForCarousel - Raw response:', raw);
         if (raw && typeof raw === 'object') {
           return raw as AlumniDashboardResponse;
         }
@@ -1898,11 +2007,9 @@ export class CampusApiService {
       params = params.set('campusId', finalCampusId);
     }
     
-    console.log('CampusApiService: getAlumniForDashboard - URL:', url, 'Params:', params.toString());
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAlumniForDashboard - Raw response:', raw);
         if (raw && typeof raw === 'object') {
           return raw as AlumniDashboardResponse;
         }
@@ -1928,10 +2035,8 @@ export class CampusApiService {
     if (finalCampusId) {
       params = params.set('campusId', finalCampusId);
     }
-    console.log('CampusApiService: getAnnouncements - URL:', url, 'campusId:', campusId);
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getAnnouncements - Raw response:', raw);
         if (raw && typeof raw === 'object') {
           return raw as AnnouncementsResponse;
         }
@@ -1952,10 +2057,8 @@ export class CampusApiService {
   getSynkupAnnouncements(limit = 10): Observable<AnnouncementsResponse | null> {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_SYNKUP_ANNOUNCEMENTS);
     const params = new HttpParams().set('limit', limit.toString());
-    console.log('CampusApiService: getSynkupAnnouncements - URL:', url, 'Params:', params.toString());
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getSynkupAnnouncements - Raw response:', raw);
         if (raw && typeof raw === 'object') {
           return raw as AnnouncementsResponse;
         }
@@ -1984,14 +2087,10 @@ export class CampusApiService {
     }
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.UPLOAD_PROSPECTUS, { campusId: campusId.trim() });
-    console.log('CampusApiService: uploadProspectus - URL:', url);
-    console.log('CampusApiService: uploadProspectus - Campus ID:', campusId.trim());
-    console.log('CampusApiService: uploadProspectus - FormData keys:', Array.from(formData.keys()));
     
     // Don't set Content-Type header - browser will set it automatically with boundary for multipart/form-data
     return this.http.post<unknown>(url, formData).pipe(
       map((raw) => {
-        console.log('CampusApiService: uploadProspectus - Raw response:', raw);
         
         // Backend response format: { success: true, message: "...", data: {...}, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -2006,7 +2105,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: uploadProspectus - Parsed response:', response);
             return response;
           }
         }
@@ -2036,12 +2134,9 @@ export class CampusApiService {
     }
     
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_CAMPUS, { campusId: campusId.trim() });
-    console.log('CampusApiService: getProspectusByCampus - URL:', url);
-    console.log('CampusApiService: getProspectusByCampus - Campus ID:', campusId.trim());
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getProspectusByCampus - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: [...], error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -2057,8 +2152,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: getProspectusByCampus - Parsed response:', response);
-            console.log('CampusApiService: getProspectusByCampus - Data array length:', response.data.length);
             return response;
           }
         }
@@ -2096,13 +2189,9 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PROSPECTUS_BY_COURSE, { campusId: campusId.trim() });
     const params = new HttpParams().set('courseName', courseName.trim());
     
-    console.log('CampusApiService: getProspectusByCourse - URL:', url);
-    console.log('CampusApiService: getProspectusByCourse - Campus ID:', campusId.trim());
-    console.log('CampusApiService: getProspectusByCourse - Course Name:', courseName.trim());
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getProspectusByCourse - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: [...], error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -2118,8 +2207,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: getProspectusByCourse - Parsed response:', response);
-            console.log('CampusApiService: getProspectusByCourse - Data array length:', response.data.length);
             return response;
           }
         }
@@ -2159,13 +2246,9 @@ export class CampusApiService {
       campusId: finalCampusId,
       prospectusId: prospectusId.trim()
     });
-    console.log('CampusApiService: getProspectusById - URL:', url);
-    console.log('CampusApiService: getProspectusById - Campus ID:', finalCampusId);
-    console.log('CampusApiService: getProspectusById - Prospectus ID:', prospectusId.trim());
     
     return this.http.get<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: getProspectusById - Raw response:', raw);
         
         // Backend response format: { success: true, message: "string", data: {...}, error: "string" }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -2180,7 +2263,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: getProspectusById - Parsed response:', response);
             return response;
           }
         }
@@ -2225,13 +2307,9 @@ export class CampusApiService {
     const url = this.buildUrl(API_ENDPOINTS.CAMPUS.DOWNLOAD_PROSPECTUS, { campusId: campusId.trim() });
     const params = new HttpParams().set('courseName', courseName.trim());
     
-    console.log('CampusApiService: downloadProspectus - URL:', url);
-    console.log('CampusApiService: downloadProspectus - Campus ID:', campusId.trim());
-    console.log('CampusApiService: downloadProspectus - Course Name:', courseName.trim());
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: downloadProspectus - Raw response:', raw);
         
         // Backend response format: { success: true, message: null, data: {...}, error: null }
         // Note: Returns single prospectus object, not array
@@ -2247,7 +2325,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: downloadProspectus - Parsed response:', response);
             return response;
           }
         }
@@ -2287,13 +2364,9 @@ export class CampusApiService {
       campusId: finalCampusId,
       prospectusId: prospectusId.trim()
     });
-    console.log('CampusApiService: deleteProspectus - URL:', url);
-    console.log('CampusApiService: deleteProspectus - Campus ID:', finalCampusId);
-    console.log('CampusApiService: deleteProspectus - Prospectus ID:', prospectusId.trim());
     
     return this.http.delete<unknown>(url).pipe(
       map((raw) => {
-        console.log('CampusApiService: deleteProspectus - Raw response:', raw);
         
         // Backend response format: { success: true, message: "Prospectus deleted successfully", data: null, error: null }
         if (raw && typeof raw === 'object' && raw !== null) {
@@ -2308,7 +2381,6 @@ export class CampusApiService {
               error: (responseObj['error'] as string) || null,
             };
             
-            console.log('CampusApiService: deleteProspectus - Parsed response:', response);
             return response;
           }
         }
@@ -2342,11 +2414,9 @@ export class CampusApiService {
       .set('page', page.toString())
       .set('size', size.toString());
     
-    console.log('CampusApiService: getRisingStars - URL:', url, 'page:', page, 'size:', size);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: getRisingStars - Raw response:', raw);
         
         if (raw && typeof raw === 'object' && raw !== null) {
           const responseObj = raw as Record<string, unknown>;
@@ -2378,8 +2448,6 @@ export class CampusApiService {
                   error: (responseObj['error'] as string) || null,
                 };
                 
-                console.log('CampusApiService: getRisingStars - Parsed response:', response);
-                console.log('CampusApiService: getRisingStars - Content length:', response.data?.content?.length || 0);
                 return response;
               }
             }
@@ -2471,22 +2539,14 @@ export class CampusApiService {
     page = 0,
     size = 10,
   ): Observable<TestimonialsResponse | null> {
-    console.log('CampusApiService: ========== GET TESTIMONIALS API CALL ==========');
-    console.log('CampusApiService: Input campusId:', campusId);
-    console.log('CampusApiService: Input page:', page);
-    console.log('CampusApiService: Input size:', size);
     
     const endpoint = API_ENDPOINTS.CAMPUS.TESTIMONIALS;
     const url = this.buildUrl(endpoint, { campusId });
     const params = new HttpParams().set('page', page.toString()).set('size', size.toString());
     
-    console.log('CampusApiService: Built URL:', url);
-    console.log('CampusApiService: Query params:', { page, size });
-    console.log('CampusApiService: Base URL:', this.baseUrl);
     
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
-        console.log('CampusApiService: Testimonials raw response:', raw);
         
         // Handle response - backend returns { success, message, data, error }
         if (raw && typeof raw === 'object') {
@@ -2500,10 +2560,6 @@ export class CampusApiService {
               data: responseObj['data'] as TestimonialsResponse['data'],
               error: responseObj['error'] !== null && responseObj['error'] !== undefined ? String(responseObj['error']) : null
             };
-            console.log('CampusApiService: Testimonials parsed response:', response);
-            console.log('CampusApiService: Testimonials count:', response.data?.content?.length || 0);
-            console.log('CampusApiService: Testimonials data.last:', response.data?.last);
-            console.log('CampusApiService: Testimonials data.totalPages:', response.data?.totalPages);
             return response;
           }
         }
@@ -2649,13 +2705,6 @@ export class CampusApiService {
     const endpoint = API_ENDPOINTS.CAMPUS.FEEDBACK;
     const url = this.buildUrl(endpoint, { campusId });
     
-    console.log('CampusApiService: ========== SUBMIT FEEDBACK API CALL ==========');
-    console.log('CampusApiService: submitFeedback - URL:', url);
-    console.log('CampusApiService: submitFeedback - Endpoint:', endpoint);
-    console.log('CampusApiService: submitFeedback - CampusId:', campusId);
-    console.log('CampusApiService: submitFeedback - Base URL:', this.baseUrl);
-    console.log('CampusApiService: submitFeedback - Request:', JSON.stringify(request, null, 2));
-    console.log('CampusApiService: submitFeedback - About to make HTTP POST request...');
     
     // Set Content-Type header explicitly for JSON
     const headers = new HttpHeaders({
@@ -2663,24 +2712,14 @@ export class CampusApiService {
       'Accept': 'application/json'
     });
     
-    console.log('CampusApiService: submitFeedback - Headers:', headers.keys());
-    console.log('CampusApiService: submitFeedback - Making HTTP POST to:', url);
     
     const httpCall = this.http.post<unknown>(url, request, { headers });
-    console.log('CampusApiService: submitFeedback - HTTP call observable created:', httpCall);
     
     return httpCall.pipe(
-      tap(() => {
-        console.log('CampusApiService: submitFeedback - ✅ HTTP POST request sent to server');
-        console.log('CampusApiService: submitFeedback - Request URL:', url);
-        console.log('CampusApiService: submitFeedback - Request body:', JSON.stringify(request, null, 2));
-      }),
       map((raw) => {
-        console.log('CampusApiService: submitFeedback - Raw response:', raw);
         // Handle response body directly (Angular HttpClient handles 201/200 automatically)
         if (raw && typeof raw === 'object') {
           const response = raw as FeedbackResponse;
-          console.log('CampusApiService: submitFeedback - Parsed response:', response);
           return response;
         }
         console.warn('CampusApiService: submitFeedback - Invalid response format:', raw);
@@ -2699,17 +2738,10 @@ export class CampusApiService {
    * Use 'attachmentUrls' field for file URLs/names. Supports recruitment type (Internship/Full-time/Both), visit date/time, positions, package, and requirements.
    */
   submitVisitCampusRequest(campusId: string, request: VisitCampusRequest, attachments: File[] = []): Observable<VisitCampusResponse | null> {
-    console.log('CampusApiService: ========== SUBMIT VISIT CAMPUS REQUEST API CALL ==========');
-    console.log('CampusApiService: Input campusId:', campusId);
-    console.log('CampusApiService: Input request:', JSON.stringify(request, null, 2));
-    console.log('CampusApiService: Input attachments count:', attachments.length);
     
     const endpoint = API_ENDPOINTS.CAMPUS.VISIT_CAMPUS;
-    console.log('CampusApiService: Endpoint template:', endpoint);
     
     const url = this.buildUrl(endpoint, { campusId });
-    console.log('CampusApiService: Built URL:', url);
-    console.log('CampusApiService: Base URL:', this.baseUrl);
     
     // Validate URL
     if (!url || url.trim() === '') {
@@ -2723,13 +2755,11 @@ export class CampusApiService {
     // Add request as JSON string in 'request' field
     const requestJson = JSON.stringify(request);
     formData.append('request', requestJson);
-    console.log('CampusApiService: Added request JSON to FormData:', requestJson);
     
     // Add attachment files to 'attachment' field (backend expects MultipartFile[])
     if (attachments && attachments.length > 0) {
-      attachments.forEach((file, index) => {
+      attachments.forEach((file) => {
         formData.append('attachment', file, file.name);
-        console.log(`CampusApiService: Added attachment ${index + 1}:`, file.name, 'Size:', file.size, 'Type:', file.type);
       });
     }
     
@@ -2739,28 +2769,10 @@ export class CampusApiService {
       // Note: Do NOT set 'Content-Type' - browser will set it automatically with boundary
     });
     
-    console.log('CampusApiService: Headers:', headers.keys());
-    console.log('CampusApiService: FormData entries:');
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
-      } else {
-        console.log(`  ${key}:`, value);
-      }
-    }
-    console.log('CampusApiService: About to make HTTP POST request to:', url);
-    
     const httpCall = this.http.post<unknown>(url, formData, { headers });
-    console.log('CampusApiService: HTTP call observable created');
     
     return httpCall.pipe(
-      tap(() => {
-        console.log('CampusApiService: ✅ HTTP POST request sent to server');
-        console.log('CampusApiService: Request URL:', url);
-        console.log('CampusApiService: Request type: multipart/form-data');
-      }),
       map((raw) => {
-        console.log('CampusApiService: submitVisitCampusRequest - Raw response:', raw);
         
         // Handle response - backend returns { success, message, data, error }
         if (raw && typeof raw === 'object') {
@@ -2774,7 +2786,6 @@ export class CampusApiService {
               data: responseObj['data'] as VisitCampusData,
               error: responseObj['error'] !== null && responseObj['error'] !== undefined ? String(responseObj['error']) : null
             };
-            console.log('CampusApiService: submitVisitCampusRequest - Parsed response:', response);
             return response;
           }
         }
@@ -2825,6 +2836,22 @@ export class CampusApiService {
     const normalizedEndpoint = resolved.startsWith('/') ? resolved : `/${resolved}`;
     return url + normalizedEndpoint;
   }
+}
+
+export interface CampusProfileUpdateRequest {
+  [key: string]: unknown;
+  campusName?: string;
+  campusLogoUrl?: string;
+  campusRank?: number;
+  adminName?: string;
+  adminEmail?: string;
+  adminPhone?: string;
+  adminDepartment?: string;
+  adminDesignation?: string;
+  websiteUrl?: string;
+  campusWebsiteUrl?: string;
+  aboutCampus?: string;
+  campusAddress?: string;
 }
 
 export interface CampusRegisterRequest {
@@ -2894,6 +2921,35 @@ export interface Campus {
   approvalDate?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CampusSidebarResponse {
+  campusName: string;
+  campusRank: number;
+}
+
+export interface CampusAutocompleteResponse {
+  id?: string; // API returns 'id' not 'campusId'
+  campusId?: string; // Support both for compatibility
+  campusName?: string;
+  campusAddress?: string;
+}
+
+export interface ApiResponsePageCampusAutocompleteResponse {
+  success?: boolean;
+  message?: string | null;
+  data?: {
+    content?: CampusAutocompleteResponse[];
+    totalPages?: number;
+    totalElements?: number;
+    first?: boolean;
+    last?: boolean;
+    size?: number;
+    number?: number;
+    numberOfElements?: number;
+    pageable?: PageableInfo;
+  };
+  error?: string | null;
   public?: boolean;
   verifiedPhoneNo?: boolean;
 }
@@ -3705,6 +3761,30 @@ export interface AlumniDashboardResponse {
   error: string | null;
 }
 
+export interface CarouselItemResponse {
+  id?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  logoUrl?: string;
+  companyId?: string;
+  companyName?: string;
+  companyLogoUrl?: string;
+  campusId?: string;
+  campusName?: string;
+  campusLogoUrl?: string;
+}
+
+export interface ApiResponseListCarouselItemResponse {
+  success: boolean;
+  message: string | null;
+  data: CarouselItemResponse[];
+  error: string | null;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 export interface AnnouncementItem {
   id?: string;
   campusId?: string;
@@ -3787,5 +3867,6 @@ function resolvePathParams(endpoint: string, params?: Record<string, string>): s
   }
   return out;
 }
+
 
 

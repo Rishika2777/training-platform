@@ -1,0 +1,15 @@
+<div class="avatar-wrapper" [class]="'size-' + size">
+  @if (showInitials()) {
+    <div class="avatar-initials" [attr.aria-label]="altText()">
+      {{ initials() }}
+    </div>
+  } @else {
+    <img
+      class="avatar-image"
+      [src]="imageUrl"
+      [alt]="altText()"
+      (error)="onImageError()"
+      (load)="onImageLoad()"
+    />
+  }
+</div>

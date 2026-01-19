@@ -1,6 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild, inject } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
+import { StudentApiService } from '../../services/student-api.service';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
+import { catchError, of } from 'rxjs';
 
 export interface IdeasSubmissionFormValue {
   documentFile: File | null;
@@ -15,6 +19,9 @@ export interface IdeasSubmissionFormValue {
   styleUrl: './student-ideas-submission.component.css',
 })
 export class StudentIdeasSubmissionComponent {
+  private readonly studentApi = inject(StudentApiService);
+  private readonly auth = inject(AuthService);
+  private readonly notify = inject(NotificationService);
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
@@ -26,6 +33,8 @@ export class StudentIdeasSubmissionComponent {
   @Output() valueChange = new EventEmitter<IdeasSubmissionFormValue>();
   @Output() submitted = new EventEmitter<IdeasSubmissionFormValue>();
 
+  submittingInternal = false;
+  downloadingInternal = false;
   isDragging = false;
   readonly maxDescriptionLength = 100;
 
@@ -86,13 +95,74 @@ export class StudentIdeasSubmissionComponent {
   }
 
   submit(): void {
-    if (this.isFormValid()) {
-      this.submitted.emit(this.value);
+    if (!this.isFormValid() || this.submittingInternal) {
+      return;
     }
+
+    const studentId = this.auth.getCurrentUser()?.studentId?.toString();
+    if (!studentId) {
+      this.notify.error('Student ID not found');
+      return;
+    }
+
+    // Backend expects a URL; until upload API is added, we send the selected filename.
+    const documentUrl = this.value.documentFile?.name ?? '';
+    const description = this.value.description.trim();
+
+    this.submittingInternal = true;
+
+    this.studentApi
+      .submitIdea(studentId, { documentUrl, description })
+      .pipe(
+        catchError((error) => {
+          this.submittingInternal = false;
+          this.notify.error(error?.message || 'Failed to submit idea');
+          return of(null);
+        }),
+      )
+      .subscribe((resp) => {
+        this.submittingInternal = false;
+        if (resp?.success) {
+          this.notify.success(resp.message || 'Idea submitted successfully.');
+          this.submitted.emit(this.value);
+        } else if (resp) {
+          this.notify.error(resp.message || 'Failed to submit idea');
+        }
+      });
   }
 
   downloadTemplate(): void {
-    // TODO: Implement template download
+    if (this.downloadingInternal || this.submittingInternal) {
+      return;
+    }
+
+    const studentId = this.auth.getCurrentUser()?.studentId?.toString();
+    if (!studentId) {
+      this.notify.error('Student ID not found');
+      return;
+    }
+
+    this.downloadingInternal = true;
+
+    this.studentApi
+      .getIdeaTemplateInfo(studentId)
+      .pipe(
+        catchError((error) => {
+          this.downloadingInternal = false;
+          this.notify.error(error?.message || 'Failed to get template info');
+          return of(null);
+        }),
+      )
+      .subscribe((resp) => {
+        this.downloadingInternal = false;
+        if (resp?.success && resp.data) {
+          // If backend returns a URL, open it. Otherwise still try to open as-is.
+          window.open(resp.data, '_blank');
+          this.notify.success(resp.message || 'Downloading template...');
+        } else if (resp) {
+          this.notify.error(resp.message || 'Failed to download template');
+        }
+      });
   }
 
   get fileName(): string {

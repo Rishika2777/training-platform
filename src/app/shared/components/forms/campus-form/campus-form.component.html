@@ -170,7 +170,12 @@
           [disabled]="submitting"
           (buttonClick)="cancelled.emit()"
         />
-        <app-button type="submit" variant="primary" label="Submit" [disabled]="submitting" />
+        <app-button
+          type="submit"
+          variant="primary"
+          [label]="isEditMode ? 'Update' : 'Submit'"
+          [disabled]="submitting"
+        />
       }
     </div>
   </form>

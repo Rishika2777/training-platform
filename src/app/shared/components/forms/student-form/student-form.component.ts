@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, signal, SimpleChanges } from '@angular/core';
+import { Observable, map, catchError, of } from 'rxjs';
 import { ButtonComponent } from '../../button/button.component';
-import { DropdownComponent, DropdownItem } from '../../dropdown/dropdown.component';
+import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../../dropdown/dropdown.component';
 import { InputComponent } from '../../input/input.component';
 import { StepIndicatorComponent } from '../../step-indicator/step-indicator.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import type { CampusResponse } from '../../../../features/student/models/student.models';
+import { CampusApiService, type CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
 
 type YesNo = 'yes' | 'no';
 type Gender = 'male' | 'female' | 'other';
@@ -15,8 +17,10 @@ export interface StudentEducationItem {
   qualification: string;
   institution: string;
   campusId?: string; // Campus ID when institution is selected from campuses
+  campusAddress?: string; // Campus address when institution is selected from campuses
   degree: string;
   specialization: string;
+  id?: string;
   yearOfPassing: string;
   percentageOrCgpa: string;
   certificateFiles: FileList | null;
@@ -56,7 +60,9 @@ export interface StudentWorkPreferences {
 
 export interface StudentAdditionalInfo {
   govtIdProofFiles: FileList | null;
+  govtIdProofUrl?: string; // URL of existing govt ID proof from API
   resumeFiles: FileList | null;
+  resumeUrl?: string; // URL of existing resume from API
   certificateFiles: FileList | null;
   certificateFileNames: readonly string[];
   portfolioUrl: string;
@@ -181,7 +187,7 @@ function createEmptyAdditionalInfo(): StudentAdditionalInfo {
   templateUrl: './student-form.component.html',
   styleUrl: './student-form.component.css',
 })
-export class StudentFormComponent {
+export class StudentFormComponent implements OnInit, OnChanges {
   @Input() submitting = false;
   @Input() value: StudentFormValue = createEmptyStudentFormValue();
   @Input() emailLocked = false;
@@ -198,9 +204,14 @@ export class StudentFormComponent {
   readonly steps = ['Personal Info', 'Education', 'Skills & Experience', 'Additional'] as const;
   
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly campusApiService = inject(CampusApiService);
   currentStep = 0;
   submitAttempted = false;
   private stepNavLocked = false;
+  // Cache to store campusId -> {campusName, campusAddress} mapping from API responses
+  private campusCache = new Map<string, { campusName: string; campusAddress?: string }>();
+  // Store pre-loaded campuses for instant dropdown display
+  private readonly initialCampuses = signal<CampusAutocompleteResponse[]>([]);
 
   get isReviewMode(): boolean {
     return this.mode === 'review';
@@ -217,6 +228,84 @@ export class StudentFormComponent {
 
   get isFieldsDisabled(): boolean {
     return this.submitting || (this.isReviewMode && !this.isEditMode);
+  }
+
+  ngOnInit(): void {
+    this.loadInitialCampuses();
+    this.prePopulateCampusCache();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // When value changes (e.g., when loading existing data), pre-populate the cache
+    if (changes['value']) {
+      this.prePopulateCampusCache();
+    }
+  }
+
+  /**
+   * Pre-populate campus cache with existing education data
+   * This ensures the dropdown can display institution names even if those campuses
+   * aren't in the current API results
+   */
+  private prePopulateCampusCache(): void {
+    if (!this.value.education || this.value.education.length === 0) {
+      return;
+    }
+
+    this.value.education.forEach((edu) => {
+      if (edu.campusId && edu.institution) {
+        this.campusCache.set(edu.campusId, {
+          campusName: edu.institution,
+          campusAddress: edu.campusAddress,
+        });
+      }
+    });
+  }
+
+  /**
+   * Load initial campuses on component init using search API
+   * This populates the dropdown with initial data so users see options immediately on focus
+   */
+  private loadInitialCampuses(): void {
+    this.campusApiService.getCampusBySearch('', 0, 20).subscribe({
+      next: (response) => {        
+        if (response) {
+          let content: CampusAutocompleteResponse[] | undefined;
+          
+          // Check if content is in response.data.content
+          if (response.data?.content && Array.isArray(response.data.content)) {
+            content = response.data.content;
+          }
+          // Check if content is directly in response.data (array)
+          else if (response.data && Array.isArray(response.data)) {
+            content = response.data as CampusAutocompleteResponse[];
+          }
+          // Check if content is at root level
+          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
+            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
+          }
+          
+          if (content && content.length > 0) {
+            this.initialCampuses.set(content);
+            // Pre-populate the cache with initial campuses
+            content.forEach((campus) => {
+              const campusId = campus.campusId || campus.id;
+              if (campusId && campus.campusName) {
+                this.campusCache.set(campusId, {
+                  campusName: campus.campusName,
+                  campusAddress: campus.campusAddress,
+                });
+              }
+            });
+          } else {
+            console.warn('StudentFormComponent: No campus content in initial response');
+          }
+        }
+      },
+      error: (error) => {
+        console.error('StudentFormComponent: Failed to load initial campuses:', error);
+      },
+    });
   }
 
   readonly yearOfPassingMin = '1900-01-01'; // Allow all past years - set to a very old date
@@ -277,6 +366,89 @@ export class StudentFormComponent {
       { label: 'Other', value: 'Other' },
     ];
   }
+
+  // API fetch function for campus autocomplete
+  fetchCampuses: ApiFetchFunction<string> = (searchTerm: string): Observable<DropdownItem<string>[]> => {    
+    // Get existing campuses from the form to include in results
+    const existingCampuses = this.value.education
+      .filter((edu) => edu.campusId && edu.institution)
+      .map((edu) => ({
+        label: edu.institution,
+        value: edu.campusId!,
+      }));
+    
+    // Always call the API to ensure fresh data
+    return this.campusApiService.getCampusBySearch(searchTerm || '', 0, 20).pipe(
+      map((response) => {        
+        const items: DropdownItem<string>[] = [];
+        
+        if (response) {
+          // Try different response structures
+          let content: CampusAutocompleteResponse[] | undefined;
+          
+          // Check if content is in response.data.content
+          if (response.data?.content && Array.isArray(response.data.content)) {
+            content = response.data.content;
+          }
+          // Check if content is directly in response.data (array)
+          else if (response.data && Array.isArray(response.data)) {
+            content = response.data as CampusAutocompleteResponse[];
+          }
+          // Check if content is at root level
+          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
+            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
+          }
+          
+          if (content && content.length > 0) {
+            const campusItems = content
+              .filter((campus) => {
+                // Support both 'id' and 'campusId' properties
+                const campusId = campus.campusId || campus.id;
+                const hasId = !!campusId;
+                const hasName = !!campus.campusName;
+                return hasId && hasName;
+              })
+              .map((campus) => {
+                // Use 'id' if 'campusId' is not available (API returns 'id')
+                const campusId = campus.campusId || campus.id || '';
+                const campusName = campus.campusName || '';
+                const campusAddress = campus.campusAddress || '';
+                
+                // Cache the mapping for later use (store both name and address)
+                if (campusId && campusName) {
+                  this.campusCache.set(campusId, {
+                    campusName,
+                    campusAddress: campusAddress || undefined,
+                  });
+                }
+                
+                const item = {
+                  label: campusName,
+                  value: campusId,
+                };
+                return item;
+              });
+            items.push(...campusItems);
+          }
+        }
+        
+        // Merge with existing campuses from the form (avoid duplicates)
+        const existingNotInApi = existingCampuses.filter(
+          (existing) => !items.some((item) => item.value === existing.value)
+        );
+        items.unshift(...existingNotInApi); // Add existing campuses at the beginning
+        
+        // Always add "Other" option at the end
+        items.push({ label: 'Other', value: 'OTHER' });
+        return items;
+      }),
+      catchError((error) => {
+        console.error('StudentFormComponent: Error in fetchCampuses:', error);
+        // On error, return existing campuses + "Other" option
+        return of([...existingCampuses, { label: 'Other', value: 'OTHER' }]);
+      })
+    );
+  };
 
   readonly degreeItems: readonly DropdownItem<string>[] = [
     { label: 'B.Tech', value: 'B.Tech' },
@@ -514,18 +686,98 @@ export class StudentFormComponent {
   }
 
   patchEducationAt(index: number, patch: Partial<StudentEducationItem>): void {
-    // If institution is being updated and we have campuses, find the campus and set campusId
-    if (patch.institution && this.campuses && this.campuses.length > 0) {
-      const selectedCampus = this.campuses.find((c) => c.campusId === patch.institution || c.campusName === patch.institution);
-      if (selectedCampus && selectedCampus.campusId) {
-        patch.campusId = selectedCampus.campusId;
-        // Also update institution to campusName for consistency
-        if (selectedCampus.campusName) {
-          patch.institution = selectedCampus.campusName;
+    // If institution is being updated, handle campusId
+    if (patch.institution) {
+      // The value from API dropdown will be the campus ID (could be UUID, MongoDB ObjectId, or CAMPUS-xxx format)
+      // Check if it looks like a campusId
+      const value = patch.institution.trim();
+      
+      // Check if "Other" was selected
+      if (value === 'OTHER') {
+        // Clear campusId and campusAddress when "Other" is selected
+        patch.campusId = undefined;
+        patch.campusAddress = undefined;
+        patch.institution = 'OTHER'; // Keep as "OTHER" to indicate custom input needed
+      } else {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+        const isMongoObjectId = /^[0-9a-f]{24}$/i.test(value); // MongoDB ObjectId: 24 hex characters
+        const isCampusPrefix = value.startsWith('CAMPUS-');
+        const isCampusId = isUUID || isMongoObjectId || isCampusPrefix || value.length > 20;
+        
+        if (isCampusId) {
+          // Value is a campusId from API - store it as campusId and get the campus name and address from cache
+          patch.campusId = value;
+          
+          // Look up campus name and address from cache (populated when fetching campuses)
+          const cachedCampus = this.campusCache.get(value);
+          if (cachedCampus) {
+            patch.institution = cachedCampus.campusName;
+            if (cachedCampus.campusAddress) {
+              patch.campusAddress = cachedCampus.campusAddress;
+            }
+          } else {
+            // If not in cache, try to find in existing campuses input
+            if (this.campuses && this.campuses.length > 0) {
+              const selectedCampus = this.campuses.find((c) => c.campusId === value);
+              if (selectedCampus && selectedCampus.campusName) {
+                patch.institution = selectedCampus.campusName;
+                if (selectedCampus.campusAddress) {
+                  patch.campusAddress = selectedCampus.campusAddress;
+                }
+                // Also cache it for future use
+                this.campusCache.set(value, {
+                  campusName: selectedCampus.campusName,
+                  campusAddress: selectedCampus.campusAddress,
+                });
+              }
+            }
+          }
+        } else {
+          // Value might be from static list or typed manually
+          // Try to find in existing campuses if available
+          if (this.campuses && this.campuses.length > 0) {
+            const selectedCampus = this.campuses.find((c) => c.campusId === value || c.campusName === value);
+            if (selectedCampus && selectedCampus.campusId) {
+              patch.campusId = selectedCampus.campusId;
+              if (selectedCampus.campusName) {
+                patch.institution = selectedCampus.campusName;
+              }
+              if (selectedCampus.campusAddress) {
+                patch.campusAddress = selectedCampus.campusAddress;
+              }
+            }
+          }
         }
       }
     }
     const next = this.value.education.map((item, i) => (i === index ? { ...item, ...patch } : item));
+    this.patch({ education: next });
+  }
+
+  // Check if "Other" is selected for a specific education item
+  isOtherInstitutionSelected(index: number): boolean {
+    const edu = this.value.education[index];
+    if (!edu) return false;
+    // If institution is "OTHER" or if there's no campusId (meaning it's a custom institution), show the input
+    return edu.institution === 'OTHER' || (!edu.campusId && !!edu.institution);
+  }
+
+  // Handle custom institution name input
+  onCustomInstitutionChange(index: number, customName: string): void {
+    const trimmedName = customName.trim();
+    // When typing in custom input, directly update the education item without going through patchEducationAt logic
+    // This prevents the campus matching logic from interfering
+    const next = this.value.education.map((item, i) => {
+      if (i === index) {
+        return {
+          ...item,
+          institution: trimmedName || 'OTHER',
+          campusId: undefined,
+          campusAddress: undefined,
+        };
+      }
+      return item;
+    });
     this.patch({ education: next });
   }
 
@@ -683,6 +935,11 @@ export class StudentFormComponent {
     return this.submitAttempted && (!files || files.length === 0);
   }
 
+  isRequiredInvalidFilesWithUrl(files: FileList | null, existingUrl: string | undefined): boolean {
+    // Valid if either has new files OR has existing URL
+    return this.submitAttempted && (!files || files.length === 0) && (!existingUrl || existingUrl.trim() === '');
+  }
+
   isOffersInHandInvalid(): boolean {
     return this.submitAttempted && this.value.additional.offersInHand === null;
   }
@@ -766,6 +1023,10 @@ export class StudentFormComponent {
     // Basic required checks; we can tighten once backend contract is confirmed.
     const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
     const isEditModeValidation = this.isReviewMode && this.isEditMode;
+    // Check if photo is valid: either new files uploaded OR existing photoUrl present OR in edit mode
+    const hasValidPhoto = isEditModeValidation || 
+                         (!!this.value.photoFiles && this.value.photoFiles.length > 0) || 
+                         (this.isEditModeDisplay && !!this.value.photoUrl && this.value.photoUrl.trim().length > 0);
     return (
       this.value.firstName.trim().length > 0 &&
       this.value.lastName.trim().length > 0 &&
@@ -777,7 +1038,7 @@ export class StudentFormComponent {
       this.value.email.trim().length > 0 &&
       this.value.address.trim().length > 0 &&
       this.value.profileSummary.trim().length > 0 &&
-      (isEditModeValidation || (!!this.value.photoFiles && this.value.photoFiles.length > 0)) &&
+      hasValidPhoto &&
       this.isEducationValid() &&
       this.isWorkPreferencesValid() &&
       this.isAdditionalValid()
@@ -841,9 +1102,16 @@ export class StudentFormComponent {
 
   private isAdditionalValid(): boolean {
     const isEditModeValidation = this.isReviewMode && this.isEditMode;
+    // Check if files are valid: either new files uploaded OR existing URLs present OR in edit mode
+    const hasValidGovtIdProof = isEditModeValidation || 
+                                (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0) ||
+                                (this.isEditModeDisplay && !!this.value.additional.govtIdProofUrl && this.value.additional.govtIdProofUrl.trim().length > 0);
+    const hasValidResume = isEditModeValidation || 
+                          (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0) ||
+                          (this.isEditModeDisplay && !!this.value.additional.resumeUrl && this.value.additional.resumeUrl.trim().length > 0);
     return (
-      (isEditModeValidation || (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0)) &&
-      (isEditModeValidation || (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0)) &&
+      hasValidGovtIdProof &&
+      hasValidResume &&
       (isEditModeValidation || this.value.additional.portfolioUrl.trim().length > 0) &&
       (isEditModeValidation || this.value.additional.offersInHand !== null) &&
       (isEditModeValidation || this.value.additional.heardAboutPortal.trim().length > 0) &&

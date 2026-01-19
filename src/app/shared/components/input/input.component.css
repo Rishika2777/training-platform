@@ -111,6 +111,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   padding-right: 10px;
+  font-size: 14px;
+}
+
+.file-placeholder.has-file {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.file-wrapper.has-file {
+  background-color: color-mix(in srgb, var(--color-secondary) 8%, var(--color-white));
+  border-color: color-mix(in srgb, var(--color-secondary) 80%, transparent);
 }
 
 .file-icon {

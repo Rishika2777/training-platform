@@ -1,4 +1,4 @@
-<form class="ideas-submission-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="ideas-submission-form" (submit)="$event.preventDefault(); submit()">
   <div class="form-header">
     <h2 class="form-title">Your Ideas Shape the Future</h2>
     <p class="form-subtitle">Share Them with Us!</p>
@@ -9,7 +9,12 @@
       Download the template and update each section based on your ideas.
     </p>
 
-    <button type="button" class="download-btn" (click)="downloadTemplate()">
+    <button
+      type="button"
+      class="download-btn"
+      [disabled]="submitting || submittingInternal || downloadingInternal"
+      (click)="downloadTemplate()"
+    >
       Download Now
     </button>
 
@@ -33,7 +38,7 @@
         type="file"
         accept=".pdf,.doc,.docx"
         style="display: none"
-        [disabled]="submitting"
+        [disabled]="submitting || submittingInternal"
         (change)="onFileSelected($event)"
       />
 
@@ -61,7 +66,7 @@
         id="idea-description"
         class="description-input"
         [value]="value.description"
-        [disabled]="submitting"
+        [disabled]="submitting || submittingInternal"
         [attr.maxlength]="maxDescriptionLength"
         placeholder="Enter your idea description..."
         (input)="onDescriptionChange($any($event.target).value)"
@@ -77,7 +82,7 @@
       type="submit"
       label="Submit"
       variant="primary"
-      [disabled]="submitting || !isFormValid()"
+      [disabled]="submitting || submittingInternal || !isFormValid()"
     />
   </div>
 </form>

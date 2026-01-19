@@ -4,7 +4,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { RoleService } from '../../../../core/rbac/role.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { CompanyApiService } from '../../../company/services/company-api.service';
-import { CampusApiService, Campus, CampusRegisterRequest } from '../../../campus/services/campus-api.service';
+import { CampusApiService, Campus, CampusProfileUpdateRequest } from '../../../campus/services/campus-api.service';
 import { StudentFormComponent, StudentFormValue, createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.component';
 import { CampusResponse } from '../../../student/models/student.models';
 import { CompanyFormComponent, CompanyFormValue } from '../../../../shared/components/forms/company-form/company-form.component';
@@ -95,6 +95,20 @@ export class EditProfileModalComponent implements OnInit {
     this.isEditMode.update(mode => !mode);
   }
 
+  closeModal(): void {
+    this.closed.emit();
+  }
+
+  handleCancel(): void {
+    // For non-admin users (students, companies, campuses), close the modal
+    // For admin users, just toggle edit mode
+    if (this.isAdmin) {
+      this.toggleEditMode();
+    } else {
+      this.closeModal();
+    }
+  }
+
   private loadUserProfile(): void {
     const currentUser = this.auth.getCurrentUser();
     if (!currentUser?.userId || !this.userType) {
@@ -133,12 +147,12 @@ export class EditProfileModalComponent implements OnInit {
     } else if (this.userType === 'COMPANY') {
       // For company users editing their own profile
       // Store userId first - we'll update companyId from the profile response
-      if (!currentUser.userId) {
+      if (!currentUser.companyId) {
         this.viewSubmitting.set(false);
         console.warn('User ID not found for company user');
         return;
       }
-      const companyUserId = currentUser.userId.toString();
+      const companyUserId = currentUser.companyId.toString();
       this.selectedCompanyUserId = companyUserId;
 
       // For users editing their own profile, try using userId as companyId
@@ -260,13 +274,13 @@ export class EditProfileModalComponent implements OnInit {
   }
 
   private handleCampusFormSubmit(value: CampusFormValue): void {
-    if (!this.selectedCampusId || !this.selectedCampusEmail) {
+    if (!this.selectedCampusEmail) {
       this.viewSubmitting.set(false);
       return;
     }
 
     const updateRequest = this.mapCampusFormValueToUpdateRequest(value);
-    this.campusApi.updateCampus(this.selectedCampusId, this.selectedCampusEmail, updateRequest).subscribe({
+    this.campusApi.updateCampusProfile(this.selectedCampusEmail, updateRequest).subscribe({
       next: () => {
         this.notify.success('Profile updated successfully');
         this.reloadCampusProfile();
@@ -383,6 +397,7 @@ export class EditProfileModalComponent implements OnInit {
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
       campusId: educationDetails.campusId || [],
+      campusAddress: educationDetails.campusAddress || [], // Include campusAddress array from form
       other: educationDetails.other || false,
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
@@ -437,19 +452,23 @@ export class EditProfileModalComponent implements OnInit {
     };
   }
 
-  private mapCampusFormValueToUpdateRequest(value: CampusFormValue): CampusRegisterRequest {
+  private mapCampusFormValueToUpdateRequest(value: CampusFormValue): CampusProfileUpdateRequest {
+    const parsedRank = value.rank ? Number(value.rank) : NaN;
+    const campusLogoFileName = value.campusLogoFiles?.item(0)?.name?.trim();
+
     return {
-      campusName: value.campusName || '',
-      campusLogoUrl: value.campusLogoUrl || '',
-      campusRank: value.rank ? parseInt(value.rank, 10) : 0,
-      adminName: value.adminName || '',
-      adminEmail: (value.adminEmail || '').toLowerCase(),
-      adminPhone: value.adminPhone || '',
-      adminDepartment: value.adminDept || '',
-      adminDesignation: value.adminDesignation || '',
-      websiteUrl: value.website || '',
-      aboutCampus: value.about || '',
-      campusAddress: value.address || '',
+      campusName: value.campusName?.trim() || undefined,
+      campusLogoUrl: campusLogoFileName || value.campusLogoUrl || undefined,
+      campusRank: Number.isFinite(parsedRank) ? parsedRank : undefined,
+      adminName: value.adminName?.trim() || undefined,
+      adminEmail: value.adminEmail ? value.adminEmail.toLowerCase().trim() : undefined,
+      adminPhone: value.adminPhone?.trim() || undefined,
+      adminDepartment: value.adminDept?.trim() || undefined,
+      adminDesignation: value.adminDesignation?.trim() || undefined,
+      websiteUrl: value.website?.trim() || undefined,
+      campusWebsiteUrl: value.website?.trim() || undefined,
+      aboutCampus: value.about?.trim() || undefined,
+      campusAddress: value.address?.trim() || undefined,
     };
   }
 
@@ -561,6 +580,8 @@ export class EditProfileModalComponent implements OnInit {
       additional: {
         ...createEmptyStudentFormValue().additional,
         portfolioUrl: readString(data, 'portfolioUrl'),
+        govtIdProofUrl: readString(data, 'govtIdProofUrl'), // Map govt ID proof URL
+        resumeUrl: readString(data, 'resumeUrl'), // Map resume URL
         otherWebsites,
         offersInHand,
         heardAboutPortal: readString(data, 'howDidYouHear'),
@@ -721,19 +742,29 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
   const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
+  const campusAddresses = readStringArray(education, 'campusAddress'); // Read campusAddress array from API
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
   const yearOfPassing = readString(education, 'yearOfPassing');
   const cgpa = readString(education, 'cgpa');
   const certificates = readStringArray(education, 'certificates');
+  const other = readBoolean(education, 'other') ?? false; // Read "other" flag
 
   const maxLen = Math.max(qualifications.length, institutions.length, degrees.length, specializations.length, 1);
   const out: StudentFormValue['education'] = [];
   for (let i = 0; i < maxLen; i++) {
+    const campusId = campusIds[i];
+    const institutionName = institutions[i] ?? '';
+    
+    // If "other" is true and campusId is empty/null, this is a custom institution
+    // Set campusId to undefined and keep the custom institution name
+    const isCustomInstitution = other && (!campusId || campusId === 'null' || campusId.trim() === '');
+    
     out.push({
       qualification: qualifications[i] ?? '',
-      institution: institutions[i] ?? '',
-      campusId: campusIds[i] ?? undefined, // Map campusId from API response
+      institution: isCustomInstitution ? institutionName : institutionName, // Keep the institution name as-is
+      campusId: isCustomInstitution ? undefined : campusId, // Clear campusId for custom institutions
+      campusAddress: isCustomInstitution ? undefined : campusAddresses[i], // Clear campusAddress for custom institutions
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
       yearOfPassing: convertYearToDate(yearOfPassing),

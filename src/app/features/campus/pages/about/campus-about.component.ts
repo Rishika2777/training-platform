@@ -15,8 +15,8 @@ import { CampusPlacedStudentsComponent, PlacedStudentsFormValue } from '../place
 import { CampusDownloadProspectusComponent } from '../download-prospectus/campus-download-prospectus.component';
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { FacultyDetailService } from '../../services/faculty-detail.service';
-import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardResponse, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
-import { ApiResponsePlacedStudentsResponse } from '../../../student/models/student.models';
+import { CampusApiService, TestimonialData, TestimonialsResponse, ResearchData, YearlyTrend, GetAllFacultiesResponse, FacultyListItem, AlumniDashboardData, FeedbackRequest, FeedbackResponse, VisitCampusRequest, VisitCampusResponse, StudentByBatchData, StudentsByBatchResponse } from '../../services/campus-api.service';
+import { ApiResponsePlacedStudentsResponse, ApiResponsePageAlumniResponse } from '../../../student/models/student.models';
 import { StudentApiService } from '../../../student/services/student-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
@@ -1112,55 +1112,83 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   readonly alumniTotalPages = signal(1);
 
   loadAlumni(): void {
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    if (!campusId) {
+      this.allAlumni.set([]);
+      this.alumni.set([]);
+      this.alumniTotalPages.set(1);
+      return;
+    }
+    const year = new Date().getFullYear().toString();
     this.loadingAlumni.set(true);
-    
-    // Use the same API as campus dashboard (getAlumniForCarousel)
-    this.campusApi.getAlumniForCarousel(50).pipe(
-      catchError(() => {
-        this.loadingAlumni.set(false);
-        return of(null);
-      })
-    ).subscribe({
-      next: (response: AlumniDashboardResponse | null) => {
-        this.loadingAlumni.set(false);
-        
-        if (response?.success && Array.isArray(response.data)) {
-          const mappedAlumni = response.data.map((alumnus: AlumniDashboardData) => this.mapAlumniToPersonCard(alumnus));
-          this.allAlumni.set(mappedAlumni);
-          
-          // Calculate total pages for client-side pagination
-          const totalPages = Math.max(1, Math.ceil(mappedAlumni.length / this.alumniPageSize));
-          this.alumniTotalPages.set(totalPages);
-          
-          // Update current page items
-          this.updateAlumniPageItems();
-        } else {
+    this.studentApiService
+      .getAlumniByCampusBatch(campusId, year, 1, this.alumniPageSize)
+      .pipe(
+        catchError(() => {
+          this.loadingAlumni.set(false);
           this.allAlumni.set([]);
           this.alumni.set([]);
           this.alumniTotalPages.set(1);
-        }
-      },
-      error: () => {
-        this.loadingAlumni.set(false);
-        this.allAlumni.set([]);
-        this.alumni.set([]);
-        this.alumniTotalPages.set(1);
-      }
-    });
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response: ApiResponsePageAlumniResponse | null) => {
+          this.loadingAlumni.set(false);
+          const content =
+            response?.data?.content && Array.isArray(response.data.content)
+              ? (response.data.content as AlumniDashboardData[])
+              : [];
+          if (response?.success && content.length > 0) {
+            const mappedAlumni = content.map((alumnus) => this.mapAlumniToPersonCard(alumnus));
+            this.allAlumni.set(mappedAlumni);
+            const totalPages = Math.max(1, Math.ceil(mappedAlumni.length / this.alumniPageSize));
+            this.alumniTotalPages.set(totalPages);
+            this.updateAlumniPageItems();
+          } else {
+            this.allAlumni.set([]);
+            this.alumni.set([]);
+            this.alumniTotalPages.set(1);
+          }
+          try {
+            this.cdr.detectChanges();
+          } catch {
+            // ignore
+          }
+        },
+        error: () => {
+          this.loadingAlumni.set(false);
+          this.allAlumni.set([]);
+          this.alumni.set([]);
+          this.alumniTotalPages.set(1);
+        },
+      });
   }
 
   private mapAlumniToPersonCard(alumnus: AlumniDashboardData): PersonCard {
-    const name = alumnus.studentName || 
-                 [alumnus.firstName, alumnus.lastName].filter(Boolean).join(' ') || 
-                 'Unknown';
+    const extra = alumnus as unknown as Record<string, unknown>;
+    const extraName = typeof extra['name'] === 'string' ? extra['name'] : '';
+    const extraImageUrl = typeof extra['imageUrl'] === 'string' ? extra['imageUrl'] : '';
+    const extraCompany = typeof extra['company'] === 'string' ? extra['company'] : '';
+    const extraGraduationYear =
+      typeof extra['graduationYear'] === 'string' ? extra['graduationYear'] : '';
+
+    const name =
+      alumnus.studentName ||
+      extraName ||
+      [alumnus.firstName, alumnus.lastName].filter(Boolean).join(' ') ||
+      'Unknown';
     
     return {
       id: alumnus.studentId || alumnus.userId || '',
       name: name,
-      imageUrl: alumnus.profilePhotoUrl || alumnus.imageUrl || 'assets/images/login-news-image.png',
+      imageUrl: resolveImageUrl(
+        (alumnus.profilePhotoUrl || extraImageUrl) || undefined,
+        name
+      ),
       designation: alumnus.designation,
-      company: alumnus.companyName,
-      batch: alumnus.batch || alumnus.yearOfPassing,
+      company: alumnus.companyName || extraCompany,
+      batch: alumnus.batch || alumnus.yearOfPassing || extraGraduationYear,
     };
   }
 
@@ -1188,6 +1216,16 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       this.alumniPage++;
       this.updateAlumniPageItems();
     }
+  }
+
+  avatarSrc(card: PersonCard): string {
+    return resolveImageUrl(card.imageUrl, card.name);
+  }
+
+  onAvatarError(card: PersonCard, event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.src = createInitialsAvatar(card.name);
+    img.alt = `${card.name} (initials)`;
   }
 
   // Testimonials - API Integration
@@ -2618,4 +2656,38 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     console.log('CampusAboutComponent: ✅ subscribe() called on API observable');
   }
 
+}
+
+function buildInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'A';
+  const first = parts[0][0] || '';
+  const second = parts.length > 1 ? parts[1][0] : '';
+  return (first + second).toUpperCase();
+}
+
+function createInitialsAvatar(name: string): string {
+  const initials = buildInitials(name || 'A');
+  const bg = '#E6F0FF';
+  const fg = '#2F4A80';
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="32" ry="32" fill="${bg}"/>
+  <text x="50%" y="54%" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="${fg}" text-anchor="middle" dominant-baseline="middle">${initials}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`;
+}
+
+function resolveImageUrl(value: string | undefined, name: string): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return createInitialsAvatar(name);
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return trimmed.startsWith('/files') ? `/api/v1${trimmed}` : `/api/v1/files${trimmed}`;
+  }
+  return `/api/v1/files/${trimmed}`;
 }

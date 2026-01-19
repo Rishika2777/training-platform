@@ -21,18 +21,22 @@
 
   <app-landing-feature-row
       title="Campus Registered"
-      image="assets/images/landing-card-campus.png"
-      cardTitle="Campus Name"
-      description="Lorem ipsum dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      [image]="campusImage()"
+      [cardTitle]="campusCardTitle()"
+      [description]="campusDescription()"
       direction="normal"
+      (previous)="previousCampus()"
+      (next)="nextCampus()"
   />
 
   <app-landing-feature-row
       title="Companies Registered"
-      image="assets/images/landing-card-company.png"
-      cardTitle="Company Name"
-      description="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      [image]="companyImage()"
+      [cardTitle]="companyCardTitle()"
+      [description]="companyDescription()"
       direction="reverse"
+      (previous)="previousCompany()"
+      (next)="nextCompany()"
   />
 
   <app-landing-feature-row
