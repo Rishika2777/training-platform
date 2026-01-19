@@ -18,6 +18,8 @@ import { map } from 'rxjs/operators';
 import { CampusResponse } from '../../models/student.models';
 import { APP_CONFIG_TOKEN, APP_CONFIG } from '../../../../core/config/app.constants';
 import { CampusApiService, CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 
 @Component({
   selector: 'app-student-home',
@@ -43,6 +45,7 @@ export class StudentHomeComponent implements OnInit {
   readonly studentApiService = inject(StudentApiService);
   readonly authService = inject(AuthService);
   private readonly campusApiService = inject(CampusApiService);
+  private readonly storage = inject(StorageService);
   private readonly config = inject(APP_CONFIG_TOKEN, { optional: true }) ?? APP_CONFIG;
 
   readonly activeModal = computed(() => this.modalService.activeModal());
@@ -193,28 +196,28 @@ export class StudentHomeComponent implements OnInit {
           }
           
           // Update signal with profile data
-          this.studentProfile.set(profileData);
-          
-          // Extract firstName and lastName for navbar
-          const firstName = profileData['firstName'] ? String(profileData['firstName']) : '';
-          const lastName = profileData['lastName'] ? String(profileData['lastName']) : '';
-          console.log('Student name loaded:', firstName, lastName);
-          
-          // Extract institutionName and yearOfPassing
-          console.log('📊 Profile data institutionName:', profileData['institutionName']);
-          console.log('📊 Profile data campusName:', profileData['campusName']);
-          
+          this.studentProfile.set(profileData);                
           const institutionName = Array.isArray(profileData['institutionName']) && profileData['institutionName'].length > 0
             ? String(profileData['institutionName'][0])
             : null;
           const yearOfPassing = profileData['yearOfPassing'] ? String(profileData['yearOfPassing']) : null;
-          
-          console.log('✅ Setting selectedCampusName to:', institutionName);
-          console.log('✅ Setting selectedYearOfPassing to:', yearOfPassing);
-          
+        
           this.selectedCampusName.set(institutionName);
           this.selectedYearOfPassing.set(yearOfPassing);
           
+          // Extract campusId from profile - handle both array and single value formats
+          let campusId: string | null = null;
+          
+          if (Array.isArray(profileData['campusId']) && profileData['campusId'].length > 0) {
+            // If it's an array, take the first element
+            campusId = String(profileData['campusId'][0]);
+          } else if (profileData['campusId'] && typeof profileData['campusId'] === 'string') {
+            // If it's a single string value
+            campusId = profileData['campusId'] as string;
+          }
+          
+          // Fallback to storage if campusId is not in profile
+          const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;          
           // Load batchmates and alumni with the profile data
           if (institutionName && yearOfPassing) {
             this.loadBatchmates(studentId);
@@ -222,14 +225,20 @@ export class StudentHomeComponent implements OnInit {
           } else {
             console.warn('Cannot load batchmates/alumni: institutionName or yearOfPassing is missing');
           }
+          
+          // Load placed students using campusId from profile or storage
+          if (finalCampusId) {
+            this.loadPlacedStudents(finalCampusId);
+          } else {
+            console.warn('Cannot load placed students: campusId is missing from profile and storage');
+          }
         } else {
-          console.warn('Profile data not found in API response');
           // Fallback to localStorage if API fails
           this.loadDataFromStorage(studentId);
         }
       },
       error: (error) => {
-        console.error('Error loading student profile:', error);
+        console.error('❌ loadData: Error loading student profile:', error);
         // Fallback to localStorage if API fails
         this.loadDataFromStorage(studentId);
       },
@@ -252,10 +261,29 @@ export class StudentHomeComponent implements OnInit {
       this.selectedCampusName.set(institutionName);
       this.selectedYearOfPassing.set(yearOfPassing);
       
+      // Extract campusId from stored profile - handle both array and single value formats
+      let campusId: string | null = null;
+      
+      if (Array.isArray(storedProfile['campusId']) && storedProfile['campusId'].length > 0) {
+        // If it's an array, take the first element
+        campusId = String(storedProfile['campusId'][0]);
+      } else if (storedProfile['campusId'] && typeof storedProfile['campusId'] === 'string') {
+        // If it's a single string value
+        campusId = storedProfile['campusId'] as string;
+      }
+      
+      // Fallback to storage if campusId is not in stored profile
+      const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;
+      
       // Load batchmates, alumni, and placed students with the stored profile data
       if (institutionName && yearOfPassing) {
         this.loadBatchmates(studentId);
         this.loadAlumni(studentId);
+      }
+      
+      // Load placed students using campusId from stored profile or storage
+      if (finalCampusId) {
+        this.loadPlacedStudents(finalCampusId);
       }
     } else {
       console.warn('Profile data not found in storage. Batchmates and alumni will not be loaded.');
@@ -289,9 +317,6 @@ export class StudentHomeComponent implements OnInit {
       ? String(profile['institutionName'][0])
       : null;
     const yearOfPassing = profile['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
-    
-    console.log('👥 loadBatchmates using institutionName:', institutionName);
-    console.log('👥 loadBatchmates using yearOfPassing:', yearOfPassing);
 
     if (!institutionName || !yearOfPassing) {
       console.warn('Cannot load batchmates: institutionName or yearOfPassing is missing', { institutionName, yearOfPassing });
@@ -333,10 +358,24 @@ export class StudentHomeComponent implements OnInit {
       });
   }
 
-  loadPlacedStudents(): void {
+  loadPlacedStudents(campusId: string): void {
+    console.log('🎯 loadPlacedStudents CALLED with campusId:', campusId);
+    console.log('🎯 loadPlacedStudents campusId type:', typeof campusId);
+    console.log('🎯 loadPlacedStudents campusId truthy?', !!campusId);
+    
+    if (!campusId) {
+      console.error('❌ loadPlacedStudents: campusId is falsy, returning early');
+      this.loadingPlacedStudents.set(false);
+      this.placedStudents.set([]);
+      this.placedStudentsTotalPages.set(1);
+      return;
+    }
+
+    console.log('✅ loadPlacedStudents: Proceeding with API call for campusId:', campusId);
     this.loadingPlacedStudents.set(true);
-    this.studentApiService
-      .getPlacedStudents(this.placedStudentsPage, this.peoplePageSize)
+    // Uses campus dashboard placed-students API (0-based paging)
+    this.campusApiService
+      .getDashboardPlacedStudents(campusId, Math.max(0, this.placedStudentsPage - 1), this.peoplePageSize)
       .pipe(
         catchError((error) => {
           console.error('Error loading placed students:', error);
@@ -413,7 +452,29 @@ export class StudentHomeComponent implements OnInit {
 
   onPlacedStudentsPageChange(page: number): void {
     this.placedStudentsPage = page;
-    this.loadPlacedStudents();
+    const profile = this.studentProfile();
+    
+    // Extract campusId from profile - handle both array and single value formats
+    let campusId: string | null = null;
+    
+    if (profile) {
+      if (Array.isArray(profile['campusId']) && profile['campusId'].length > 0) {
+        // If it's an array, take the first element
+        campusId = String(profile['campusId'][0]);
+      } else if (profile['campusId'] && typeof profile['campusId'] === 'string') {
+        // If it's a single string value
+        campusId = profile['campusId'] as string;
+      }
+    }
+    
+    // Fallback to storage if campusId is not in profile
+    const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;
+    
+    if (finalCampusId) {
+      this.loadPlacedStudents(finalCampusId);
+    } else {
+      console.warn('Cannot load placed students on page change: campusId is missing from profile and storage');
+    }
   }
 
   onAlumniPageChange(page: number): void {

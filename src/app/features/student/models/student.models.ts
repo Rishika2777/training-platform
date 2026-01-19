@@ -327,6 +327,27 @@ export interface ApiResponsePlacedStudentsResponse {
   timestamp?: string;
 }
 
+export interface PageStudent {
+  totalPages?: number;
+  totalElements?: number;
+  first?: boolean;
+  last?: boolean;
+  size?: number;
+  content?: PlacedStudentResponse[];
+  number?: number;
+  numberOfElements?: number;
+  empty?: boolean;
+}
+
+export interface ApiResponsePageStudent {
+  success?: boolean;
+  message?: string;
+  data?: PageStudent;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
 export interface CareerCheckInRequest {
   companyName: string;
   jobTitle: string;

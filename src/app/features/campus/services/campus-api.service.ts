@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, catchError, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType, STORAGE_KEYS } from '../../../core/config/app.constants';
-import { ApiResponsePlacedStudentsResponse, ApiResponsePageAlumniResponse, PlacedStudentResponse } from '../../student/models/student.models';
+import { ApiResponsePlacedStudentsResponse, ApiResponsePageAlumniResponse, PlacedStudentResponse, ApiResponsePageStudent } from '../../student/models/student.models';
 import { StorageService } from '../../../core/storage/storage.service';
 
 /**
@@ -537,6 +537,82 @@ export class CampusApiService {
         console.error('CampusApiService: getPlacedStudents - Error status:', error?.status);
         console.error('CampusApiService: getPlacedStudents - Error URL:', error?.url);
         console.error('CampusApiService: getPlacedStudents - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/{campusId}/placed-students
+   * Get Placed Students for the campus with pagination.
+   * Default 6 students per page, sorted by placement date (newest first).
+   * 
+   * @param campusId - Required campus ID (path parameter)
+   * @param page - Page number (0-based, default: 0)
+   * @param limit - Number of records per page (default: 6)
+   * @returns Observable of ApiResponsePageStudent
+   */
+  getDashboardPlacedStudents(
+    campusId: string,
+    page = 0,
+    limit = 6,
+  ): Observable<ApiResponsePageStudent> {
+    if (!campusId) {
+      console.error('CampusApiService: getDashboardPlacedStudents - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get placed students'));
+    }
+
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PLACED_STUDENTS, { campusId });
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        // Backend response format: { success: true, message: "Placed students retrieved successfully", data: { content: [...], ... }, error: null }
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const responseObj = raw as Record<string, unknown>;
+
+          // Check if response has the expected structure
+          if ('success' in responseObj && 'data' in responseObj) {
+            const dataObj = responseObj['data'] as Record<string, unknown>;
+            const response: ApiResponsePageStudent = {
+              success: responseObj['success'] as boolean,
+              message: (responseObj['message'] as string) || 'Placed students retrieved successfully',
+              data: {
+                content: (Array.isArray(dataObj['content']) ? dataObj['content'] : []) as PlacedStudentResponse[],
+                totalPages: typeof dataObj['totalPages'] === 'number' ? dataObj['totalPages'] : undefined,
+                totalElements: typeof dataObj['totalElements'] === 'number' ? dataObj['totalElements'] : undefined,
+                first: typeof dataObj['first'] === 'boolean' ? dataObj['first'] : undefined,
+                last: typeof dataObj['last'] === 'boolean' ? dataObj['last'] : undefined,
+                size: typeof dataObj['size'] === 'number' ? dataObj['size'] : undefined,
+                number: typeof dataObj['number'] === 'number' ? dataObj['number'] : undefined,
+                numberOfElements: typeof dataObj['numberOfElements'] === 'number' ? dataObj['numberOfElements'] : undefined,
+                empty: typeof dataObj['empty'] === 'boolean' ? dataObj['empty'] : undefined,
+              },
+              error: (responseObj['error'] as string) || undefined,
+              statusCode: typeof responseObj['statusCode'] === 'number' ? responseObj['statusCode'] : undefined,
+              timestamp: typeof responseObj['timestamp'] === 'string' ? responseObj['timestamp'] : undefined,
+            };
+
+            return response;
+          }
+        }
+
+        console.warn('CampusApiService: getDashboardPlacedStudents - Response format unexpected:', raw);
+        // Return a default response structure
+        return {
+          success: false,
+          message: 'Unexpected response format',
+          data: { content: [] },
+          error: 'Invalid response structure',
+        } as ApiResponsePageStudent;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getDashboardPlacedStudents - Error occurred:', error);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error status:', error?.status);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error URL:', error?.url);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error response:', error?.error);
         return throwError(() => error);
       })
     );
