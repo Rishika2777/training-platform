@@ -238,6 +238,19 @@ export class CampusHomeComponent implements OnInit {
       }
     });
 
+    // Reset placed students form when modal opens
+    effect(() => {
+      const isOpen = this.isPlacedStudentsModalOpen();
+      if (isOpen && this.placedStudentsComponent) {
+        // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
+        setTimeout(() => {
+          if (this.placedStudentsComponent) {
+            this.placedStudentsComponent.resetForm();
+          }
+        }, 0);
+      }
+    });
+
     this.loadAnnouncements();
   }
   
@@ -1054,7 +1067,6 @@ export class CampusHomeComponent implements OnInit {
   }
 
   openBatchFilterModal(): void {
-    this.selectedFilterCampus.set(this.currentBatchCampusName() || '');
     this.selectedFilterYear.set(this.currentBatchYear() || this.selectedAlumniYear() || '');
     this.showBatchFilterModal.set(true);
   }
@@ -1064,17 +1076,16 @@ export class CampusHomeComponent implements OnInit {
   }
 
   applyBatchFilters(): void {
-    const campusName = (this.selectedFilterCampus() || '').trim();
     const year = (this.selectedFilterYear() || this.currentBatchYear() || this.selectedAlumniYear() || '').trim();
-    if (!campusName || !year) {
+    if (!year) {
       this.showBatchFilterModal.set(false);
       return;
     }
-    this.currentBatchCampusName.set(campusName);
     this.currentBatchYear.set(year);
     this.currentBatchPage = 0;
     const campusId = this.getCampusId();
     if (campusId) {
+      // Campus name will be auto-fetched in loadCurrentBatchStudents if not already set
       this.loadCurrentBatchStudents(campusId, year);
     }
     this.showBatchFilterModal.set(false);
@@ -1579,8 +1590,9 @@ export class CampusHomeComponent implements OnInit {
           this.submittingPlacedStudents = false;
           if (response?.success) {
             this.notify.success(response?.message || 'Placed student added successfully');
-            // Reload student names in the form component before closing modal
+            // Reset form after successful submit
             if (this.placedStudentsComponent) {
+              this.placedStudentsComponent.resetForm();
               this.placedStudentsComponent.reloadStudentNames();
             }
             this.closeModal();

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener, ChangeDetectorRef, inject, AfterViewChecked } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize, tap } from 'rxjs/operators';
 
@@ -18,7 +18,7 @@ export type ApiFetchFunction<TValue extends string = string> = (searchTerm: stri
   templateUrl: './dropdown.component.html',
   styleUrl: './dropdown.component.css',
 })
-export class DropdownComponent<TValue extends string = string> implements OnInit, OnDestroy, OnChanges {
+export class DropdownComponent<TValue extends string = string> implements OnInit, OnDestroy, OnChanges, AfterViewChecked {
   private static idCounter = 0;
   readonly selectId = `dropdown-select-${DropdownComponent.idCounter++}`;
 
@@ -98,6 +98,11 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       
       // Force change detection to update the view
       this.cdr.detectChanges();
+      
+      // Position dropdown if it's open
+      if (this.isDropdownOpen) {
+        setTimeout(() => this.positionDropdownMenu(), 0);
+      }
     });
 
   ngOnInit(): void {
@@ -149,6 +154,31 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   ngOnDestroy(): void {
     this.searchSubscription.unsubscribe();
     this.searchSubject.complete();
+  }
+
+  ngAfterViewChecked(): void {
+    // Position dropdown menu if it's open and using fixed positioning (inside modal)
+    if (this.isDropdownOpen && this.dropdownMenu?.nativeElement && this.inputElement?.nativeElement) {
+      this.positionDropdownMenu();
+    }
+  }
+
+  private positionDropdownMenu(): void {
+    if (!this.dropdownMenu?.nativeElement || !this.inputElement?.nativeElement) {
+      return;
+    }
+
+    const menu = this.dropdownMenu.nativeElement;
+    const input = this.inputElement.nativeElement;
+    
+    // Check if dropdown is inside a modal (has fixed positioning)
+    if (window.getComputedStyle(menu).position === 'fixed') {
+      const inputRect = input.getBoundingClientRect();
+      menu.style.top = `${inputRect.bottom + 4}px`;
+      menu.style.left = `${inputRect.left}px`;
+      menu.style.width = `${inputRect.width}px`;
+      menu.style.right = 'auto';
+    }
   }
 
   updateSelectedItem(): void {
@@ -218,6 +248,7 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     
     if (this.autocomplete) {
       this.isDropdownOpen = true;
+      setTimeout(() => this.positionDropdownMenu(), 0);
       // For static items mode, always show all items when dropdown opens
       if (!this.apiFetchFn) {
         // Always refresh filtered items on focus when items are available

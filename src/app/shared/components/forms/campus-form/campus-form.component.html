@@ -17,9 +17,10 @@
 
       <app-input
         label="Upload Photo"
-        [required]="true"
+        [required]="isFileRequired"
         [invalid]="isInvalid('campusLogoFiles')"
         type="file"
+        [existingFileName]="undefined"
         (filesSelected)="patch({ campusLogoFiles: $event })"
         [disabled]="isFieldsDisabled"
       />

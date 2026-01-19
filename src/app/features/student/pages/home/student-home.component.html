@@ -77,9 +77,16 @@
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Placed Students</div>
-          <button class="panel-icon" type="button" title="Filter">
-            <i class="fa-solid fa-filter" aria-hidden="true"></i>
-          </button>
+          <div class="year-picker-icon-only">
+            <app-year-picker
+              [value]="placedStudentsYear()"
+              (valueChange)="onPlacedStudentsYearChange($event)"
+              [min]="'1900-01-01'"
+              [max]="placedStudentsYearMax"
+              label=""
+              [required]="false"
+            />
+          </div>
         </div>
 
         <app-carousel
@@ -105,24 +112,25 @@
           <div class="panel-title">Registered Companies</div>
         </div>
 
-        <div class="company-grid">
-          <button class="company-tile add" type="button" title="Add">
-            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          </button>
-          <div class="company-tile"></div>
-          <div class="company-tile"></div>
-        </div>
-
-        <div class="pager" aria-hidden="true">
-          <i class="fa-solid fa-chevron-left"></i>
-          <span class="page active">1</span>
-          <span class="page">2</span>
-          <span class="page">3</span>
-          <span class="page">4</span>
-          <span class="page">5</span>
-          <span class="page">6</span>
-          <i class="fa-solid fa-chevron-right"></i>
-        </div>
+        <app-carousel
+          type="pagination"
+          [currentPage]="companiesPage"
+          [totalPages]="companiesTotalPages()"
+          (pageChange)="onCompaniesPageChange($event)"
+        >
+          <div class="company-grid">
+            @for (company of companiesPageItems(); track company.name) {
+              <div class="company-tile">
+                @if (company.logoUrl) {
+                  <img [src]="company.logoUrl" [alt]="company.name" class="company-logo" />
+                } @else {
+                  <div class="company-placeholder">{{ company.name.charAt(0).toUpperCase() }}</div>
+                }
+                <div class="company-name">{{ company.name }}</div>
+              </div>
+            }
+          </div>
+        </app-carousel>
       </section>
 
       <section class="notice">
@@ -242,24 +250,26 @@
     (closed)="closeFilterModal()"
   >
     <div class="filter-modal-content">
-      <app-dropdown
-        label="Select Campus"
-        [value]="selectedCampusName()"
-        (valueChange)="onCampusChange($event)"
-        [autocomplete]="true"
-        [apiFetchFn]="fetchCampuses"
-        [debounceTime]="300"
-        [minSearchLength]="0"
-        placeholder="Type to search campuses..."
-      />
-      
-      <app-dropdown
-        label="Select Year of Passing"
-        [items]="getYearItems()"
-        [value]="selectedYearOfPassing()"
-        (valueChange)="onYearChange($event)"
-        placeholder="Select year..."
-      />
+      <div class="filter-fields">
+        <app-dropdown
+          label="Select Campus"
+          [value]="selectedCampusName()"
+          (valueChange)="onCampusChange($event)"
+          [autocomplete]="true"
+          [apiFetchFn]="fetchCampuses"
+          [debounceTime]="300"
+          [minSearchLength]="0"
+          placeholder="Type to search campuses..."
+        />
+        
+        <app-dropdown
+          label="Batch"
+          [items]="getYearItems()"
+          [value]="selectedYearOfPassing()"
+          (valueChange)="onYearChange($event)"
+          placeholder="Select year..."
+        />
+      </div>
       
       <div class="filter-actions">
         <app-button 

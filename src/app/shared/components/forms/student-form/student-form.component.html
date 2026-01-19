@@ -209,9 +209,8 @@
                 [disabled]="isFieldsDisabled"
                 [autocomplete]="true"
               />
-              <app-input
+              <app-year-picker
                 label="Year Of Passing"
-                type="date"
                 [required]="true"
                 [invalid]="isEducationFieldInvalid($index, 'yearOfPassing')"
                 [value]="edu.yearOfPassing"

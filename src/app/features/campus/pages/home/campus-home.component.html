@@ -250,19 +250,6 @@
 >
   <div style="display: flex; flex-direction: column; gap: 14px; padding: 4px 2px;">
     <div style="display: flex; flex-direction: column; gap: 6px;">
-      <div class="filter-label">Select Campus</div>
-      <app-dropdown
-        class="filter-select"
-        style="width: 100%;"
-        [items]="campusFilterOptions()"
-        [value]="selectedFilterCampus()"
-        [disabled]="loadingCurrentBatchStudents()"
-        placeholder="Type to search campuses..."
-        (valueChange)="selectedFilterCampus.set($event)"
-      />
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 6px;">
       <div class="filter-label">Select Year of Passing</div>
       <app-dropdown
         class="filter-select"

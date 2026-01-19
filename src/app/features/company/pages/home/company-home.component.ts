@@ -10,7 +10,7 @@ import { CompanyCurrentVacancyComponent } from '../current-vacancy/company-curre
 import { CompanyClientFormComponent, ClientFormValue } from '../client-form/company-client-form.component';
 import { CompanyPreferredCampusFormComponent, PreferredCampusFormValue } from '../preferred-campus-form/company-preferred-campus-form.component';
 import { SpecializationFormValue } from '../specialization/company-specialization.component';
-import { CompanyApiService, KeyPersonResponse, PreferredCampusResponse, ClientResponse, SpecializationResponse } from '../../services/company-api.service';
+import { CompanyApiService, KeyPersonResponse, PreferredCampusResponse, ClientResponse, SpecializationResponse, ClientRequest } from '../../services/company-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
@@ -334,7 +334,7 @@ export class CompanyHomeComponent implements OnInit {
     // TODO: Call API service
   }
 
-  handleClientFormSubmit(value: ClientFormValue): void {
+   handleClientFormSubmit(value: ClientFormValue): void {
     const companyId = this.getCompanyId();
     if (!companyId) {
       console.warn('CompanyHomeComponent: No company ID available, cannot submit client');
@@ -344,10 +344,16 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.submittingClientForm = true;
-    const request = {
+    
+    // Build request body with only defined fields
+    const request: ClientRequest = {
       clientName: value.clientName,
-      clientLogoUrl: value.logo ? 'uploaded-url-placeholder' : undefined, // TODO: Handle file upload
     };
+    
+    // Only add clientLogoUrl if a logo was provided
+    if (value.logo) {
+      request.clientLogoUrl = 'uploaded-url-placeholder'; // TODO: Handle file upload
+    }
 
     this.companyApi.addClient(companyId, request).pipe(
       catchError((error) => {

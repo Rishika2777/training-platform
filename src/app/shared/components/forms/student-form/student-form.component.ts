@@ -6,6 +6,7 @@ import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../../dropdow
 import { InputComponent } from '../../input/input.component';
 import { StepIndicatorComponent } from '../../step-indicator/step-indicator.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
+import { YearPickerComponent } from '../../year-picker/year-picker.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import type { CampusResponse } from '../../../../features/student/models/student.models';
 import { CampusApiService, type CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
@@ -183,6 +184,7 @@ function createEmptyAdditionalInfo(): StudentAdditionalInfo {
     InputComponent,
     StepIndicatorComponent,
     TextareaComponent,
+    YearPickerComponent,
   ],
   templateUrl: './student-form.component.html',
   styleUrl: './student-form.component.css',
@@ -761,6 +763,7 @@ export class StudentFormComponent implements OnInit, OnChanges {
     // If institution is "OTHER" or if there's no campusId (meaning it's a custom institution), show the input
     return edu.institution === 'OTHER' || (!edu.campusId && !!edu.institution);
   }
+
 
   // Handle custom institution name input
   onCustomInstitutionChange(index: number, customName: string): void {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
@@ -32,10 +32,10 @@ export interface CampusFormValue {
   templateUrl: './campus-form.component.html',
   styleUrl: './campus-form.component.css',
 })
-export class CampusFormComponent {
+export class CampusFormComponent implements OnChanges {
   @Input() submitting = false;
   @Input() title = 'Campus Registration';
-  @Input() mode: 'create' | 'review' = 'create';
+  @Input() mode: 'create' | 'review' | 'edit' = 'create';
   @Input() adminEmailLocked = false;
   @Input() approveDisabled = false;
   @Input() isEditMode = false;
@@ -73,6 +73,79 @@ export class CampusFormComponent {
     return this.submitting || (this.isReviewMode && !this.isEditMode);
   }
 
+  /**
+   * Extract file name from URL for display
+   */
+  getExistingImageFileName(): string | undefined {
+    if (!this.value.campusLogoUrl || this.value.campusLogoUrl.trim().length === 0) {
+      return undefined;
+    }
+    
+    try {
+      const url = this.value.campusLogoUrl.trim();
+      // Extract filename from URL
+      // Handle both full URLs and relative paths
+      const parts = url.split('/');
+      const fileName = parts[parts.length - 1];
+      
+      // Remove query parameters if any
+      const cleanFileName = fileName.split('?')[0];
+      
+      // If it looks like a valid filename (has extension), return it
+      if (cleanFileName && cleanFileName.includes('.')) {
+        return cleanFileName;
+      }
+      
+      // If no extension, return a generic name
+      return 'Existing Image';
+    } catch {
+      return 'Existing Image';
+    }
+  }
+
+  /**
+   * Check if file upload is required
+   * In edit mode, if there's an existing image, file is not required
+   */
+  get isFileRequired(): boolean {
+    // In edit mode or when mode is 'edit', if there's an existing image, file is optional
+    const isInEditMode = this.isEditMode || this.mode === 'edit';
+    if (isInEditMode && this.value.campusLogoUrl && this.value.campusLogoUrl.trim().length > 0) {
+      return false;
+    }
+    // In create mode or if no existing image, file is required
+    return true;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // When value input changes from parent (e.g., when loading profile data), sync internal state
+    if (changes['value']) {
+      const newValue = changes['value'].currentValue;
+      if (newValue) {
+        // Create a deep copy to ensure Angular detects the change
+        // Always reset campusLogoFiles to null when value changes from parent (loading profile)
+        // This ensures no stale file selection persists
+        this.value = {
+          campusName: newValue.campusName ?? '',
+          campusLogoUrl: newValue.campusLogoUrl ?? '',
+          campusLogoFiles: null, // Always reset to null when loading from parent
+          rank: newValue.rank ?? '',
+          adminName: newValue.adminName ?? '',
+          adminEmail: newValue.adminEmail ?? '',
+          adminPhone: newValue.adminPhone ?? '',
+          adminDept: newValue.adminDept ?? '',
+          adminDesignation: newValue.adminDesignation ?? '',
+          website: newValue.website ?? '',
+          about: newValue.about ?? '',
+          address: newValue.address ?? '',
+          city: newValue.city ?? '',
+          state: newValue.state ?? '',
+          pincode: newValue.pincode ?? '',
+        };
+      }
+    }
+  }
+
   patch(patch: Partial<CampusFormValue>): void {
     if (this.isReviewMode && !this.isEditMode) {
       return;
@@ -100,6 +173,16 @@ export class CampusFormComponent {
       return false;
     }
     if (field === 'campusLogoFiles') {
+      // In edit mode or when mode is 'edit', if there's an existing image, file is not required
+      const isInEditMode = this.isEditMode || this.mode === 'edit';
+      if (isInEditMode && this.value.campusLogoUrl && this.value.campusLogoUrl.trim().length > 0) {
+        return false;
+      }
+      // If file is not required (edit mode with existing image), don't show as invalid
+      if (isInEditMode && !this.isFileRequired) {
+        return false;
+      }
+      // Otherwise, file is required
       return !this.value.campusLogoFiles || this.value.campusLogoFiles.length === 0;
     }
     if (field === 'adminPhone') {
@@ -133,9 +216,15 @@ export class CampusFormComponent {
 
   private isFormValid(): boolean {
     const isEditModeValidation = this.isReviewMode && this.isEditMode;
+    // In edit mode, file is only required if there's no existing image
+    const fileValid = isEditModeValidation 
+      ? !!(this.value.campusLogoUrl && this.value.campusLogoUrl.trim().length > 0) || 
+        !!(this.value.campusLogoFiles && this.value.campusLogoFiles.length > 0)
+      : !this.isInvalid('campusLogoFiles');
+    
     return (
       !this.isInvalid('campusName') &&
-      (isEditModeValidation || !this.isInvalid('campusLogoFiles')) &&
+      fileValid &&
       !this.isInvalid('rank') &&
       !this.isInvalid('adminName') &&
       !this.isInvalid('adminEmail') &&

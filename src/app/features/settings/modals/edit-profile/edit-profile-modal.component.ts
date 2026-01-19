@@ -276,6 +276,7 @@ export class EditProfileModalComponent implements OnInit {
   private handleCampusFormSubmit(value: CampusFormValue): void {
     if (!this.selectedCampusEmail) {
       this.viewSubmitting.set(false);
+      this.notify.error('Campus email is required to update profile');
       return;
     }
 
@@ -285,8 +286,24 @@ export class EditProfileModalComponent implements OnInit {
         this.notify.success('Profile updated successfully');
         this.reloadCampusProfile();
       },
-      error: () => {
+      error: (error) => {
         this.viewSubmitting.set(false);
+        console.error('Error updating campus profile:', error);
+        
+        // Extract error message from response
+        let errorMessage = 'An internal error occurred. Please try again later.';
+        
+        if (error?.error) {
+          if (error.error.message && typeof error.error.message === 'string' && error.error.message.trim()) {
+            errorMessage = error.error.message;
+          } else if (error.error.error && typeof error.error.error === 'string' && error.error.error.trim()) {
+            errorMessage = error.error.error;
+          }
+        } else if (error?.message && typeof error.message === 'string' && error.message.trim()) {
+          errorMessage = error.message;
+        }
+        
+        this.notify.error(errorMessage);
         this.cdr.detectChanges();
       },
     });
@@ -453,13 +470,25 @@ export class EditProfileModalComponent implements OnInit {
   }
 
   private mapCampusFormValueToUpdateRequest(value: CampusFormValue): CampusProfileUpdateRequest {
-    const parsedRank = value.rank ? Number(value.rank) : NaN;
+    // Parse rank - only send if it's a valid positive number
+    let campusRank: number | undefined = undefined;
+    if (value.rank && value.rank.trim().length > 0) {
+      const parsedRank = Number(value.rank.trim());
+      if (Number.isFinite(parsedRank) && parsedRank > 0) {
+        campusRank = parsedRank;
+      }
+    }
+    
     const campusLogoFileName = value.campusLogoFiles?.item(0)?.name?.trim();
+
+    // Only include campusLogoUrl if a new file is selected
+    // If no new file is selected, don't send it (backend will keep existing)
+    const campusLogoUrl = campusLogoFileName ? campusLogoFileName : undefined;
 
     return {
       campusName: value.campusName?.trim() || undefined,
-      campusLogoUrl: campusLogoFileName || value.campusLogoUrl || undefined,
-      campusRank: Number.isFinite(parsedRank) ? parsedRank : undefined,
+      campusLogoUrl: campusLogoUrl,
+      campusRank: campusRank,
       adminName: value.adminName?.trim() || undefined,
       adminEmail: value.adminEmail ? value.adminEmail.toLowerCase().trim() : undefined,
       adminPhone: value.adminPhone?.trim() || undefined,

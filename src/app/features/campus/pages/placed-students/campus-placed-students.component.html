@@ -52,7 +52,7 @@
         label="Batch"
         [items]="batchItems()"
         [value]="value.batch"
-        [disabled]="submitting || loadingBatches()"
+        [disabled]="submitting || loadingBatches() || loadingBatchInfo()"
         (valueChange)="patch({ batch: $event })"
         [autocomplete]="true"
       />

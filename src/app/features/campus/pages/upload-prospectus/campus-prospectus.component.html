@@ -61,19 +61,21 @@
         <div class="prospectus-list">
           @for (prospectus of prospectusList(); track prospectus.id) {
             <div class="prospectus-item">
-              <div class="prospectus-info">
-                <div class="prospectus-icon">
-                  <i class="fa-solid fa-file-pdf"></i>
-                </div>
-                <div class="prospectus-details">
-                  <div class="prospectus-name">{{ getFileName(prospectus) }}</div>
-                  <div class="prospectus-meta">
-                    @if (prospectus.version) {
-                      <span class="meta-item">Version: {{ prospectus.version }}</span>
-                    }
-                    @if (prospectus.createdAt) {
-                      <span class="meta-item">Uploaded: {{ formatDate(prospectus.createdAt) }}</span>
-                    }
+              <div class="prospectus-content">
+                <div class="prospectus-info">
+                  <div class="prospectus-icon">
+                    <i class="fa-solid fa-file-pdf"></i>
+                  </div>
+                  <div class="prospectus-details">
+                    <div class="prospectus-name">{{ getFileName(prospectus) }}</div>
+                    <div class="prospectus-meta">
+                      @if (prospectus.version) {
+                        <span class="meta-item">Version: {{ prospectus.version }}</span>
+                      }
+                      @if (prospectus.createdAt) {
+                        <span class="meta-item">Uploaded: {{ formatDate(prospectus.createdAt) }}</span>
+                      }
+                    </div>
                   </div>
                 </div>
               </div>

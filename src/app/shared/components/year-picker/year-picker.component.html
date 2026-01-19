@@ -1,0 +1,70 @@
+<div class="year-picker-field">
+  @if (label) {
+    <label [attr.for]="pickerId" class="year-picker-label">
+      {{ label }}
+      @if (required) {
+        <span class="asterisk" aria-hidden="true">*</span>
+      }
+    </label>
+  }
+
+  <div class="year-picker-wrapper" #pickerWrapper>
+    <div
+      [attr.id]="pickerId"
+      class="year-picker-input"
+      [class.invalid]="invalid"
+      [class.disabled]="disabled"
+      (click)="togglePicker()"
+      [attr.aria-disabled]="disabled"
+      tabindex="0"
+      role="button"
+      (keydown.enter)="togglePicker()"
+      (keydown.space)="$event.preventDefault(); togglePicker()"
+    >
+      <span class="year-picker-display">{{ displayValue || 'Select year' }}</span>
+      <i class="fa-solid fa-calendar year-picker-icon" aria-hidden="true"></i>
+    </div>
+
+    @if (isOpen()) {
+      <div class="year-picker-dropdown">
+        <div class="year-picker-header">
+          <button
+            type="button"
+            class="year-picker-nav-btn"
+            (click)="previousDecade()"
+            [disabled]="currentDecade() - 10 < minYear()"
+            aria-label="Previous decade"
+          >
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <div class="year-picker-decade">
+            {{ getDecadeRange() }}
+          </div>
+          <button
+            type="button"
+            class="year-picker-nav-btn"
+            (click)="nextDecade()"
+            [disabled]="currentDecade() + 10 > maxYear()"
+            aria-label="Next decade"
+          >
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+        <div class="year-picker-grid">
+          @for (year of yearsInCurrentDecade(); track year) {
+            <button
+              type="button"
+              class="year-picker-year"
+              [class.selected]="isYearSelected(year)"
+              [class.disabled]="isYearDisabled(year)"
+              [disabled]="isYearDisabled(year)"
+              (click)="selectYear(year)"
+            >
+              {{ year }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

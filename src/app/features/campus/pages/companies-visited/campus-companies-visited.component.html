@@ -39,15 +39,19 @@
   </div>
 
   <div class="form-row">
-    <app-input
+    <app-dropdown
       label="Company Name"
       [required]="true"
-      type="text"
       [value]="value.companyName"
-      [disabled]="submitting"
+      [disabled]="submitting || loadingCompanyNames()"
       [invalid]="submitAttempted && !value.companyName.trim()"
       (valueChange)="patch({ companyName: $event })"
-      placeholder="Enter company name"
+      [autocomplete]="true"
+      [apiFetchFn]="fetchCompanyNames"
+      [allowCustom]="true"
+      [minSearchLength]="0"
+      [debounceTime]="300"
+      placeholder="Select or type company name"
     />
     @if (submitAttempted && !value.companyName.trim()) {
       <span class="error-message">Company name is required</span>

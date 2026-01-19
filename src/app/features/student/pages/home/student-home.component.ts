@@ -5,6 +5,7 @@ import { ModalComponent } from '../../../../shared/components/modal/modal.compon
 import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../../../../shared/components/dropdown/dropdown.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AvatarComponent } from '../../../../shared/components/avatar/avatar.component';
+import { YearPickerComponent } from '../../../../shared/components/year-picker/year-picker.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { StudentResumeUploadComponent } from '../resume-upload/student-resume-upload.component';
 import { StudentCareerCheckinComponent } from '../career-checkin/student-career-checkin.component';
@@ -17,7 +18,7 @@ import { catchError, of, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { CampusResponse } from '../../models/student.models';
 import { APP_CONFIG_TOKEN, APP_CONFIG } from '../../../../core/config/app.constants';
-import { CampusApiService, CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
+import { CampusApiService, CampusAutocompleteResponse, CompanyVisitedItem } from '../../../../features/campus/services/campus-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 
@@ -36,6 +37,7 @@ import { STORAGE_KEYS } from '../../../../core/config/app.constants';
     StudentLearningPathwayComponent,
     StudentIdeasSubmissionComponent,
     StudentAiToolkitComponent,
+    YearPickerComponent,
   ],
   templateUrl: './student-home.component.html',
   styleUrl: './student-home.component.css',
@@ -64,11 +66,13 @@ export class StudentHomeComponent implements OnInit {
   readonly batchmates = signal<readonly PersonCard[]>([]);
   readonly placedStudents = signal<readonly PersonCard[]>([]);
   readonly alumni = signal<readonly PersonCard[]>([]);
+  readonly companies = signal<readonly CompanyCard[]>([]);
   readonly campuses = signal<readonly CampusResponse[]>([]);
 
   loadingBatchmates = signal(false);
   loadingPlacedStudents = signal(false);
   loadingAlumni = signal(false);
+  loadingCompanies = signal(false);
 
   // Store student profile data for campusName and yearOfPassing (from localStorage)
   readonly studentProfile = signal<Record<string, unknown> | null>(null);
@@ -76,6 +80,9 @@ export class StudentHomeComponent implements OnInit {
   // Filter state for batchmates and alumni
   readonly selectedCampusName = signal<string | null>(null);
   readonly selectedYearOfPassing = signal<string | null>(null);
+  
+  // Filter state for placed students
+  readonly placedStudentsYear = signal<string>(''); // YYYY-01-01 format
 
   readonly posts: readonly FeedPost[] = [
     {
@@ -96,15 +103,25 @@ export class StudentHomeComponent implements OnInit {
 
   readonly registeredCompaniesSlots = 3;
 
+  get placedStudentsYearMax(): string {
+    // Allow next 5 years from current year
+    const currentYear = new Date().getFullYear();
+    const maxYear = currentYear + 5;
+    return `${maxYear}-12-31`;
+  }
+
   // Carousel / pagination state (shared component usage)
   readonly peoplePageSize = 6;
+  readonly companiesPageSize = 6;
   batchmatesPage = 1;
   placedStudentsPage = 1;
   alumniPage = 1;
+  companiesPage = 1;
 
   batchmatesTotalPages = signal(1);
   placedStudentsTotalPages = signal(1);
   alumniTotalPages = signal(1);
+  companiesTotalPages = signal(1);
 
   batchmatesPageItems(): readonly PersonCard[] {
     return slicePage(this.batchmates(), this.batchmatesPage, this.peoplePageSize);
@@ -116,6 +133,11 @@ export class StudentHomeComponent implements OnInit {
 
   alumniPageItems(): readonly PersonCard[] {
     return slicePage(this.alumni(), this.alumniPage, this.peoplePageSize);
+  }
+
+  companiesPageItems(): readonly CompanyCard[] {
+    // API already handles pagination, so return companies directly without slicing
+    return this.companies();
   }
 
   ngOnInit(): void {
@@ -159,13 +181,11 @@ export class StudentHomeComponent implements OnInit {
                 campusAddress: campus.campusAddress,
               }));
             this.campuses.set(campusResponses);
-          } else {
-            console.warn('StudentHomeComponent: No campus content in initial response');
           }
         }
       },
-      error: (error) => {
-        console.error('StudentHomeComponent: Failed to load initial campuses:', error);
+      error: () => {
+        // Error loading campuses
       },
     });
   }
@@ -176,7 +196,6 @@ export class StudentHomeComponent implements OnInit {
     const userId = currentUser?.userId?.toString();
 
     if (!studentId || !userId) {
-      console.warn('Student ID or User ID not found. Cannot load profile and related data.');
       return;
     }
 
@@ -191,8 +210,8 @@ export class StudentHomeComponent implements OnInit {
             localStorage.setItem('student_profile_data', JSON.stringify(profileData));
             // Dispatch event to notify sidebar and other components
             window.dispatchEvent(new Event('studentProfileUpdated'));
-          } catch (error) {
-            console.error('Error storing profile data:', error);
+          } catch {
+            // Error storing profile data
           }
           
           // Update signal with profile data
@@ -222,23 +241,19 @@ export class StudentHomeComponent implements OnInit {
           if (institutionName && yearOfPassing) {
             this.loadBatchmates(studentId);
             this.loadAlumni(studentId);
-          } else {
-            console.warn('Cannot load batchmates/alumni: institutionName or yearOfPassing is missing');
           }
           
           // Load placed students using campusId from profile or storage
           if (finalCampusId) {
             this.loadPlacedStudents(finalCampusId);
-          } else {
-            console.warn('Cannot load placed students: campusId is missing from profile and storage');
+            this.loadCompanies(finalCampusId);
           }
         } else {
           // Fallback to localStorage if API fails
           this.loadDataFromStorage(studentId);
         }
       },
-      error: (error) => {
-        console.error('❌ loadData: Error loading student profile:', error);
+      error: () => {
         // Fallback to localStorage if API fails
         this.loadDataFromStorage(studentId);
       },
@@ -284,10 +299,9 @@ export class StudentHomeComponent implements OnInit {
       // Load placed students using campusId from stored profile or storage
       if (finalCampusId) {
         this.loadPlacedStudents(finalCampusId);
+        this.loadCompanies(finalCampusId);
       }
-    } else {
-      console.warn('Profile data not found in storage. Batchmates and alumni will not be loaded.');
-    }
+      }
   }
 
   /**
@@ -300,8 +314,8 @@ export class StudentHomeComponent implements OnInit {
       if (stored) {
         return JSON.parse(stored) as Record<string, unknown>;
       }
-    } catch (error) {
-      console.error('Error reading stored profile data:', error);
+    } catch {
+      // Error reading stored profile data
     }
     return null;
   }
@@ -309,7 +323,6 @@ export class StudentHomeComponent implements OnInit {
   loadBatchmates(studentId: string): void {    
     const profile = this.studentProfile();
     if (!profile) {
-      console.warn('Student profile not loaded yet. Cannot load batchmates.');
       return;
     }
 
@@ -319,7 +332,6 @@ export class StudentHomeComponent implements OnInit {
     const yearOfPassing = profile['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
 
     if (!institutionName || !yearOfPassing) {
-      console.warn('Cannot load batchmates: institutionName or yearOfPassing is missing', { institutionName, yearOfPassing });
       return;
     }
 
@@ -327,8 +339,7 @@ export class StudentHomeComponent implements OnInit {
     this.studentApiService
       .getBatchmates(studentId, institutionName, yearOfPassing, this.batchmatesPage, this.peoplePageSize)
       .pipe(
-        catchError((error) => {
-          console.error('Error loading batchmates:', error);
+        catchError(() => {
           this.loadingBatchmates.set(false);
           return of(null);
         }),
@@ -347,38 +358,38 @@ export class StudentHomeComponent implements OnInit {
               ? Math.max(1, Math.ceil(items.length / this.peoplePageSize)) 
               : (typeof (data as Record<string, unknown>)['totalPages'] === 'number' ? (data as Record<string, unknown>)['totalPages'] as number : 1);
             this.batchmatesTotalPages.set(totalPages);
-          } else {
-            console.warn('StudentHomeComponent: Batchmates response not successful or no data:', response);
           }
         },
-        error: (error) => {
-          console.error('StudentHomeComponent: Batchmates subscription error:', error);
+        error: () => {
           this.loadingBatchmates.set(false);
         },
       });
   }
 
   loadPlacedStudents(campusId: string): void {
-    console.log('🎯 loadPlacedStudents CALLED with campusId:', campusId);
-    console.log('🎯 loadPlacedStudents campusId type:', typeof campusId);
-    console.log('🎯 loadPlacedStudents campusId truthy?', !!campusId);
-    
     if (!campusId) {
-      console.error('❌ loadPlacedStudents: campusId is falsy, returning early');
       this.loadingPlacedStudents.set(false);
       this.placedStudents.set([]);
       this.placedStudentsTotalPages.set(1);
       return;
     }
-
-    console.log('✅ loadPlacedStudents: Proceeding with API call for campusId:', campusId);
     this.loadingPlacedStudents.set(true);
+    
+    // Extract year from placedStudentsYear if set
+    const yearValue = this.placedStudentsYear();
+    let yearParam: number | undefined = undefined;
+    if (yearValue) {
+      const yearMatch = yearValue.match(/^(\d{4})/);
+      if (yearMatch) {
+        yearParam = parseInt(yearMatch[1], 10);
+      }
+    }
+    
     // Uses campus dashboard placed-students API (0-based paging)
     this.campusApiService
-      .getDashboardPlacedStudents(campusId, Math.max(0, this.placedStudentsPage - 1), this.peoplePageSize)
+      .getDashboardPlacedStudents(campusId, Math.max(0, this.placedStudentsPage - 1), this.peoplePageSize, yearParam)
       .pipe(
-        catchError((error) => {
-          console.error('Error loading placed students:', error);
+        catchError(() => {
           this.loadingPlacedStudents.set(false);
           return of(null);
         }),
@@ -390,12 +401,9 @@ export class StudentHomeComponent implements OnInit {
             const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
             this.placedStudents.set(items);
             this.placedStudentsTotalPages.set(response.data.totalPages || 1);
-          } else {
-            console.warn('StudentHomeComponent: Placed students response not successful or no data:', response);
           }
         },
-        error: (error) => {
-          console.error('StudentHomeComponent: Placed students subscription error:', error);
+        error: () => {
           this.loadingPlacedStudents.set(false);
         },
       });
@@ -404,12 +412,8 @@ export class StudentHomeComponent implements OnInit {
   loadAlumni(studentId: string): void {    
     const campusName = this.selectedCampusName();
     const yearOfPassing = this.selectedYearOfPassing();
-    
-    console.log('🎓 loadAlumni called with selectedCampusName:', campusName);
-    console.log('🎓 loadAlumni called with selectedYearOfPassing:', yearOfPassing);
 
     if (!campusName || !yearOfPassing) {
-      console.warn('Cannot load alumni: campusName or yearOfPassing is missing', { campusName, yearOfPassing });
       return;
     }
 
@@ -417,8 +421,7 @@ export class StudentHomeComponent implements OnInit {
     this.studentApiService
       .getAlumniForStudent(studentId, campusName, yearOfPassing, this.alumniPage, 12)
       .pipe(
-        catchError((error) => {
-          console.error('Error loading alumni:', error);
+        catchError(() => {
           this.loadingAlumni.set(false);
           return of(null);
         }),
@@ -430,13 +433,42 @@ export class StudentHomeComponent implements OnInit {
             const items = (response.data.content || []).map((item) => this.mapAlumniToPersonCard(item));
             this.alumni.set(items);
             this.alumniTotalPages.set(response.data.totalPages || 1);
-          } else {
-            console.warn('StudentHomeComponent: Alumni response not successful or no data:', response);
           }
         },
-        error: (error) => {
-          console.error('StudentHomeComponent: Alumni subscription error:', error);
+        error: () => {
           this.loadingAlumni.set(false);
+        },
+      });
+  }
+
+  loadCompanies(campusId: string): void {
+    if (!campusId) {
+      this.loadingCompanies.set(false);
+      this.companies.set([]);
+      this.companiesTotalPages.set(1);
+      return;
+    }
+    this.loadingCompanies.set(true);
+    // Uses campus dashboard companies API (0-based paging)
+    this.campusApiService
+      .getDashboardCompanies(campusId, Math.max(0, this.companiesPage - 1), this.companiesPageSize)
+      .pipe(
+        catchError(() => {
+          this.loadingCompanies.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingCompanies.set(false);
+          if (response?.success && response.data) {
+            const items = (response.data.content || []).map((item) => this.mapCompanyToCompanyCard(item));
+            this.companies.set(items);
+            this.companiesTotalPages.set(response.data.totalPages || 1);
+          }
+        },
+        error: () => {
+          this.loadingCompanies.set(false);
         },
       });
   }
@@ -472,8 +504,29 @@ export class StudentHomeComponent implements OnInit {
     
     if (finalCampusId) {
       this.loadPlacedStudents(finalCampusId);
-    } else {
-      console.warn('Cannot load placed students on page change: campusId is missing from profile and storage');
+    }
+  }
+
+  onPlacedStudentsYearChange(year: string): void {
+    this.placedStudentsYear.set(year);
+    // Reset to first page when year filter changes
+    this.placedStudentsPage = 1;
+    
+    const profile = this.studentProfile();
+    let campusId: string | null = null;
+    
+    if (profile) {
+      if (Array.isArray(profile['campusId']) && profile['campusId'].length > 0) {
+        campusId = String(profile['campusId'][0]);
+      } else if (profile['campusId'] && typeof profile['campusId'] === 'string') {
+        campusId = profile['campusId'] as string;
+      }
+    }
+    
+    const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;
+    
+    if (finalCampusId) {
+      this.loadPlacedStudents(finalCampusId);
     }
   }
 
@@ -483,6 +536,31 @@ export class StudentHomeComponent implements OnInit {
     const studentId = currentUser?.studentId || currentUser?.profileServiceId;
     if (studentId) {
       this.loadAlumni(studentId);
+    }
+  }
+
+  onCompaniesPageChange(page: number): void {
+    this.companiesPage = page;
+    const profile = this.studentProfile();
+    
+    // Extract campusId from profile - handle both array and single value formats
+    let campusId: string | null = null;
+    
+    if (profile) {
+      if (Array.isArray(profile['campusId']) && profile['campusId'].length > 0) {
+        // If it's an array, take the first element
+        campusId = String(profile['campusId'][0]);
+      } else if (profile['campusId'] && typeof profile['campusId'] === 'string') {
+        // If it's a single string value
+        campusId = profile['campusId'] as string;
+      }
+    }
+    
+    // Fallback to storage if campusId is not in profile
+    const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;
+    
+    if (finalCampusId) {
+      this.loadCompanies(finalCampusId);
     }
   }
 
@@ -497,11 +575,6 @@ export class StudentHomeComponent implements OnInit {
    * Close filter modal
    */
   closeFilterModal(): void {
-    console.log('✅ Apply button clicked - Applying filters with:', {
-      campusName: this.selectedCampusName(),
-      yearOfPassing: this.selectedYearOfPassing()
-    });
-    
     // Apply filters before closing
     this.applyFilters();
     this.modalService.closeModal();
@@ -522,9 +595,27 @@ export class StudentHomeComponent implements OnInit {
   /**
    * API fetch function for campus autocomplete (called when user types)
    * This is used for filtering/searching campuses as user types
+   * Only shows campuses that are in the student's profile
    */
-  fetchCampuses: ApiFetchFunction<string> = (searchTerm: string): Observable<DropdownItem<string>[]> => {    
-    // Always call the API to ensure fresh data
+  fetchCampuses: ApiFetchFunction<string> = (searchTerm: string): Observable<DropdownItem<string>[]> => {
+    // Get student's campusId(s) from profile
+    const profile = this.studentProfile();
+    let studentCampusIds: string[] = [];
+    
+    if (profile) {
+      if (Array.isArray(profile['campusId'])) {
+        studentCampusIds = profile['campusId'].map(id => String(id));
+      } else if (profile['campusId']) {
+        studentCampusIds = [String(profile['campusId'])];
+      }
+    }
+    
+    // If no campusIds in profile, return empty array
+    if (studentCampusIds.length === 0) {
+      return of([]);
+    }
+    
+    // Call the API to get campuses
     return this.campusApiService.getCampusBySearch(searchTerm || '', 0, 20).pipe(
       map((response) => {        
         const items: DropdownItem<string>[] = [];
@@ -552,7 +643,9 @@ export class StudentHomeComponent implements OnInit {
                 const campusId = campus.campusId || campus.id;
                 const hasId = !!campusId;
                 const hasName = !!campus.campusName;
-                return hasId && hasName;
+                // Only include campuses that match student's profile campusId(s)
+                const matchesStudentProfile = hasId && studentCampusIds.includes(String(campusId));
+                return hasId && hasName && matchesStudentProfile;
               })
               .map((campus) => {
                 const campusName = campus.campusName || '';
@@ -567,8 +660,7 @@ export class StudentHomeComponent implements OnInit {
         }
         return items;
       }),
-      catchError((error) => {
-        console.error('StudentHomeComponent: Error in fetchCampuses:', error);
+      catchError(() => {
         return of([]);
       })
     );
@@ -598,9 +690,6 @@ export class StudentHomeComponent implements OnInit {
    * Handle campus selection change
    */
   onCampusChange(campusName: string): void {
-    console.log('⚠️ onCampusChange called with:', campusName);
-    console.log('⚠️ Current selectedCampusName:', this.selectedCampusName());
-    
     // Just update the value, don't apply filters yet (wait for Apply button)
     this.selectedCampusName.set(campusName);
   }
@@ -719,6 +808,14 @@ export class StudentHomeComponent implements OnInit {
     };
   }
 
+  private mapCompanyToCompanyCard(item: CompanyVisitedItem): CompanyCard {
+    return {
+      name: item.companyName || 'Unknown Company',
+      logoUrl: this.buildImageUrl(item.logoUrl || item.logourl),
+      visitedDate: item.visitedDate,
+    };
+  }
+
   closeModal(): void {
     this.modalService.closeModal();
   }
@@ -747,6 +844,12 @@ interface PersonCard {
   name: string;
   subtitle: string;
   imageUrl: string | null;
+}
+
+interface CompanyCard {
+  name: string;
+  logoUrl: string | null;
+  visitedDate?: string;
 }
 
 interface FeedPost {

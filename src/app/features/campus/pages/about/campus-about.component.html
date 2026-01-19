@@ -313,7 +313,18 @@
 
   <!-- Our Alumni Community Section -->
   <section class="section alumni">
-    <h2 class="section-title">Our Alumni Community</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 class="section-title" style="margin: 0;">Our Alumni Community</h2>
+      <app-dropdown
+        [items]="alumniYearOptions"
+        [value]="selectedAlumniYear()"
+        [disabled]="loadingAlumni()"
+        (valueChange)="onAlumniYearChange($event)"
+        [autocomplete]="false"
+        placeholder="Select Year"
+        style="width: 150px;"
+      />
+    </div>
     @if (loadingAlumni()) {
       <div class="loading-indicator">Loading...</div>
     } @else {

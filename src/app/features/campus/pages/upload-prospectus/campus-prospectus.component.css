@@ -295,8 +295,8 @@
 
 .prospectus-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
@@ -309,12 +309,17 @@
   box-shadow: 0 2px 4px rgba(98, 138, 142, 0.1);
 }
 
+.prospectus-content {
+  width: 100%;
+}
+
 .prospectus-info {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .prospectus-icon {
@@ -365,6 +370,11 @@
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  width: 100%;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .action-btn {
@@ -429,6 +439,7 @@
 
   .prospectus-actions {
     width: 100%;
+    justify-content: stretch;
   }
 
   .action-btn {

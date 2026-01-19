@@ -407,5 +407,3 @@ function resolvePathParams(endpoint: string, params: Record<string, string>): st
   }
   return out;
 }
-
-

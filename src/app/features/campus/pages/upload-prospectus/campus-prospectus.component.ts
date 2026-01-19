@@ -49,6 +49,13 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   // Store actual campus ID separately (for API)
   private actualCampusId = '';
 
+  // Map to store original file names by prospectus ID
+  // Key: prospectus ID, Value: original file name
+  private readonly prospectusFileNameMap = new Map<string, string>();
+
+  // Temporary storage for the last uploaded file name (before mapping to prospectus ID)
+  private _lastUploadedFileName: string | null = null;
+
   @ViewChild('prospectusFileInput') prospectusFileInputComponent?: InputWithFileComponent;
 
   /**
@@ -69,8 +76,10 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       courseFile: null,
     };
     
-    // STEP 3: Clear prospectus list to ensure fresh state
+    // STEP 3: Clear prospectus list and file name map to ensure fresh state
     this.prospectusList.set([]);
+    this.prospectusFileNameMap.clear();
+    this._lastUploadedFileName = null;
     
     // STEP 4: Emit the reset value to parent component immediately
     this.valueChange.emit(this.value);
@@ -506,6 +515,13 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     // Keep the campus name in the input field
     this.patch({ campusFile: file });
     
+    // Store the original file name temporarily (will be mapped to prospectus ID after upload)
+    if (file) {
+      // Store in a temporary variable that we'll use when prospectus is uploaded
+      // We'll map it to the prospectus ID when we get the upload response
+      this._lastUploadedFileName = file.name;
+    }
+    
     // If file is removed and we have a stored campus ID, restore the campus name for display
     if (!file && this.actualCampusId) {
       // Find campus name to display
@@ -615,6 +631,34 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
         // Swagger response: { success: boolean, message: string | null, data: ProspectusData[], error: string | null }
         if (response && Array.isArray(response.data)) {
           console.log('CampusProspectusComponent: Setting prospectus list with', response.data.length, 'items');
+          
+          // Store previous list to detect new prospectuses
+          const previousList = this.prospectusList();
+          const previousIds = new Set(previousList.map(p => p.id).filter(Boolean));
+          
+          // Map stored file name to newly uploaded prospectus
+          const storedFileName = this._lastUploadedFileName;
+          if (storedFileName) {
+            // Find the newest prospectus that wasn't in the previous list
+            const newProspectuses = response.data.filter(p => p.id && !previousIds.has(p.id));
+            if (newProspectuses.length > 0) {
+              // Sort by createdAt (newest first) and take the first one
+              const newestProspectus = newProspectuses
+                .sort((a, b) => {
+                  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                  return dateB - dateA;
+                })[0];
+              
+              if (newestProspectus.id) {
+                this.prospectusFileNameMap.set(newestProspectus.id, storedFileName);
+                console.log('CampusProspectusComponent: Mapped file name', storedFileName, 'to prospectus ID', newestProspectus.id);
+                // Clear the stored file name after mapping
+                this._lastUploadedFileName = null;
+              }
+            }
+          }
+          
           this.prospectusList.set(response.data);
         } else {
           console.log('CampusProspectusComponent: Response data is not an array, setting empty list');
@@ -679,6 +723,34 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
         // Swagger response: { success: boolean, message: string | null, data: ProspectusData[], error: string | null }
         if (response && Array.isArray(response.data)) {
           console.log('CampusProspectusComponent: Setting prospectus list with', response.data.length, 'items');
+          
+          // Store previous list to detect new prospectuses
+          const previousList = this.prospectusList();
+          const previousIds = new Set(previousList.map(p => p.id).filter(Boolean));
+          
+          // Map stored file name to newly uploaded prospectus
+          const storedFileName = this._lastUploadedFileName;
+          if (storedFileName) {
+            // Find the newest prospectus that wasn't in the previous list
+            const newProspectuses = response.data.filter(p => p.id && !previousIds.has(p.id));
+            if (newProspectuses.length > 0) {
+              // Sort by createdAt (newest first) and take the first one
+              const newestProspectus = newProspectuses
+                .sort((a, b) => {
+                  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                  return dateB - dateA;
+                })[0];
+              
+              if (newestProspectus.id) {
+                this.prospectusFileNameMap.set(newestProspectus.id, storedFileName);
+                console.log('CampusProspectusComponent: Mapped file name', storedFileName, 'to prospectus ID', newestProspectus.id);
+                // Clear the stored file name after mapping
+                this._lastUploadedFileName = null;
+              }
+            }
+          }
+          
           this.prospectusList.set(response.data);
         } else {
           console.log('CampusProspectusComponent: Response data is not an array, setting empty list');
@@ -964,14 +1036,46 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Get file name from URL or use default
+   * Get file name from stored map, URL, or use default
+   * Prioritizes stored original file name over extracted name from URL
    */
   getFileName(prospectus: ProspectusData): string {
+    // First, check if we have the original file name stored in the map
+    if (prospectus.id && this.prospectusFileNameMap.has(prospectus.id)) {
+      const originalFileName = this.prospectusFileNameMap.get(prospectus.id);
+      if (originalFileName) {
+        return originalFileName;
+      }
+    }
+    
+    // If not in map, try to extract from URL
     if (prospectus.fileUrls && prospectus.fileUrls.length > 0) {
       const url = prospectus.fileUrls[0];
-      const fileName = url.split('/').pop() || url;
-      return fileName.length > 30 ? fileName.substring(0, 30) + '...' : fileName;
+      // Extract file name from URL (remove query parameters if any)
+      let fileName = url.split('/').pop() || url;
+      // Remove query parameters (everything after ?)
+      if (fileName.includes('?')) {
+        fileName = fileName.split('?')[0];
+      }
+      // Decode URL-encoded characters
+      try {
+        fileName = decodeURIComponent(fileName);
+      } catch {
+        // If decoding fails, use the original
+      }
+      
+      // Check if the extracted name looks like a UUID (contains hyphens and is long)
+      // If it does, don't use it - return a generic name instead
+      if (fileName && fileName.length > 30 && fileName.includes('-') && /^[a-f0-9-]+$/i.test(fileName.split('.')[0])) {
+        // This looks like a UUID, return generic name
+        return 'prospectus.pdf';
+      }
+      
+      // Return the extracted file name
+      return fileName || 'prospectus.pdf';
     }
-    return `prospectus-${prospectus.id || 'file'}.pdf`;
+    
+    // If no fileUrls, return a generic name without ID
+    return 'prospectus.pdf';
   }
 }

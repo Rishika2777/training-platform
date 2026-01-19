@@ -38,7 +38,7 @@
 } @else if (userType === 'CAMPUS') {
   <app-campus-form
     title=""
-    [mode]="isAdmin ? 'review' : 'create'"
+    [mode]="isAdmin ? 'review' : 'edit'"
     [value]="campusViewValue"
     [submitting]="viewSubmitting()"
     [adminEmailLocked]="true"

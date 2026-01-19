@@ -137,6 +137,7 @@
       PLACED_STUDENTS: '/placed-students',
       ALL_STUDENTS: '/student/students/all',
       GET_STUDENTS_BY_CAMPUS: '/student/campus/:campusId',
+      GET_STUDENT_CAMPUS_BATCH_INFO: '/student/:studentId/campus/:campusId/batch-info',
       DELETE: '/student/delete/:studentId',
     },
     COMPANY: {
@@ -151,8 +152,8 @@
       GET_KEY_PEOPLE: '/company-landing/:companyId/key-people',
       GET_PREFERRED_CAMPUSES: '/preferred-campus/:companyId/campuses',
       ADD_PREFERRED_CAMPUS: '/preferred-campus/:companyId/addCampus',
-      GET_CLIENTS: '/company/:companyId/clients',
-      ADD_CLIENT: '/company/:companyId/clients',
+      GET_CLIENTS: '/clients/:companyId/clients',
+      ADD_CLIENT: '/clients/:companyId/clients',
       GET_SPECIALIZATIONS: '/specializations/:companyId/technologies',
       ADD_SPECIALIZATION: '/specializations/:companyId/technologies/:technologyId',
       GET_COMPANY_BY_SEARCH: '/company/getCompanyBySearch',

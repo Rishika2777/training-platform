@@ -304,14 +304,53 @@ export class CampusDownloadProspectusComponent implements OnInit {
 
   /**
    * Get file name from prospectus data
+   * Improved to handle UUIDs and extract proper file names from URLs
    */
   getFileName(prospectus: ProspectusData): string {
+    // Try to extract from URL
     if (prospectus.fileUrls && prospectus.fileUrls.length > 0) {
       const url = prospectus.fileUrls[0];
-      const fileName = url.split('/').pop() || '';
-      return fileName || `prospectus-${prospectus.version || 'v1'}.pdf`;
+      // Extract file name from URL (remove query parameters if any)
+      let fileName = url.split('/').pop() || url;
+      // Remove query parameters (everything after ?)
+      if (fileName.includes('?')) {
+        fileName = fileName.split('?')[0];
+      }
+      // Decode URL-encoded characters
+      try {
+        fileName = decodeURIComponent(fileName);
+      } catch {
+        // If decoding fails, use the original
+      }
+      
+      // Check if the extracted name looks like a UUID (contains hyphens and is long)
+      // UUID pattern: 8-4-4-4-12 hex digits with hyphens
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\..+)?$/i;
+      if (fileName && uuidRegex.test(fileName)) {
+        // This looks like a UUID, return generic name with course name if available
+        const courseName = this.selectedCourse();
+        if (courseName) {
+          return `${courseName.replace(/\s+/g, '-').toLowerCase()}-prospectus.pdf`;
+        }
+        return 'prospectus.pdf';
+      }
+      
+      // Return the extracted file name if it's valid
+      if (fileName && fileName.trim() !== '') {
+        return fileName;
+      }
     }
-    return `prospectus-${prospectus.version || 'v1'}.pdf`;
+    
+    // If no fileUrls or extraction failed, return generic name with course name if available
+    const courseName = this.selectedCourse();
+    if (courseName && prospectus.version) {
+      return `${courseName.replace(/\s+/g, '-').toLowerCase()}-v${prospectus.version}.pdf`;
+    } else if (courseName) {
+      return `${courseName.replace(/\s+/g, '-').toLowerCase()}-prospectus.pdf`;
+    } else if (prospectus.version) {
+      return `prospectus-v${prospectus.version}.pdf`;
+    }
+    return 'prospectus.pdf';
   }
 
   /**

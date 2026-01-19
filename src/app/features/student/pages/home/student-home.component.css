@@ -53,6 +53,9 @@
 .main,
 .side {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .panel {
@@ -60,6 +63,10 @@
   border-radius: var(--radius-lg);
   background: var(--color-white);
   padding: var(--space-md);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .panel-head {
@@ -73,6 +80,69 @@
 .panel-title {
   font-weight: 800;
   color: var(--color-text-primary);
+}
+
+.panel-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.year-picker-icon-only {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-field {
+  width: auto;
+  gap: 0;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-label {
+  display: none;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-input {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-display {
+  display: none;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-icon {
+  position: static;
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-secondary);
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-input:hover {
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  border-color: var(--color-secondary);
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-wrapper {
+  position: relative;
+}
+
+.year-picker-icon-only ::ng-deep .year-picker-dropdown {
+  right: 0;
+  left: auto;
+  top: calc(100% + 8px);
 }
 
 .panel-icon {
@@ -249,16 +319,53 @@
 /* Filter Modal Styles */
 .filter-modal-content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-lg, 1.5rem);
   padding: var(--space-md, 1rem);
+  min-height: 0;
+}
+
+.filter-fields {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md, 1rem);
+  flex: 1;
+  min-height: 0;
 }
 
 .filter-actions {
   display: flex;
   gap: var(--space-md, 1rem);
   justify-content: flex-end;
-  margin-top: var(--space-md, 1rem);
+  margin-top: auto;
+  padding-top: var(--space-md, 1rem);
+  flex-shrink: 0;
+}
+
+/* Ensure dropdowns are properly contained and visible */
+.filter-modal-content ::ng-deep app-dropdown {
+  position: relative;
+  z-index: 1;
+}
+
+.filter-modal-content ::ng-deep .dropdown-wrapper {
+  position: relative;
+}
+
+.filter-modal-content ::ng-deep .select-wrapper {
+  position: relative;
+}
+
+.filter-modal-content ::ng-deep .autocomplete-wrapper {
+  position: relative;
+}
+
+/* Make dropdown menu use fixed positioning to escape modal overflow */
+.filter-modal-content ::ng-deep .dropdown-menu {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1002 !important;
 }
 
 .post-actions {
@@ -293,13 +400,59 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-sm);
   margin-top: var(--space-sm);
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .company-tile {
-  height: 64px;
+  min-height: 64px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  gap: var(--space-xs);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.company-logo {
+  width: 100%;
+  height: auto;
+  max-height: 48px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+.company-placeholder {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-text-secondary);
+}
+
+.company-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .company-tile.add {

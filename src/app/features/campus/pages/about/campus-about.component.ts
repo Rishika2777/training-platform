@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, computed, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, DestroyRef, PLATFORM_ID } from '@angular/core';
+import { Component, computed, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, DestroyRef, PLATFORM_ID, ViewChild, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
@@ -111,6 +111,8 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   submittingFeedback = false;
   submittingPlacedStudents = false;
 
+  @ViewChild(CampusPlacedStudentsComponent) placedStudentsComponent!: CampusPlacedStudentsComponent;
+
   // Feedback form data
   feedbackForm = {
     name: '',
@@ -121,11 +123,13 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
 
   // Rising Stars - API Integration (Using GET /dashboard/placed-students - same as Placed Students section)
   // This fetches all placed students from the campus dashboard and displays them as rising stars
-  readonly risingStars = signal<readonly PersonCard[]>([]);
+  readonly risingStars = signal<readonly PersonCard[]>([]); // Current page items (from API)
+  readonly allRisingStars = signal<readonly PersonCard[]>([]); // All items (for course filtering)
   readonly loadingRisingStars = signal(false);
   risingStarsPage = 0; // API uses 0-based pagination
   readonly risingStarsPageSize = 8;
   readonly risingStarsTotalPages = signal(1);
+  private useClientSidePagination = false; // Flag to switch between API pagination and client-side pagination
   
   // Course filter for Rising Stars
   readonly selectedCourseFilter = signal<string | null>(null); // null = "All Courses"
@@ -197,6 +201,19 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     if (this.isBrowser) {
       window.addEventListener('facultyAdded', this.facultyAddedHandler);
     }
+
+    // Reset placed students form when modal opens
+    effect(() => {
+      const isOpen = this.isPlacedStudentsModalOpen();
+      if (isOpen && this.placedStudentsComponent) {
+        // Reset form when modal opens (use setTimeout to ensure ViewChild is available)
+        setTimeout(() => {
+          if (this.placedStudentsComponent) {
+            this.placedStudentsComponent.resetForm();
+          }
+        }, 0);
+      }
+    });
   }
 
   /**
@@ -204,6 +221,12 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
    * Called after route parameters are extracted
    */
   private loadAllData(): void {
+    // Set initial alumni year to current year (same as dashboard)
+    if (!this.selectedAlumniYear()) {
+      const currentYear = new Date().getFullYear().toString();
+      this.selectedAlumniYear.set(currentYear);
+    }
+    
     this.loadAboutCampus();
     this.loadCampusWebsiteUrl(); // Load campus website URL for Read More button
     this.loadRisingStars(); // Load placed students data for Rising Stars section
@@ -416,7 +439,20 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     console.log('CampusAboutComponent: ========== LOADING RISING STARS (PLACED STUDENTS) ==========');
     console.log('CampusAboutComponent: Current page (0-indexed):', this.risingStarsPage);
     console.log('CampusAboutComponent: Page size:', this.risingStarsPageSize);
+    console.log('CampusAboutComponent: Course filter:', this.selectedCourseFilter());
     
+    const selectedCourse = this.selectedCourseFilter();
+    
+    // If course filter is selected, load all data and do client-side pagination
+    // Otherwise, use API pagination
+    if (selectedCourse && selectedCourse.trim() !== '') {
+      this.useClientSidePagination = true;
+      this.loadAllRisingStarsForFilter();
+      return;
+    }
+    
+    // No course filter - use API pagination
+    this.useClientSidePagination = false;
     this.loadingRisingStars.set(true);
     
     // Call getPlacedStudents() without campusId parameter
@@ -479,6 +515,8 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
             companyName?: string;
             studentId?: string;
           }) => this.mapPlacedStudentToPersonCard(student));
+          
+          // Store in risingStars for display (API pagination mode)
           this.risingStars.set(mappedStars);
           
           const totalPages = response.data.totalPages ?? 1;
@@ -571,26 +609,105 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     };
   }
 
-  risingStarsPageItems(): readonly PersonCard[] {
-    const allStars = this.risingStars();
+  /**
+   * Load all rising stars data for client-side filtering and pagination
+   */
+  private loadAllRisingStarsForFilter(): void {
+    this.loadingRisingStars.set(true);
+    
+    // Load a large batch to get all data (or load all pages)
+    // Using a large limit to get all items at once
+    this.campusApi.getPlacedStudents(0, 1000).pipe(
+      catchError((error) => {
+        console.error('CampusAboutComponent: Error loading all rising stars:', error);
+        this.loadingRisingStars.set(false);
+        return of(null);
+      })
+    ).subscribe({
+      next: (response: ApiResponsePlacedStudentsResponse | null) => {
+        this.loadingRisingStars.set(false);
+        
+        if (response?.success && response.data?.content && Array.isArray(response.data.content)) {
+          const mappedStars = response.data.content.map((student: {
+            id?: string;
+            userId?: string | null;
+            campusId?: string;
+            courseId?: string | null;
+            courseName?: string;
+            studentName?: string;
+            photoUrl?: string;
+            batch?: string;
+            rollNumber?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            placementCompanyId?: string | null;
+            placementCompanyName?: string;
+            placementDate?: string;
+            designation?: string;
+            sector?: string;
+            createdAt?: string;
+            updatedAt?: string;
+            placed?: boolean;
+            firstName?: string;
+            lastName?: string;
+            profilePhotoUrl?: string;
+            companyName?: string;
+            studentId?: string;
+          }) => this.mapPlacedStudentToPersonCard(student));
+          
+          // Store all items
+          this.allRisingStars.set(mappedStars);
+          
+          // Apply course filter and pagination
+          this.applyClientSidePagination();
+        } else {
+          this.allRisingStars.set([]);
+          this.risingStars.set([]);
+          this.risingStarsTotalPages.set(1);
+        }
+      },
+      error: (error) => {
+        console.error('CampusAboutComponent: Error loading all rising stars:', error);
+        this.loadingRisingStars.set(false);
+        this.allRisingStars.set([]);
+        this.risingStars.set([]);
+        this.risingStarsTotalPages.set(1);
+      }
+    });
+  }
+
+  /**
+   * Apply client-side filtering and pagination
+   */
+  private applyClientSidePagination(): void {
+    const allStars = this.allRisingStars();
     const selectedCourse = this.selectedCourseFilter();
     
     // Filter by selected course
     let filteredStars: readonly PersonCard[];
     if (!selectedCourse || selectedCourse.trim() === '') {
-      // If no course selected or "All Courses" selected, return all stars
       filteredStars = allStars;
     } else {
-      // Filter by selected course
       filteredStars = allStars.filter(star => 
         star.courseName && star.courseName.trim().toLowerCase() === selectedCourse.trim().toLowerCase()
       );
     }
     
-    // Apply pagination to filtered results
+    // Apply pagination - always show 8 items per page
     const start = this.risingStarsPage * this.risingStarsPageSize;
     const end = start + this.risingStarsPageSize;
-    return filteredStars.slice(start, end);
+    const pageItems = filteredStars.slice(start, end);
+    
+    // Update signals
+    this.risingStars.set(pageItems);
+    const totalPages = Math.max(1, Math.ceil(filteredStars.length / this.risingStarsPageSize));
+    this.risingStarsTotalPages.set(totalPages);
+  }
+
+  risingStarsPageItems(): readonly PersonCard[] {
+    // If using client-side pagination, items are already in risingStars
+    // If using API pagination, items are already in risingStars
+    return this.risingStars();
   }
   
   /**
@@ -601,29 +718,24 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
     const filterValue = courseName && courseName.trim() !== '' ? courseName.trim() : null;
     this.selectedCourseFilter.set(filterValue);
     
-    // Reset to page 1 when filter changes
+    // Reset to page 0 when filter changes and reload data
     this.risingStarsPage = 0;
-    
-    // Recalculate total pages based on filtered results
-    const allStars = this.risingStars();
-    let filteredStars: readonly PersonCard[];
-    if (!filterValue) {
-      filteredStars = allStars;
-    } else {
-      filteredStars = allStars.filter(star => 
-        star.courseName && star.courseName.trim().toLowerCase() === filterValue.trim().toLowerCase()
-      );
-    }
-    const totalPages = Math.max(1, Math.ceil(filteredStars.length / this.risingStarsPageSize));
-    this.risingStarsTotalPages.set(totalPages);
+    this.loadRisingStars();
   }
 
   onRisingStarsPageChange(page: number): void {
-    // Carousel component uses 1-based indexing, convert to 0-based for API
+    // Carousel component uses 1-based indexing, convert to 0-based
     const apiPage = page - 1;
     if (apiPage !== this.risingStarsPage && apiPage >= 0) {
       this.risingStarsPage = apiPage;
+      
+      if (this.useClientSidePagination) {
+        // Apply client-side pagination on already loaded data
+        this.applyClientSidePagination();
+      } else {
+        // Load new page from API
       this.loadRisingStars();
+      }
     }
   }
 
@@ -1107,9 +1219,26 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
   readonly allAlumni = signal<readonly PersonCard[]>([]);
   readonly alumni = signal<readonly PersonCard[]>([]);
   readonly loadingAlumni = signal(false);
+  selectedAlumniYear = signal<string | null>(null);
   alumniPage = 1;
   readonly alumniPageSize = 7;
   readonly alumniTotalPages = signal(1);
+  
+  // Year filter options for alumni (same as dashboard)
+  readonly alumniYearOptions: readonly { label: string; value: string }[] = (() => {
+    const current = new Date().getFullYear();
+    const years: { label: string; value: string }[] = [];
+    for (let y = current; y >= current - 5; y--) {
+      years.push({ label: `${y}`, value: `${y}` });
+    }
+    // Ensure expected fixed years are present
+    ['2022', '2023', '2024', '2025', '2026'].forEach((y) => {
+      if (!years.find((opt) => opt.value === y)) {
+        years.push({ label: y, value: y });
+      }
+    });
+    return years.sort((a, b) => Number(b.value) - Number(a.value));
+  })();
 
   loadAlumni(): void {
     const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
@@ -1119,7 +1248,7 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       this.alumniTotalPages.set(1);
       return;
     }
-    const year = new Date().getFullYear().toString();
+    const year = this.selectedAlumniYear() || new Date().getFullYear().toString();
     this.loadingAlumni.set(true);
     this.studentApiService
       .getAlumniByCampusBatch(campusId, year, 1, this.alumniPageSize)
@@ -1216,6 +1345,12 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
       this.alumniPage++;
       this.updateAlumniPageItems();
     }
+  }
+
+  onAlumniYearChange(year: string): void {
+    this.selectedAlumniYear.set(year);
+    this.alumniPage = 1; // Reset to first page when year changes
+    this.loadAlumni();
   }
 
   avatarSrc(card: PersonCard): string {
@@ -1488,6 +1623,10 @@ export class CampusAboutComponent implements OnInit, OnDestroy {
         this.submittingPlacedStudents = false;
         if (response?.success) {
           this.notify.success(response?.message || 'Placed student added successfully');
+          // Reset form after successful submit
+          if (this.placedStudentsComponent) {
+            this.placedStudentsComponent.resetForm();
+          }
           this.closeModal();
           // Reset to page 0 and reload rising stars (placed students)
           this.risingStarsPage = 0;

@@ -106,9 +106,7 @@ export class InputComponent implements OnChanges {
     if (this.selectedFileNames && this.selectedFileNames.trim().length > 0) {
       return this.selectedFileNames;
     }
-    if (this.existingFileName && this.existingFileName.trim().length > 0) {
-      return `${this.existingFileName} - Uploaded`;
-    }
+    // Don't show existing filename - just show placeholder to allow user to upload new file
     return this.placeholder || 'Upload file';
   }
 
@@ -119,9 +117,12 @@ export class InputComponent implements OnChanges {
       if (changes['value'] && !this.value) {
         this.selectedFileNames = '';
       }
-      // If existingFileName is provided and no files selected yet, show it
-      if (changes['existingFileName'] && this.existingFileName && !this.selectedFileNames) {
-        // Don't set selectedFileNames here, let getFileDisplayText handle it
+      // Reset selectedFileNames when existingFileName changes to undefined (edit mode)
+      if (changes['existingFileName'] && !this.existingFileName) {
+        // Only reset if no files are currently selected
+        if (!this.selectedFileNames || this.selectedFileNames.trim().length === 0) {
+          this.selectedFileNames = '';
+        }
       }
     }
   }

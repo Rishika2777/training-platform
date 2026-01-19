@@ -227,6 +227,63 @@ export class CampusApiService {
   }
 
   /**
+   * GET /company/getCompanyBySearch
+   * Autocomplete API for company names.
+   * Searches companies by name (case-insensitive partial match) and returns companyId, companyName, and companyAddress.
+   * Supports pagination with page and size parameters.
+   * 
+   * @param searchTerm - Search term for company name (optional)
+   * @param page - Page number (0-indexed, default: 0)
+   * @param size - Page size (default: 20)
+   * @returns Observable with array of companies
+   */
+  getCompanyBySearch(
+    searchTerm?: string,
+    page = 0,
+    size = 20,
+  ): Observable<CompanySearchResponse | null> {
+    const url = this.buildUrl(API_ENDPOINTS.COMPANY.GET_COMPANY_BY_SEARCH);
+    let params = new HttpParams().set('page', page.toString()).set('size', size.toString());
+    
+    if (searchTerm && searchTerm.trim().length > 0) {
+      params = params.set('searchTerm', searchTerm.trim());
+    }
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+        
+        const response = raw as Record<string, unknown>;
+        
+        // Response structure: { success: true, message: string, data: CompanySearchItem[], statusCode: number, timestamp: string }
+        if ('success' in response && 'data' in response) {
+          const data = response['data'];
+          
+          // Data is an array of companies
+          if (Array.isArray(data)) {
+            return {
+              success: response['success'] as boolean,
+              message: (response['message'] as string) || 'Companies retrieved successfully',
+              data: data as CompanySearchItem[],
+              statusCode: typeof response['statusCode'] === 'number' ? response['statusCode'] : 200,
+              timestamp: (response['timestamp'] as string) || undefined,
+            } as CompanySearchResponse;
+          }
+        }
+        
+        // Fallback: try to cast as-is
+        return raw as CompanySearchResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: Error fetching companies by search:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * GET /dashboard/campus/{campusId}/sidebar
    * Get campus sidebar info (name and rank).
    * Retrieves campus name and rank for sidebar display in the dashboard.
@@ -552,77 +609,6 @@ export class CampusApiService {
    * @param limit - Number of records per page (default: 6)
    * @returns Observable of ApiResponsePageStudent
    */
-  getDashboardPlacedStudents(
-    campusId: string,
-    page = 0,
-    limit = 6,
-  ): Observable<ApiResponsePageStudent> {
-    if (!campusId) {
-      console.error('CampusApiService: getDashboardPlacedStudents - Campus ID is required');
-      return throwError(() => new Error('Campus ID is required to get placed students'));
-    }
-
-    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PLACED_STUDENTS, { campusId });
-    const params = new HttpParams()
-      .set('page', page.toString())
-      .set('limit', limit.toString());
-
-    return this.http.get<unknown>(url, { params }).pipe(
-      map((raw) => {
-        // Backend response format: { success: true, message: "Placed students retrieved successfully", data: { content: [...], ... }, error: null }
-        if (raw && typeof raw === 'object' && raw !== null) {
-          const responseObj = raw as Record<string, unknown>;
-
-          // Check if response has the expected structure
-          if ('success' in responseObj && 'data' in responseObj) {
-            const dataObj = responseObj['data'] as Record<string, unknown>;
-            const response: ApiResponsePageStudent = {
-              success: responseObj['success'] as boolean,
-              message: (responseObj['message'] as string) || 'Placed students retrieved successfully',
-              data: {
-                content: (Array.isArray(dataObj['content']) ? dataObj['content'] : []) as PlacedStudentResponse[],
-                totalPages: typeof dataObj['totalPages'] === 'number' ? dataObj['totalPages'] : undefined,
-                totalElements: typeof dataObj['totalElements'] === 'number' ? dataObj['totalElements'] : undefined,
-                first: typeof dataObj['first'] === 'boolean' ? dataObj['first'] : undefined,
-                last: typeof dataObj['last'] === 'boolean' ? dataObj['last'] : undefined,
-                size: typeof dataObj['size'] === 'number' ? dataObj['size'] : undefined,
-                number: typeof dataObj['number'] === 'number' ? dataObj['number'] : undefined,
-                numberOfElements: typeof dataObj['numberOfElements'] === 'number' ? dataObj['numberOfElements'] : undefined,
-                empty: typeof dataObj['empty'] === 'boolean' ? dataObj['empty'] : undefined,
-              },
-              error: (responseObj['error'] as string) || undefined,
-              statusCode: typeof responseObj['statusCode'] === 'number' ? responseObj['statusCode'] : undefined,
-              timestamp: typeof responseObj['timestamp'] === 'string' ? responseObj['timestamp'] : undefined,
-            };
-
-            return response;
-          }
-        }
-
-        console.warn('CampusApiService: getDashboardPlacedStudents - Response format unexpected:', raw);
-        // Return a default response structure
-        return {
-          success: false,
-          message: 'Unexpected response format',
-          data: { content: [] },
-          error: 'Invalid response structure',
-        } as ApiResponsePageStudent;
-      }),
-      catchError((error) => {
-        console.error('CampusApiService: getDashboardPlacedStudents - Error occurred:', error);
-        console.error('CampusApiService: getDashboardPlacedStudents - Error status:', error?.status);
-        console.error('CampusApiService: getDashboardPlacedStudents - Error URL:', error?.url);
-        console.error('CampusApiService: getDashboardPlacedStudents - Error response:', error?.error);
-        return throwError(() => error);
-      })
-    );
-  }
-
-  /**
-   * GET /dashboard/students/batches
-   * Get all batches for the campus.
-   * Returns list of all available batches.
-   */
   /**
    * GET /dashboard/students/batches
    * Get all available batches for the campus.
@@ -803,6 +789,65 @@ export class CampusApiService {
   }
 
   /**
+   * GET /student/{studentId}/campus/{campusId}/batch-info
+   * Get student campus and batch information.
+   * Retrieves campus and batch information for a specific student by campus ID.
+   * Returns campus ID, student ID, campus name, campus address, and batch (year of passing).
+   */
+  getStudentCampusBatchInfo(
+    studentId: string,
+    campusId?: string,
+  ): Observable<StudentCampusBatchInfoResponse | null> {
+    const finalCampusId = this.getCampusId(campusId);
+    if (!finalCampusId) {
+      return throwError(() => new Error('Campus ID is required to get student batch info'));
+    }
+    
+    if (!studentId || studentId.trim().length === 0) {
+      return throwError(() => new Error('Student ID is required'));
+    }
+    
+    const url = this.buildUrl(API_ENDPOINTS.STUDENT.GET_STUDENT_CAMPUS_BATCH_INFO, { 
+      studentId: studentId.trim(),
+      campusId: finalCampusId 
+    });
+    
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const responseObj = raw as Record<string, unknown>;
+          
+          // Check if response has the expected structure
+          if ('success' in responseObj && 'data' in responseObj) {
+            const dataObj = responseObj['data'] as Record<string, unknown>;
+            
+            const response: StudentCampusBatchInfoResponse = {
+              success: responseObj['success'] as boolean,
+              message: (responseObj['message'] as string) || 'Student campus batch information retrieved successfully',
+              data: {
+                campusId: dataObj['campusId'] as string,
+                studentId: dataObj['studentId'] as string,
+                campusName: dataObj['campusName'] as string,
+                campusAddress: dataObj['campusAddress'] as string,
+                batch: dataObj['batch'] as string, // Year of passing
+              },
+              statusCode: typeof responseObj['statusCode'] === 'number' ? responseObj['statusCode'] : 200,
+              timestamp: (responseObj['timestamp'] as string) || undefined,
+            };
+            
+            return response;
+          }
+        }
+        
+        return null;
+      }),
+      catchError((error) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
    * POST /dashboard/campus/{campusId}/companies
    * Add a company visited.
    * Request: multipart/form-data with companyName (string) and logo (file)
@@ -834,7 +879,7 @@ export class CampusApiService {
               return result;
             } else {
               // HTTP 201/200 but unexpected response format - still treat as success
-              console.warn('CampusApiService: ⚠️ Response structure invalid but HTTP 201/200 - treating as success');
+              console.warn('CampusApiService:  Response structure invalid but HTTP 201/200 - treating as success');
               const result = {
                 success: true,
                 message: 'Company visited added successfully',
@@ -845,7 +890,7 @@ export class CampusApiService {
             }
           } else {
             // HTTP 201/200 but no body or invalid body - still treat as success
-            console.warn('CampusApiService: ⚠️ No response body but HTTP 201/200 - treating as success');
+            console.warn('CampusApiService:  No response body but HTTP 201/200 - treating as success');
             const result = {
               success: true,
               message: 'Company visited added successfully',
@@ -856,12 +901,12 @@ export class CampusApiService {
           }
         } else {
           // Unexpected status code
-          console.warn('CampusApiService: ❌ Unexpected HTTP status:', httpResponse.status);
+          console.warn('CampusApiService:  Unexpected HTTP status:', httpResponse.status);
           return null;
         }
       }),
       catchError((error) => {
-        console.error('CampusApiService: ❌❌❌ ADD COMPANY VISITED - ERROR OCCURRED ❌❌❌');
+        console.error('CampusApiService:  ADD COMPANY VISITED - ERROR OCCURRED ');
         console.error('CampusApiService: Error type:', error?.constructor?.name);
         console.error('CampusApiService: Error message:', error?.message);
         console.error('CampusApiService: Error status:', error?.status);
@@ -1164,6 +1209,158 @@ export class CampusApiService {
         console.error('CampusApiService: getAllCourses - Error status:', error?.status);
         console.error('CampusApiService: getAllCourses - Error URL:', error?.url);
         console.error('CampusApiService: getAllCourses - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+   /**
+   * GET /dashboard/{campusId}/placed-students
+   * Get Placed Students for the campus with pagination.
+   * Default 6 students per page, sorted by placement date (newest first).
+   * 
+   * @param campusId - Required campus ID (path parameter)
+   * @param page - Page number (0-based, default: 0)
+   * @param limit - Number of records per page (default: 6)
+   * @returns Observable of ApiResponsePageStudent
+   */
+   getDashboardPlacedStudents(
+    campusId: string,
+    page = 0,
+    limit = 6,
+    year?: number,
+  ): Observable<ApiResponsePageStudent> {
+    if (!campusId) {
+      console.error('CampusApiService: getDashboardPlacedStudents - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get placed students'));
+    }
+
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_PLACED_STUDENTS, { campusId });
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    // Add year parameter if provided
+    if (year !== undefined && year !== null) {
+      params = params.set('year', year.toString());
+    }
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        // Backend response format: { success: true, message: "Placed students retrieved successfully", data: { content: [...], ... }, error: null }
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const responseObj = raw as Record<string, unknown>;
+
+          // Check if response has the expected structure
+          if ('success' in responseObj && 'data' in responseObj) {
+            const dataObj = responseObj['data'] as Record<string, unknown>;
+            const response: ApiResponsePageStudent = {
+              success: responseObj['success'] as boolean,
+              message: (responseObj['message'] as string) || 'Placed students retrieved successfully',
+              data: {
+                content: (Array.isArray(dataObj['content']) ? dataObj['content'] : []) as PlacedStudentResponse[],
+                totalPages: typeof dataObj['totalPages'] === 'number' ? dataObj['totalPages'] : undefined,
+                totalElements: typeof dataObj['totalElements'] === 'number' ? dataObj['totalElements'] : undefined,
+                first: typeof dataObj['first'] === 'boolean' ? dataObj['first'] : undefined,
+                last: typeof dataObj['last'] === 'boolean' ? dataObj['last'] : undefined,
+                size: typeof dataObj['size'] === 'number' ? dataObj['size'] : undefined,
+                number: typeof dataObj['number'] === 'number' ? dataObj['number'] : undefined,
+                numberOfElements: typeof dataObj['numberOfElements'] === 'number' ? dataObj['numberOfElements'] : undefined,
+                empty: typeof dataObj['empty'] === 'boolean' ? dataObj['empty'] : undefined,
+              },
+              error: (responseObj['error'] as string) || undefined,
+              statusCode: typeof responseObj['statusCode'] === 'number' ? responseObj['statusCode'] : undefined,
+              timestamp: typeof responseObj['timestamp'] === 'string' ? responseObj['timestamp'] : undefined,
+            };
+
+            return response;
+          }
+        }
+
+        console.warn('CampusApiService: getDashboardPlacedStudents - Response format unexpected:', raw);
+        // Return a default response structure
+        return {
+          success: false,
+          message: 'Unexpected response format',
+          data: { content: [] },
+          error: 'Invalid response structure',
+        } as ApiResponsePageStudent;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getDashboardPlacedStudents - Error occurred:', error);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error status:', error?.status);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error URL:', error?.url);
+        console.error('CampusApiService: getDashboardPlacedStudents - Error response:', error?.error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * GET /dashboard/{campusId}/companies
+   * Get Companies Visited
+   * Frontend: "Companies Visited GET" – retrieves companies that have visited the campus with pagination.
+   * Default 6 companies per page, sorted by visited date (newest first).
+   * 
+   * @param campusId - Required campus ID (path parameter)
+   * @param page - Page number (0-based, default: 0)
+   * @param limit - Number of records per page (default: 6)
+   * @returns Observable of GetCompaniesVisitedResponse
+   */
+  getDashboardCompanies(
+    campusId: string,
+    page = 0,
+    limit = 6,
+  ): Observable<GetCompaniesVisitedResponse> {
+    if (!campusId) {
+      console.error('CampusApiService: getDashboardCompanies - Campus ID is required');
+      return throwError(() => new Error('Campus ID is required to get companies'));
+    }
+
+    const url = this.buildUrl(API_ENDPOINTS.CAMPUS.GET_COMPANIES_VISITED, { campusId });
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        // Backend response format: { success: true, message: "Companies retrieved successfully", data: { content: [...], ... }, error: null }
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const responseObj = raw as Record<string, unknown>;
+
+          // Check if response has the expected structure
+          if ('success' in responseObj && 'data' in responseObj) {
+            const dataObj = responseObj['data'] as Record<string, unknown>;
+            const response: GetCompaniesVisitedResponse = {
+              success: responseObj['success'] as boolean,
+              message: (responseObj['message'] as string) || 'Companies retrieved successfully',
+              data: {
+                content: (Array.isArray(dataObj['content']) ? dataObj['content'] : []) as CompanyVisitedItem[],
+                totalPages: typeof dataObj['totalPages'] === 'number' ? dataObj['totalPages'] : undefined,
+                totalElements: typeof dataObj['totalElements'] === 'number' ? dataObj['totalElements'] : undefined,
+                pageable: dataObj['pageable'] as PageableInfo | undefined,
+              },
+              error: (responseObj['error'] as string) || null,
+            };
+
+            return response;
+          }
+        }
+
+        console.warn('CampusApiService: getDashboardCompanies - Response format unexpected:', raw);
+        // Return a default response structure
+        return {
+          success: false,
+          message: 'Unexpected response format',
+          data: { content: [] },
+          error: 'Invalid response structure',
+        } as GetCompaniesVisitedResponse;
+      }),
+      catchError((error) => {
+        console.error('CampusApiService: getDashboardCompanies - Error occurred:', error);
+        console.error('CampusApiService: getDashboardCompanies - Error status:', error?.status);
+        console.error('CampusApiService: getDashboardCompanies - Error URL:', error?.url);
+        console.error('CampusApiService: getDashboardCompanies - Error response:', error?.error);
         return throwError(() => error);
       })
     );
@@ -3103,6 +3300,20 @@ export interface CompanyVisitedItem {
   updatedAt?: string;
 }
 
+export interface CompanySearchItem {
+  companyId: string;
+  companyName: string;
+  companyAddress: string;
+}
+
+export interface CompanySearchResponse {
+  success: boolean;
+  message: string;
+  data: CompanySearchItem[];
+  statusCode?: number;
+  timestamp?: string;
+}
+
 export interface PageableInfo {
   pageNumber?: number;
   pageSize?: number;
@@ -3738,6 +3949,7 @@ export interface StudentByCampusItem {
   profilePhotoUrl?: string;
   imageUrl?: string;
   batch?: string;
+  yearOfPassing?: string; // Year of passing from student registration form
   courseId?: string;
   courseName?: string;
   email?: string;
@@ -3761,6 +3973,22 @@ export interface StudentByCampusResponse {
     empty?: boolean;
   };
   error?: string;
+}
+
+export interface StudentCampusBatchInfoData {
+  campusId: string;
+  studentId: string;
+  campusName: string;
+  campusAddress: string;
+  batch: string; // Year of passing
+}
+
+export interface StudentCampusBatchInfoResponse {
+  success: boolean;
+  message: string;
+  data: StudentCampusBatchInfoData;
+  statusCode?: number;
+  timestamp?: string;
 }
 
 export interface StudentByBatchData {
