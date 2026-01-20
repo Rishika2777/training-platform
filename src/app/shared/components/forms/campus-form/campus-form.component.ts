@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
@@ -28,7 +29,7 @@ export interface CampusFormValue {
 @Component({
   selector: 'app-campus-form',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, InputComponent, TextareaComponent],
+  imports: [CommonModule, FormsModule, ButtonComponent, InputComponent, TextareaComponent],
   templateUrl: './campus-form.component.html',
   styleUrl: './campus-form.component.css',
 })
@@ -123,12 +124,12 @@ export class CampusFormComponent implements OnChanges {
       const newValue = changes['value'].currentValue;
       if (newValue) {
         // Create a deep copy to ensure Angular detects the change
-        // Always reset campusLogoFiles to null when value changes from parent (loading profile)
-        // This ensures no stale file selection persists
+        // Preserve campusLogoFiles if parent provides it (user just selected a file).
+        // Only fall back to null when parent doesn't include a FileList (e.g., loading profile data).
         this.value = {
           campusName: newValue.campusName ?? '',
           campusLogoUrl: newValue.campusLogoUrl ?? '',
-          campusLogoFiles: null, // Always reset to null when loading from parent
+          campusLogoFiles: newValue.campusLogoFiles ?? this.value.campusLogoFiles ?? null,
           rank: newValue.rank ?? '',
           adminName: newValue.adminName ?? '',
           adminEmail: newValue.adminEmail ?? '',

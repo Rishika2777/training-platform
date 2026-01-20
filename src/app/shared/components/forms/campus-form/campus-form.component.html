@@ -3,7 +3,14 @@
     <h2 class="app-form-title">{{ title }}</h2>
   }
 
-  <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate>
+  <form class="app-form" (ngSubmit)="submit()" novalidate>
+    <!-- Hidden submit button so Enter key submits, even though the visible CTA is type="button". -->
+    <button
+      type="submit"
+      tabindex="-1"
+      aria-hidden="true"
+      style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;"
+    ></button>
     <div class="app-form-row">
       <app-input
         label="Campus Name"
@@ -162,7 +169,13 @@
           [disabled]="submitting"
           (buttonClick)="cancelled.emit()"
         />
-        <app-button type="submit" variant="primary" label="Update" [disabled]="submitting" />
+        <app-button
+          type="button"
+          variant="primary"
+          label="Update"
+          [disabled]="submitting"
+          (buttonClick)="submit()"
+        />
       } @else {
         <app-button
           type="button"
@@ -172,10 +185,11 @@
           (buttonClick)="cancelled.emit()"
         />
         <app-button
-          type="submit"
+          type="button"
           variant="primary"
           [label]="isEditMode ? 'Update' : 'Submit'"
           [disabled]="submitting"
+          (buttonClick)="submit()"
         />
       }
     </div>
