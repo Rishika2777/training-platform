@@ -39,7 +39,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  overflow: visible;
 }
 
 /* Create a scrolling container inside body for content */
@@ -118,9 +117,11 @@
 
 .body {
   padding: 14px;
+  padding-bottom: 20px; /* Extra padding at bottom to ensure buttons are visible */
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
+  max-height: calc(90vh - 60px); /* Account for header height */
 }
 
 /* Allow dropdowns to escape the body overflow by using fixed positioning */

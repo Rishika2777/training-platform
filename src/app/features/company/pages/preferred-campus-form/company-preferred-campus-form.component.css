@@ -75,6 +75,14 @@
   display: block;
 }
 
+.loading-message {
+  font-size: 12px;
+  color: var(--color-text-secondary, #666);
+  margin-top: 4px;
+  display: block;
+  font-style: italic;
+}
+
 .form-actions {
   display: flex;
   justify-content: center;

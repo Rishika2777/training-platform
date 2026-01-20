@@ -5,6 +5,9 @@ import { InputWithFileComponent } from '../../../../shared/components/input-with
 import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
 import { CampusApiService, ProspectusData, AddCourseResponseData, Campus } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { AuthStateService } from '../../../../core/auth/auth-state.service';
 
 export interface ProspectusUploadFormValue {
   campus: string;
@@ -26,6 +29,8 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId as object);
+  private readonly storage = inject(StorageService);
+  private readonly authState = inject(AuthStateService);
   
   // Event handler for courseAdded event
   private courseAddedHandler: (() => void) | null = null;
@@ -135,6 +140,31 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
+   * Get campus ID from storage or auth state
+   * Priority: Auth state > Storage
+   */
+  private getCampusIdFromStorage(): string | null {
+    if (!this.isBrowser) {
+      return null;
+    }
+    
+    // Try from auth state (user profile) - profileServiceId contains campusId
+    const currentUser = this.authState.user();
+    const campusIdFromUser = currentUser?.profileServiceId || currentUser?.campusId;
+    if (campusIdFromUser) {
+      return campusIdFromUser;
+    }
+    
+    // Try from storage
+    const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+    if (campusIdFromStorage) {
+      return campusIdFromStorage;
+    }
+    
+    return null;
+  }
+
+  /**
    * Check if a string is a valid ID (MongoDB ObjectId or numeric ID, not a file name)
    */
   private isValidId(value: string): boolean {
@@ -170,33 +200,10 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   private loadedCampuses = signal<readonly Campus[]>([]);
 
   // Computed signal to get display value for campus field (show name instead of ID)
+  // NOTE: Returns empty string to keep field empty as per client requirement
   readonly displayCampusValue = computed(() => {
-    // If actualCampusId is set, use it (this is set by initializeProspectusComponent)
-    if (this.actualCampusId) {
-      const campus = this.loadedCampuses().find(c => 
-        (c.id && c.id.trim() === this.actualCampusId) || 
-        (c.campusId && c.campusId.trim() === this.actualCampusId)
-      );
-      return campus?.campusName?.trim() || this.actualCampusId;
-    }
-    
-    // If value.campus is empty, return empty string
-    const campusValue = this.value.campus.trim();
-    if (!campusValue) {
-      return '';
-    }
-    
-    // If it's a valid ID, find campus name
-    if (this.isValidId(campusValue)) {
-      const campus = this.loadedCampuses().find(c => 
-        (c.id && c.id.trim() === campusValue) || 
-        (c.campusId && c.campusId.trim() === campusValue)
-      );
-      return campus?.campusName?.trim() || campusValue;
-    }
-    
-    // If it's not a valid ID (like a file name), return empty string (should not happen after reset)
-    // This ensures file names don't show up in the field
+    // Always return empty string to keep the field empty
+    // actualCampusId is stored internally for API calls but not displayed in the field
     return '';
   });
 
@@ -204,8 +211,18 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     // Load campuses (for getting campus names) and courses from API
     this.loadCampuses();
     this.loadCourses();
-    // Fetch prospectus list on component initialization if campus or course is already selected
-    this.loadProspectusListIfNeeded();
+    
+    // Load all prospectuses by campus on initialization (without requiring course selection)
+    // This ensures the list is shown by default when modal opens
+    const campusId = this.getCampusIdFromStorage();
+    if (campusId && this.isValidId(campusId)) {
+      // Store campus ID internally but don't populate form fields
+      this.actualCampusId = campusId;
+      // Load all prospectuses for this campus
+      setTimeout(() => {
+        this.getProspectusByCampus(campusId);
+      }, 100);
+    }
     
     // Listen for courseAdded event to refresh courses list (only in browser)
     if (this.isBrowser) {
@@ -308,24 +325,15 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
    * Public method to refresh prospectus list.
    * Can be called after successful upload to show the new prospectus.
    * Optionally accepts campusId and courseName to ensure list loads correctly.
+   * NOTE: This method does NOT populate form fields - it only loads the prospectus list.
    */
   refreshProspectusList(campusId?: string, courseName?: string): void {
     console.log('CampusProspectusComponent: refreshProspectusList called', { campusId, courseName });
     
-    // If campusId is provided, store it and update form value
+    // If campusId is provided, store it internally but DON'T update form value
+    // This ensures fields remain empty while list is loaded
     if (campusId && this.isValidId(campusId)) {
       this.actualCampusId = campusId.trim();
-      // Update form value to ensure list section is visible (only if current value is not a valid ID)
-      if (!this.value.campus.trim() || !this.isValidId(this.value.campus.trim())) {
-        this.patch({ campus: campusId.trim() });
-      }
-    }
-    
-    // If courseName is provided, update form value to ensure list section is visible
-    if (courseName && courseName.trim()) {
-      if (this.value.course.trim() !== courseName.trim()) {
-        this.patch({ course: courseName.trim() });
-      }
     }
     
     // If we have both campusId and courseName, load directly (more reliable)
@@ -337,13 +345,25 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     
-    // If we have campusId but no courseName, load by campus directly
+    // If we have campusId but no courseName, load by campus directly (shows all prospectuses)
     if (campusId && this.isValidId(campusId)) {
       console.log('CampusProspectusComponent: Loading prospectus directly with provided campusId (no course)');
       setTimeout(() => {
         this.getProspectusByCampus(campusId.trim());
       }, 100);
       return;
+    }
+    
+    // If no campusId provided, try to get from storage
+    if (!campusId) {
+      const storedCampusId = this.getCampusIdFromStorage();
+      if (storedCampusId && this.isValidId(storedCampusId)) {
+        this.actualCampusId = storedCampusId;
+        setTimeout(() => {
+          this.getProspectusByCampus(storedCampusId);
+        }, 100);
+        return;
+      }
     }
     
     // Otherwise, load prospectus list with current values
@@ -880,7 +900,10 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
         if (response?.success && response.data?.fileUrls && response.data.fileUrls.length > 0) {
           // Backend returns fileUrls array - download all files
           const fileUrls = response.data.fileUrls;
-          this.downloadFilesFromUrls(fileUrls, fileName || `prospectus-${courseName}.pdf`);
+          // Generate dynamic filename: {courseName}-prospectus.{extension}
+          const cleanCourseName = courseName.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+          const defaultFileName = fileName || `${cleanCourseName}-prospectus.pdf`;
+          this.downloadFilesFromUrls(fileUrls, defaultFileName);
           this.notify.success(`Prospectus downloaded successfully (${fileUrls.length} file${fileUrls.length > 1 ? 's' : ''})`);
         } else {
           console.error('CampusProspectusComponent: No file URLs in response:', response);
@@ -1036,46 +1059,33 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Get file name from stored map, URL, or use default
-   * Prioritizes stored original file name over extracted name from URL
+   * Get file name for a prospectus (without extension for display)
+   * Format: {courseName}-prospectus
+   * Example: BCA-prospectus
    */
   getFileName(prospectus: ProspectusData): string {
-    // First, check if we have the original file name stored in the map
-    if (prospectus.id && this.prospectusFileNameMap.has(prospectus.id)) {
-      const originalFileName = this.prospectusFileNameMap.get(prospectus.id);
-      if (originalFileName) {
-        return originalFileName;
+    // Get course name from prospectus courseId
+    let courseName = '';
+    if (prospectus.courseId) {
+      const course = this.loadedCourses().find(c => c.id === prospectus.courseId);
+      if (course?.courseName) {
+        courseName = course.courseName.trim();
       }
     }
     
-    // If not in map, try to extract from URL
-    if (prospectus.fileUrls && prospectus.fileUrls.length > 0) {
-      const url = prospectus.fileUrls[0];
-      // Extract file name from URL (remove query parameters if any)
-      let fileName = url.split('/').pop() || url;
-      // Remove query parameters (everything after ?)
-      if (fileName.includes('?')) {
-        fileName = fileName.split('?')[0];
-      }
-      // Decode URL-encoded characters
-      try {
-        fileName = decodeURIComponent(fileName);
-      } catch {
-        // If decoding fails, use the original
-      }
-      
-      // Check if the extracted name looks like a UUID (contains hyphens and is long)
-      // If it does, don't use it - return a generic name instead
-      if (fileName && fileName.length > 30 && fileName.includes('-') && /^[a-f0-9-]+$/i.test(fileName.split('.')[0])) {
-        // This looks like a UUID, return generic name
-        return 'prospectus.pdf';
-      }
-      
-      // Return the extracted file name
-      return fileName || 'prospectus.pdf';
+    // If no course name found, try to get from form value as fallback
+    if (!courseName) {
+      courseName = this.value.course.trim();
     }
     
-    // If no fileUrls, return a generic name without ID
-    return 'prospectus.pdf';
+    // Generate filename: {courseName}-prospectus (without extension)
+    if (courseName) {
+      // Clean course name: remove special characters that might cause issues in filename
+      const cleanCourseName = courseName.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+      return `${cleanCourseName}-prospectus`;
+    }
+    
+    // Fallback if no course name: just use prospectus
+    return `prospectus`;
   }
 }

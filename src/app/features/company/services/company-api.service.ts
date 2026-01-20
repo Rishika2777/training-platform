@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
 
 /**
@@ -158,10 +158,56 @@ export class CompanyApiService {
   /**
    * POST /preferred-campus/{companyId}/addCampus
    * Adds a preferred campus for a company.
+   * Supports both JSON (without file) and multipart/form-data (with file).
    */
-  addPreferredCampus(companyId: string, request: PreferredCampusRequest): Observable<PreferredCampusResponse | null> {
+  addPreferredCampus(companyId: string, request: PreferredCampusRequest, photoFile?: File): Observable<PreferredCampusResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_PREFERRED_CAMPUS, { companyId }));
-    return this.http.post<unknown>(url, request).pipe(map(extractPreferredCampusResponse));
+    console.log('CompanyApiService: addPreferredCampus called', { url, companyId, request, hasPhotoFile: !!photoFile });
+    
+    // If a file is provided, use multipart/form-data
+    if (photoFile) {
+      const formData = new FormData();
+      formData.append('campusName', request.campusName);
+      if (request.campusLogoUrl) {
+        formData.append('campusLogoUrl', request.campusLogoUrl);
+      }
+      formData.append('photo', photoFile, photoFile.name);
+      
+      console.log('CompanyApiService: Sending multipart/form-data request', { campusName: request.campusName, photoFileName: photoFile.name });
+      
+      // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
+      const headers = new HttpHeaders({
+        'Accept': 'application/json'
+      });
+      
+      console.log('CompanyApiService: About to make HTTP POST request', { url, formDataKeys: Array.from(formData.keys()) });
+      return this.http.post<unknown>(url, formData, { headers }).pipe(
+        tap({
+          next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+          error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+          complete: () => console.log('CompanyApiService: HTTP POST request completed')
+        }),
+        map((response) => {
+          console.log('CompanyApiService: Received response for addPreferredCampus', response);
+          return extractPreferredCampusResponse(response);
+        })
+      );
+    }
+    
+    // Otherwise, use JSON
+    console.log('CompanyApiService: Sending JSON request', request);
+    console.log('CompanyApiService: About to make HTTP POST request (JSON)', { url, request });
+    return this.http.post<unknown>(url, request).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request (JSON) successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request (JSON) failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request (JSON) completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addPreferredCampus', response);
+        return extractPreferredCampusResponse(response);
+      })
+    );
   }
 
   /**
@@ -205,6 +251,42 @@ export class CompanyApiService {
         const data = unwrapResponse<KeyPersonResponse[]>(raw);
         return Array.isArray(data) ? data : [];
       }),
+    );
+  }
+
+  /**
+   * GET /campuses
+   * Get all registered campuses for dropdown
+   * This makes an actual HTTP call so it shows in network tab
+   */
+  getCampuses(): Observable<{ success: boolean; data: { campusId: string; campusName: string }[] }> {
+    // Use the student API endpoint but make actual HTTP call through company service
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
+    console.log('CompanyApiService: getCampuses called', { url, baseUrl: this.baseUrl });
+    return this.http.get<unknown>(url).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: getCampuses response', response),
+        error: (error) => console.error('CompanyApiService: getCampuses error', error)
+      }),
+      map((raw) => {
+        const wrapped = raw as { success?: boolean; data?: unknown; message?: string };
+        let data: { campusId: string; campusName: string }[] = [];
+        
+        if (wrapped.data && Array.isArray(wrapped.data)) {
+          data = wrapped.data as { campusId: string; campusName: string }[];
+        } else {
+          // Try unwrapResponse if data is nested
+          const unwrapped = unwrapResponse<{ campusId: string; campusName: string }[]>(raw);
+          if (unwrapped && Array.isArray(unwrapped)) {
+            data = unwrapped;
+          }
+        }
+        
+        return {
+          success: wrapped.success ?? true,
+          data: data
+        };
+      })
     );
   }
 }
@@ -273,10 +355,12 @@ export interface PreferredCampusRequest {
 }
 
 export interface PreferredCampusResponse {
-  preferredCampusId?: string;
   campusId?: string;
+  companyId?: string;
   campusName?: string;
   campusLogoUrl?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface CompanyAutoSearchItem {

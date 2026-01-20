@@ -122,6 +122,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
         }
         
         // IMPORTANT: For 401 errors on campus-related endpoints, don't clear token or redirect
+        // The CampusSessionService handles automatic token refresh for active users
         // Let the component handle the error gracefully
         if (err.status === 401 && (
           req.url.includes('/campus/') || 
@@ -133,8 +134,9 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
           req.url.includes('/alumni')
         )) {
           // Silently handle 401 errors for campus endpoints - don't show error notification
+          // CampusSessionService will automatically refresh tokens for active users
           // The component will handle these errors gracefully
-          console.warn('HTTP Error Interceptor: 401 error on campus endpoint, letting component handle it:', req.url);
+          console.warn('HTTP Error Interceptor: 401 error on campus endpoint, letting component handle it (CampusSessionService will refresh token if user is active):', req.url);
           return throwError(() => err);
         }
         

@@ -36,10 +36,16 @@ export class LoginComponent {
   resendingOtp = false;
   showOtpModal = false;
   userEmail = '';
+  showForgotPasswordModal = false;
+  submittingForgotPassword = false;
 
   readonly form: LoginForm = new FormGroup({
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
     password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+
+  readonly forgotPasswordForm = new FormGroup({
+    email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
   });
 
   submit(): void {
@@ -139,7 +145,44 @@ export class LoginComponent {
   }
 
   forgotPassword(): void {
-    this.notifications.info('Forgot password is not available yet. It will be added next.');
+    // Pre-fill email from login form if available
+    const loginEmail = this.form.controls.email.value;
+    if (loginEmail) {
+      this.forgotPasswordForm.controls.email.setValue(loginEmail);
+    } else {
+      this.forgotPasswordForm.controls.email.setValue('');
+    }
+    this.showForgotPasswordModal = true;
+    this.cdr.detectChanges();
+  }
+
+  handleForgotPasswordSubmit(): void {
+    if (this.forgotPasswordForm.invalid || this.submittingForgotPassword) {
+      return;
+    }
+
+    this.submittingForgotPassword = true;
+    const email = this.forgotPasswordForm.controls.email.value.toLowerCase().trim();
+
+    this.auth.forgotPassword(email).subscribe({
+      next: () => {
+        this.submittingForgotPassword = false;
+        this.showForgotPasswordModal = false;
+        this.forgotPasswordForm.reset();
+        this.notifications.success('Password reset token generated. Please check your email.');
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.submittingForgotPassword = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  handleForgotPasswordCancel(): void {
+    this.showForgotPasswordModal = false;
+    this.forgotPasswordForm.reset();
+    this.cdr.detectChanges();
   }
 
   goToRegisterOptions(): void {

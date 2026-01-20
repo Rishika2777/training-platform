@@ -11,7 +11,13 @@
         (valueChange)="patch({ courseName: $event })"
       />
       @if (submitAttempted && isInvalid('courseName')) {
-        <span class="error-message">Course name is required</span>
+        <span class="error-message">
+          @if (value.courseName.trim().length === 0) {
+            Course name is required
+          } @else {
+            Course name contains invalid characters. Only alphabets, numbers, spaces, and special characters (., -, &) are allowed.
+          }
+        </span>
       }
     </div>
 
@@ -59,7 +65,13 @@
         (valueChange)="patch({ description: $event })"
       />
       @if (submitAttempted && isInvalid('description')) {
-        <span class="error-message">Description is required</span>
+        <span class="error-message">
+          @if (value.description.trim().length === 0) {
+            Description is required
+          } @else {
+            Description contains invalid characters. Only alphabets, numbers, spaces, and special characters (., -, &) are allowed.
+          }
+        </span>
       }
     </div>
   </div>

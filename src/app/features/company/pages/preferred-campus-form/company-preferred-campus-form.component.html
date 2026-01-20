@@ -1,4 +1,4 @@
-<form class="preferred-campus-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
+<form class="preferred-campus-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-row">
     <div class="file-input-wrapper">
       <div class="field-label">
@@ -37,16 +37,20 @@
   </div>
 
   <div class="form-row">
-    <app-input
+    <app-dropdown
       label="Campus Name"
-      type="text"
-      [value]="value.campusName"
-      [disabled]="submitting"
-      [invalid]="submitAttempted && !value.campusName.trim()"
-      (valueChange)="patch({ campusName: $event })"
-      placeholder="Enter campus name"
+      [items]="campusDropdownItems"
+      [value]="value.campusId || null"
+      [disabled]="submitting || loadingCampuses"
+      [invalid]="submitAttempted && !value.campusId"
+      [required]="true"
+      placeholder="Select campus"
+      (valueChange)="onCampusSelected($event)"
     />
-    @if (submitAttempted && !value.campusName.trim()) {
+    @if (loadingCampuses) {
+      <span class="loading-message">Loading campuses...</span>
+    }
+    @if (submitAttempted && !value.campusId) {
       <span class="error-message">Campus name is required</span>
     }
   </div>
@@ -56,8 +60,8 @@
       type="submit"
       label="Submit"
       variant="primary"
-      [disabled]="submitting || !isFormValid()"
-      (buttonClick)="onButtonClick()"
+      [disabled]="submitting"
+      (buttonClick)="onButtonClick($event)"
     />
   </div>
 </form>

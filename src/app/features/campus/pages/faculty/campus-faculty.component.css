@@ -2,6 +2,9 @@
   display: grid;
   gap: 40px;
   padding: var(--space-lg);
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .form-section {
@@ -203,10 +206,16 @@
 .form-actions {
   display: flex;
   gap: 20px;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid var(--color-border);
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Orange borders for all inputs and dropdowns */
@@ -254,6 +263,18 @@
 :host ::ng-deep .form-actions app-button:last-child button.primary:hover:not(:disabled) {
   background: #e76f51;
   border-color: #e76f51;
+}
+
+/* Ensure buttons stay within form-actions container */
+:host ::ng-deep .form-actions app-button {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:host ::ng-deep .form-actions app-button button {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1200px) {

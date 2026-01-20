@@ -26,12 +26,12 @@
     </div>
 
     <div class="form-actions">
-      <app-button type="button" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="submit()" />
+      <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
     </div>
   </form>
 
   <!-- Prospectus List Section -->
-  @if (value.course.trim() || prospectusList().length > 0) {
+  @if (prospectusList().length > 0) {
     <div class="prospectus-list-section">
       <div class="list-header">
         <h3 class="list-title">Uploaded Prospectuses</h3>
@@ -69,9 +69,6 @@
                   <div class="prospectus-details">
                     <div class="prospectus-name">{{ getFileName(prospectus) }}</div>
                     <div class="prospectus-meta">
-                      @if (prospectus.version) {
-                        <span class="meta-item">Version: {{ prospectus.version }}</span>
-                      }
                       @if (prospectus.createdAt) {
                         <span class="meta-item">Uploaded: {{ formatDate(prospectus.createdAt) }}</span>
                       }

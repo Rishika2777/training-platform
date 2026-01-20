@@ -24,6 +24,7 @@ import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { CampusSessionService } from '../../services/campus-session.service';
 
 @Component({
   selector: 'app-campus-home',
@@ -59,6 +60,7 @@ export class CampusHomeComponent implements OnInit {
   private readonly facultyDetailService = inject(FacultyDetailService);
   private readonly authState = inject(AuthStateService);
   private readonly storage = inject(StorageService);
+  private readonly campusSessionService = inject(CampusSessionService);
   
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isProspectusModalOpen = computed(() => this.activeModal() === 'prospectus-upload');
@@ -256,11 +258,14 @@ export class CampusHomeComponent implements OnInit {
   
   /**
    * Initialize prospectus component with campusId when modal opens
+   * NOTE: This only loads the prospectus list, it does NOT populate form fields
+   * Form fields remain empty as per client requirement
    */
   private initializeProspectusComponent(): void {
     const campusId = this.getCampusId();
     if (campusId && this.prospectusComponent) {
       // Pass campusId to prospectus component so it can load the list
+      // This will load all prospectuses but keep form fields empty
       this.prospectusComponent.refreshProspectusList(campusId);
     }
   }
@@ -1368,21 +1373,23 @@ export class CampusHomeComponent implements OnInit {
           this.notify.success(successMessage);
           
           // Refresh prospectus list to show the newly uploaded prospectus
-          // Pass campusId and courseName to ensure list loads correctly
           // Use setTimeout to ensure the backend has processed the upload and component is ready
           setTimeout(() => {
             if (this.prospectusComponent) {
-              this.prospectusComponent.refreshProspectusList(campusId, courseName);
+              // Load all prospectuses by campus (without course filter) to show all existing files
+              this.prospectusComponent.refreshProspectusList(campusId);
               
               // Reset form fields after successful upload so they are blank for next upload
               // Use a small delay to ensure the list refresh completes first
               setTimeout(() => {
                 if (this.prospectusComponent) {
+                  // Reset form to clear all fields (both input fields should be empty)
                   this.prospectusComponent.resetForm();
-                  // Re-initialize with campusId to show campus name (readonly field) but keep form fields blank
+                  // Reload prospectus list after reset to ensure list is still visible
                   setTimeout(() => {
                     if (this.prospectusComponent) {
-                      this.initializeProspectusComponent();
+                      // Load all prospectuses again after reset (fields remain empty)
+                      this.prospectusComponent.refreshProspectusList(campusId);
                     }
                   }, 100);
                 }
@@ -2197,7 +2204,28 @@ export class CampusHomeComponent implements OnInit {
         console.error('CampusHomeComponent: Error message:', err?.message);
         
         this.submittingCourseForm = false;
-        const errorMessage = err?.error?.message || err?.error?.error || err?.message || 'Failed to add course';
+        
+        // Extract detailed error message from server response
+        let errorMessage = 'Failed to add course';
+        if (err?.error) {
+          const errorData = err.error;
+          // Check if error has data object with field-specific errors
+          if (errorData.data && typeof errorData.data === 'object') {
+            const fieldErrors = Object.values(errorData.data).filter(msg => typeof msg === 'string');
+            if (fieldErrors.length > 0) {
+              errorMessage = fieldErrors.join(', ');
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
         this.notify.error(errorMessage);
         try {
           this.cdr.detectChanges();

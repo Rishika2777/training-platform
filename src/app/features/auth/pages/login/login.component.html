@@ -82,3 +82,40 @@
     (resendOtp)="handleResendOtp()"
   />
 </app-modal>
+
+<!-- Forgot Password Modal -->
+<app-modal
+  [visible]="showForgotPasswordModal"
+  title="Forgot Password"
+  size="md"
+  (closed)="handleForgotPasswordCancel()"
+>
+  <form class="forgot-password-form" [formGroup]="forgotPasswordForm" (ngSubmit)="handleForgotPasswordSubmit()">
+    <p style="color: #fff; margin-bottom: 20px; text-align: center;">
+      Enter your email address and we'll send you a password reset token.
+    </p>
+    <app-input
+      label=""
+      type="email"
+      placeholder="Email"
+      [value]="forgotPasswordForm.controls.email.value"
+      [disabled]="submittingForgotPassword"
+      (valueChange)="forgotPasswordForm.controls.email.setValue($event)"
+    />
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+      <app-button
+        type="button"
+        variant="outline"
+        label="Cancel"
+        [disabled]="submittingForgotPassword"
+        (buttonClick)="handleForgotPasswordCancel()"
+      />
+      <app-button
+        type="submit"
+        variant="outline"
+        label="Send Reset Link"
+        [disabled]="submittingForgotPassword || forgotPasswordForm.invalid"
+      />
+    </div>
+  </form>
+</app-modal>

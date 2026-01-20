@@ -382,6 +382,7 @@ export class CompanyHomeComponent implements OnInit {
   }
 
   handlePreferredCampusFormSubmit(value: PreferredCampusFormValue): void {
+    console.log('CompanyHomeComponent: Preferred campus form submitted', value);
     const companyId = this.getCompanyId();
     if (!companyId) {
       console.warn('CompanyHomeComponent: No company ID available, cannot submit preferred campus');
@@ -390,34 +391,56 @@ export class CompanyHomeComponent implements OnInit {
       return;
     }
 
+    console.log('CompanyHomeComponent: Making API call to add preferred campus', { companyId, campusName: value.campusName, hasPhoto: !!value.photo });
     this.submittingPreferredCampusForm = true;
     const request = {
       campusName: value.campusName,
-      campusLogoUrl: value.photo ? 'uploaded-url-placeholder' : undefined, // TODO: Handle file upload
     };
 
-    this.companyApi.addPreferredCampus(companyId, request).pipe(
+    console.log('CompanyHomeComponent: Calling companyApi.addPreferredCampus...');
+    const apiCall = this.companyApi.addPreferredCampus(companyId, request, value.photo || undefined);
+    console.log('CompanyHomeComponent: API call Observable created, setting up pipe and subscribe...');
+    
+    apiCall.pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error adding preferred campus:', error);
-        this.notify.error('Failed to add preferred campus. Please try again.');
         this.submittingPreferredCampusForm = false;
+        
+        // Check if it's a 502 error (backend service not configured)
+        if (error?.status === 502 || error?.error?.message?.includes('Upstream service URL not configured')) {
+          this.notify.error('Backend service not configured. Please contact administrator.');
+        } else {
+          this.notify.error('Failed to add preferred campus. Please try again.');
+        }
         return of(null);
       })
     ).subscribe({
       next: (response: PreferredCampusResponse | null) => {
+        console.log('CompanyHomeComponent: Subscription next() called', response);
         this.submittingPreferredCampusForm = false;
         if (response) {
           this.notify.success('Preferred campus added successfully!');
           this.loadPreferredCampuses(); // Reload the list
           this.modalService.closeModal();
         } else {
-          this.notify.error('Failed to add preferred campus.');
+          // Don't show error here if catchError already handled it
         }
       },
       error: (error: unknown) => {
         console.error('CompanyHomeComponent: Error in add preferred campus subscription:', error);
         this.submittingPreferredCampusForm = false;
-        this.notify.error('An error occurred while adding the preferred campus.');
+        
+        // Check if it's a 502 error (backend service not configured)
+        if (error && typeof error === 'object' && 'status' in error) {
+          const httpError = error as { status?: number; error?: { message?: string } };
+          if (httpError.status === 502 || httpError.error?.message?.includes('Upstream service URL not configured')) {
+            this.notify.error('Backend service not configured. Please contact administrator.');
+          } else {
+            this.notify.error('An error occurred while adding the preferred campus.');
+          }
+        } else {
+          this.notify.error('An error occurred while adding the preferred campus.');
+        }
       }
     });
   }

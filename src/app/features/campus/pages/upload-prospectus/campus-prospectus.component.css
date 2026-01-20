@@ -29,6 +29,7 @@
   align-items: center;
   margin-top: 12px;
   width: 100%;
+  gap: 0;
 }
 
 /* Orange borders for inputs and dropdowns */
@@ -175,6 +176,7 @@
   margin: 0 auto;
   padding: 0 8px;
   min-height: 400px;
+  box-sizing: border-box;
 }
 
 /* Increase modal panel height for upload prospectus */
@@ -186,6 +188,8 @@
 /* Target the modal panel when it contains prospectus component */
 :host ::ng-deep .modal .panel {
   min-height: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 /* Prospectus List Section */
@@ -302,6 +306,10 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.2s ease;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .prospectus-item:hover {
@@ -344,15 +352,17 @@
   gap: 4px;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
 .prospectus-name {
   font-size: 14px;
   font-weight: 600;
   color: #334155;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .prospectus-meta {
