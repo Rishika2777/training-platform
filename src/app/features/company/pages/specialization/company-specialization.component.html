@@ -1,27 +1,19 @@
-<form class="specialization-form" (ngSubmit)="$event.preventDefault(); submit()">
+<form class="specialization-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-header">
     <h2 class="form-title">We are specialized in</h2>
   </div>
 
   <div class="technologies-list">
     @for (tech of value.technologies; track $index) {
-      <div class="technology-row">
-        <div class="tech-icon">
-          <i class="fa-solid fa-network-wired"></i>
-        </div>
-        <app-input
-          label="Technology Name"
-          type="text"
-          [value]="tech"
-          [disabled]="submitting"
-          (valueChange)="updateTechnology($index, $event)"
-        />
+      <div class="technology-card">
+        <div class="technology-header">
+          <div class="technology-actions">
         <button
           type="button"
           class="action-btn add-btn"
           (click)="addTechnology()"
           [disabled]="submitting"
-          title="Add"
+              title="Add Technology"
         >
           <i class="fa-solid fa-plus"></i>
         </button>
@@ -30,15 +22,134 @@
           class="action-btn remove-btn"
           (click)="removeTechnology($index)"
           [disabled]="submitting || value.technologies.length === 1"
-          title="Remove"
+              title="Remove Technology"
         >
           <i class="fa-solid fa-minus"></i>
         </button>
+          </div>
+        </div>
+
+        <div class="technology-fields">
+          <div class="form-row">
+            <app-input
+              label="Technology Name"
+              type="text"
+              [value]="tech.technologyName"
+              [disabled]="submitting"
+              [required]="true"
+              [invalid]="submitAttempted && !tech.technologyName.trim()"
+              (valueChange)="updateTechnologyName($index, $event)"
+              placeholder="Enter technology name"
+            />
+            @if (submitAttempted && !tech.technologyName.trim()) {
+              <span class="error-message">Technology name is required</span>
+            }
+          </div>
+
+          <div class="form-row">
+            <app-input
+              label="Description"
+              type="text"
+              [value]="tech.description"
+              [disabled]="submitting"
+              [required]="true"
+              [invalid]="submitAttempted && !tech.description.trim()"
+              (valueChange)="updateTechnologyDescription($index, $event)"
+              placeholder="Enter description"
+            />
+            @if (submitAttempted && !tech.description.trim()) {
+              <span class="error-message">Description is required</span>
+            }
+          </div>
+
+          <div class="form-row">
+            <div class="file-input-wrapper">
+              <div class="field-label">
+                Icon
+                <span class="asterisk" aria-hidden="true">*</span>
+              </div>
+              <div class="file-input-container">
+                <app-input
+                  type="text"
+                  [value]="getIconName($index) || 'Select icon file'"
+                  [disabled]="true"
+                  [invalid]="submitAttempted && !tech.icon"
+                  placeholder="Select icon file"
+                />
+                <button
+                  type="button"
+                  class="file-attach-btn"
+                  (click)="triggerIconSelect($index, iconFileInput)"
+                  [disabled]="submitting"
+                  [attr.aria-label]="'Select icon file'"
+                >
+                  <i class="fa-solid fa-paperclip"></i>
+                </button>
+                <input
+                  #iconFileInput
+                  type="file"
+                  accept="image/*"
+                  style="display: none"
+                  [disabled]="submitting"
+                  (change)="onIconSelected($index, $any($event.target).files)"
+                />
+              </div>
+              @if (submitAttempted && !tech.icon) {
+                <span class="error-message">Icon is required</span>
+              }
+            </div>
+          </div>
+        </div>
       </div>
     }
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <app-button 
+      type="button" 
+      label="Submit" 
+      variant="primary" 
+      [disabled]="submitting || !isFormValid()"
+      (buttonClick)="onButtonClick($event)"
+    />
   </div>
 </form>
+
+<!-- Specializations List -->
+@if (specializations.length > 0) {
+  <div class="specializations-list-section">
+    <h3 class="list-section-title">Uploaded Specializations</h3>
+    <div class="specializations-list-container">
+      @for (tech of specializations; track tech.technologyId) {
+        <div class="specialization-item">
+          <div class="specialization-icon">
+            @if (getSpecializationIconUrl(tech.iconUrl)) {
+              <img [src]="getSpecializationIconUrl(tech.iconUrl)!" [alt]="tech.technologyName || 'Technology icon'" />
+            } @else {
+              <div class="icon-placeholder">
+                <i class="fa-solid fa-network-wired"></i>
+              </div>
+            }
+          </div>
+          <div class="specialization-details">
+            <div class="specialization-name">{{ tech.technologyName || 'Unnamed Technology' }}</div>
+            <div class="specialization-description">{{ tech.description || 'No description' }}</div>
+          </div>
+          <button
+            type="button"
+            class="delete-btn"
+            [disabled]="isDeleting(tech.technologyId)"
+            (click)="onDeleteTechnology(tech.technologyId)"
+            title="Delete Technology"
+          >
+            @if (isDeleting(tech.technologyId)) {
+              <i class="fa-solid fa-spinner fa-spin"></i>
+            } @else {
+              <i class="fa-solid fa-trash"></i>
+            }
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

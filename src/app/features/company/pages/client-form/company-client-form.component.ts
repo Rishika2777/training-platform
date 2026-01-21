@@ -59,11 +59,17 @@ export class CompanyClientFormComponent {
     return this.value.logo !== null && this.value.clientName.trim().length > 0;
   }
 
-  onFormSubmit(): void {
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
     this.submit();
   }
 
-  onButtonClick(): void {
+  onButtonClick(event?: MouseEvent): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.submit();
   }
 }

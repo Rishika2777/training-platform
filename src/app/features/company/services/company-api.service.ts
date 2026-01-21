@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Observable, map, tap, catchError, of } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
 
 /**
@@ -115,7 +115,7 @@ export class CompanyApiService {
   }
 
   /**
-   * GET /company/{companyId}/preferred-campuses
+   * GET /preferred-campus/{companyId}/campuses
    * Gets preferred campuses for a company.
    */
   getPreferredCampuses(companyId: string): Observable<readonly PreferredCampusResponse[]> {
@@ -129,8 +129,9 @@ export class CompanyApiService {
   }
 
   /**
-   * GET /company/{companyId}/clients
+   * GET /clients/{companyId}/clients
    * Gets clients for a company with pagination.
+   * Query parameters: page (default: 0), size (default: 10)
    */
   getClients(companyId: string, page = 0, size = 10): Observable<readonly ClientResponse[]> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_CLIENTS, { companyId }));
@@ -138,70 +139,71 @@ export class CompanyApiService {
       .set('page', page.toString())
       .set('size', size.toString());
     
+    console.log('CompanyApiService: getClients called', { url, companyId, page, size });
     return this.http.get<unknown>(url, { params }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP GET request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP GET request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP GET request completed')
+      }),
       map((raw) => {
         const data = unwrapResponse<ClientResponse[]>(raw);
+        console.log('CompanyApiService: Received clients data', data);
         return Array.isArray(data) ? data : [];
       }),
     );
   }
 
   /**
-   * POST /company/{companyId}/clients
+   * POST /clients/{companyId}/clients
    * Adds a client for a company.
+   * Request body: { clientName, photourl }
    */
   addClient(companyId: string, request: ClientRequest): Observable<ClientResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_CLIENT, { companyId }));
-    return this.http.post<unknown>(url, request).pipe(map(extractClientResponse));
+    console.log('CompanyApiService: addClient called', { url, companyId, request });
+    
+    // Set headers for JSON request - explicitly set Content-Type
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    console.log('CompanyApiService: Sending JSON request', request);
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addClient', response);
+        return extractClientResponse(response);
+      })
+    );
   }
 
   /**
    * POST /preferred-campus/{companyId}/addCampus
    * Adds a preferred campus for a company.
-   * Supports both JSON (without file) and multipart/form-data (with file).
+   * Request body: { campusId, campusName, campusLogoUrl } as JSON
    */
-  addPreferredCampus(companyId: string, request: PreferredCampusRequest, photoFile?: File): Observable<PreferredCampusResponse | null> {
+  addPreferredCampus(companyId: string, request: PreferredCampusRequest): Observable<PreferredCampusResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_PREFERRED_CAMPUS, { companyId }));
-    console.log('CompanyApiService: addPreferredCampus called', { url, companyId, request, hasPhotoFile: !!photoFile });
+    console.log('CompanyApiService: addPreferredCampus called', { url, companyId, request });
     
-    // If a file is provided, use multipart/form-data
-    if (photoFile) {
-      const formData = new FormData();
-      formData.append('campusName', request.campusName);
-      if (request.campusLogoUrl) {
-        formData.append('campusLogoUrl', request.campusLogoUrl);
-      }
-      formData.append('photo', photoFile, photoFile.name);
-      
-      console.log('CompanyApiService: Sending multipart/form-data request', { campusName: request.campusName, photoFileName: photoFile.name });
-      
-      // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
+    // Always send as JSON according to API spec
+    // Don't set Content-Type explicitly - let Angular set it automatically for JSON
       const headers = new HttpHeaders({
         'Accept': 'application/json'
       });
       
-      console.log('CompanyApiService: About to make HTTP POST request', { url, formDataKeys: Array.from(formData.keys()) });
-      return this.http.post<unknown>(url, formData, { headers }).pipe(
+    console.log('CompanyApiService: Sending JSON request', request);
+    return this.http.post<unknown>(url, request, { headers }).pipe(
         tap({
           next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
           error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
           complete: () => console.log('CompanyApiService: HTTP POST request completed')
-        }),
-        map((response) => {
-          console.log('CompanyApiService: Received response for addPreferredCampus', response);
-          return extractPreferredCampusResponse(response);
-        })
-      );
-    }
-    
-    // Otherwise, use JSON
-    console.log('CompanyApiService: Sending JSON request', request);
-    console.log('CompanyApiService: About to make HTTP POST request (JSON)', { url, request });
-    return this.http.post<unknown>(url, request).pipe(
-      tap({
-        next: (response) => console.log('CompanyApiService: HTTP POST request (JSON) successful', response),
-        error: (error) => console.error('CompanyApiService: HTTP POST request (JSON) failed', error),
-        complete: () => console.log('CompanyApiService: HTTP POST request (JSON) completed')
       }),
       map((response) => {
         console.log('CompanyApiService: Received response for addPreferredCampus', response);
@@ -214,12 +216,31 @@ export class CompanyApiService {
    * GET /specializations/{companyId}/technologies
    * Gets specializations/technologies for a company.
    */
-  getSpecializations(companyId: string): Observable<readonly SpecializationResponse[]> {
+  getSpecializations(companyId: string): Observable<readonly TechnologyResponse[]> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_SPECIALIZATIONS, { companyId }));
+    console.log('CompanyApiService: getSpecializations called', { url, companyId });
     return this.http.get<unknown>(url).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP GET request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP GET request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP GET request completed')
+      }),
       map((raw) => {
-        const data = unwrapResponse<SpecializationResponse[]>(raw);
-        return Array.isArray(data) ? data : [];
+        console.log('CompanyApiService: Received response for getSpecializations', raw);
+        // Extract array from response
+        const data = unwrapResponse<TechnologyResponse[]>(raw);
+        if (Array.isArray(data)) {
+          return data;
+        }
+        // If unwrapResponse returned null, try raw response directly
+        if (raw && typeof raw === 'object') {
+          const rawObj = raw as Record<string, unknown>;
+          if (Array.isArray(rawObj['data'])) {
+            const dataArray = rawObj['data'] as unknown[];
+            return dataArray.map((item) => extractTechnologyResponse(item) || item as TechnologyResponse).filter((item): item is TechnologyResponse => item !== null);
+          }
+        }
+        return [];
       }),
     );
   }
@@ -231,6 +252,63 @@ export class CompanyApiService {
   addSpecialization(companyId: string, technologyId: string): Observable<SpecializationResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_SPECIALIZATION, { companyId, technologyId }));
     return this.http.post<unknown>(url, {}).pipe(map(extractSpecializationResponse));
+  }
+
+  /**
+   * DELETE /specializations/{companyId}/technologies/{technologyId}
+   * Deletes a technology by technology ID for a company.
+   */
+  deleteTechnology(companyId: string, technologyId: string): Observable<boolean> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.DELETE_TECHNOLOGY, { companyId, technologyId }));
+    console.log('CompanyApiService: deleteTechnology called', { url, companyId, technologyId });
+    
+    return this.http.delete<unknown>(url).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP DELETE request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP DELETE request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP DELETE request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for deleteTechnology', response);
+        // Check if response indicates success
+        if (response && typeof response === 'object') {
+          const resp = response as { success?: boolean; data?: string; message?: string };
+          return resp.success === true || resp.data === 'Technology deleted successfully';
+        }
+        return true; // Assume success if we get a response
+      }),
+      catchError((error) => {
+        console.error('CompanyApiService: Error deleting technology:', error);
+        return of(false);
+      })
+    );
+  }
+
+  /**
+   * POST /specializations/{companyId}/technology
+   * Adds a new technology for a company with name, description, and icon.
+   */
+  addTechnology(companyId: string, request: TechnologyRequest): Observable<TechnologyResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_TECHNOLOGY, { companyId }));
+    console.log('CompanyApiService: addTechnology called', { url, companyId, request });
+    
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    console.log('CompanyApiService: Sending JSON request', request);
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addTechnology', response);
+        return extractTechnologyResponse(response);
+      })
+    );
   }
 
   /**
@@ -251,6 +329,108 @@ export class CompanyApiService {
         const data = unwrapResponse<KeyPersonResponse[]>(raw);
         return Array.isArray(data) ? data : [];
       }),
+    );
+  }
+
+  /**
+   * POST /vacancy?companyId={companyId}
+   * Creates a new vacancy for a company.
+   * Request body: VacancyRequest
+   */
+  addVacancy(companyId: string, request: VacancyRequest): Observable<VacancyResponse | null> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.ADD_VACANCY);
+    const params = new HttpParams().set('companyId', companyId);
+    
+    console.log('CompanyApiService: addVacancy called', { url, companyId, request });
+    
+    // Set headers for JSON request
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    console.log('CompanyApiService: Sending JSON request', request);
+    console.log('CompanyApiService: interviewMode in request:', request.interviewMode);
+    console.log('CompanyApiService: Full request JSON:', JSON.stringify(request, null, 2));
+    
+    return this.http.post<unknown>(url, request, { headers, params }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addVacancy', response);
+        return extractVacancyResponse(response);
+      })
+    );
+  }
+
+  /**
+   * GET /vacancy/company/{companyId}?page={page}&size={size}
+   * Gets all vacancies for a company with pagination.
+   * Query parameters: page (default: 0), size (default: 10)
+   */
+  getVacancies(companyId: string, page = 0, size = 10): Observable<readonly VacancyResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_VACANCIES, { companyId }));
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    console.log('CompanyApiService: getVacancies called', { url, companyId, page, size });
+    return this.http.get<unknown>(url, { params }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP GET request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP GET request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP GET request completed')
+      }),
+      map((raw) => {
+        console.log('CompanyApiService: Received response for getVacancies', raw);
+        // Extract array from response
+        const data = unwrapResponse<VacancyResponse[]>(raw);
+        if (Array.isArray(data)) {
+          // Normalize the response to handle capital letter fields
+          return data.map(normalizeVacancyResponse);
+        }
+        // If unwrapResponse returned null, try raw response directly
+        if (raw && typeof raw === 'object') {
+          const rawObj = raw as Record<string, unknown>;
+          if (Array.isArray(rawObj['data'])) {
+            const dataArray = rawObj['data'] as unknown[];
+            return dataArray.map((item) => normalizeVacancyResponse(extractVacancyResponse(item) || item as VacancyResponse));
+          }
+        }
+        return [];
+      }),
+    );
+  }
+
+  /**
+   * POST /benefits-offer/{companyId}
+   * Submit a new benefits offer form with all benefit details.
+   * Request body: BenefitsOfferRequest
+   */
+  addBenefitsOffer(companyId: string, request: BenefitsOfferRequest): Observable<BenefitsOfferResponse | null> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_BENEFITS_OFFER, { companyId }));
+    console.log('CompanyApiService: addBenefitsOffer called', { url, companyId, request });
+    
+    // Set headers for JSON request
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    console.log('CompanyApiService: Sending JSON request', request);
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addBenefitsOffer', response);
+        return extractBenefitsOfferResponse(response);
+      })
     );
   }
 
@@ -350,6 +530,7 @@ export interface KeyPersonResponse {
 }
 
 export interface PreferredCampusRequest {
+  campusId: string;
   campusName: string;
   campusLogoUrl?: string;
 }
@@ -384,13 +565,66 @@ export interface CompanyAutoSearchResponse {
 
 export interface ClientRequest {
   clientName: string;
-  clientLogoUrl?: string;
+  photourl?: string;
 }
 
 export interface ClientResponse {
   clientId?: string;
+  companyId?: string;
   clientName?: string;
-  clientLogoUrl?: string;
+  photourl?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface VacancyRequest {
+  jobTitle: string;
+  jobLocation: string;
+  department: string;
+  jobType: string;
+  salary: string;
+  numberOfOpenings: string; // Backend uses camelCase
+  contractDuration: string; // Backend uses camelCase
+  jobDescription: string; // Backend uses camelCase
+  requiredQualifications: string[]; // Backend REQUEST expects array of strings (response returns objects, but request is strings)
+  streamsEligible: string[]; // Backend uses plural "streamsEligible" (matching request/response format)
+  minimumCgpaPercentage: string; // Backend uses camelCase
+  yearOfPassing: string; // Backend uses camelCase
+  selectionProcess: string[];
+  interviewMode: string; // Backend expects a single string value (e.g., "Both", "Online", "Offline")
+}
+
+export interface VacancyResponse {
+  vacancyId?: string;
+  companyId?: string;
+  jobTitle?: string;
+  jobLocation?: string;
+  department?: string;
+  jobType?: string;
+  salary?: string;
+  numberofopenings?: string;
+  numberOfOpenings?: string; // API response uses this format
+  contractduration?: string;
+  contractDuration?: string; // API response may use this format
+  jobdescription?: string;
+  jobDescription?: string; // API response uses this format
+  requiredqualifications?: string[];
+  requiredQualifications?: string[]; // API response uses this format
+  streamseligible?: string[];
+  streamEligible?: string[]; // API response uses singular "streamEligible" not "streamsEligible"
+  streamsEligible?: string[]; // Keep for backward compatibility
+  minimumcgpaPercentage?: string;
+  minimumCgpaPercentage?: string; // API response uses this format
+  yearofPassing?: string;
+  yearOfPassing?: string; // API response uses this format
+  selectionProcess?: string[];
+  interviewMode?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  // API response may also include capital letter fields
+  JobTitle?: string;
+  JobLocation?: string;
+  JobType?: string;
 }
 
 export interface SpecializationRequest {
@@ -402,6 +636,52 @@ export interface SpecializationResponse {
   companyId?: string;
   technologyId?: string;
   technologyName?: string;
+}
+
+export interface TechnologyRequest {
+  technologyName: string;
+  description: string;
+  iconUrl?: string;
+}
+
+export interface TechnologyResponse {
+  technologyId?: string;
+  companyId?: string;
+  technologyName?: string;
+  description?: string;
+  iconUrl?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface BenefitsOfferRequest {
+  internToJobRate: string;
+  startingSalaryRange: string;
+  performanceBonus: string;
+  healthcare: string;
+  mentorBuddySystem: string;
+  workLifeBalancePerks: string;
+  appreciationDayOff: string;
+  trainingAndUpskilling: string;
+  sickLeaves: string;
+  referralBonus: string;
+}
+
+export interface BenefitsOfferResponse {
+  benefitsOfferId?: string;
+  companyId?: string;
+  internToJobRate?: string;
+  startingSalaryRange?: string;
+  performanceBonus?: string;
+  healthcare?: string;
+  mentorBuddySystem?: string;
+  workLifeBalancePerks?: string;
+  appreciationDayOff?: string;
+  trainingAndUpskilling?: string;
+  sickLeaves?: string;
+  referralBonus?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -438,11 +718,42 @@ function extractPreferredCampusResponse(raw: unknown): PreferredCampusResponse |
 }
 
 function extractClientResponse(raw: unknown): ClientResponse | null {
-  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
-  if (!wrapped || typeof wrapped !== 'object') {
-    return null;
+  console.log('extractClientResponse: raw response', raw);
+  
+  // First try to unwrap from standard API response format { success, data, ... }
+  const wrapped = unwrapResponse<ClientResponse>(raw);
+  if (wrapped && typeof wrapped === 'object') {
+    console.log('extractClientResponse: extracted from unwrapResponse', wrapped);
+    return wrapped;
   }
-  return wrapped as ClientResponse;
+  
+  // If unwrapResponse returned null, try raw response directly
+  if (raw && typeof raw === 'object') {
+    const rawObj = raw as Record<string, unknown>;
+    
+    // Check if it's already a ClientResponse-like object (has clientId, clientName, or photourl)
+    if (rawObj['clientId'] || rawObj['clientName'] || rawObj['photourl']) {
+      console.log('extractClientResponse: found direct ClientResponse', rawObj);
+      return rawObj as ClientResponse;
+    }
+    
+    // Check if data field exists and extract from it
+    if (rawObj['data'] && typeof rawObj['data'] === 'object') {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractClientResponse: extracted from data field', data);
+      return data as ClientResponse;
+    }
+    
+    // Check if response has nested structure
+    if (rawObj['success'] !== undefined && rawObj['data']) {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractClientResponse: extracted from success.data', data);
+      return data as ClientResponse;
+    }
+  }
+  
+  console.warn('extractClientResponse: could not extract ClientResponse from', raw);
+    return null;
 }
 
 function extractSpecializationResponse(raw: unknown): SpecializationResponse | null {
@@ -451,6 +762,169 @@ function extractSpecializationResponse(raw: unknown): SpecializationResponse | n
     return null;
   }
   return wrapped as SpecializationResponse;
+}
+
+function extractTechnologyResponse(raw: unknown): TechnologyResponse | null {
+  console.log('extractTechnologyResponse: raw response', raw);
+  
+  // First try to unwrap from standard API response format { success, data, ... }
+  const wrapped = unwrapResponse<TechnologyResponse>(raw);
+  if (wrapped && typeof wrapped === 'object') {
+    console.log('extractTechnologyResponse: extracted from unwrapResponse', wrapped);
+    return wrapped;
+  }
+  
+  // If unwrapResponse returned null, try raw response directly
+  if (raw && typeof raw === 'object') {
+    const rawObj = raw as Record<string, unknown>;
+    
+    // Check if it's already a TechnologyResponse-like object
+    if (rawObj['technologyId'] || rawObj['technologyName']) {
+      console.log('extractTechnologyResponse: found direct TechnologyResponse', rawObj);
+      return rawObj as TechnologyResponse;
+    }
+    
+    // Check if data field exists and extract from it
+    if (rawObj['data'] && typeof rawObj['data'] === 'object') {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractTechnologyResponse: extracted from data field', data);
+      return data as TechnologyResponse;
+    }
+    
+    // Check if response has nested structure
+    if (rawObj['success'] !== undefined && rawObj['data']) {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractTechnologyResponse: extracted from success.data', data);
+      return data as TechnologyResponse;
+    }
+  }
+  
+  console.warn('extractTechnologyResponse: could not extract TechnologyResponse from', raw);
+  return null;
+}
+
+function extractVacancyResponse(raw: unknown): VacancyResponse | null {
+  console.log('extractVacancyResponse: raw response', raw);
+  
+  // First try to unwrap from standard API response format { success, data, ... }
+  const wrapped = unwrapResponse<VacancyResponse>(raw);
+  if (wrapped && typeof wrapped === 'object') {
+    console.log('extractVacancyResponse: extracted from unwrapResponse', wrapped);
+    return wrapped;
+  }
+  
+  // If unwrapResponse returned null, try raw response directly
+  if (raw && typeof raw === 'object') {
+    const rawObj = raw as Record<string, unknown>;
+    
+    // Check if it's already a VacancyResponse-like object
+    if (rawObj['vacancyId'] || rawObj['jobTitle'] || rawObj['JobTitle']) {
+      console.log('extractVacancyResponse: found direct VacancyResponse', rawObj);
+      return rawObj as VacancyResponse;
+    }
+    
+    // Check if data field exists and extract from it
+    if (rawObj['data'] && typeof rawObj['data'] === 'object') {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractVacancyResponse: extracted from data field', data);
+      return data as VacancyResponse;
+    }
+    
+    // Check if response has nested structure
+    if (rawObj['success'] !== undefined && rawObj['data']) {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractVacancyResponse: extracted from success.data', data);
+      return data as VacancyResponse;
+    }
+  }
+  
+  console.warn('extractVacancyResponse: could not extract VacancyResponse from', raw);
+  return null;
+}
+
+/**
+ * Normalizes VacancyResponse to handle API response format variations
+ * (capital letters like JobTitle, JobLocation, etc.)
+ */
+function extractBenefitsOfferResponse(raw: unknown): BenefitsOfferResponse | null {
+  console.log('extractBenefitsOfferResponse: raw response', raw);
+  
+  // First try to unwrap from standard API response format { success, data, ... }
+  const wrapped = unwrapResponse<BenefitsOfferResponse>(raw);
+  if (wrapped && typeof wrapped === 'object') {
+    console.log('extractBenefitsOfferResponse: extracted from unwrapResponse', wrapped);
+    return wrapped;
+  }
+  
+  // If unwrapResponse returned null, try raw response directly
+  if (raw && typeof raw === 'object') {
+    const rawObj = raw as Record<string, unknown>;
+    
+    // Check if it's already a BenefitsOfferResponse-like object
+    if (rawObj['benefitsOfferId'] || rawObj['companyId']) {
+      console.log('extractBenefitsOfferResponse: found direct BenefitsOfferResponse', rawObj);
+      return rawObj as BenefitsOfferResponse;
+    }
+    
+    // Check if data field exists and extract from it
+    if (rawObj['data'] && typeof rawObj['data'] === 'object') {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractBenefitsOfferResponse: extracted from data field', data);
+      return data as BenefitsOfferResponse;
+    }
+    
+    // Check if response has nested structure
+    if (rawObj['success'] !== undefined && rawObj['data']) {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractBenefitsOfferResponse: extracted from success.data', data);
+      return data as BenefitsOfferResponse;
+    }
+  }
+  
+  console.warn('extractBenefitsOfferResponse: could not extract BenefitsOfferResponse from', raw);
+  return null;
+}
+
+function normalizeVacancyResponse(vacancy: VacancyResponse | Record<string, unknown>): VacancyResponse {
+  const normalized: VacancyResponse = { ...vacancy };
+  
+  // Handle capital letter fields from API response
+  if ('JobTitle' in vacancy && !normalized.jobTitle) {
+    normalized.jobTitle = vacancy.JobTitle as string;
+  }
+  if ('JobLocation' in vacancy && !normalized.jobLocation) {
+    normalized.jobLocation = vacancy.JobLocation as string;
+  }
+  if ('JobType' in vacancy && !normalized.jobType) {
+    normalized.jobType = vacancy.JobType as string;
+  }
+  if ('numberOfOpenings' in vacancy && !normalized.numberofopenings) {
+    normalized.numberofopenings = vacancy.numberOfOpenings as string;
+  }
+  if ('contractDuration' in vacancy && !normalized.contractduration) {
+    normalized.contractduration = vacancy.contractDuration as string;
+  }
+  if ('jobDescription' in vacancy && !normalized.jobdescription) {
+    normalized.jobdescription = vacancy.jobDescription as string;
+  }
+  if ('requiredQualifications' in vacancy && !normalized.requiredqualifications) {
+    normalized.requiredqualifications = vacancy.requiredQualifications as string[];
+  }
+  // Handle both singular (backend format) and plural (legacy) field names
+  if ('streamEligible' in vacancy && !normalized.streamseligible) {
+    normalized.streamseligible = vacancy.streamEligible as string[];
+  }
+  if ('streamsEligible' in vacancy && !normalized.streamseligible) {
+    normalized.streamseligible = vacancy.streamsEligible as string[];
+  }
+  if ('minimumCgpaPercentage' in vacancy && !normalized.minimumcgpaPercentage) {
+    normalized.minimumcgpaPercentage = vacancy.minimumCgpaPercentage as string;
+  }
+  if ('yearOfPassing' in vacancy && !normalized.yearofPassing) {
+    normalized.yearofPassing = vacancy.yearOfPassing as string;
+  }
+  
+  return normalized;
 }
 
 function buildUserHeaders(options?: RegisterCompanyOptions): HttpHeaders {

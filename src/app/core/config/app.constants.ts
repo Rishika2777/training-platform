@@ -156,7 +156,12 @@
       ADD_CLIENT: '/clients/:companyId/clients',
       GET_SPECIALIZATIONS: '/specializations/:companyId/technologies',
       ADD_SPECIALIZATION: '/specializations/:companyId/technologies/:technologyId',
+      ADD_TECHNOLOGY: '/specializations/:companyId/technology',
+      DELETE_TECHNOLOGY: '/specializations/:companyId/technologies/:technologyId',
       GET_COMPANY_BY_SEARCH: '/company/getCompanyBySearch',
+      ADD_VACANCY: '/vacancy',
+      GET_VACANCIES: '/vacancy/company/:companyId',
+      ADD_BENEFITS_OFFER: '/benefits-offer/:companyId',
     },
     CAMPUS: {
       BASE: '/campus',

@@ -43,6 +43,6 @@
   </div>
 
   <div class="form-actions">
-    <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+    <app-button type="button" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="onButtonClick($event)" />
   </div>
 </form>

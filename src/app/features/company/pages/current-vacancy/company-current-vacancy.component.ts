@@ -154,7 +154,21 @@ export class CompanyCurrentVacancyComponent {
     this.valueChange.emit(next);
   }
 
+  onFormSubmit(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.submit();
+  }
+
+  onButtonClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('CompanyCurrentVacancyComponent: onButtonClick() called');
+    this.submit();
+  }
+
   submit(): void {
+    console.log('CompanyCurrentVacancyComponent: submit() called');
     this.submitted.emit(this.value);
   }
 }

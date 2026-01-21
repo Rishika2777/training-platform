@@ -1,9 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { TextareaComponent } from '../../../../shared/components/textarea/textarea.component';
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { ModalService } from '../../../../core/modal/modal.service';
+import { CompanyInvitationFormComponent, InvitationFormValue } from '../invitation-form/company-invitation-form.component';
 
 interface TeamMember {
   name: string;
@@ -31,11 +34,14 @@ interface Benefit {
     CarouselComponent,
     InputComponent,
     TextareaComponent,
+    ModalComponent,
+    CompanyInvitationFormComponent,
   ],
   templateUrl: './company-about.component.html',
   styleUrl: './company-about.component.css',
 })
 export class CompanyAboutComponent {
+  readonly modalService = inject(ModalService);
   // Engagement metrics
   promotions = 25;
   followers = 100;
@@ -105,6 +111,29 @@ export class CompanyAboutComponent {
     recommendation: '' as 'yes' | 'no' | '',
   };
 
+  // Modal state
+  readonly activeModal = computed(() => this.modalService.activeModal());
+  readonly isInvitationFormModalOpen = computed(() => this.activeModal() === 'company-invitation-form');
+
+  // Invitation form
+  submittingInvitationForm = false;
+  invitationFormValue: InvitationFormValue = {
+    campusName: '',
+    contactPersonName: '',
+    contactPersonEmail: '',
+    contactPersonPhone: '',
+    contactPersonDesignation: '',
+    campusWebsiteUrl: '',
+    campusAddress: '',
+    campusProspectus: null,
+    academicYear: '',
+    programsOffered: '',
+    proposedDate: '',
+    preferredSkills: '',
+    facilitiesAvailable: '',
+    confirmationChecked: false,
+  };
+
   toggleBenefit(index: number): void {
     this.benefits[index].isOpen = !this.benefits[index].isOpen;
   }
@@ -130,9 +159,42 @@ export class CompanyAboutComponent {
     console.log('Feedback submitted:', this.feedbackForm);
   }
 
-  onJoinCommunity(): void {
-    // Handle join community action
-    console.log('Join Community clicked');
+  onInviteCompany(): void {
+    // Open invitation form modal
+    this.modalService.openModal('company-invitation-form');
+  }
+
+  closeModal(): void {
+    this.modalService.closeModal();
+  }
+
+  handleInvitationFormSubmit(value: InvitationFormValue): void {
+    this.submittingInvitationForm = true;
+    console.log('Invitation form submitted:', value);
+    
+    // TODO: Integrate with API when backend is ready
+    // For now, just log and close modal after a delay
+    setTimeout(() => {
+      this.submittingInvitationForm = false;
+      this.closeModal();
+      // Reset form
+      this.invitationFormValue = {
+        campusName: '',
+        contactPersonName: '',
+        contactPersonEmail: '',
+        contactPersonPhone: '',
+        contactPersonDesignation: '',
+        campusWebsiteUrl: '',
+        campusAddress: '',
+        campusProspectus: null,
+        academicYear: '',
+        programsOffered: '',
+        proposedDate: '',
+        preferredSkills: '',
+        facilitiesAvailable: '',
+        confirmationChecked: false,
+      };
+    }, 1000);
   }
 
   onReadMore(): void {

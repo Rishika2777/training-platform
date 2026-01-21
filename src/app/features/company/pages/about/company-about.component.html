@@ -4,7 +4,7 @@
   <div class="hero-content">
     <h1 class="hero-heading">Empowering the Future Through Knowledge, Creativity, and Innovation</h1>
     <div class="hero-buttons">
-            <app-button label="Join Community" variant="secondary" (buttonClick)="onJoinCommunity()" />
+            <app-button label="Invite Company" variant="secondary" (buttonClick)="onInviteCompany()" />
             <app-button label="Read More" variant="secondary" (buttonClick)="onReadMore()" />
     </div>
   </div>
@@ -276,3 +276,18 @@
   </div>
   <div class="footer-bottom"></div>
 </footer>
+
+<!-- Company Invitation Form Modal -->
+<app-modal
+  [visible]="isInvitationFormModalOpen()"
+  title="Company Invitation Form"
+  size="lg"
+  (closed)="closeModal()"
+>
+  <app-company-invitation-form
+    [submitting]="submittingInvitationForm"
+    [value]="invitationFormValue"
+    (valueChange)="invitationFormValue = $event"
+    (submitted)="handleInvitationFormSubmit($event)"
+  />
+</app-modal>

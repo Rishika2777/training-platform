@@ -1,0 +1,208 @@
+.invitation-form {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+  background-color: #f5f5f5; /* Light grey background */
+  border-radius: 12px;
+}
+
+.form-section {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  background-color: #ffffff; /* White background for sections */
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary, #333);
+  margin: 0 0 8px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f4a261; /* Light orange border */
+}
+
+.form-row {
+  display: grid;
+  gap: 8px;
+  position: relative;
+}
+
+.checkbox-row {
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  margin-top: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #f4a261; /* Light orange for checkbox */
+  flex-shrink: 0;
+}
+
+.checkbox-text {
+  font-size: 14px;
+  color: var(--color-text-primary, #333);
+  line-height: 1.6;
+}
+
+.file-input-wrapper {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #333);
+  margin-bottom: 4px;
+}
+
+.asterisk {
+  color: var(--color-error, #e63946);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.file-input-container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.file-input-container app-input {
+  flex: 1;
+}
+
+.file-attach-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #f4a261; /* Light orange border */
+  border-radius: 8px;
+  background: #ffffff;
+  color: #f4a261;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.file-attach-btn:hover:not(:disabled) {
+  background: #f4a261;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.file-attach-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.file-attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #e0e0e0;
+}
+
+.file-attach-btn i {
+  font-size: 18px;
+}
+
+.error-message {
+  font-size: 12px;
+  color: var(--color-error, #e63946);
+  margin-top: 4px;
+  display: block;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+/* Custom styling for input fields - light orange border */
+:host ::ng-deep .form-row app-input .input-wrapper input,
+:host ::ng-deep .form-row app-input .input-wrapper,
+:host ::ng-deep .form-row app-textarea .textarea-wrapper textarea,
+:host ::ng-deep .form-row app-textarea .textarea-wrapper,
+:host ::ng-deep .form-row app-dropdown .dropdown-wrapper,
+:host ::ng-deep .form-row app-dropdown .dropdown-wrapper input {
+  border-color: #f4a261 !important; /* Light orange border */
+  border-radius: 8px;
+}
+
+:host ::ng-deep .form-row app-input .input-wrapper input:focus,
+:host ::ng-deep .form-row app-textarea .textarea-wrapper textarea:focus,
+:host ::ng-deep .form-row app-dropdown .dropdown-wrapper input:focus {
+  border-color: #f4a261 !important;
+  outline-color: #f4a261 !important;
+  box-shadow: 0 0 0 2px rgba(244, 162, 97, 0.2);
+}
+
+/* Custom styling for submit button - teal-green color */
+:host ::ng-deep .form-actions app-button button.primary,
+:host ::ng-deep .form-actions app-button button[class*="primary"] {
+  background: #628a8e !important; /* Teal-green background */
+  border-color: #628a8e !important;
+  color: #ffffff !important;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+:host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled),
+:host ::ng-deep .form-actions app-button button[class*="primary"]:hover:not(:disabled) {
+  background: #4a6d70 !important;
+  border-color: #4a6d70 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+:host ::ng-deep .form-actions app-button button.primary:disabled,
+:host ::ng-deep .form-actions app-button button[class*="primary"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .invitation-form {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .form-section {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .checkbox-row {
+    padding: 16px;
+  }
+}
+

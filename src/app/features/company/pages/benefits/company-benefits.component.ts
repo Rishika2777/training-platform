@@ -42,6 +42,9 @@ export class CompanyBenefitsComponent {
   @Output() submitted = new EventEmitter<BenefitsFormValue>();
 
   readonly rateItems: readonly DropdownItem<string>[] = [
+    { label: '70%', value: '70%' },
+    { label: '75%', value: '75%' },
+    { label: '80%', value: '80%' },
     { label: '85%', value: '85%' },
     { label: '90%', value: '90%' },
     { label: '95%', value: '95%' },
@@ -49,11 +52,11 @@ export class CompanyBenefitsComponent {
   ];
 
   readonly salaryItems: readonly DropdownItem<string>[] = [
-    { label: '3,000,000', value: '3000000' },
-    { label: '4,000,000', value: '4000000' },
-    { label: '5,000,000', value: '5000000' },
-    { label: '6,000,000', value: '6000000' },
-    { label: '7,000,000', value: '7000000' },
+    { label: '30000-50000', value: '30000-50000' },
+    { label: '50000-80000', value: '50000-80000' },
+    { label: '80000-100000', value: '80000-100000' },
+    { label: '100000-150000', value: '100000-150000' },
+    { label: '150000-200000', value: '150000-200000' },
   ];
 
   readonly benefitFields: { key: keyof BenefitsFormValue; label: string }[] = [
@@ -75,5 +78,13 @@ export class CompanyBenefitsComponent {
 
   submit(): void {
     this.submitted.emit(this.value);
+  }
+
+  onButtonClick(event?: MouseEvent): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.submit();
   }
 }

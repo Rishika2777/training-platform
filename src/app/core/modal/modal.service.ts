@@ -21,6 +21,7 @@ export type ModalType =
   | 'company-current-vacancy'
   | 'company-client-form'
   | 'company-preferred-campus-form'
+  | 'company-invitation-form'
   | 'batchmates-filter'
   | null;
 

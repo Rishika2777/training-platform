@@ -1,4 +1,4 @@
-<form class="client-form" (ngSubmit)="$event.preventDefault(); onFormSubmit()">
+<form class="client-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-row">
     <div class="file-input-wrapper">
       <div class="field-label">
@@ -55,11 +55,11 @@
 
   <div class="form-actions">
     <app-button
-      type="submit"
+      type="button"
       label="Submit"
       variant="primary"
       [disabled]="submitting || !isFormValid()"
-      (buttonClick)="onButtonClick()"
+      (buttonClick)="onButtonClick($event)"
     />
   </div>
 </form>

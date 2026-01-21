@@ -83,25 +83,44 @@
       <section class="panel companies">
         <div class="panel-head">
           <div class="panel-title">Clients of our company</div>
-        </div>
-
-        <div class="company-grid">
           <button
-            class="company-tile add"
+            class="panel-icon"
             type="button"
-            title="Add"
+            title="Add Client"
             (click)="modalService.openModal('company-client-form')"
           >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
-          @for (c of clients(); track c.alt) {
+        </div>
+
+        @if (loadingClients()) {
+          <div class="loading-text">Loading clients...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="clientsCarouselPage"
+            [totalPages]="clientsCarouselTotalPages"
+            (pageChange)="clientsCarouselPage = $event"
+          >
+            <div class="company-grid">
+              @for (c of clientsCarouselPageItems(); track c.id) {
             <div class="company-tile">
               @if (c.imageUrl) {
-                <img class="tile-image" [src]="c.imageUrl" [alt]="c.alt" />
+                    <img 
+                      class="tile-image" 
+                      [src]="c.imageUrl" 
+                      [alt]="c.alt" 
+                      (error)="handleImageError($event)" 
+                    />
+                    <div class="tile-placeholder" style="display: none;">{{ c.alt }}</div>
+                  } @else {
+                    <div class="tile-placeholder">{{ c.alt }}</div>
               }
             </div>
           }
         </div>
+          </app-carousel>
+        }
       </section>
 
       <section class="notice">
@@ -120,25 +139,91 @@
       <section class="panel preferred">
         <div class="panel-head">
           <div class="panel-title">Preferred Campus</div>
-        </div>
-
-        <div class="company-grid">
           <button
-            class="company-tile add"
+            class="panel-icon"
             type="button"
-            title="Add"
+            title="Add Preferred Campus"
             (click)="modalService.openModal('company-preferred-campus-form')"
           >
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
           </button>
-          @for (t of preferredCampuses(); track t.alt) {
+        </div>
+
+        @if (loadingPreferredCampuses()) {
+          <div class="loading-text">Loading preferred campuses...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="preferredCampusesCarouselPage"
+            [totalPages]="preferredCampusesTotalPages"
+            (pageChange)="preferredCampusesCarouselPage = $event"
+          >
+            <div class="company-grid">
+              @for (t of preferredCampusesPageItems(); track t.id) {
             <div class="company-tile">
               @if (t.imageUrl) {
-                <img class="tile-image" [src]="t.imageUrl" [alt]="t.alt" />
+                    <img 
+                      class="tile-image" 
+                      [src]="t.imageUrl" 
+                      [alt]="t.alt" 
+                      (error)="handleImageError($event)" 
+                    />
+                    <div class="tile-placeholder" style="display: none;">{{ t.alt }}</div>
+                  } @else {
+                    <div class="tile-placeholder">{{ t.alt }}</div>
               }
             </div>
           }
         </div>
+          </app-carousel>
+        }
+      </section>
+
+      <section class="panel specializations">
+        <div class="panel-head">
+          <div class="panel-title">Specializations</div>
+          <button
+            class="panel-icon"
+            type="button"
+            title="Add Technology"
+            (click)="modalService.openModal('company-specialization')"
+          >
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        @if (loadingSpecializations()) {
+          <div class="loading-text">Loading specializations...</div>
+        } @else {
+          @if (specializations().length === 0) {
+            <div class="empty-state">No specializations available</div>
+          } @else {
+            <app-carousel
+              type="pagination"
+              [currentPage]="specializationsCarouselPage"
+              [totalPages]="specializationsTotalPages"
+              (pageChange)="specializationsCarouselPage = $event"
+            >
+              <div class="company-grid">
+                @for (tech of specializationsCarouselPageItems(); track tech.id) {
+                  <div class="company-tile">
+                    @if (tech.imageUrl) {
+                      <img 
+                        class="tile-image" 
+                        [src]="tech.imageUrl" 
+                        [alt]="tech.alt" 
+                        (error)="handleImageError($event)" 
+                      />
+                      <div class="tile-placeholder" style="display: none;">{{ tech.alt }}</div>
+                    } @else {
+                      <div class="tile-placeholder">{{ tech.alt }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </app-carousel>
+          }
+        }
       </section>
     </aside>
   </div>
@@ -152,7 +237,9 @@
   >
     <app-company-specialization
       [submitting]="submittingSpecialization"
-      (submitted)="handleSpecializationSubmit($event); closeModal()"
+      [specializations]="specializations()"
+      (submitted)="handleSpecializationSubmit($event)"
+      (deleteRequested)="handleDeleteSpecialization($event)"
     />
   </app-modal>
 
@@ -178,7 +265,7 @@
   >
     <app-company-benefits
       [submitting]="submittingBenefits"
-      (submitted)="handleBenefitsSubmit($event); closeModal()"
+      (submitted)="handleBenefitsSubmit($event)"
     />
   </app-modal>
 
@@ -191,7 +278,7 @@
   >
     <app-company-current-vacancy
       [submitting]="submittingCurrentVacancy"
-      (submitted)="handleCurrentVacancySubmit($event); closeModal()"
+      (submitted)="handleCurrentVacancySubmit($event)"
     />
   </app-modal>
 
@@ -203,10 +290,14 @@
     (closed)="closeModal()"
     modalClass="client-form-modal"
   >
+    @if (isClientFormModalOpen()) {
     <app-company-client-form
       [submitting]="submittingClientForm"
+        [value]="clientFormValue"
+        (valueChange)="clientFormValue = $event"
       (submitted)="handleClientFormSubmit($event)"
     />
+    }
   </app-modal>
 
   <!-- Preferred Campus Form Modal -->
@@ -217,10 +308,14 @@
     (closed)="closeModal()"
     modalClass="preferred-campus-form-modal"
   >
+    @if (isPreferredCampusFormModalOpen()) {
     <app-company-preferred-campus-form
       [submitting]="submittingPreferredCampusForm"
+        [value]="preferredCampusFormValue"
+        (valueChange)="preferredCampusFormValue = $event"
       (submitted)="handlePreferredCampusFormSubmit($event)"
     />
+    }
   </app-modal>
 </div>
 

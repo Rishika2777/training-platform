@@ -368,6 +368,15 @@ export class AuthService {
           this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
         }
       }
+      
+      // Store companyId in storage if available (for company users)
+      // Use companyId if available, otherwise fall back to profileServiceId
+      if (user.userType === 'COMPANY') {
+        const companyId = user.companyId || user.profileServiceId;
+        if (companyId) {
+          this.storage.set(STORAGE_KEYS.COMPANY_ID, companyId);
+        }
+      }
     }
   }
 
