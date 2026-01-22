@@ -1,12 +1,12 @@
 <div class="bug-report-form">
-  <form>
+  <form class="bug-report-form-container">
     <app-input
-      label="Bug Title"
+      label="Title"
       type="text"
       [value]="form.get('title')?.value || ''"
       [required]="true"
       [invalid]="titleInvalid"
-      placeholder="Brief description of the bug"
+      placeholder="What is the bug?"
       (valueChange)="form.patchValue({ title: $event })"
     />
 
@@ -22,29 +22,6 @@
       [showCharCount]="true"
     />
 
-    <app-textarea
-      label="Steps to Reproduce"
-      [value]="form.get('stepsToReproduce')?.value || ''"
-      [required]="true"
-      [invalid]="stepsToReproduceInvalid"
-      [rows]="4"
-      placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
-      (valueChange)="form.patchValue({ stepsToReproduce: $event })"
-      [maxlength]="500"
-      [showCharCount]="true"
-    />
-
-    <app-textarea
-      label="Expected Behavior"
-      [value]="form.get('expectedBehavior')?.value || ''"
-      [required]="true"
-      [invalid]="expectedBehaviorInvalid"
-      [rows]="3"
-      placeholder="What should have happened instead?"
-      (valueChange)="form.patchValue({ expectedBehavior: $event })"
-      [maxlength]="300"
-      [showCharCount]="true"
-    />
 
     <div class="form-actions">
       <app-button
@@ -55,7 +32,7 @@
         (buttonClick)="onCancel()"
       />
       <app-button
-        label="Submit Bug Report"
+        label="Submit"
         type="button"
         variant="primary"
         [disabled]="submitting() || form.invalid"

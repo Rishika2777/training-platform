@@ -26,18 +26,18 @@ export class FeedbackFormComponent {
 
   constructor() {
     this.form = this.fb.group({
-      subject: ['', [Validators.required]],
-      message: ['', [Validators.required, Validators.minLength(10)]],
+      title: ['', [Validators.required]],
+      description: ['', [Validators.required, Validators.minLength(10)]],
     });
   }
 
-  get subjectInvalid(): boolean {
-    const control = this.form.get('subject');
+  get titleInvalid(): boolean {
+    const control = this.form.get('title');
     return !!(control && control.invalid && control.touched);
   }
 
-  get messageInvalid(): boolean {
-    const control = this.form.get('message');
+  get descriptionInvalid(): boolean {
+    const control = this.form.get('description');
     return !!(control && control.invalid && control.touched);
   }
 

@@ -28,8 +28,6 @@ export class BugReportFormComponent {
     this.form = this.fb.group({
       title: ['', [Validators.required]],
       description: ['', [Validators.required, Validators.minLength(20)]],
-      stepsToReproduce: ['', [Validators.required]],
-      expectedBehavior: ['', [Validators.required]],
     });
   }
 
@@ -43,16 +41,7 @@ export class BugReportFormComponent {
     return !!(control && control.invalid && control.touched);
   }
 
-  get stepsToReproduceInvalid(): boolean {
-    const control = this.form.get('stepsToReproduce');
-    return !!(control && control.invalid && control.touched);
-  }
-
-  get expectedBehaviorInvalid(): boolean {
-    const control = this.form.get('expectedBehavior');
-    return !!(control && control.invalid && control.touched);
-  }
-
+  
   onSubmit(event?: Event | MouseEvent): void {
     if (event) {
       event.preventDefault();

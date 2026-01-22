@@ -1,52 +1,58 @@
 <div class="help-desk-form">
-  <form>
-    <app-input
-      label="Email"
-      type="email"
-      [value]="form.get('email')?.value || ''"
-      [required]="true"
-      [invalid]="emailInvalid"
-      placeholder="your.email@example.com"
-      (valueChange)="form.patchValue({ email: $event })"
-    />
+  <div class="help-desk-layout">
+    <aside class="contact-section">
+      <h3 class="contact-heading">Contact Us</h3>
+      <div class="contact-details">
+        <p class="contact-item">
+          <span class="contact-label">Email</span>
+          <a href="mailto:contact@synkup.com" class="contact-value">contact@synkup.com</a>
+        </p>
+        <p class="contact-item">
+          <span class="contact-label">Phone no</span>
+          <span class="contact-value">xxxxxxxxx</span>
+        </p>
+      </div>
+    </aside>
 
-    <app-input
-      label="Subject"
-      type="text"
-      [value]="form.get('subject')?.value || ''"
-      [required]="true"
-      [invalid]="subjectInvalid"
-      placeholder="What do you need help with?"
-      (valueChange)="form.patchValue({ subject: $event })"
-    />
-
-    <app-textarea
-      label="Message"
-      [value]="form.get('message')?.value || ''"
-      [required]="true"
-      [invalid]="messageInvalid"
-      [rows]="6"
-      placeholder="Please describe your issue or question in detail..."
-      (valueChange)="form.patchValue({ message: $event })"
-      [maxlength]="1000"
-      [showCharCount]="true"
-    />
-
-    <div class="form-actions">
-      <app-button
-        label="Cancel"
-        type="button"
-        variant="outline"
-        [disabled]="submitting()"
-        (buttonClick)="onCancel()"
+    <form class="help-desk-form-container">
+      <app-input
+        label="Title"
+        type="text"
+        [value]="form.get('title')?.value || ''"
+        [required]="true"
+        [invalid]="titleInvalid"
+        placeholder="What do you need help with?"
+        (valueChange)="form.patchValue({ title: $event })"
       />
-      <app-button
-        label="Submit Request"
-        type="button"
-        variant="primary"
-        [disabled]="submitting() || form.invalid"
-        (buttonClick)="onSubmit($event)"
+
+      <app-textarea
+        label="Description"
+        [value]="form.get('description')?.value || ''"
+        [required]="true"
+        [invalid]="descriptionInvalid"
+        [rows]="6"
+        placeholder="Please describe your issue or question in detail..."
+        (valueChange)="form.patchValue({ description: $event })"
+        [maxlength]="1000"
+        [showCharCount]="true"
       />
-    </div>
-  </form>
+
+      <div class="form-actions">
+        <app-button
+          label="Cancel"
+          type="button"
+          variant="outline"
+          [disabled]="submitting()"
+          (buttonClick)="onCancel()"
+        />
+        <app-button
+          label="Submit"
+          type="button"
+          variant="primary"
+          [disabled]="submitting() || form.invalid"
+          (buttonClick)="onSubmit($event)"
+        />
+      </div>
+    </form>
+  </div>
 </div>

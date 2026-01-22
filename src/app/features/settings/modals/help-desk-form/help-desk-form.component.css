@@ -2,6 +2,68 @@
   padding: 1rem;
 }
 
+.help-desk-layout {
+  display: flex;
+  gap: 2rem;
+  min-height: 200px;
+}
+
+.contact-section {
+  flex: 0 0 220px;
+  padding: 1rem 1.5rem 1rem 0;
+  border-right: 1px solid var(--color-border, #e5e7eb);
+}
+
+.contact-heading {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1f2937);
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.contact-item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.contact-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.contact-value {
+  font-size: 0.9375rem;
+  color: var(--color-text-primary, #1f2937);
+}
+
+.contact-value[href] {
+  color: var(--color-primary, #0d9488);
+  text-decoration: none;
+}
+
+.contact-value[href]:hover {
+  text-decoration: underline;
+}
+
+.help-desk-form-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .form-actions {
   display: flex;
   gap: 1rem;

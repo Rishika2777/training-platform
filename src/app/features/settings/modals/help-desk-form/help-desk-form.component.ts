@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject, signal, OnInit } from '@angular/core';
+import { Component, EventEmitter, Output, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { TextareaComponent } from '../../../../shared/components/textarea/textarea.component';
@@ -14,7 +14,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
   templateUrl: './help-desk-form.component.html',
   styleUrl: './help-desk-form.component.css',
 })
-export class HelpDeskFormComponent implements OnInit {
+export class HelpDeskFormComponent {
   @Output() closed = new EventEmitter<void>();
 
   private readonly fb = inject(FormBuilder);
@@ -26,22 +26,13 @@ export class HelpDeskFormComponent implements OnInit {
 
   constructor() {
     this.form = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      subject: ['', [Validators.required]],
-      message: ['', [Validators.required, Validators.minLength(10)]],
+      title: ['', [Validators.required]],
+      description: ['', [Validators.required, Validators.minLength(10)]],
     });
   }
 
-  ngOnInit(): void {
-    // Pre-fill email from logged-in user
-    const currentUser = this.auth.getCurrentUser();
-    if (currentUser?.email) {
-      this.form.patchValue({ email: currentUser.email });
-    }
-  }
-
-  get emailInvalid(): boolean {
-    const control = this.form.get('email');
+  get titleInvalid(): boolean {
+    const control = this.form.get('title');
     return !!(control && control.invalid && control.touched);
   }
 
@@ -50,8 +41,8 @@ export class HelpDeskFormComponent implements OnInit {
     return !!(control && control.invalid && control.touched);
   }
 
-  get messageInvalid(): boolean {
-    const control = this.form.get('message');
+  get descriptionInvalid(): boolean {
+    const control = this.form.get('description');
     return !!(control && control.invalid && control.touched);
   }
 

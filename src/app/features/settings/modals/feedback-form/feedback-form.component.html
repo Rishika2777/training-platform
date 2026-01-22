@@ -1,23 +1,23 @@
 <div class="feedback-form">
-  <form>
+  <form class="feedback-form-container">
     <app-input
-      label="Subject"
+      label="Title"
       type="text"
-      [value]="form.get('subject')?.value || ''"
+      [value]="form.get('title')?.value || ''"
       [required]="true"
-      [invalid]="subjectInvalid"
-      placeholder="Enter feedback subject"
-      (valueChange)="form.patchValue({ subject: $event })"
+      [invalid]="titleInvalid"
+      placeholder="What do you want to share?"
+      (valueChange)="form.patchValue({ title: $event })"
     />
 
     <app-textarea
-      label="Message"
-      [value]="form.get('message')?.value || ''"
+      label="Description"
+      [value]="form.get('description')?.value || ''"
       [required]="true"
-      [invalid]="messageInvalid"
+      [invalid]="descriptionInvalid"
       [rows]="6"
-      placeholder="Please share your feedback..."
-      (valueChange)="form.patchValue({ message: $event })"
+      placeholder="Please describe your feedback in detail..."
+      (valueChange)="form.patchValue({ description: $event })"
       [maxlength]="1000"
       [showCharCount]="true"
     />

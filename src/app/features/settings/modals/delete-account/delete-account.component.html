@@ -10,6 +10,7 @@
       [value]="form.get('email')?.value || ''"
       [required]="true"
       [invalid]="emailInvalid"
+      [disabled]="true"
       (valueChange)="form.patchValue({ email: $event })"
     />
 
