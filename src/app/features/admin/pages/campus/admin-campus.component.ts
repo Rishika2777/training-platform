@@ -4,9 +4,10 @@ import { PaginationComponent } from '../../../../shared/components/pagination/pa
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { Campus, CampusApiService, CampusRegisterRequest } from '../../../campus/services/campus-api.service';
+import { Campus, CampusApiService, CampusRegisterRequest, CampusRegistrationResponse } from '../../../campus/services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { AuthService } from '../../../../core/auth/auth.service';
 import {
   CampusFormComponent,
   CampusFormValue,
@@ -23,6 +24,7 @@ export class AdminCampusComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
+  private readonly auth = inject(AuthService);
   readonly announcementDate = 'January 7th, 2025';
 
   campuses: CardData[] = [];
@@ -64,6 +66,26 @@ export class AdminCampusComponent implements OnInit {
   currentPage = 1;
   readonly itemsPerPage = 9;
   totalPages = 1;
+
+  showCreateModal = false;
+  createSubmitting = false;
+  createFormValue: CampusFormValue = {
+    campusName: '',
+    campusLogoUrl: '',
+    campusLogoFiles: null,
+    rank: '',
+    adminName: '',
+    adminEmail: '',
+    adminPhone: '',
+    adminDept: '',
+    adminDesignation: '',
+    website: '',
+    about: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+  };
 
   ngOnInit(): void {
     this.loadCampuses();
@@ -355,7 +377,114 @@ export class AdminCampusComponent implements OnInit {
   }
 
   onAdd(): void {
-    // TODO: Implement add action
+    // Reset form to empty state
+    this.createFormValue = {
+      campusName: '',
+      campusLogoUrl: '',
+      campusLogoFiles: null,
+      rank: '',
+      adminName: '',
+      adminEmail: '',
+      adminPhone: '',
+      adminDept: '',
+      adminDesignation: '',
+      website: '',
+      about: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+    };
+    this.showCreateModal = true;
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal = false;
+    this.createFormValue = {
+      campusName: '',
+      campusLogoUrl: '',
+      campusLogoFiles: null,
+      rank: '',
+      adminName: '',
+      adminEmail: '',
+      adminPhone: '',
+      adminDept: '',
+      adminDesignation: '',
+      website: '',
+      about: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+    };
+  }
+
+  handleCreateSubmit(value: CampusFormValue): void {
+    if (this.createSubmitting) {
+      return;
+    }
+
+    const currentUser = this.auth.getCurrentUser();
+    if (!currentUser?.userId || !currentUser.userType) {
+      this.notify.error('Missing auth context. Please sign in and try again.');
+      return;
+    }
+
+    this.createSubmitting = true;
+
+    const registerRequest: CampusRegisterRequest = {
+      campusName: value.campusName || '',
+      campusLogoUrl: value.campusLogoUrl || '',
+      campusRank: value.rank ? parseInt(value.rank, 10) : 0,
+      adminName: value.adminName || '',
+      adminEmail: value.adminEmail.toLowerCase() || '',
+      adminPhone: value.adminPhone || '',
+      adminDepartment: value.adminDept || '',
+      adminDesignation: value.adminDesignation || '',
+      websiteUrl: value.website || '',
+      aboutCampus: value.about || '',
+      campusAddress: value.address || '',
+    };
+
+    this.campusApi
+      .registerCampus(registerRequest, {
+        userId: currentUser.userId,
+        userType: currentUser.userType,
+      })
+      .subscribe({
+        next: (response: CampusRegistrationResponse | null) => {
+          this.createSubmitting = false;
+          if (response) {
+            this.notify.success('Campus created successfully!');
+            this.closeCreateModal();
+            // Reload campuses list
+            this.loadCampuses();
+          } else {
+            this.notify.error('Failed to create campus. Please try again.');
+          }
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.createSubmitting = false;
+          let errorMessage = 'Failed to create campus. Please try again.';
+          
+          if (error && typeof error === 'object') {
+            if ('error' in error && error.error) {
+              const errorObj = error.error as { message?: string; error?: string };
+              errorMessage = errorObj.message || errorObj.error || errorMessage;
+            } else if ('message' in error) {
+              errorMessage = String(error.message);
+            }
+          }
+          
+          this.notify.error(errorMessage);
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  handleCreateCancel(): void {
+    this.closeCreateModal();
   }
 
   get isSelectedCampusApproved(): boolean {

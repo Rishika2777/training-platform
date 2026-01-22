@@ -1,0 +1,14 @@
+.bug-report-form {
+  padding: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.form-actions app-button {
+  flex: 0 0 auto;
+}

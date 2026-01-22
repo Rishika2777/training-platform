@@ -1,0 +1,33 @@
+.delete-account-form {
+  padding: 1rem;
+}
+
+.warning-message {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.warning-message p {
+  margin: 0;
+  color: #856404;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.warning-message strong {
+  color: #856404;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.form-actions app-button {
+  flex: 0 0 auto;
+}

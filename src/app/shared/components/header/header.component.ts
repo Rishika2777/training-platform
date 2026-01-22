@@ -10,6 +10,12 @@ import { SettingsDropdownComponent, SettingsOption } from '../settings-dropdown/
 import { ModalComponent } from '../modal/modal.component';
 import { EditProfileModalComponent } from '../../../features/settings/modals/edit-profile/edit-profile-modal.component';
 import { ChangePasswordComponent } from '../../../features/settings/modals/change-password/change-password.component';
+import { DeleteAccountComponent } from '../../../features/settings/modals/delete-account/delete-account.component';
+import { ReportIssueComponent } from '../../../features/settings/modals/report-issue/report-issue.component';
+import { ContactSupportComponent } from '../../../features/settings/modals/contact-support/contact-support.component';
+import { FeedbackFormComponent } from '../../../features/settings/modals/feedback-form/feedback-form.component';
+import { BugReportFormComponent } from '../../../features/settings/modals/bug-report-form/bug-report-form.component';
+import { HelpDeskFormComponent } from '../../../features/settings/modals/help-desk-form/help-desk-form.component';
 
 function isSimpleHeaderRoute(path: string): boolean {
   return (
@@ -83,6 +89,12 @@ function isLikelyId(str: string): boolean {
     ModalComponent,
     EditProfileModalComponent,
     ChangePasswordComponent,
+    DeleteAccountComponent,
+    ReportIssueComponent,
+    ContactSupportComponent,
+    FeedbackFormComponent,
+    BugReportFormComponent,
+    HelpDeskFormComponent,
   ],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
@@ -106,6 +118,7 @@ export class AppHeaderComponent {
   readonly notificationsOpen = signal(false);
   readonly settingsOpen = signal(false);
   readonly selectedOption = signal<SettingsOption | null>(null);
+  readonly selectedForm = signal<string | null>(null);
 
   readonly notifications: readonly NotificationItem[] = [
     {
@@ -254,6 +267,21 @@ export class AppHeaderComponent {
   }
 
   closeOptionModal(): void {
+    this.selectedOption.set(null);
+    this.selectedForm.set(null);
+  }
+
+  onReportIssueOptionSelected(option: string): void {
+    this.selectedForm.set(option);
+  }
+
+  onContactSupportOptionSelected(option: string): void {
+    this.selectedForm.set(option);
+  }
+
+  closeFormModal(): void {
+    this.selectedForm.set(null);
+    // Close the parent option modal as well
     this.selectedOption.set(null);
   }
 

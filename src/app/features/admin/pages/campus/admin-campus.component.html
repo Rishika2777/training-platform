@@ -143,4 +143,23 @@
       </div>
     </div>
   </app-modal>
+
+  <!-- Create Campus Modal -->
+  <app-modal
+    [visible]="showCreateModal"
+    title="Create New Campus"
+    size="lg"
+    (closed)="closeCreateModal()"
+  >
+    <app-campus-form
+      title=""
+      mode="create"
+      [value]="createFormValue"
+      [submitting]="createSubmitting"
+      [adminEmailLocked]="false"
+      (valueChange)="createFormValue = $event"
+      (submitted)="handleCreateSubmit($event)"
+      (cancelled)="handleCreateCancel()"
+    />
+  </app-modal>
 </div>

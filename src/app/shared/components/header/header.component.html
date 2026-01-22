@@ -97,5 +97,77 @@
   </app-modal>
 }
 
+<!-- Delete Account Modal -->
+@if (selectedOption() === 'delete-account') {
+  <app-modal
+    [visible]="true"
+    title="Delete Account"
+    size="sm"
+    (closed)="closeOptionModal()"
+  >
+    <app-delete-account (closed)="closeOptionModal()" />
+  </app-modal>
+}
+
+<!-- Report Issue Modal -->
+@if (selectedOption() === 'report-issues' && !selectedForm()) {
+  <app-modal
+    [visible]="true"
+    title="Report Issues"
+    size="sm"
+    (closed)="closeOptionModal()"
+  >
+    <app-report-issue (closed)="closeOptionModal()" (optionSelected)="onReportIssueOptionSelected($event)" />
+  </app-modal>
+}
+
+<!-- Contact Support Modal -->
+@if (selectedOption() === 'contact-support' && !selectedForm()) {
+  <app-modal
+    [visible]="true"
+    title="Contact Support"
+    size="sm"
+    (closed)="closeOptionModal()"
+  >
+    <app-contact-support (closed)="closeOptionModal()" (optionSelected)="onContactSupportOptionSelected($event)" />
+  </app-modal>
+}
+
+<!-- Feedback Form Modal -->
+@if (selectedForm() === 'feedback') {
+  <app-modal
+    [visible]="true"
+    title="Submit Feedback"
+    size="lg"
+    (closed)="closeFormModal()"
+  >
+    <app-feedback-form (closed)="closeFormModal()" />
+  </app-modal>
+}
+
+<!-- Bug Report Form Modal -->
+@if (selectedForm() === 'bug-report') {
+  <app-modal
+    [visible]="true"
+    title="Report a Bug"
+    size="lg"
+    (closed)="closeFormModal()"
+  >
+    <app-bug-report-form (closed)="closeFormModal()" />
+  </app-modal>
+}
+
+<!-- Help Desk Form Modal -->
+@if (selectedForm() === 'help-desk') {
+  <app-modal
+    [visible]="true"
+    title="Help Desk"
+    size="lg"
+    (closed)="closeFormModal()"
+  >
+    <app-help-desk-form (closed)="closeFormModal()" />
+  </app-modal>
+}
+
 
 

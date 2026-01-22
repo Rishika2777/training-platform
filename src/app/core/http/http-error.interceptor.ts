@@ -86,6 +86,13 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
           }
         }
         
+        // IMPORTANT: For 401 errors on reset-password API, don't clear token or redirect
+        // Let the component handle the error (401 might mean wrong current password)
+        if (err.status === 401 && req.url.includes('/auth/reset-password')) {
+          // Don't show error notification here - let component handle it
+          return throwError(() => err);
+        }
+        
         // IMPORTANT: For 401 errors on faculty API, don't clear token or redirect
         // Let the component handle the error
         if (err.status === 401 && req.url.includes('/faculty')) {

@@ -54,6 +54,12 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
+export interface ResetPasswordWithEmailRequest {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface SelectUserTypeRequest {
   userType: 'CAMPUS' | 'STUDENT' | 'COMPANY' | 'ADMIN';
 }

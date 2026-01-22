@@ -143,6 +143,25 @@
       </div>
     </div>
   </app-modal>
+
+  <!-- Create Company Modal -->
+  <app-modal
+    [visible]="showCreateModal"
+    title="Create New Company"
+    size="lg"
+    (closed)="closeCreateModal()"
+  >
+    <app-company-form
+      title=""
+      mode="create"
+      [value]="createFormValue"
+      [submitting]="createSubmitting"
+      [adminEmailLocked]="false"
+      (valueChange)="createFormValue = $event"
+      (submitted)="handleCreateSubmit($event)"
+      (cancelled)="handleCreateCancel()"
+    />
+  </app-modal>
 </div>
 
 

@@ -10,6 +10,7 @@ import {
   RefreshTokenRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  ResetPasswordWithEmailRequest,
   SelectUserTypeRequest,
   ProfileCompletionRequest,
 } from '../../admin/models/admin-api.models';
@@ -51,6 +52,12 @@ export class AuthApiService {
   resetPassword(request: ResetPasswordRequest): Observable<void> {
     return this.api
       .post<ApiResponse<void>, ResetPasswordRequest>(API_ENDPOINTS.AUTH.RESET_PASSWORD, request)
+      .pipe(map(() => void 0));
+  }
+
+  resetPasswordWithEmail(request: ResetPasswordWithEmailRequest): Observable<void> {
+    return this.api
+      .post<ApiResponse<void>, ResetPasswordWithEmailRequest>(API_ENDPOINTS.AUTH.RESET_PASSWORD, request)
       .pipe(map(() => void 0));
   }
 

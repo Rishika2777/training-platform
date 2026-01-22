@@ -1,0 +1,17 @@
+<div class="contact-support-modal">
+  <div class="options-list">
+    @for (option of options; track option.value) {
+      <div 
+        class="option-item" 
+        role="button"
+        tabindex="0"
+        (click)="onOptionClick(option)"
+        (keyup.enter)="onOptionClick(option)"
+        (keyup.space)="onOptionClick(option)"
+      >
+        <span class="option-label">{{ option.label }}</span>
+        <i class="fa-solid fa-chevron-right option-arrow"></i>
+      </div>
+    }
+  </div>
+</div>

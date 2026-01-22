@@ -106,6 +106,9 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     });
 
   ngOnInit(): void {
+    // Reset loading state on initialization to prevent stuck state
+    this.isLoading = false;
+    
     // Initialize with static items if no API function
     if (!this.apiFetchFn) {
       this.filteredItems = this.items.length > 0 ? [...this.items] : [];
@@ -265,19 +268,29 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
         // API fetch mode
         const currentTerm = this.searchTerm || '';
         
+        // If we already have filtered items, show them immediately without API call
+        // This works whether we have a value or not (e.g., after clearing selection)
+        if (this.filteredItems.length > 0) {
+          // Just show the dropdown with existing items, don't trigger new API call
+          return;
+        }
+        
         // If minSearchLength is 0, trigger API call immediately (even with empty term)
         // This loads initial data when user focuses on the field
         if (this.minSearchLength === 0) {
-          // Set loading state immediately to show loading indicator
-          this.isLoading = true;
-          
-          // Ensure searchTerm is set for the loading indicator
-          if (!this.searchTerm) {
-            this.searchTerm = '';
+          // Only trigger API call if we don't have items already
+          if (this.filteredItems.length === 0) {
+            // Set loading state immediately to show loading indicator
+            this.isLoading = true;
+            
+            // Ensure searchTerm is set for the loading indicator
+            if (!this.searchTerm) {
+              this.searchTerm = '';
+            }
+            
+            // Trigger API call via subject
+            this.searchSubject.next(currentTerm);
           }
-          
-          // Trigger API call via subject
-          this.searchSubject.next(currentTerm);
         } else if (currentTerm.length >= this.minSearchLength) {
           // If we have a search term that meets minSearchLength, trigger API
           this.isLoading = true;
@@ -302,8 +315,15 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
         return;
       }
       
-      // If we're still loading, don't close the dropdown yet - wait for data to arrive
-      if (this.isLoading) {
+      // Reset loading state when input loses focus (e.g., when modal closes)
+      // This prevents stuck loading state when modal reopens
+      const wasLoading = this.isLoading;
+      if (wasLoading) {
+        this.isLoading = false;
+      }
+      
+      // If we were loading, don't close the dropdown yet - wait for data to arrive
+      if (wasLoading) {
         // Set up a check to close after loading completes
         const checkInterval = setInterval(() => {
           if (!this.isLoading) {
@@ -389,7 +409,12 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     this.value = null;
     this.isDropdownOpen = false;
     this.valueChange.emit(null as unknown as TValue);
-    this.filteredItems = this.apiFetchFn ? [] : [...this.items];
+    // Don't clear filteredItems in API mode - keep them so they can be shown again on focus
+    // Only clear for static items mode if needed
+    if (!this.apiFetchFn) {
+      this.filteredItems = [...this.items];
+    }
+    // For API mode, keep filteredItems so they're available when user focuses again
   }
 
   @HostListener('document:click', ['$event'])

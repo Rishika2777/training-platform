@@ -6,6 +6,7 @@ import { ButtonComponent } from '../../../../shared/components/button/button.com
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { AdminApiService } from '../../../admin/services/admin-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { AuthApiService } from '../../../auth/services/auth-api.service';
 
 interface ChangePasswordForm {
   currentPassword: string;
@@ -26,6 +27,7 @@ export class ChangePasswordComponent {
   private readonly fb = inject(FormBuilder);
   private readonly adminApi = inject(AdminApiService);
   private readonly auth = inject(AuthService);
+  private readonly authApi = inject(AuthApiService);
   private readonly notify = inject(NotificationService);
 
   readonly form: FormGroup;
@@ -46,10 +48,27 @@ export class ChangePasswordComponent {
     const newPassword = control.get('newPassword');
     const confirmPassword = control.get('confirmPassword');
 
-    if (newPassword && confirmPassword && newPassword.value !== confirmPassword.value) {
-      return { passwordMismatch: true };
+    if (!newPassword || !confirmPassword) {
+      return null;
     }
-    return null;
+
+    const mismatch = newPassword.value && confirmPassword.value && newPassword.value !== confirmPassword.value;
+    
+    if (mismatch) {
+      // Set error on confirmPassword field so it shows as invalid
+      // Preserve existing errors
+      const existingErrors = confirmPassword.errors || {};
+      confirmPassword.setErrors({ ...existingErrors, passwordMismatch: true });
+      return { passwordMismatch: true };
+    } else {
+      // Clear the passwordMismatch error if passwords match
+      if (confirmPassword.hasError('passwordMismatch')) {
+        const errors = { ...confirmPassword.errors };
+        delete errors['passwordMismatch'];
+        confirmPassword.setErrors(Object.keys(errors).length > 0 ? errors : null);
+      }
+      return null;
+    }
   }
 
   get currentPasswordInvalid(): boolean {
@@ -68,16 +87,50 @@ export class ChangePasswordComponent {
   }
 
   get passwordMismatch(): boolean {
-    return this.form.hasError('passwordMismatch') && this.form.get('confirmPassword')?.touched === true;
+    const confirmPassword = this.form.get('confirmPassword');
+    const newPassword = this.form.get('newPassword');
+    
+    if (!confirmPassword || !newPassword) {
+      return false;
+    }
+
+    // Show error if passwords don't match and both fields have values
+    const hasMismatch = newPassword.value && confirmPassword.value && 
+                       newPassword.value !== confirmPassword.value &&
+                       confirmPassword.touched;
+    
+    return hasMismatch || confirmPassword.hasError('passwordMismatch') === true;
   }
 
-  onSubmit(): void {
+  onNewPasswordChange(value: string): void {
+    this.form.patchValue({ newPassword: value });
+    // If confirmPassword has a value, mark it as touched to show validation
+    if (this.form.get('confirmPassword')?.value) {
+      this.form.get('confirmPassword')?.markAsTouched();
+    }
+    this.form.updateValueAndValidity();
+  }
+
+  onConfirmPasswordChange(value: string): void {
+    this.form.patchValue({ confirmPassword: value });
+    this.form.get('confirmPassword')?.markAsTouched();
+    this.form.updateValueAndValidity();
+  }
+
+  onSubmit(event?: Event | MouseEvent): void {
+    // Prevent default form submission to avoid page reload
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     if (this.form.invalid || this.submitting()) {
+      this.form.markAllAsTouched();
       return;
     }
 
     const currentUser = this.auth.getCurrentUser();
-    if (!currentUser?.userId) {
+    if (!currentUser?.email) {
       this.notify.error('User not authenticated');
       return;
     }
@@ -85,19 +138,42 @@ export class ChangePasswordComponent {
     const formValue = this.form.value as ChangePasswordForm;
     this.submitting.set(true);
 
-    this.adminApi.changePassword(String(currentUser.userId), {
+    this.authApi.resetPasswordWithEmail({
+      email: currentUser.email,
       currentPassword: formValue.currentPassword,
       newPassword: formValue.newPassword,
     }).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.notify.success('Password changed successfully');
-        this.form.reset();
-        this.closed.emit();
+        this.notify.success('Password changed successfully. Please login again with your new password.');
+        
+        // Close modal after a delay to show notification
+        setTimeout(() => {
+          this.form.reset();
+          this.closed.emit();
+          
+          // Reload the page after closing modal to ensure user re-authenticates
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }, 2000);
       },
-      error: () => {
+      error: (error) => {
         this.submitting.set(false);
-        this.notify.error('Failed to change password. Please check your current password.');
+        
+        // Extract error message from response if available
+        let errorMessage = 'Failed to change password. Please check your current password.';
+        
+        if (error && typeof error === 'object') {
+          if ('error' in error && error.error) {
+            const errorObj = error.error as { message?: string; error?: string };
+            errorMessage = errorObj.message || errorObj.error || errorMessage;
+          } else if ('message' in error) {
+            errorMessage = String(error.message);
+          }
+        }
+        
+        this.notify.error(errorMessage);
       },
     });
   }

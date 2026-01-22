@@ -16,6 +16,7 @@ import {
 } from '../../../../shared/components/forms/company-form/company-form.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-admin-company',
@@ -29,6 +30,7 @@ export class AdminCompanyComponent implements OnInit {
   private readonly companyApi = inject(CompanyApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
+  private readonly auth = inject(AuthService);
   readonly announcementDate = 'January 7th, 2025';
 
   companies: CardData[] = [];
@@ -52,6 +54,10 @@ export class AdminCompanyComponent implements OnInit {
   currentPage = 1;
   readonly itemsPerPage = 9;
   totalPages = 1;
+
+  showCreateModal = false;
+  createSubmitting = false;
+  createFormValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
 
   ngOnInit(): void {
     this.loadCompanies();
@@ -355,7 +361,87 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   onAdd(): void {
-    // Add company functionality
+    // Reset form to empty state
+    this.createFormValue = CompanyFormComponent.createEmptyValue();
+    this.showCreateModal = true;
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal = false;
+    this.createFormValue = CompanyFormComponent.createEmptyValue();
+  }
+
+  handleCreateSubmit(value: CompanyFormValue): void {
+    if (this.createSubmitting) {
+      return;
+    }
+
+    const currentUser = this.auth.getCurrentUser();
+    if (!currentUser?.userId || !currentUser.userType) {
+      this.notify.error('Missing auth context. Please sign in and try again.');
+      return;
+    }
+
+    this.createSubmitting = true;
+
+    const registerRequest: CompanyRegisterRequest = {
+      companyName: value.companyName || '',
+      companyLogoUrl: value.companyPhoto ? value.companyPhoto.name : undefined,
+      adminName: value.adminName || '',
+      adminDesignation: value.adminDesignation || '',
+      adminEmail: value.adminEmail.toLowerCase() || '',
+      adminPhone: value.adminPhone || '',
+      websiteUrl: value.companyWebsiteUrl || '',
+      otherWebsiteUrl: value.otherWebsiteUrl || '',
+      registerNumber: value.registerNumber || '',
+      keyPeople: value.keyPeople.map((p) => ({
+        name: p.name || '',
+        designation: p.designation || '',
+        photoUrl: p.photo ? p.photo.name : undefined,
+      })),
+      aboutCompany: value.aboutCompany || '',
+      companyAddress: value.companyAddress || '',
+    };
+
+    this.companyApi
+      .registerCompany(registerRequest, {
+        userId: currentUser.userId,
+        userType: currentUser.userType,
+      })
+      .subscribe({
+        next: (response: CompanyRegistrationResponse | null) => {
+          this.createSubmitting = false;
+          if (response) {
+            this.notify.success('Company created successfully!');
+            this.closeCreateModal();
+            // Reload companies list
+            this.loadCompanies();
+          } else {
+            this.notify.error('Failed to create company. Please try again.');
+          }
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.createSubmitting = false;
+          let errorMessage = 'Failed to create company. Please try again.';
+          
+          if (error && typeof error === 'object') {
+            if ('error' in error && error.error) {
+              const errorObj = error.error as { message?: string; error?: string };
+              errorMessage = errorObj.message || errorObj.error || errorMessage;
+            } else if ('message' in error) {
+              errorMessage = String(error.message);
+            }
+          }
+          
+          this.notify.error(errorMessage);
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  handleCreateCancel(): void {
+    this.closeCreateModal();
   }
 
   get isSelectedCompanyApproved(): boolean {

@@ -89,6 +89,12 @@ export class AdminApiService {
       .pipe(map((response) => response.data ?? ({} as UserResponse)));
   }
 
+  deleteUserByEmail(email: string): Observable<void> {
+    return this.api
+      .delete<ApiResponse<void>>(API_ENDPOINTS.USERS.BY_EMAIL, { email })
+      .pipe(map(() => void 0));
+  }
+
   getActiveUsers(): Observable<UserResponse[]> {
     return this.api
       .get<ApiResponse<UserResponse[]>>(API_ENDPOINTS.USERS.ACTIVE)

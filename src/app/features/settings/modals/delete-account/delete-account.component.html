@@ -1,0 +1,33 @@
+<div class="delete-account-form">
+  <div class="warning-message">
+    <p><strong>Warning:</strong> This action cannot be undone. Deleting your account will permanently remove all your data.</p>
+  </div>
+
+  <form>
+    <app-input
+      label="Email"
+      type="email"
+      [value]="form.get('email')?.value || ''"
+      [required]="true"
+      [invalid]="emailInvalid"
+      (valueChange)="form.patchValue({ email: $event })"
+    />
+
+    <div class="form-actions">
+      <app-button
+        label="Cancel"
+        type="button"
+        variant="outline"
+        [disabled]="submitting()"
+        (buttonClick)="onCancel()"
+      />
+      <app-button
+        label="Delete Account"
+        type="button"
+        variant="primary"
+        [disabled]="submitting() || form.invalid"
+        (buttonClick)="onSubmit($event)"
+      />
+    </div>
+  </form>
+</div>

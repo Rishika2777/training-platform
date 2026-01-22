@@ -1,0 +1,52 @@
+<div class="help-desk-form">
+  <form>
+    <app-input
+      label="Email"
+      type="email"
+      [value]="form.get('email')?.value || ''"
+      [required]="true"
+      [invalid]="emailInvalid"
+      placeholder="your.email@example.com"
+      (valueChange)="form.patchValue({ email: $event })"
+    />
+
+    <app-input
+      label="Subject"
+      type="text"
+      [value]="form.get('subject')?.value || ''"
+      [required]="true"
+      [invalid]="subjectInvalid"
+      placeholder="What do you need help with?"
+      (valueChange)="form.patchValue({ subject: $event })"
+    />
+
+    <app-textarea
+      label="Message"
+      [value]="form.get('message')?.value || ''"
+      [required]="true"
+      [invalid]="messageInvalid"
+      [rows]="6"
+      placeholder="Please describe your issue or question in detail..."
+      (valueChange)="form.patchValue({ message: $event })"
+      [maxlength]="1000"
+      [showCharCount]="true"
+    />
+
+    <div class="form-actions">
+      <app-button
+        label="Cancel"
+        type="button"
+        variant="outline"
+        [disabled]="submitting()"
+        (buttonClick)="onCancel()"
+      />
+      <app-button
+        label="Submit Request"
+        type="button"
+        variant="primary"
+        [disabled]="submitting() || form.invalid"
+        (buttonClick)="onSubmit($event)"
+      />
+    </div>
+  </form>
+</div>

@@ -6,7 +6,7 @@ import { ModalComponent } from '../../../../shared/components/modal/modal.compon
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { AdminApiService } from '../../services/admin-api.service';
 import { StudentApiService } from '../../../student/services/student-api.service';
-import { StudentProfileResponse } from '../../../student/models/student.models';
+import { StudentProfileResponse, CampusResponse, mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
@@ -15,7 +15,6 @@ import {
   StudentFormComponent,
   StudentFormValue,
 } from '../../../../shared/components/forms/student-form/student-form.component';
-import { mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
 
 @Component({
   selector: 'app-admin-student',
@@ -62,8 +61,25 @@ export class AdminStudentComponent implements OnInit {
   readonly itemsPerPage = 9;
   totalPages = 1;
 
+  showCreateModal = false;
+  createSubmitting = false;
+  createFormValue: StudentFormValue = createEmptyStudentFormValue();
+  campuses: CampusResponse[] = [];
+
   ngOnInit(): void {
     this.loadStudents();
+    this.loadCampuses();
+  }
+
+  private loadCampuses(): void {
+    this.studentApi.getRegisteredCampuses().subscribe({
+      next: (response) => {
+        this.campuses = response.data ?? [];
+      },
+      error: () => {
+        this.campuses = [];
+      },
+    });
   }
 
   private loadStudents(): void {
@@ -442,7 +458,67 @@ export class AdminStudentComponent implements OnInit {
   }
 
   onAdd(): void {
-    // Add student functionality
+    // Reset form to empty state
+    this.createFormValue = createEmptyStudentFormValue();
+    this.showCreateModal = true;
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal = false;
+    this.createFormValue = createEmptyStudentFormValue();
+  }
+
+  handleCreateSubmit(value: StudentFormValue): void {
+    if (this.createSubmitting) {
+      return;
+    }
+
+    const currentUser = this.auth.getCurrentUser();
+    if (!currentUser?.userId) {
+      this.notify.error('Missing auth context. Please sign in and try again.');
+      return;
+    }
+
+    this.createSubmitting = true;
+
+    const registerRequest = mapStudentFormValueToRegisterRequest(value, String(currentUser.userId));
+
+    this.studentApi.registerStudent(registerRequest).subscribe({
+      next: (response) => {
+        this.createSubmitting = false;
+        const data = response.data ?? null;
+        
+        if (data) {
+          this.notify.success('Student created successfully!');
+          this.closeCreateModal();
+          // Reload students list
+          this.loadStudents();
+        } else {
+          this.notify.error('Failed to create student. Please try again.');
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.createSubmitting = false;
+        let errorMessage = 'Failed to create student. Please try again.';
+        
+        if (error && typeof error === 'object') {
+          if ('error' in error && error.error) {
+            const errorObj = error.error as { message?: string; error?: string };
+            errorMessage = errorObj.message || errorObj.error || errorMessage;
+          } else if ('message' in error) {
+            errorMessage = String(error.message);
+          }
+        }
+        
+        this.notify.error(errorMessage);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  handleCreateCancel(): void {
+    this.closeCreateModal();
   }
 
   get isSelectedStudentApproved(): boolean {
