@@ -333,6 +333,27 @@ export class CompanyApiService {
   }
 
   /**
+   * GET /company-landing/{companyId}/target-campuses
+   * Gets target campuses for a company.
+   * @param companyId - The company ID
+   * @param page - Page number (0-indexed, default: 0)
+   * @param size - Page size (default: 10)
+   */
+  getTargetCampuses(companyId: string, page = 0, size = 10): Observable<readonly TargetCampusResponse[]> {
+    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_TARGET_CAMPUSES, { companyId }));
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        const data = unwrapResponse<TargetCampusResponse[]>(raw);
+        return Array.isArray(data) ? data : [];
+      }),
+    );
+  }
+
+  /**
    * POST /vacancy?companyId={companyId}
    * Creates a new vacancy for a company.
    * Request body: VacancyRequest
@@ -406,6 +427,46 @@ export class CompanyApiService {
   }
 
   /**
+ * POST /vision/{companyId}
+ * Submit Vision & Performance data
+ */
+addVisionPerformance(
+  companyId: string,
+  request: VisionRequest
+): Observable<VisionResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.ADD_VISION_PERFORMANCE, { companyId })
+  );
+
+  const headers = new HttpHeaders({
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  });
+
+  console.log('CompanyApiService: addVisionPerformance called', { url, companyId, request });
+
+  return this.http.post<unknown>(url, request, { headers }).pipe(
+    tap({
+      next: (response) => console.log('addVisionPerformance success', response),
+      error: (error) => console.error('addVisionPerformance error', error),
+    }),
+    map((raw) => {
+      const wrapped = unwrapResponse<VisionResponse>(raw);
+      if (wrapped) return wrapped;
+
+      const withData = raw as { data?: VisionResponse };
+      if (raw && typeof raw === 'object' && withData.data) {
+        return withData.data;
+      }
+
+      return null;
+    })
+  );
+}
+
+
+  /**
    * POST /benefits-offer/{companyId}
    * Submit a new benefits offer form with all benefit details.
    * Request body: BenefitsOfferRequest
@@ -430,6 +491,35 @@ export class CompanyApiService {
       map((response) => {
         console.log('CompanyApiService: Received response for addBenefitsOffer', response);
         return extractBenefitsOfferResponse(response);
+      })
+    );
+  }
+
+  /**
+   * POST /company-invitation
+   * Submit a campus invitation to participate in placement drive.
+   * Request body: CompanyInvitationRequest
+   */
+  submitCompanyInvitation(request: CompanyInvitationRequest): Observable<CompanyInvitationResponse | null> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.SUBMIT_INVITATION);
+    console.log('CompanyApiService: submitCompanyInvitation called', { url, request });
+    
+    // Set headers for JSON request
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    console.log('CompanyApiService: Sending company invitation request', request);
+    return this.http.post<unknown>(url, request, { headers }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for submitCompanyInvitation', response);
+        return extractCompanyInvitationResponse(response);
       })
     );
   }
@@ -572,11 +662,13 @@ export interface ClientResponse {
   clientId?: string;
   companyId?: string;
   clientName?: string;
-  photourl?: string;
+  photourl?: string;    // API field for photo
+  clientLogo?: string;  // API might return this
+  logoUrl?: string;     // fallback
+  name?: string;        // optional
   createdAt?: string | null;
   updatedAt?: string | null;
 }
-
 export interface VacancyRequest {
   jobTitle: string;
   jobLocation: string;
@@ -653,6 +745,23 @@ export interface TechnologyResponse {
   createdAt?: string | null;
   updatedAt?: string | null;
 }
+export interface VisionRequest {
+  vision: string;
+  metricName: string;
+  value: string;
+  year: string;
+}
+
+export interface VisionResponse {
+  visionId?: string;
+  companyId?: string;
+  vision?: string;
+  metricName?: string;
+  value?: string;
+  year?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
 
 export interface BenefitsOfferRequest {
   internToJobRate: string;
@@ -667,6 +776,7 @@ export interface BenefitsOfferRequest {
   referralBonus: string;
 }
 
+
 export interface BenefitsOfferResponse {
   benefitsOfferId?: string;
   companyId?: string;
@@ -680,6 +790,55 @@ export interface BenefitsOfferResponse {
   trainingAndUpskilling?: string;
   sickLeaves?: string;
   referralBonus?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface CompanyInvitationRequest {
+  campusId: string;
+  campusName: string;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  contactPersonPhoneNo: string;
+  contactPersonDesignation: string;
+  campusWebsiteUrl: string;
+  campusAddress: string;
+  campusProspectusUrl?: string;
+  academicYear: string;
+  programsOffered: string[];
+  proposedDateForPlacementDrive: string;
+  preferredSkills: string[];
+  facilitiesAvailableForRecruitmentProcess: string;
+  inviteCompany: boolean;
+}
+
+export interface CompanyInvitationResponse {
+  invitationId?: string;
+  companyId?: string;
+  campusId?: string;
+  campusName?: string;
+  contactPersonName?: string;
+  contactPersonEmail?: string;
+  contactPersonPhoneNo?: string;
+  contactPersonDesignation?: string;
+  campusWebsiteUrl?: string;
+  campusAddress?: string;
+  campusProspectusUrl?: string;
+  academicYear?: string;
+  programsOffered?: string[];
+  proposedDateForPlacementDrive?: string;
+  preferredSkills?: string[];
+  facilitiesAvailableForRecruitmentProcess?: string;
+  inviteCompany?: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface TargetCampusResponse {
+  campusId?: string;
+  campusName?: string;
+  campusLogo?: string;
+  address?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -882,6 +1041,45 @@ function extractBenefitsOfferResponse(raw: unknown): BenefitsOfferResponse | nul
   }
   
   console.warn('extractBenefitsOfferResponse: could not extract BenefitsOfferResponse from', raw);
+  return null;
+}
+
+function extractCompanyInvitationResponse(raw: unknown): CompanyInvitationResponse | null {
+  console.log('extractCompanyInvitationResponse: raw response', raw);
+  
+  // First try to unwrap from standard API response format { success, data, ... }
+  const wrapped = unwrapResponse<CompanyInvitationResponse>(raw);
+  if (wrapped && typeof wrapped === 'object') {
+    console.log('extractCompanyInvitationResponse: extracted from unwrapResponse', wrapped);
+    return wrapped;
+  }
+  
+  // If unwrapResponse returned null, try raw response directly
+  if (raw && typeof raw === 'object') {
+    const rawObj = raw as Record<string, unknown>;
+    
+    // Check if it's already a CompanyInvitationResponse-like object
+    if (rawObj['invitationId'] || rawObj['campusId']) {
+      console.log('extractCompanyInvitationResponse: found direct CompanyInvitationResponse', rawObj);
+      return rawObj as CompanyInvitationResponse;
+    }
+    
+    // Check if data field exists and extract from it
+    if (rawObj['data'] && typeof rawObj['data'] === 'object') {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractCompanyInvitationResponse: extracted from data field', data);
+      return data as CompanyInvitationResponse;
+    }
+    
+    // Check if response has nested structure
+    if (rawObj['success'] !== undefined && rawObj['data']) {
+      const data = rawObj['data'] as Record<string, unknown>;
+      console.log('extractCompanyInvitationResponse: extracted from success.data', data);
+      return data as CompanyInvitationResponse;
+    }
+  }
+  
+  console.warn('extractCompanyInvitationResponse: could not extract CompanyInvitationResponse from', raw);
   return null;
 }
 

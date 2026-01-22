@@ -666,18 +666,18 @@ export class CompanyHomeComponent implements OnInit {
 
     // Map form values to API request format
     // Note: Form uses workLifeBalance and trainingUpskilling, but API expects workLifeBalancePerks and trainingAndUpskilling
-    const request: BenefitsOfferRequest = {
-      internToJobRate: value.internToJobRate.trim() || '',
-      startingSalaryRange: value.startingSalaryRange.trim() || '',
-      performanceBonus: value.performanceBonus.trim() || '',
-      healthcare: value.healthcare.trim() || '',
-      mentorBuddySystem: value.mentorBuddySystem.trim() || '',
-      workLifeBalancePerks: value.workLifeBalance.trim() || '',
-      appreciationDayOff: value.appreciationDayOff.trim() || '',
-      trainingAndUpskilling: value.trainingUpskilling.trim() || '',
-      sickLeaves: value.sickLeaves.trim() || '',
-      referralBonus: value.referralBonus.trim() || '',
-    };
+  const request: BenefitsOfferRequest = {
+  internToJobRate: value.internToJobRate.trim() || '',
+  startingSalaryRange: value.startingSalaryRange.trim() || '',
+  performanceBonus: value.performanceBonus.trim() || '',
+  healthcare: value.healthcare.trim() || '',
+  mentorBuddySystem: value.mentorBuddySystem.trim() || '',
+  workLifeBalancePerks: value.workLifeBalancePerks.trim() || '',
+  appreciationDayOff: value.appreciationDayOff.trim() || '',
+  trainingAndUpskilling: value.trainingAndUpskilling.trim() || '',
+  sickLeaves: value.sickLeaves.trim() || '',
+  referralBonus: value.referralBonus.trim() || '',
+};
 
     console.log('CompanyHomeComponent: Making API call to add benefits offer', { companyId, request });
     this.submittingBenefits = true;

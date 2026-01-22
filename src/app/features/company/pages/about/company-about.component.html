@@ -64,22 +64,28 @@
 <section class="campus-section">
   <div class="container">
     <h2 class="section-heading">Target Campus for Placement Drives</h2>
-    <app-carousel
-      type="pagination"
-      [currentPage]="currentCampusPage()"
-      [totalPages]="Math.ceil(campuses.length / 5)"
-      [maxVisible]="5"
-      (pageChange)="onCampusPageChange($event)"
-    >
-      <div class="campus-grid">
-        @for (campus of campuses; track $index) {
-          <div class="campus-card">
-            <img [src]="campus.image" [alt]="campus.name" />
-            <p class="campus-name">{{ campus.name }}</p>
-          </div>
-        }
-      </div>
-    </app-carousel>
+    @if (loadingTargetCampuses()) {
+      <div class="loading-text">Loading target campuses...</div>
+    } @else if (campuses.length === 0) {
+      <div class="empty-state">No target campuses available</div>
+    } @else {
+      <app-carousel
+        type="pagination"
+        [currentPage]="currentCampusPage()"
+        [totalPages]="Math.ceil(campuses.length / 5)"
+        [maxVisible]="5"
+        (pageChange)="onCampusPageChange($event)"
+      >
+        <div class="campus-grid">
+          @for (campus of campuses; track $index) {
+            <div class="campus-card">
+              <img [src]="campus.image" [alt]="campus.name" />
+              <p class="campus-name">{{ campus.name }}</p>
+            </div>
+          }
+        </div>
+      </app-carousel>
+    }
   </div>
 </section>
 
@@ -87,28 +93,29 @@
 <section class="team-section">
   <div class="container">
     <h2 class="section-heading">Core Team Members</h2>
-    <div class="ceo-profile">
-      <img [src]="ceo.image" [alt]="ceo.name" class="ceo-image" />
-      <h3 class="ceo-name">{{ ceo.name }}</h3>
-      <p class="ceo-designation">{{ ceo.designation }}</p>
-    </div>
-    <app-carousel
-      type="pagination"
-      [currentPage]="currentTeamPage()"
-      [totalPages]="Math.ceil(teamMembers.length / 7)"
-      [maxVisible]="7"
-      (pageChange)="onTeamPageChange($event)"
-    >
-      <div class="team-grid">
-        @for (member of teamMembers; track $index) {
-          <div class="team-member">
-            <img [src]="member.image" [alt]="member.name" />
-            <p class="member-name">{{ member.name }}</p>
-            <p class="member-designation">{{ member.designation }}</p>
-          </div>
-        }
-      </div>
-    </app-carousel>
+    @if (loadingKeyPeople()) {
+      <div class="loading-text">Loading team members...</div>
+    } @else if (teamMembers.length === 0) {
+      <div class="empty-state">No team members available</div>
+    } @else {
+      <app-carousel
+        type="pagination"
+        [currentPage]="currentTeamPage()"
+        [totalPages]="Math.ceil(teamMembers.length / 7)"
+        [maxVisible]="7"
+        (pageChange)="onTeamPageChange($event)"
+      >
+        <div class="team-grid">
+          @for (member of teamMembers; track $index) {
+            <div class="team-member">
+              <img [src]="member.image" [alt]="member.name" />
+              <p class="member-name">{{ member.name }}</p>
+              <p class="member-designation">{{ member.designation }}</p>
+            </div>
+          }
+        </div>
+      </app-carousel>
+    }
   </div>
 </section>
 
@@ -167,15 +174,16 @@
 <section class="clients-section">
   <div class="container">
     <h2 class="section-heading">Our clients</h2>
+
     <app-carousel
       type="pagination"
       [currentPage]="currentClientPage()"
-      [totalPages]="Math.ceil(clients.length / 8)"
+      [totalPages]="totalClientPages()"
       [maxVisible]="8"
       (pageChange)="onClientPageChange($event)"
     >
       <div class="clients-grid">
-        @for (client of clients; track $index) {
+        @for (client of clientList; track $index) {
           <div class="client-logo">
             <img [src]="client.logo" alt="Client Logo" />
           </div>

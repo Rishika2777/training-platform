@@ -9,9 +9,9 @@ export interface BenefitsFormValue {
   performanceBonus: string;
   healthcare: string;
   mentorBuddySystem: string;
-  workLifeBalance: string;
+  workLifeBalancePerks: string;        // renamed
   appreciationDayOff: string;
-  trainingUpskilling: string;
+  trainingAndUpskilling: string;       // renamed
   sickLeaves: string;
   referralBonus: string;
 }
@@ -31,9 +31,9 @@ export class CompanyBenefitsComponent {
     performanceBonus: '',
     healthcare: '',
     mentorBuddySystem: '',
-    workLifeBalance: '',
+    workLifeBalancePerks: '',
     appreciationDayOff: '',
-    trainingUpskilling: '',
+    trainingAndUpskilling: '',
     sickLeaves: '',
     referralBonus: '',
   };
@@ -58,17 +58,18 @@ export class CompanyBenefitsComponent {
     { label: '100000-150000', value: '100000-150000' },
     { label: '150000-200000', value: '150000-200000' },
   ];
+  
+readonly benefitFields: { key: keyof BenefitsFormValue; label: string }[] = [
+  { key: 'performanceBonus', label: 'Performance Bonus' },
+  { key: 'healthcare', label: 'Healthcare' },
+  { key: 'mentorBuddySystem', label: 'Mentor-Buddy System' },
+  { key: 'workLifeBalancePerks', label: 'Work-Life Balance Perks' },
+  { key: 'appreciationDayOff', label: 'Appreciation Day Off' },
+  { key: 'trainingAndUpskilling', label: 'Training & Upskilling' },
+  { key: 'sickLeaves', label: 'Sick Leaves' },
+  { key: 'referralBonus', label: 'New Employee Referral Bonus' },
+];
 
-  readonly benefitFields: { key: keyof BenefitsFormValue; label: string }[] = [
-    { key: 'performanceBonus', label: 'Performance Bonus' },
-    { key: 'healthcare', label: 'Healthcare' },
-    { key: 'mentorBuddySystem', label: 'Mentor-Buddy System' },
-    { key: 'workLifeBalance', label: 'Work-Life Balance Perks' },
-    { key: 'appreciationDayOff', label: 'Appreciation Day Off' },
-    { key: 'trainingUpskilling', label: 'Training & Upskilling' },
-    { key: 'sickLeaves', label: 'Sick Leaves' },
-    { key: 'referralBonus', label: 'New Employee Referral Bonus' },
-  ];
 
   updateField(field: keyof BenefitsFormValue, value: string): void {
     const next = { ...this.value, [field]: value };

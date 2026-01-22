@@ -250,10 +250,11 @@
     size="md"
     (closed)="closeModal()"
   >
-    <app-company-vision-performance
-      [submitting]="submittingVisionPerformance"
-      (submitted)="handleVisionPerformanceSubmit($event); closeModal()"
-    />
+   <app-company-vision-performance
+  [submitting]="submittingVisionPerformance"
+  (submitted)="handleVisionPerformanceSubmit($event); closeModal()"
+/>
+
   </app-modal>
 
   <!-- Benefits Modal -->
@@ -318,5 +319,4 @@
     }
   </app-modal>
 </div>
-
 
