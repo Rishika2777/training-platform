@@ -93,6 +93,54 @@
   color: var(--color-text-secondary);
 }
 
+/* ---------------- current vacancy ----------- */
+
+/* Current Vacancy Section */
+.vacancy-section {
+  background: #f7f7f7;
+  padding: var(--space-xxl) 0;
+}
+
+.vacancy-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.vacancy-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.vacancy-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.vacancy-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.vacancy-meta {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.vacancy-footer {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.8rem;
+  color: #666;
+}
+
+
 /* Vision Section */
 .vision-section {
   background: var(--color-background);

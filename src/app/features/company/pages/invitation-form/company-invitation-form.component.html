@@ -1,23 +1,28 @@
 <form class="invitation-form" (ngSubmit)="onFormSubmit($event)">
-  <!-- Campus Details Section -->
+
+  <!-- Campus Details -->
   <div class="form-section">
     <h3 class="section-title">Campus Details</h3>
-    
-    <!-- Row 1: Campus Name, Contact Person Name, Contact Person Email -->
+
     <div class="form-row form-row-three-col">
       <div class="form-field">
-        <app-input
-          label="Campus Name"
-          [required]="true"
-          type="text"
-          [value]="value.campusName"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.campusName.trim()"
-          (valueChange)="patch({ campusName: $event })"
-          placeholder="Enter campus name"
-        />
-        @if (submitAttempted && !value.campusName.trim()) {
-          <span class="error-message">Campus name is required</span>
+ <app-dropdown
+  label="Campus"
+  [required]="true"
+  [autocomplete]="true"
+  [apiFetchFn]="fetchCampuses"
+  [items]="campusOptions"
+  [value]="selectedCampusId"
+  [disabled]="submitting"
+  [invalid]="submitAttempted && !selectedCampusId"
+  (valueChange)="onCampusPicked($event)"
+  placeholder="Select campus"
+/>
+
+
+
+        @if (submitAttempted && !selectedCampusId) {
+          <span class="error-message">Campus is required</span>
         }
       </div>
 
@@ -25,87 +30,61 @@
         <app-input
           label="Contact Person Name"
           [required]="true"
-          type="text"
           [value]="value.contactPersonName"
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.contactPersonName.trim()"
           (valueChange)="patch({ contactPersonName: $event })"
-          placeholder="Enter contact person name"
         />
-        @if (submitAttempted && !value.contactPersonName.trim()) {
-          <span class="error-message">Contact person name is required</span>
-        }
       </div>
 
       <div class="form-field">
         <app-input
           label="Contact Person Email"
-          [required]="true"
           type="email"
+          [required]="true"
           [value]="value.contactPersonEmail"
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.contactPersonEmail.trim()"
           (valueChange)="patch({ contactPersonEmail: $event })"
-          placeholder="Enter contact person email"
         />
-        @if (submitAttempted && !value.contactPersonEmail.trim()) {
-          <span class="error-message">Contact person email is required</span>
-        }
       </div>
     </div>
 
-    <!-- Row 2: Contact Person Phone No., Contact Person Designation, Campus Website URL -->
     <div class="form-row form-row-three-col">
       <div class="form-field">
         <app-input
-          label="Contact Person Phone No."
+          label="Contact Person Phone"
           [required]="true"
-          type="tel"
           [value]="value.contactPersonPhone"
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.contactPersonPhone.trim()"
           (valueChange)="patch({ contactPersonPhone: $event })"
-          placeholder="Enter contact person phone number"
         />
-        @if (submitAttempted && !value.contactPersonPhone.trim()) {
-          <span class="error-message">Contact person phone number is required</span>
-        }
       </div>
 
       <div class="form-field">
         <app-input
-          label="Contact Person Designation"
+          label="Designation"
           [required]="true"
-          type="text"
           [value]="value.contactPersonDesignation"
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.contactPersonDesignation.trim()"
           (valueChange)="patch({ contactPersonDesignation: $event })"
-          placeholder="Enter contact person designation"
         />
-        @if (submitAttempted && !value.contactPersonDesignation.trim()) {
-          <span class="error-message">Contact person designation is required</span>
-        }
       </div>
 
       <div class="form-field">
         <app-input
-          label="Campus website URL"
+          label="Campus Website"
           [required]="true"
-          type="url"
           [value]="value.campusWebsiteUrl"
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.campusWebsiteUrl.trim()"
           (valueChange)="patch({ campusWebsiteUrl: $event })"
-          placeholder="Enter campus website URL"
         />
-        @if (submitAttempted && !value.campusWebsiteUrl.trim()) {
-          <span class="error-message">Campus website URL is required</span>
-        }
       </div>
     </div>
 
-    <!-- Row 3: Campus Address (2 col) and Campus Prospectus (1 col) -->
     <div class="form-row form-row-mixed">
       <div class="form-field form-field-textarea">
         <app-textarea
@@ -115,174 +94,136 @@
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.campusAddress.trim()"
           (valueChange)="patch({ campusAddress: $event })"
-          placeholder="Enter campus address"
-          [rows]="4"
         />
-        @if (submitAttempted && !value.campusAddress.trim()) {
-          <span class="error-message">Campus address is required</span>
-        }
       </div>
 
       <div class="form-field">
-        <div class="file-input-wrapper">
-          <div class="field-label">
-            Campus Prospectus
-            <span class="asterisk" aria-hidden="true">*</span>
-          </div>
-          <div class="file-input-container">
-            <app-input
-              type="text"
-              [value]="prospectusName || 'Select prospectus file'"
-              [disabled]="true"
-              [invalid]="submitAttempted && !value.campusProspectus"
-              placeholder="Select prospectus file"
-            />
-            <button
-              type="button"
-              class="file-attach-btn"
-              (click)="triggerProspectusSelect()"
-              [disabled]="submitting"
-              [attr.aria-label]="'Select prospectus file'"
-            >
-              <i class="fa-solid fa-paperclip"></i>
-            </button>
-            <input
-              #prospectusFileInput
-              type="file"
-              accept=".pdf,.doc,.docx"
-              style="display: none"
-              [disabled]="submitting"
-              (change)="onProspectusSelected($any($event.target).files)"
-            />
-          </div>
-          @if (submitAttempted && !value.campusProspectus) {
-            <span class="error-message">Campus prospectus is required</span>
-          }
-        </div>
-      </div>
+  <div class="file-input-wrapper">
+    <div class="field-label">
+      Campus Prospectus <span class="asterisk">*</span>
+    </div>
+
+    <div class="file-input-container">
+      <app-input
+        type="text"
+        [value]="prospectusName || 'Select prospectus file'"
+        [disabled]="true"
+        [invalid]="submitAttempted && !value.campusProspectus"
+      />
+
+      <button
+        type="button"
+        class="file-attach-btn"
+        (click)="triggerProspectusSelect()"
+        [disabled]="submitting"
+        aria-label="Select prospectus file"
+      >
+        <i class="fa-solid fa-paperclip"></i>
+      </button>
+
+      <input
+        #prospectusFileInput
+        type="file"
+        accept=".pdf,.doc,.docx"
+        hidden
+        (change)="onProspectusSelected($any($event.target).files)"
+      />
+    </div>
+
+    @if (submitAttempted && !value.campusProspectus) {
+      <span class="error-message">Campus prospectus is required</span>
+    }
+  </div>
+</div>
+
+
     </div>
   </div>
 
-  <!-- Placement Drive Invitation Details Section -->
+  <!-- Placement Drive Details -->
   <div class="form-section">
     <h3 class="section-title">Placement Drive Invitation Details</h3>
 
-    <!-- Row 1: Academic Year, Programs Offered, Proposed Date -->
     <div class="form-row form-row-three-col">
       <div class="form-field">
         <app-dropdown
           label="Academic Year"
-          [required]="true"
           [items]="academicYearOptions"
           [value]="value.academicYear"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.academicYear.trim()"
           (valueChange)="patch({ academicYear: $event })"
-          placeholder="Select academic year"
         />
-        @if (submitAttempted && !value.academicYear.trim()) {
-          <span class="error-message">Academic year is required</span>
-        }
       </div>
 
       <div class="form-field">
         <app-dropdown
-          label="Programs Offered for Placement"
-          [required]="true"
+          label="Programs Offered"
           [items]="programsOfferedOptions"
-          [value]="value.programsOffered"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.programsOffered.trim()"
+          [value]="firstOrSelf(value.programsOffered)"
+          [invalid]="submitAttempted && !hasValue(value.programsOffered)"
           (valueChange)="patch({ programsOffered: $event })"
-          placeholder="Select program"
         />
-        @if (submitAttempted && !value.programsOffered.trim()) {
-          <span class="error-message">Program is required</span>
-        }
       </div>
 
       <div class="form-field">
         <app-input
-          label="Proposed Date for Placement Drive"
-          [required]="true"
           type="date"
+          label="Proposed Date"
           [value]="value.proposedDate"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.proposedDate.trim()"
           (valueChange)="patch({ proposedDate: $event })"
-          placeholder="Select date"
         />
-        @if (submitAttempted && !value.proposedDate.trim()) {
-          <span class="error-message">Proposed date is required</span>
-        }
       </div>
     </div>
 
-    <!-- Row 2: Preferred Skills (Full width) -->
     <div class="form-row form-row-single">
       <div class="form-field">
         <app-dropdown
           label="Preferred Skills"
-          [required]="true"
           [items]="preferredSkillsOptions"
-          [value]="value.preferredSkills"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.preferredSkills.trim()"
+          [value]="firstOrSelf(value.preferredSkills)"
+          [invalid]="submitAttempted && !hasValue(value.preferredSkills)"
           (valueChange)="patch({ preferredSkills: $event })"
-          placeholder="Select preferred skills"
         />
-        @if (submitAttempted && !value.preferredSkills.trim()) {
-          <span class="error-message">Preferred skills is required</span>
-        }
       </div>
     </div>
 
-    <!-- Row 3: Facilities Available (Full width) -->
     <div class="form-row form-row-single">
       <div class="form-field">
         <app-textarea
-          label="Facilities Available for Recruitment Process"
-          [required]="true"
+          label="Facilities Available"
           [value]="value.facilitiesAvailable"
-          [disabled]="submitting"
-          [invalid]="submitAttempted && !value.facilitiesAvailable.trim()"
           (valueChange)="patch({ facilitiesAvailable: $event })"
-          placeholder="Enter facilities available"
-          [rows]="4"
         />
-        @if (submitAttempted && !value.facilitiesAvailable.trim()) {
-          <span class="error-message">Facilities available is required</span>
-        }
       </div>
     </div>
   </div>
 
-  <!-- Confirmation Checkbox -->
   <div class="form-row checkbox-row">
-    <label class="checkbox-label">
-      <input
-        type="checkbox"
-        [checked]="value.confirmationChecked"
-        [disabled]="submitting"
-        (change)="patch({ confirmationChecked: $any($event.target).checked })"
-        class="checkbox-input"
-      />
-      <span class="checkbox-text">We invite [Company Name] to participate in our campus placement drive.</span>
-    </label>
-    @if (submitAttempted && !value.confirmationChecked) {
-      <span class="error-message">Please confirm the invitation</span>
-    }
-  </div>
-
-  <!-- Submit Button -->
-  <div class="form-actions">
-    <app-button
-      type="button"
-      label="Submit"
-      variant="primary"
-      [disabled]="submitting || !isFormValid()"
-      (buttonClick)="onButtonClick($event)"
+  <label class="checkbox-label">
+    <input
+      type="checkbox"
+      [checked]="value.confirmationChecked"
+      [disabled]="submitting"
+      (change)="patch({ confirmationChecked: $any($event.target).checked })"
     />
-  </div>
-</form>
+    <span class="checkbox-text">
+      We invite [Company Name] to participate in our campus placement drive.
+    </span>
+  </label>
 
+  @if (submitAttempted && !value.confirmationChecked) {
+    <span class="error-message">Please confirm the invitation</span>
+  }
+</div>
+
+
+  <div class="form-actions" style="text-align: center; margin-top: 24px;">
+  <app-button
+    label="Submit"
+    variant="secondary"
+    [disabled]="submitting || !isFormValid()"
+    (buttonClick)="onButtonClick($event)"
+  />
+</div>
+
+
+</form>

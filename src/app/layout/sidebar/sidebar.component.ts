@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, Input, computed, inject, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, Input, computed, inject, signal, PLATFORM_ID } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { MenuService } from '../../core/menu/menu.service';
@@ -37,6 +37,8 @@ export class SidebarComponent implements OnInit {
   private readonly facultyDetailService = inject(FacultyDetailService);
   private readonly campusApi = inject(CampusApiService);
   private readonly storage = inject(StorageService);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   @Input() collapsed = false;
 
@@ -169,6 +171,11 @@ export class SidebarComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Only run in browser context (skip during SSR)
+    if (!this.isBrowser) {
+      return;
+    }
+
     // Only load faculties if user is a CAMPUS user (not admin, not student)
     const userType = this.roles.getUserType();
     const primaryRole = this.roles.getPrimaryRole();

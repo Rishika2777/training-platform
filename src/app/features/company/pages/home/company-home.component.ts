@@ -182,6 +182,11 @@ export class CompanyHomeComponent implements OnInit {
     return slicePage(this.specializationsPageItems(), this.specializationsCarouselPage, this.specializationsCarouselPageSize);
   }
 
+  get companyId(): string | null {
+  return this.getCompanyId();
+}
+
+
   ngOnInit(): void {
     this.loadKeyPeople();
     this.loadPreferredCampuses();

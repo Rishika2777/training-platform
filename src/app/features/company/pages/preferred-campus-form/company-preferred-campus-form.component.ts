@@ -3,14 +3,28 @@ import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, 
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
-import { StudentApiService } from '../../../student/services/student-api.service';
-import { CampusResponse } from '../../../student/models/student.models';
+// import { StudentApiService } from '../../../student/services/student-api.service';
+import { map } from 'rxjs/operators';
+import { CompanyApiService } from '../../services/company-api.service';
+
+
 
 export interface PreferredCampusFormValue {
   photo: File | null;
   campusName: string;
   campusId?: string;
 }
+
+interface CampusSearchResponse {
+  data?: {
+    content?: {
+      campusName: string;
+      id: string;
+    }[];
+  };
+}
+
+
 
 @Component({
   selector: 'app-company-preferred-campus-form',
@@ -22,8 +36,9 @@ export interface PreferredCampusFormValue {
 export class CompanyPreferredCampusFormComponent implements OnInit {
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
 
-  private readonly studentApi = inject(StudentApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly companyApi = inject(CompanyApiService);
+
 
   @Input() submitting = false;
   @Input() value: PreferredCampusFormValue = {
@@ -98,33 +113,47 @@ export class CompanyPreferredCampusFormComponent implements OnInit {
     this.submit();
   }
 
-  ngOnInit(): void {
-    this.loadRegisteredCampuses();
-  }
+ngOnInit(): void {
+  this.loadRegisteredCampuses();
+}
 
-  private loadRegisteredCampuses(): void {
-    this.loadingCampuses = true;
-    this.studentApi.getRegisteredCampuses().subscribe({
-      next: (response) => {
-        this.loadingCampuses = false;
-        if (response.data && Array.isArray(response.data)) {
-          // Map campus data to dropdown items
-          this.campusDropdownItems = response.data
-            .filter((campus: CampusResponse) => campus.campusName && campus.campusId)
-            .map((campus: CampusResponse) => ({
-              label: campus.campusName || '',
-              value: campus.campusId || '',
-            }));
-          this.cdr.detectChanges();
-        }
-      },
-      error: (error) => {
-        console.error('Failed to load registered campuses:', error);
-        this.loadingCampuses = false;
-        this.cdr.detectChanges();
-      },
-    });
-  }
+
+fetchCampuses = (term: string) => {
+  return this.companyApi.searchCampuses(term).pipe(
+    map((res: CampusSearchResponse) =>
+      (res.data?.content ?? []).map((c) => ({
+        label: c.campusName,
+        value: c.id,
+      }))
+    )
+  );
+};
+
+private loadRegisteredCampuses(): void {
+  this.loadingCampuses = true;
+
+  this.companyApi.searchCampuses('').subscribe({
+    next: (response: CampusSearchResponse) => {
+      this.loadingCampuses = false;
+
+      const list = response.data?.content ?? [];
+
+      this.campusDropdownItems = list.map((campus) => ({
+        label: campus.campusName,
+        value: campus.id,
+      }));
+
+      this.cdr.detectChanges();
+    },
+    error: (error: unknown) => {
+      console.error('Failed to load campuses:', error);
+      this.loadingCampuses = false;
+      this.cdr.detectChanges();
+    },
+  });
+}
+
+
 
   onCampusSelected(campusId: string | null): void {
     console.log('CompanyPreferredCampusFormComponent: Campus selected', { campusId, items: this.campusDropdownItems });

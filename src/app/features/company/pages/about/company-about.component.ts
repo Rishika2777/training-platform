@@ -7,12 +7,14 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { CompanyInvitationFormComponent, InvitationFormValue } from '../invitation-form/company-invitation-form.component';
-import { CompanyApiService, KeyPersonResponse, CompanyInvitationRequest, CompanyInvitationResponse, TargetCampusResponse, ClientResponse } from '../../services/company-api.service';
+import { CompanyApiService, KeyPersonResponse, CompanyInvitationRequest,  TargetCampusResponse, ClientResponse,BenefitsOfferResponse } from '../../services/company-api.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { catchError, of } from 'rxjs';
+import { CompanyRegistrationResponse } from '../../services/company-api.service';
+
 
 interface TeamMember {
   name: string;
@@ -29,7 +31,26 @@ interface Benefit {
   title: string;
   icon: string;
   isOpen: boolean;
+  description?: string;
 }
+
+interface Vacancy {
+  jobTitle: string;
+  jobLocation: string;
+  department: string;
+  jobType: string;
+  salary: string;
+  numberOfOpenings: string;
+  contractDuration: string;
+  jobDescription: string;
+  requiredQualifications: string[];
+  streamsEligible: string[];
+  minimumCgpaPercentage: string;
+  yearOfPassing: string;
+  selectionProcess: string[];
+  interviewMode: string;
+}
+
 
 @Component({
   selector: 'app-company-about',
@@ -58,6 +79,23 @@ export class CompanyAboutComponent implements OnInit {
   promotions = 25;
   followers = 100;
 
+  //campus section for comapany invite 
+    selectedCampusId: string | null = null;
+  campusOptions: { label: string; value: string }[] = [];
+
+onCampusSelected(id: string): void {
+  this.selectedCampusId = id;
+
+  const selected = this.campusOptions.find(c => c.value === id);
+  if (selected) {
+    this.invitationFormValue = {
+      ...this.invitationFormValue,
+      campusName: selected.label, 
+    };
+  }
+}
+
+
   // Key People - API Integration
   readonly keyPeople = signal<readonly KeyPersonResponse[]>([]);
   readonly loadingKeyPeople = signal(false);
@@ -65,7 +103,6 @@ export class CompanyAboutComponent implements OnInit {
   // Campus carousel - API Integration
   readonly targetCampuses = signal<readonly TargetCampusResponse[]>([]);
   readonly loadingTargetCampuses = signal(false);
-  currentCampusPage = signal(1);
 
    // ===================== OUR CLIENTS =====================
 readonly loadingClients = signal(false);
@@ -104,35 +141,117 @@ get clientList(): { logo: string }[] {
     }));
   }
 
-  currentTeamPage = signal(1);
+currentCampusPage = signal(1);
+currentTeamPage = signal(1);
 
   // Benefits
-  internToJobRate = 80;
-  benefits: Benefit[] = [
-    { title: 'Performance Bonus', icon: '📊', isOpen: false },
-    { title: 'Healthcare', icon: '🏥', isOpen: false },
-    { title: 'Mentor Buddy System', icon: '👥', isOpen: false },
-    { title: 'Work Life Balance Perks', icon: '💼', isOpen: false },
-    { title: 'Appreciation Day Off', icon: '🎖️', isOpen: false },
-    { title: 'Training & Upskilling', icon: '📈', isOpen: false },
-    { title: 'Sick Leaves', icon: '🔒', isOpen: false },
-    { title: 'New Employee Referral Bonus', icon: '👨‍👩‍👧', isOpen: false },
-  ];
+ // Benefits
+internToJobRate = 0;
+startingSalaryRange = '';
+benefitsData: BenefitsOfferResponse | null = null;
+
+benefits: Benefit[] = [
+  { title: 'Performance Bonus', icon: '📊', isOpen: false },
+  { title: 'Healthcare', icon: '🏥', isOpen: false },
+  { title: 'Mentor Buddy System', icon: '👥', isOpen: false },
+  { title: 'Work Life Balance Perks', icon: '💼', isOpen: false },
+  { title: 'Appreciation Day Off', icon: '🎖️', isOpen: false },
+  { title: 'Training & Upskilling', icon: '📈', isOpen: false },
+  { title: 'Sick Leaves', icon: '🔒', isOpen: false },
+  { title: 'New Employee Referral Bonus', icon: '👨‍👩‍👧', isOpen: false },
+];
+
+// vision
+// Vision & Performance
+companyVision = '';
+loadingVision = false;
+
+// read more 
+companyWebsiteUrl: string | null = null;
+loadingCompanyDetails = signal(false);
+
+//company about text 
+companyAboutText = '';
+
+// ----------- current vacancy ---
+readonly loadingVacancies = signal(false);
+readonly vacancies = signal<Vacancy[]>([]);
+selectedVacancy = signal<Vacancy | null>(null);
+
+
+// pagination state
+currentVacancyPage = signal(1);
+totalVacancyPages = signal(1);
+private allVacancies: Vacancy[] = [];
+private readonly vacancyPageSize = 3;
+
+
 
  // Optional: placeholder clients before API loads
 readonly placeholderClients: { logo: string }[] = Array(8).fill(null).map((_, i) => ({
   logo: `/assets/images/client-${i + 1}-placeholder.jpg`,
 }));
 
-  // Testimonials
-  currentTestimonialPage = signal(1);
-  testimonials = [
-    {
-      quote: "I'm grateful for the opportunities and resources provided by the company. It's made a huge difference in my journey.",
-      author: 'Ankita Willson',
-      image: '/assets/images/testimonial-placeholder.jpg',
-    },
-  ];
+ // ===================== TESTIMONIALS =====================
+readonly loadingTestimonials = signal(false);
+readonly testimonials = signal<
+  { quote: string; author: string; image: string }[]
+>([]);
+currentTestimonialPage = signal(1);
+totalTestimonialPages = signal(1);
+
+loadTestimonials(page = 1): void {
+  const companyId = this.getCompanyId();
+  if (!companyId) return;
+
+  this.loadingTestimonials.set(true);
+
+  this.companyApi.getTestimonials(companyId, page, 1).pipe(
+    catchError((err) => {
+      console.error('CompanyAboutComponent: Error loading testimonials', err);
+      this.loadingTestimonials.set(false);
+      return of(null);
+    })
+  ).subscribe((res) => {
+    this.loadingTestimonials.set(false);
+
+    if (!res) {
+      this.testimonials.set([]);
+      this.totalTestimonialPages.set(1);
+      return;
+    }
+
+   const mapped = res.content.map((t: unknown) => {
+  const item = t as {
+    quote?: string;
+    author?: string;
+    photoUrl?: string;
+  };
+
+  let img = item.photoUrl || '';
+
+  if (img) {
+    if (img.startsWith('http')) {
+      // use as-is
+    } else if (img.startsWith('/')) {
+      img = `/api/v1/files${img}`;
+    } else {
+      img = `/api/v1/files/${img}`;
+    }
+  }
+
+  return {
+    quote: item.quote || '',
+    author: item.author || '',
+    image: img || '/assets/images/testimonial-placeholder.jpg',
+  };
+});
+
+    this.testimonials.set(mapped);
+    this.totalTestimonialPages.set(Math.max(1, res.totalPages));
+  });
+}
+
 
   // Feedback form
   feedbackForm = {
@@ -168,11 +287,82 @@ readonly placeholderClients: { logo: string }[] = Array(8).fill(null).map((_, i)
     this.benefits[index].isOpen = !this.benefits[index].isOpen;
   }
 
-  ngOnInit(): void {
-    this.loadKeyPeople();
-    this.loadTargetCampuses();
-    this.loadClients();
+ ngOnInit(): void {
+  this.loadKeyPeople();
+  this.loadTargetCampuses();
+  this.loadClients();
+  this.loadTestimonials(1);
+  this.loadBenefitsOffer();
+  this.loadCompanyVision();
+  this.loadCurrentVacancies();
+ this.loadCompanyDetails();
+//  this.onReadMore();
+}
+
+// ---------------------- LOADING COMPANY DETAILS --------------
+
+
+loadCompanyDetails(): void {
+  const companyId = this.getCompanyId();
+  if (!companyId) {
+    console.warn('CompanyAboutComponent: No company ID available, cannot load company details');
+    return;
   }
+
+  this.loadingCompanyDetails.set(true);
+  
+  this.companyApi.getCompanyById(companyId).pipe(
+    catchError((error) => {
+      console.error('CompanyAboutComponent: Error loading company details:', error);
+      this.loadingCompanyDetails.set(false);
+      return of(null);
+    })
+  ).subscribe({
+    next: (response: CompanyRegistrationResponse | null) => {
+      this.loadingCompanyDetails.set(false);
+
+      if (response?.websiteUrl) {
+        this.companyWebsiteUrl = response.websiteUrl;
+      }
+
+      if (response?.aboutCompany) {
+        this.companyAboutText = response.aboutCompany;
+      } else {
+        this.companyAboutText = '';
+      }
+    },
+  error: (err) => {
+  console.error('CompanyAboutComponent: Error in company details subscription:', err);
+  this.loadingCompanyDetails.set(false);
+}
+
+  });
+}
+
+onReadMore(): void {
+  if (!this.companyWebsiteUrl) {
+    this.notify.error('Website URL is not available for this company');
+    return;
+  }
+
+  let url = this.companyWebsiteUrl.trim();
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+
+  try {
+    new URL(url);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } 
+  catch  {
+    this.notify.error('Invalid website URL format');
+  }
+}
+
+
+// --------------------------- LOAD ALL CAMPUS -----------------
+
 
   private getCompanyId(): string | null {
     // Try from auth state (user profile) - companyId from login response
@@ -198,6 +388,8 @@ readonly placeholderClients: { logo: string }[] = Array(8).fill(null).map((_, i)
     
     return null;
   }
+
+  // -------------- KEY PEOPLE ----------------------
 
   loadKeyPeople(): void {
     const companyId = this.getCompanyId();
@@ -225,6 +417,7 @@ readonly placeholderClients: { logo: string }[] = Array(8).fill(null).map((_, i)
       }
     });
   }
+  // ------------ OUR TARGET CAMPUS -----------------
 
   loadTargetCampuses(): void {
     const companyId = this.getCompanyId();
@@ -253,6 +446,73 @@ readonly placeholderClients: { logo: string }[] = Array(8).fill(null).map((_, i)
     });
   }
 
+  // --------------------- CURRENT VACNACY -----------
+
+loadCurrentVacancies(): void {
+  const companyId = this.getCompanyId();
+  if (!companyId) return;
+
+  this.loadingVacancies.set(true);
+
+  this.companyApi.getVacancies(companyId, 0, 100).pipe(
+    catchError(err => {
+      console.error('Error loading vacancies', err);
+      this.loadingVacancies.set(false);
+      return of([]);
+    })
+  ).subscribe((res) => {
+    this.loadingVacancies.set(false);
+
+    const mapped: Vacancy[] = (res as unknown[]).map((v) => {
+      const item = v as Partial<Vacancy>;
+
+      return {
+        jobTitle: item.jobTitle ?? '',
+        jobLocation: item.jobLocation ?? '',
+        department: item.department ?? '',
+        jobType: item.jobType ?? '',
+        salary: item.salary ?? '',
+        numberOfOpenings: item.numberOfOpenings ?? '0',
+        contractDuration: item.contractDuration ?? '',
+        jobDescription: item.jobDescription ?? '',
+        requiredQualifications: item.requiredQualifications ?? [],
+        streamsEligible: item.streamsEligible ?? [],
+        minimumCgpaPercentage: item.minimumCgpaPercentage ?? '',
+        yearOfPassing: item.yearOfPassing ?? '',
+        selectionProcess: item.selectionProcess ?? [],
+        interviewMode: item.interviewMode ?? '',
+      };
+    });
+
+    this.allVacancies = mapped;
+    const pages = Math.max(1, Math.ceil(this.allVacancies.length / this.vacancyPageSize));
+    this.totalVacancyPages.set(pages);
+
+    this.currentVacancyPage.set(1);
+    this.updateVacancyPage();
+  });
+}
+
+private updateVacancyPage(): void {
+  const start = (this.currentVacancyPage() - 1) * this.vacancyPageSize;
+  const end = start + this.vacancyPageSize;
+  this.vacancies.set(this.allVacancies.slice(start, end));
+}
+
+onVacancyPageChange(page: number): void {
+  this.currentVacancyPage.set(page);
+  this.updateVacancyPage();
+}
+
+
+
+openVacancyDetails(job: Vacancy): void {
+  this.selectedVacancy.set(job);
+  this.modalService.openModal('company-current-vacancy');
+}
+
+
+
   // ===================== OUR CLIENTS =====================
 
 loadClients(): void {
@@ -279,8 +539,8 @@ loadClients(): void {
       next: (response: readonly ClientResponse[]) => {
         this.loadingClients.set(false);
 
-      const mapped = response.map((client) => {
-  let imageUrl = client.photourl ?? null;
+ const mapped = response.map((client: ClientResponse) => {
+  let imageUrl = client.photourl || client.clientLogo || client.logoUrl || null;
 
   if (imageUrl) {
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
@@ -297,7 +557,8 @@ loadClients(): void {
   return {
     logo: imageUrl || '/assets/images/client-placeholder.jpg',
   };
-})
+});
+
 
         this._clientViewList = mapped;
         this.totalClientPages.set(Math.max(1, Math.ceil(mapped.length / 8)));
@@ -313,10 +574,91 @@ loadClients(): void {
   tryLoad();
 }
 
+// --------------------- AUTOSEARCH CAMPUS ------------------
 
+onCampusSearch(term: string): void {
+  if (!term || term.trim().length < 2) {
+    this.campusOptions = [];
+    return;
+  }
 
+  this.companyApi.searchCampuses(term).subscribe((res) => {
+    const list = res.data?.content ?? [];
 
+    this.campusOptions = list.map(c => ({
+      label: c.campusName,
+      value: c.id,
+    }));
+  });
+}
 
+// -----------------  BENEFITS OFFER ---------
+
+loadBenefitsOffer(): void {
+  const companyId = this.getCompanyId();
+  if (!companyId) return;
+
+  this.companyApi.getBenefitsOffer(companyId).subscribe({
+    next: (res) => {
+      if (!res) return;
+
+      this.benefitsData = res;
+
+      const rate = res.internToJobRate?.replace('%', '') ?? '0';
+      this.internToJobRate = Number(rate) || 0;
+      this.startingSalaryRange = res.startingSalaryRange || '';
+
+      const map: Record<string, string | undefined> = {
+        'Performance Bonus': res.performanceBonus,
+        'Healthcare': res.healthcare,
+        'Mentor Buddy System': res.mentorBuddySystem,
+        'Work Life Balance Perks': res.workLifeBalancePerks,
+        'Appreciation Day Off': res.appreciationDayOff,
+        'Training & Upskilling': res.trainingAndUpskilling,
+        'Sick Leaves': res.sickLeaves,
+        'New Employee Referral Bonus': res.referralBonus,
+      };
+
+      this.benefits = this.benefits.map(b => ({
+        ...b,
+        description: map[b.title] || '',
+      }));
+    },
+    error: (err) => {
+      console.error('Error loading benefits offer', err);
+    }
+  });
+}
+
+// ------------------ OUR VISION & PERFORMANCE -------------------------------------
+
+loadCompanyVision(): void {
+  const tryLoad = () => {
+    const companyId = this.getCompanyId();
+    if (!companyId) {
+      setTimeout(tryLoad, 300);
+      return;
+    }
+
+    this.loadingVision = true;
+
+    this.companyApi.getCompanyVision(companyId).pipe(
+      catchError((err) => {
+        console.error('Error loading company vision', err);
+        this.loadingVision = false;
+        return of(null);
+      })
+    ).subscribe((res) => {
+      this.loadingVision = false;
+
+      if (res?.vision) {
+        this.companyVision = res.vision;
+      }
+    });
+  };
+
+  tryLoad();
+}
 
 
 
@@ -333,9 +675,11 @@ loadClients(): void {
     this.currentClientPage.set(page);
   }
 
-  onTestimonialPageChange(page: number): void {
-    this.currentTestimonialPage.set(page);
-  }
+ onTestimonialPageChange(page: number): void {
+  this.currentTestimonialPage.set(page);
+  this.loadTestimonials(page);
+}
+
 
   submitFeedback(): void {
     // Handle feedback submission
@@ -351,88 +695,74 @@ loadClients(): void {
     this.modalService.closeModal();
   }
 
-  handleInvitationFormSubmit(value: InvitationFormValue): void {
-    this.submittingInvitationForm = true;
-    console.log('CompanyAboutComponent: Invitation form submitted:', value);
-    
-    // Build the API request from the form value
-    const request: CompanyInvitationRequest = {
-      campusId: 'CAMPUS_' + Date.now(), // Generate a simple campus ID
-      campusName: value.campusName.trim(),
-      contactPersonName: value.contactPersonName.trim(),
-      contactPersonEmail: value.contactPersonEmail.trim(),
-      contactPersonPhoneNo: value.contactPersonPhone.trim(),
-      contactPersonDesignation: value.contactPersonDesignation.trim(),
-      campusWebsiteUrl: value.campusWebsiteUrl.trim(),
-      campusAddress: value.campusAddress.trim(),
-      campusProspectusUrl: value.campusProspectus ? value.campusProspectus.name : undefined,
-      academicYear: value.academicYear.trim(),
-      programsOffered: value.programsOffered.trim().split(',').map(p => p.trim()), // Convert to array
-      proposedDateForPlacementDrive: value.proposedDate.trim(),
-      preferredSkills: value.preferredSkills.trim().split(',').map(s => s.trim()), // Convert to array
-      facilitiesAvailableForRecruitmentProcess: value.facilitiesAvailable.trim(),
-      inviteCompany: value.confirmationChecked,
-    };
-
-    console.log('CompanyAboutComponent: Making API call to submit company invitation', request);
-    
-    this.companyApi.submitCompanyInvitation(request).pipe(
-      catchError((error) => {
-        console.error('CompanyAboutComponent: Error submitting invitation:', error);
-        this.submittingInvitationForm = false;
-        
-        // Handle different error types
-        if (error?.status === 500) {
-          const errorMessage = error?.error?.message || 'Server error occurred. Please try again.';
-          this.notify.error(`Failed to submit invitation: ${errorMessage}`);
-        } else if (error?.status === 502) {
-          this.notify.error('Backend service not configured. Please contact administrator.');
-        } else {
-          const errorMessage = error?.error?.message || 'Failed to submit invitation. Please try again.';
-          this.notify.error(errorMessage);
-        }
-        return of(null);
-      })
-    ).subscribe({
-      next: (response: CompanyInvitationResponse | null) => {
-        console.log('CompanyAboutComponent: Invitation submitted successfully', response);
-        this.submittingInvitationForm = false;
-        if (response) {
-          this.notify.success('Your company invitation has been successfully submitted!');
-          this.closeModal();
-          // Reset form
-          this.invitationFormValue = {
-            campusName: '',
-            contactPersonName: '',
-            contactPersonEmail: '',
-            contactPersonPhone: '',
-            contactPersonDesignation: '',
-            campusWebsiteUrl: '',
-            campusAddress: '',
-            campusProspectus: null,
-            academicYear: '',
-            programsOffered: '',
-            proposedDate: '',
-            preferredSkills: '',
-            facilitiesAvailable: '',
-            confirmationChecked: false,
-          };
-        } else {
-          // Response is null - error was already handled in catchError
-        }
-      },
-      error: (error: unknown) => {
-        console.error('CompanyAboutComponent: Error in invitation submission subscription:', error);
-        this.submittingInvitationForm = false;
-        this.notify.error('An error occurred while submitting the invitation.');
-      }
-    });
+handleInvitationFormSubmit(value: InvitationFormValue): void {
+  if (!this.selectedCampusId) {
+    this.notify.error('Please select a campus');
+    return;
   }
 
-  onReadMore(): void {
-    // Handle read more action
-    console.log('Read More clicked');
+  this.submittingInvitationForm = true;
+
+  const request: CompanyInvitationRequest = {
+    campusId: this.selectedCampusId,   // 🔥 real backend ID
+    campusName: value.campusName.trim(),
+
+    contactPersonName: value.contactPersonName.trim(),
+    contactPersonEmail: value.contactPersonEmail.trim(),
+    contactPersonPhoneNo: value.contactPersonPhone.trim(),
+    contactPersonDesignation: value.contactPersonDesignation.trim(),
+
+    campusWebsiteUrl: value.campusWebsiteUrl.trim(),
+    campusAddress: value.campusAddress.trim(),
+
+    campusProspectusUrl: value.campusProspectus
+      ? `https://dummy.com/${value.campusProspectus.name}` // backend expects URL
+      : undefined,
+
+    academicYear: value.academicYear.trim(),
+
+    programsOffered: Array.isArray(value.programsOffered)
+      ? value.programsOffered
+      : [value.programsOffered],
+
+    preferredSkills: Array.isArray(value.preferredSkills)
+      ? value.preferredSkills
+      : [value.preferredSkills],
+
+    proposedDateForPlacementDrive: value.proposedDate.trim(),
+    facilitiesAvailableForRecruitmentProcess: value.facilitiesAvailable.trim(),
+
+    inviteCompany: value.confirmationChecked,
+  };
+
+
+  const companyId = this.getCompanyId();
+
+if (!companyId) {
+  this.notify.error('Company ID not found. Please login again.');
+  this.submittingInvitationForm = false;
+  return;
+}
+
+this.companyApi.submitCompanyInvitation(companyId, request).subscribe({
+  next: (res) => {
+    console.log('Invitation submitted', res);
+    this.submittingInvitationForm = false;
+    this.modalService.closeModal();
+    this.notify.success('Invitation sent successfully');
+  },
+  error: (err) => {
+    console.error('Error submitting invitation', err);
+    this.submittingInvitationForm = false;
+    this.notify.error('Failed to send invitation');
   }
+});
+
+}
+
+
+
+ 
 
   // Expose Math to template
   readonly Math = Math;

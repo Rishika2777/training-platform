@@ -29,6 +29,13 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.asterisk {
+  margin-left: 4px;
+  color: var(--color-error);
 }
 
 .vision-textarea {
@@ -47,6 +54,15 @@
   outline: none;
   border-color: var(--color-secondary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.vision-textarea.invalid {
+  border-color: var(--color-error);
+}
+
+.vision-textarea.invalid:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 30%, transparent);
 }
 
 .vision-textarea:disabled {

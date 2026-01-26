@@ -91,7 +91,7 @@
         [value]="value ?? ''"
         [attr.required]="required ? '' : null"
         [attr.aria-required]="required"
-        (change)="onSelect(getValue($event))"
+        (valuechange)="onSelect(getValue($event))"
       >
         <option value="" disabled>{{ placeholder }}</option>
         @for (item of items; track item.value) {

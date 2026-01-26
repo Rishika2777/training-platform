@@ -37,16 +37,18 @@
   </div>
 
   <div class="form-row">
-    <app-dropdown
-      label="Campus Name"
-      [items]="campusDropdownItems"
-      [value]="value.campusId || null"
-      [disabled]="submitting || loadingCampuses"
-      [invalid]="submitAttempted && !value.campusId"
-      [required]="true"
-      placeholder="Select campus"
-      (valueChange)="onCampusSelected($event)"
-    />
+   <app-dropdown
+  label="Campus Name"
+  [required]="true"
+  [autocomplete]="true"
+  [apiFetchFn]="fetchCampuses"
+  [value]="value.campusId || null"
+  [disabled]="submitting"
+  [invalid]="submitAttempted && !value.campusId"
+  placeholder="Select campus"
+  (valueChange)="onCampusSelected($event)"
+/>
+
     @if (loadingCampuses) {
       <span class="loading-message">Loading campuses...</span>
     }

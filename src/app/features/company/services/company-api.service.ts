@@ -426,44 +426,6 @@ export class CompanyApiService {
     );
   }
 
-  /**
- * POST /vision/{companyId}
- * Submit Vision & Performance data
- */
-addVisionPerformance(
-  companyId: string,
-  request: VisionRequest
-): Observable<VisionResponse | null> {
-  const url = buildUrl(
-    this.baseUrl,
-    resolvePathParams(API_ENDPOINTS.COMPANY.ADD_VISION_PERFORMANCE, { companyId })
-  );
-
-  const headers = new HttpHeaders({
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  });
-
-  console.log('CompanyApiService: addVisionPerformance called', { url, companyId, request });
-
-  return this.http.post<unknown>(url, request, { headers }).pipe(
-    tap({
-      next: (response) => console.log('addVisionPerformance success', response),
-      error: (error) => console.error('addVisionPerformance error', error),
-    }),
-    map((raw) => {
-      const wrapped = unwrapResponse<VisionResponse>(raw);
-      if (wrapped) return wrapped;
-
-      const withData = raw as { data?: VisionResponse };
-      if (raw && typeof raw === 'object' && withData.data) {
-        return withData.data;
-      }
-
-      return null;
-    })
-  );
-}
 
 
   /**
@@ -496,70 +458,290 @@ addVisionPerformance(
   }
 
   /**
-   * POST /company-invitation
-   * Submit a campus invitation to participate in placement drive.
-   * Request body: CompanyInvitationRequest
+ * GET /company-landing/{companyId}/benefits-offer
+ * Fetch benefits offer for company landing page
+ */
+getBenefitsOffer(companyId: string): Observable<BenefitsOfferResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.GET_BENEFITS_OFFER, { companyId })
+  );
+
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => extractBenefitsOfferResponse(raw))
+  );
+}
+
+  /**
+   * POST /vision/{companyId}
+   * Create vision & achievements
+   * Submits a new vision & achievements form for a company.
    */
-  submitCompanyInvitation(request: CompanyInvitationRequest): Observable<CompanyInvitationResponse | null> {
-    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.SUBMIT_INVITATION);
-    console.log('CompanyApiService: submitCompanyInvitation called', { url, request });
+  addVisionPerformance(companyId: string, request: VisionRequest): Observable<VisionResponse | null> {
+    const url = buildUrl(
+      this.baseUrl,
+      resolvePathParams(API_ENDPOINTS.COMPANY.ADD_VISION_PERFORMANCE, { companyId })
+    );
     
-    // Set headers for JSON request
+    console.log('CompanyApiService: addVisionPerformance called', { url, companyId, request });
+    
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     });
     
-    console.log('CompanyApiService: Sending company invitation request', request);
     return this.http.post<unknown>(url, request, { headers }).pipe(
       tap({
-        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
-        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
-        complete: () => console.log('CompanyApiService: HTTP POST request completed')
+        next: (response) => console.log('CompanyApiService: addVisionPerformance success', response),
+        error: (error) => console.error('CompanyApiService: addVisionPerformance error', error),
       }),
-      map((response) => {
-        console.log('CompanyApiService: Received response for submitCompanyInvitation', response);
-        return extractCompanyInvitationResponse(response);
+      map((raw) => {
+        const wrapped = unwrapResponse<VisionResponse>(raw);
+        if (wrapped) return wrapped;
+
+        if (raw && typeof raw === 'object') {
+          const rawObj = raw as Record<string, unknown>;
+          if (rawObj['data']) {
+            return rawObj['data'] as VisionResponse;
+          }
+        }
+
+        return null;
       })
     );
   }
+
+  /**
+ * GET /company-landing/{companyId}/vision
+ * Fetch Vision & Achievement for landing page
+ */
+getCompanyVision(companyId: string): Observable<VisionResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams('/company-landing/:companyId/vision', { companyId })
+  );
+
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => {
+      const wrapped = unwrapResponse<VisionResponse>(raw);
+      if (wrapped) return wrapped;
+
+      if (raw && typeof raw === 'object') {
+        const rawObj = raw as Record<string, unknown>;
+        if (rawObj['data']) {
+          return rawObj['data'] as VisionResponse;
+        }
+      }
+
+      return null;
+    })
+  );
+}
+
+
+
+
+  /**
+   * POST /company-invitation
+   * Submit a campus invitation to participate in placement drive.
+   * Request body: CompanyInvitationRequest
+   */
+ submitCompanyInvitation(
+  companyId: string,
+  request: CompanyInvitationRequest
+): Observable<CompanyInvitationResponse | null> {
+
+  const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.SUBMIT_INVITATION);
+
+  const params = new HttpParams().set('companyId', companyId);
+
+  return this.http.post<unknown>(url, request, { params }).pipe(
+    map((response) => extractCompanyInvitationResponse(response))
+  );
+}
+
 
   /**
    * GET /campuses
    * Get all registered campuses for dropdown
    * This makes an actual HTTP call so it shows in network tab
    */
-  getCampuses(): Observable<{ success: boolean; data: { campusId: string; campusName: string }[] }> {
-    // Use the student API endpoint but make actual HTTP call through company service
-    const url = buildUrl(this.baseUrl, API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
-    console.log('CompanyApiService: getCampuses called', { url, baseUrl: this.baseUrl });
-    return this.http.get<unknown>(url).pipe(
-      tap({
-        next: (response) => console.log('CompanyApiService: getCampuses response', response),
-        error: (error) => console.error('CompanyApiService: getCampuses error', error)
-      }),
-      map((raw) => {
-        const wrapped = raw as { success?: boolean; data?: unknown; message?: string };
-        let data: { campusId: string; campusName: string }[] = [];
-        
-        if (wrapped.data && Array.isArray(wrapped.data)) {
-          data = wrapped.data as { campusId: string; campusName: string }[];
-        } else {
-          // Try unwrapResponse if data is nested
-          const unwrapped = unwrapResponse<{ campusId: string; campusName: string }[]>(raw);
-          if (unwrapped && Array.isArray(unwrapped)) {
-            data = unwrapped;
-          }
+
+getCampuses(): Observable<{ success: boolean; data: { campusId: string; campusName: string }[] }> {
+  const url = buildUrl(this.baseUrl, API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
+  console.log('CompanyApiService: getCampuses called', { url });
+
+  return this.http.get<unknown>(url).pipe(
+    tap({
+      next: (response) => console.log('CompanyApiService: getCampuses response', response),
+      error: (error) => console.error('CompanyApiService: getCampuses error', error),
+    }),
+    map((raw) => {
+      const wrapped = raw as { success?: boolean; data?: unknown };
+
+      let data: { campusId: string; campusName: string }[] = [];
+
+      if (wrapped?.data && Array.isArray(wrapped.data)) {
+        data = wrapped.data as { campusId: string; campusName: string }[];
+      } else {
+        const unwrapped = unwrapResponse<{ campusId: string; campusName: string }[]>(raw);
+        if (unwrapped && Array.isArray(unwrapped)) {
+          data = unwrapped;
         }
-        
-        return {
-          success: wrapped.success ?? true,
-          data: data
-        };
-      })
-    );
-  }
+      }
+
+      return {
+        success: wrapped?.success ?? true,
+        data,
+      };
+    })
+  );
 }
+
+/**
+ * GET /campus/getCampusBySearch
+ * Search campuses by name
+ */
+getCampusesBySearch(
+  searchTerm: string,
+  page = 0,
+  size = 20
+): Observable<{
+  success?: boolean;
+  data?: {
+    content?: {
+      id: string;
+      campusName: string;
+      campusAddress?: string;
+    }[];
+  };
+}> {
+  const url = buildUrl(this.baseUrl, API_ENDPOINTS.CAMPUS.GET_CAMPUS_BY_SEARCH);
+
+  let params = new HttpParams()
+    .set('page', page.toString())
+    .set('size', size.toString());
+
+  if (searchTerm && searchTerm.trim()) {
+    params = params.set('searchTerm', searchTerm.trim());
+  }
+
+  return this.http.get<unknown>(url, { params }).pipe(
+    map((raw) => {
+      const wrapped = raw as {
+        success?: boolean;
+        data?: { content?: unknown };
+      };
+
+      return {
+        success: wrapped?.success ?? true,
+        data: {
+          content: Array.isArray(wrapped?.data?.content)
+            ? (wrapped.data!.content as {
+                id: string;
+                campusName: string;
+                campusAddress?: string;
+              }[])
+            : [],
+        },
+      };
+    })
+  );
+}
+
+
+// Search campuses for Company Invite (autocomplete)
+searchCampuses(
+  campusName: string,
+  page = 0,
+  size = 20
+): Observable<{
+  success: boolean;
+  data: {
+    content: { id: string; campusName: string; campusAddress?: string }[];
+  };
+}> {
+  const url = buildUrl(this.baseUrl, API_ENDPOINTS.CAMPUS.GET_CAMPUS_BY_SEARCH);
+
+  let params = new HttpParams()
+    .set('page', page.toString())
+    .set('size', size.toString());
+
+  if (campusName && campusName.trim()) {
+    params = params.set('campusName', campusName.trim());
+  }
+
+  return this.http.get<unknown>(url, { params }).pipe(
+    map((raw) => {
+      const wrapped = raw as {
+        success?: boolean;
+        data?: { content?: unknown };
+      };
+
+      return {
+        success: wrapped?.success ?? true,
+        data: {
+          content: Array.isArray(wrapped?.data?.content)
+            ? (wrapped!.data!.content as {
+                id: string;
+                campusName: string;
+                campusAddress?: string;
+              }[])
+            : [],
+        },
+      };
+    })
+  );
+}
+
+
+
+    /**
+   * GET /company/{companyId}/testimonials
+   */
+  getTestimonials(
+  companyId: string,
+  page = 1,
+  limit = 1
+): Observable<PaginatedTestimonials | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.GET_TESTIMONIALS, { companyId })
+  );
+
+  const params = new HttpParams()
+    .set('page', page.toString())
+    .set('limit', limit.toString());
+
+  return this.http.get<unknown>(url, { params }).pipe(
+    map((raw) => {
+      const wrapped = unwrapResponse<unknown>(raw) as {
+        content?: unknown;
+        totalPages?: number;
+        totalElements?: number;
+        number?: number;
+        size?: number;
+      } | null;
+
+      if (!wrapped) return null;
+
+      return {
+        content: Array.isArray(wrapped.content)
+          ? (wrapped.content as TestimonialResponse[])
+          : [],
+        totalPages: wrapped.totalPages ?? 1,
+        totalElements: wrapped.totalElements ?? 0,
+        number: wrapped.number ?? 0,
+        size: wrapped.size ?? limit,
+      };
+    })
+  );
+}
+
+
+}
+
+
 
 export interface CompanyRegisterRequest {
   companyName: string;
@@ -842,6 +1024,21 @@ export interface TargetCampusResponse {
   createdAt?: string | null;
   updatedAt?: string | null;
 }
+export interface TestimonialResponse {
+  testimonialId?: string;
+  quote?: string;
+  author?: string;
+  photoUrl?: string;
+}
+
+export interface PaginatedTestimonials {
+  content: TestimonialResponse[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+}
+
 
 interface ApiResponse<T> {
   success?: boolean;

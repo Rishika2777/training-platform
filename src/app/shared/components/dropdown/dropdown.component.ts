@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener, ChangeDetectorRef, inject, AfterViewChecked } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener, ChangeDetectorRef, inject, AfterViewChecked, PLATFORM_ID } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize, tap } from 'rxjs/operators';
 
@@ -40,6 +40,7 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   @Input() debounceTime = 300; // Debounce time in ms for API calls
   @Input() minSearchLength = 0; // Minimum characters before API call (0 = call immediately)
   @Input() allowCustom = false; // Allow free text input (custom values not in the list)
+@Output() searchChange = new EventEmitter<string>();
 
   @Output() valueChange = new EventEmitter<TValue>();
 
@@ -51,6 +52,8 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   selectedItem: DropdownItem<TValue> | null = null;
 
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   private searchSubject = new Subject<string>();
   private searchSubscription = this.searchSubject
@@ -167,6 +170,11 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   }
 
   private positionDropdownMenu(): void {
+    // Only run in browser context (skip during SSR)
+    if (!this.isBrowser) {
+      return;
+    }
+
     if (!this.dropdownMenu?.nativeElement || !this.inputElement?.nativeElement) {
       return;
     }
@@ -230,6 +238,8 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
     const target = event.target as HTMLInputElement;
     const newSearchTerm = target.value;
     this.searchTerm = newSearchTerm;
+
+this.searchChange.emit(newSearchTerm);
     
     // If autocomplete is enabled
     if (this.autocomplete) {

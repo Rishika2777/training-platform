@@ -1,40 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
-// import { HttpClient } from '@angular/common/http';
+import { Component, inject } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { CompanyApiService } from '../../services/company-api.service';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
-
-/* =======================
-   Interfaces
-======================= */
-
-export interface VisionMetric {
-  name: string;
-  value: string;
-  year: string;
-}
-
-export interface VisionPerformanceFormValue {
-  vision: string;
-  metrics: VisionMetric[];
-}
-
-export interface VisionRequest {
-  vision: string;
-  metricName: string;
-  value: string;
-  year: string;
-}
-
-export interface VisionResponse {
-  success: boolean;
-  message: string;
-  data: unknown;
-  statusCode: number;
-  timestamp: string;
-}
+import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { NotificationService } from '../../../../core/notifications/notification.service';
+import { VisionPerformanceFormValue } from './company-vision-performance.models';
 
 /* =======================
    Component
@@ -48,12 +22,13 @@ export interface VisionResponse {
   styleUrls: ['./company-vision-performance.component.css'],
 })
 export class CompanyVisionPerformanceComponent {
+  private readonly companyApi = inject(CompanyApiService);
+  private readonly authState = inject(AuthStateService);
+  private readonly storage = inject(StorageService);
+  private readonly notify = inject(NotificationService);
 
-  /* ---------- Inputs ---------- */
-  @Input() companyId = '';
-  @Input() submitting = false;
-
-  @Input() value: VisionPerformanceFormValue = {
+  /* ---------- Form State ---------- */
+  value: VisionPerformanceFormValue = {
     vision: '',
     metrics: [
       {
@@ -64,13 +39,12 @@ export class CompanyVisionPerformanceComponent {
     ],
   };
 
-  /* ---------- Outputs ---------- */
-  @Output() valueChange = new EventEmitter<VisionPerformanceFormValue>();
-  @Output() submitted = new EventEmitter<VisionPerformanceFormValue>();
+  /* ---------- Validation State ---------- */
+  visionInvalid = false;
+  metricInvalidations: boolean[] = [false];
 
   /* ---------- UI State ---------- */
   loading = false;
-  responseMessage = '';
 
   /* ---------- Dropdown Data ---------- */
   readonly metricNameItems: readonly DropdownItem<string>[] = [
@@ -88,23 +62,44 @@ export class CompanyVisionPerformanceComponent {
     { label: '80%', value: '80%' },
   ];
 
-  readonly yearItems: readonly DropdownItem<string>[] = [
-    { label: '2024', value: '2024' },
-    { label: '2023', value: '2023' },
-    { label: '2022', value: '2022' },
-    { label: '2021', value: '2021' },
-  ];
+  readonly yearItems: readonly DropdownItem<string>[] = (() => {
+    const currentYear = new Date().getFullYear();
+    const years: DropdownItem<string>[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const year = currentYear + i;
+      years.push({ label: year.toString(), value: year.toString() });
+    }
+    return years;
+  })();
 
-  private readonly companyApi = inject(CompanyApiService);
+  private getCompanyId(): string | null {
+    const currentUser = this.authState.user();
+    const companyIdFromUser = currentUser?.companyId;
+    if (companyIdFromUser) {
+      this.storage.set(STORAGE_KEYS.COMPANY_ID, companyIdFromUser);
+      return companyIdFromUser;
+    }
+    
+    const companyIdFromStorage = this.storage.get(STORAGE_KEYS.COMPANY_ID) as string | null;
+    if (companyIdFromStorage) {
+      return companyIdFromStorage;
+    }
+    
+    if (currentUser?.userType === 'COMPANY' && currentUser?.profileServiceId) {
+      this.storage.set(STORAGE_KEYS.COMPANY_ID, currentUser.profileServiceId);
+      return currentUser.profileServiceId;
+    }
+    
+    return null;
+  }
 
   /* =======================
      Form Updates
   ======================= */
 
   updateVision(vision: string): void {
-    const next = { ...this.value, vision };
-    this.value = next;
-    this.valueChange.emit(next);
+    this.value = { ...this.value, vision };
+    this.visionInvalid = false;
   }
 
   updateMetric(
@@ -114,10 +109,59 @@ export class CompanyVisionPerformanceComponent {
   ): void {
     const metrics = [...this.value.metrics];
     metrics[index] = { ...metrics[index], [field]: value };
+    this.value = { ...this.value, metrics };
+    
+    // Clear validation for this metric
+    if (this.metricInvalidations[index]) {
+      this.metricInvalidations[index] = false;
+    }
+  }
 
-    const next = { ...this.value, metrics };
-    this.value = next;
-    this.valueChange.emit(next);
+
+  /* =======================
+     Validation
+  ======================= */
+
+  private validateForm(): boolean {
+    let isValid = true;
+
+    // Validate vision
+    if (!this.value.vision || !this.value.vision.trim()) {
+      this.visionInvalid = true;
+      isValid = false;
+    } else {
+      this.visionInvalid = false;
+    }
+
+    // Validate metrics
+    this.metricInvalidations = this.value.metrics.map((metric) => {
+      const isInvalid = !metric.name || !metric.value || !metric.year;
+      if (isInvalid) {
+        isValid = false;
+      }
+      return isInvalid;
+    });
+
+    return isValid;
+  }
+
+  /* =======================
+     Form Reset
+  ======================= */
+
+  private resetForm(): void {
+    this.value = {
+      vision: '',
+      metrics: [
+        {
+          name: '',
+          value: '',
+          year: '',
+        },
+      ],
+    };
+    this.visionInvalid = false;
+    this.metricInvalidations = [false];
   }
 
   /* =======================
@@ -125,62 +169,49 @@ export class CompanyVisionPerformanceComponent {
   ======================= */
 
   submit(): void {
-  if (this.loading) {
-    return;
-  }
-
-  console.log('CompanyVisionPerformanceComponent submit() called');
-
-  if (!this.companyId) {
-    this.responseMessage = 'Company ID is required';
-    return;
-  }
-
-    if (!this.value.vision) {
-      this.responseMessage = 'Company vision is required';
+    if (this.loading) {
       return;
     }
 
-    const hasInvalidMetric = this.value.metrics.some(
-      m => !m.name || !m.value || !m.year
-    );
+    // Validate form
+    if (!this.validateForm()) {
+      this.notify.error('Please fill all required fields');
+      return;
+    }
 
-    if (hasInvalidMetric) {
-      this.responseMessage = 'Please fill all metric fields';
+    const companyId = this.getCompanyId();
+    if (!companyId) {
+      this.notify.error('Company ID is required');
       return;
     }
 
     this.loading = true;
-    this.responseMessage = '';
 
-  const requests = this.value.metrics.map(metric =>
-  this.companyApi.addVisionPerformance(this.companyId, {
-    vision: this.value.vision,
-    metricName: metric.name,
-    value: metric.value,
-    year: metric.year,
-  })
-);
-
+    const requests = this.value.metrics.map(metric =>
+      this.companyApi.addVisionPerformance(companyId, {
+        vision: this.value.vision,
+        metricName: metric.name,
+        value: metric.value,
+        year: metric.year,
+      })
+    );
 
     forkJoin(requests).subscribe({
       next: () => {
-        this.responseMessage = 'Vision & Achievements submitted successfully!';
+        this.notify.success('Vision & Achievements submitted successfully!');
+        this.resetForm();
         this.loading = false;
-        this.submitted.emit(this.value);
       },
-      error: error => {
+      error: (error) => {
         console.error(error);
-        this.responseMessage = 'Error submitting vision. Please try again!';
         this.loading = false;
+        this.notify.error('Error submitting vision. Please try again!');
       },
     });
   }
-    /* =======================
-     Fix Template Errors
-  ======================= */
+
   onFormSubmit(event: Event): void {
-    event.preventDefault(); // Prevent default HTML form submit
+    event.preventDefault();
     this.submit();
   }
 

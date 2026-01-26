@@ -5,8 +5,12 @@
     <h1 class="hero-heading">Empowering the Future Through Knowledge, Creativity, and Innovation</h1>
     <div class="hero-buttons">
             <app-button label="Invite Company" variant="secondary" (buttonClick)="onInviteCompany()" />
-            <app-button label="Read More" variant="secondary" (buttonClick)="onReadMore()" />
-    </div>
+<app-button 
+  label="Read More" 
+  variant="secondary" 
+  [disabled]="loadingCompanyDetails()"
+  (buttonClick)="onReadMore()" 
+/>    </div>
   </div>
 </section>
 
@@ -24,29 +28,150 @@
         <img src="/assets/images/company-building.jpg" alt="Company Building" />
       </div>
       <div class="insights-text">
-        <p>
-          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
-          standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to
-          make a type specimen book. It has survived not only five centuries, but also the leap into electronic
-          typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset
-          sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus
-          PageMaker including versions of Lorem Ipsum.
-        </p>
+       <p>
+    {{ companyAboutText || 'No company information available.' }}
+  </p>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ------------- current vacancy ----------  -->
+<section class="vacancy-section">
+  <div class="container">
+    <h2 class="section-heading">Current Vacancies</h2>
+
+    @if (loadingVacancies()) {
+      <div class="loading-text">Loading vacancies...</div>
+    } @else if (vacancies().length === 0) {
+      <div class="empty-state">No current vacancies available</div>
+    } 
+  @else {
+  <div class="vacancy-list">
+    @for (job of vacancies(); track $index) {
+      <div
+        class="vacancy-card"
+        role="button"
+        tabindex="0"
+        (click)="openVacancyDetails(job)"
+        (keydown.enter)="openVacancyDetails(job)"
+        (keydown.space)="openVacancyDetails(job)"
+      >
+        <div class="vacancy-title">{{ job.jobTitle }} :</div>
+
+        <div class="vacancy-meta">
+          {{ job.jobLocation }} | {{ job.department }}
+        </div>
+
+        <div class="vacancy-footer">
+          <span>{{ job.jobType }} :</span>
+          <span>{{ job.numberOfOpenings }} Openings</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (totalVacancyPages() > 1) {
+    <app-carousel
+      type="pagination"
+      [currentPage]="currentVacancyPage()"
+      [totalPages]="totalVacancyPages()"
+      [maxVisible]="5"
+      (pageChange)="onVacancyPageChange($event)"
+    ></app-carousel>
+  }
+}
+
+  </div>
+</section>
+
+<app-modal
+[visible]="activeModal() === 'company-current-vacancy'"
+  title="Job Details"
+  size="md"
+  (closed)="closeModal()"
+>
+  @if (selectedVacancy()) {
+    <div class="job-details">
+      <h3 class="job-title">{{ selectedVacancy()!.jobTitle }}</h3>
+      <p class="job-sub">
+        {{ selectedVacancy()!.jobLocation }} | {{ selectedVacancy()!.department }}
+      </p>
+
+      <div class="job-row">
+        <span>Job Type</span>
+        <span>{{ selectedVacancy()!.jobType }}</span>
+      </div>
+
+      <div class="job-row">
+        <span>No. of Openings</span>
+        <span>{{ selectedVacancy()!.numberOfOpenings }}</span>
+      </div>
+
+      <div class="job-block">
+        <h4>Job Description</h4>
+        <p>{{ selectedVacancy()!.jobDescription }}</p>
+      </div>
+
+      <div class="job-block">
+        <h4>Required Qualifications</h4>
+        <ul>
+          @for (q of selectedVacancy()!.requiredQualifications; track $index) {
+            <li>{{ q }}</li>
+          }
+        </ul>
+      </div>
+
+      <div class="job-block">
+        <h4>Streams Eligible</h4>
+        <ul>
+          @for (s of selectedVacancy()!.streamsEligible; track $index) {
+            <li>{{ s }}</li>
+          }
+        </ul>
+      </div>
+
+      <div class="job-block">
+        <h4>Selection Process</h4>
+        <div class="checks">
+          @for (p of selectedVacancy()!.selectionProcess; track $index) {
+            <label>
+              <input type="checkbox" checked disabled />
+              {{ p }}
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="job-block">
+        <h4>Interview Mode</h4>
+        <p>{{ selectedVacancy()!.interviewMode }}</p>
+      </div>
+
+      <div class="apply-wrap">
+        <app-button label="Apply Now" variant="secondary"></app-button>
+      </div>
+    </div>
+  }
+</app-modal>
+
+
 
 <!-- Vision & Achievement Metrics -->
 <section class="vision-section">
   <div class="container">
     <h2 class="section-heading">Our Vision & Achievement Metrics</h2>
     <div class="vision-content">
-      <blockquote class="vision-quote">
-        "Our vision is to provide cutting-edge educational solutions that drive innovation, foster creativity, and enable
-        individuals to unlock their fullest potential. We are committed to shaping the future by creating learning
-        environments where growth, collaboration, and success are limitless."
-      </blockquote>
+
+   <blockquote class="vision-quote">
+  @if (loadingVision) {
+    Loading vision...
+  } @else {
+    "{{ companyVision || 'No vision available' }}"
+  }
+</blockquote>
+
+
       <div class="achievement-graph">
         <div class="graph-container">
           <div class="graph-placeholder">
@@ -161,7 +286,7 @@
           </button>
           @if (benefit.isOpen) {
             <div class="benefit-content">
-              <p>Details about {{ benefit.title }} will be displayed here.</p>
+<p>{{ benefit.description || ('Details about ' + benefit.title + ' will be displayed here.') }}</p>
             </div>
           }
         </div>
@@ -205,7 +330,7 @@
       (pageChange)="onTestimonialPageChange($event)"
     >
       <div class="testimonial-content">
-        @for (testimonial of testimonials; track $index) {
+        @for (testimonial of testimonials(); track $index) {
           <div class="testimonial-item">
             <p class="testimonial-quote">"{{ testimonial.quote }}"</p>
             <div class="testimonial-author">
@@ -292,10 +417,15 @@
   size="lg"
   (closed)="closeModal()"
 >
-  <app-company-invitation-form
-    [submitting]="submittingInvitationForm"
-    [value]="invitationFormValue"
-    (valueChange)="invitationFormValue = $event"
-    (submitted)="handleInvitationFormSubmit($event)"
-  />
+<app-company-invitation-form
+  [submitting]="submittingInvitationForm"
+  [value]="invitationFormValue"
+  [campusOptions]="campusOptions"
+  [selectedCampusId]="selectedCampusId"
+  (campusChange)="onCampusSelected($event)"
+  (valueChange)="invitationFormValue = $event"
+  (submitted)="handleInvitationFormSubmit($event)"
+/>
+
+
 </app-modal>

@@ -164,7 +164,10 @@
       ADD_VACANCY: '/vacancy',
       GET_VACANCIES: '/vacancy/company/:companyId',
       ADD_BENEFITS_OFFER: '/benefits-offer/:companyId',
+      GET_BENEFITS_OFFER: '/company-landing/:companyId/benefits-offer',
+
       SUBMIT_INVITATION: '/company-invitation',
+      GET_TESTIMONIALS: '/company/:companyId/testimonials',
     },
     CAMPUS: {
       BASE: '/campus',
