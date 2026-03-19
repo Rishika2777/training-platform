@@ -16,10 +16,11 @@ export const authPagesGuard: CanMatchFn = (_route, segments) => {
   }
 
   const url = buildUrlFromSegments(segments);
-  const isProfileRegistrationRoute =
+  const isRegisterFlow = url === '/register' || url.startsWith('/register/');
+  const isLegacyProfileRegistrationRoute =
     url === '/register-campus' || url === '/register-student' || url === '/register-company';
 
-  if (isProfileRegistrationRoute && roles.isProfileIncomplete()) {
+  if ((isRegisterFlow || isLegacyProfileRegistrationRoute) && roles.isProfileIncomplete()) {
     return true;
   }
 

@@ -1,5 +1,6 @@
 <div class="prospectus-container">
-  <form class="prospectus-form" (ngSubmit)="onFormSubmit($event)">
+  <form class="prospectus-form">
+
     <div class="form-row">
       <app-input-with-file
         #prospectusFileInput
@@ -25,8 +26,24 @@
       />
     </div>
 
+ @if (showDepartment) {
+  <div class="form-row full-width">
+    <app-dropdown
+      label="Department"
+      [items]="departmentItems"
+      [value]="value.department || null"
+      [disabled]="submitting"
+      (valueChange)="patch({ department: $event })"
+      [autocomplete]="true"
+    />
+  </div>
+}
+
+    
+
+
     <div class="form-actions">
-      <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" />
+      <app-button type="button" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="submit()" />
     </div>
   </form>
 
@@ -89,7 +106,7 @@
                 <button
                   type="button"
                   class="action-btn delete-btn"
-                  (click)="deleteProspectus(prospectus.id || '')"
+                  (click)="onDeleteClick(prospectus)"
                   title="Delete prospectus"
                 >
                   <i class="fa-solid fa-trash"></i>

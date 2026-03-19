@@ -15,11 +15,11 @@
         [autocomplete]="true"
       />
       <app-dropdown
-        label="Starting Salary Range"
+        label="Starting Salary Range (INR)"
         [items]="salaryItems"
         [value]="value.startingSalaryRange"
         [disabled]="submitting"
-        placeholder="Select salary range"
+        placeholder="Select salary range (INR)"
         (valueChange)="updateField('startingSalaryRange', $event)"
         [autocomplete]="true"
       />

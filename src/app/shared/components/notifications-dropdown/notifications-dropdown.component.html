@@ -6,60 +6,55 @@
     </div>
 
     <div class="dropdown-body">
-      @if (items.length === 0) {
+      @if (loading && items.length === 0) {
+        <div class="empty">Loading...</div>
+      } @else if (items.length === 0) {
         <div class="empty">No notifications</div>
       } @else {
-        @if (newNotifications.length > 0) {
-          <div class="section">
-            <h3 class="section-title">New</h3>
-            <div class="notifications-list">
-              @for (notification of newNotifications; track notification.id) {
-                <div class="notification-item">
-                  <div class="profile-picture">
-                    <img [src]="notification.profileImageUrl" [alt]="notification.userName" />
-                  </div>
-                  <div class="notification-content">
-                    <div class="notification-text">
-                      <strong class="user-name">{{ notification.userName }}</strong>
-                      <span>{{ notification.message }}</span>
-                    </div>
-                    <div class="notification-time">{{ notification.timeLabel }}</div>
-                  </div>
+        <div class="notifications-list">
+          @for (notification of items; track notification.id) {
+            <div class="notification-item">
+              @if (notification.actorPublicPageUrl) {
+                <a [href]="notification.actorPublicPageUrl" target="_blank" rel="noopener noreferrer" class="profile-picture profile-picture-link">
+                  <img [src]="notification.profileImageUrl" [alt]="notification.userName" />
+                </a>
+              } @else {
+                <div class="profile-picture">
+                  <img [src]="notification.profileImageUrl" [alt]="notification.userName" />
                 </div>
               }
-            </div>
-          </div>
-        }
-
-        @if (todayNotifications.length > 0) {
-          <div class="section">
-            <h3 class="section-title">Today</h3>
-            <div class="notifications-list">
-              @for (notification of todayNotifications; track notification.id) {
-                <div class="notification-item">
-                  <div class="profile-picture">
-                    <img [src]="notification.profileImageUrl" [alt]="notification.userName" />
-                  </div>
-                  <div class="notification-content">
-                    <div class="notification-text">
-                      <strong class="user-name">{{ notification.userName }}</strong>
-                      <span>{{ notification.message }}</span>
-                    </div>
-                    <div class="notification-time">{{ notification.timeLabel }}</div>
-                  </div>
+              <div class="notification-content">
+                <div class="notification-text">
+                  @if (notification.actorPublicPageUrl) {
+                    <a [href]="notification.actorPublicPageUrl" target="_blank" rel="noopener noreferrer" class="notification-link actor-link">{{ notification.userName }}</a>
+                  } @else {
+                    <strong class="user-name">{{ notification.userName }}</strong>
+                  }
+                  <span>{{ notification.message }}{{ (notification.targetDisplayName && notification.targetPublicPageUrl) ? ' ' : '' }}</span>
+                  @if (notification.targetDisplayName && notification.targetPublicPageUrl) {
+                    <a [href]="notification.targetPublicPageUrl" target="_blank" rel="noopener noreferrer" class="notification-link target-link">{{ notification.targetDisplayName }}</a>
+                  }
                 </div>
-              }
+                <div class="notification-time">{{ notification.timeLabel }}</div>
+              </div>
             </div>
-          </div>
-        }
+          }
+        </div>
       }
     </div>
 
-    <div class="dropdown-footer">
-      <button class="see-previous-btn" type="button" (click)="onSeePrevious()">
-        See previous notifications
-      </button>
-    </div>
+    @if (hasMorePages && items.length > 0) {
+      <div class="dropdown-footer">
+        <button
+          class="see-previous-btn"
+          type="button"
+          (click)="onLoadMore()"
+          [disabled]="loading"
+        >
+          {{ loading ? 'Loading...' : 'Load more' }}
+        </button>
+      </div>
+    }
   </div>
 }
 

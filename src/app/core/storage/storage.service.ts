@@ -12,7 +12,10 @@ interface StorageSchema {
   [STORAGE_KEYS.MENU_CONFIG]: MenuConfig;
   [STORAGE_KEYS.COMPANY_ID]: string;
   [STORAGE_KEYS.CAMPUS_ID]: string;
+  [STORAGE_KEYS.DEPARTMENT_ID]: string;
   [STORAGE_KEYS.STUDENT_ID]: string;
+  [STORAGE_KEYS.ADMIN_AUDIT_LOG]: string;
+  [STORAGE_KEYS.REGISTRATION_DRAFT]: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -119,7 +122,10 @@ export class StorageService {
       key === STORAGE_KEYS.REFRESH_TOKEN ||
       key === STORAGE_KEYS.COMPANY_ID ||
       key === STORAGE_KEYS.CAMPUS_ID ||
-      key === STORAGE_KEYS.STUDENT_ID
+      key === STORAGE_KEYS.DEPARTMENT_ID ||
+      key === STORAGE_KEYS.STUDENT_ID ||
+      key === STORAGE_KEYS.ADMIN_AUDIT_LOG ||
+      key === STORAGE_KEYS.REGISTRATION_DRAFT
     ) {
       return raw as StorageSchema[K];
     }

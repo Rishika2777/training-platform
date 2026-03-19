@@ -4,7 +4,6 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractContro
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { AdminApiService } from '../../../admin/services/admin-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthApiService } from '../../../auth/services/auth-api.service';
 
@@ -25,7 +24,6 @@ export class ChangePasswordComponent {
   @Output() closed = new EventEmitter<void>();
 
   private readonly fb = inject(FormBuilder);
-  private readonly adminApi = inject(AdminApiService);
   private readonly auth = inject(AuthService);
   private readonly authApi = inject(AuthApiService);
   private readonly notify = inject(NotificationService);
@@ -139,7 +137,7 @@ export class ChangePasswordComponent {
     this.submitting.set(true);
 
     this.authApi.resetPasswordWithEmail({
-      email: currentUser.email,
+      emailId: currentUser.email,
       currentPassword: formValue.currentPassword,
       newPassword: formValue.newPassword,
     }).subscribe({

@@ -1,6 +1,10 @@
 .admin-student-page {
   display: grid;
   gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .announcement {
@@ -46,12 +50,53 @@
 .registered-section {
   display: grid;
   gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: -8px;
+}
+
+.template-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-secondary);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: var(--color-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.template-btn:hover {
+  background: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.template-btn i {
+  font-size: 16px;
 }
 
 .section-title {
@@ -79,16 +124,37 @@
   opacity: 0.8;
 }
 
+.list-pagination-wrapper {
+  margin-top: 8px;
+  padding: 16px 0 24px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  width: 100%;
+}
+
+/* Three cards per row; narrower cards with consistent spacing */
 .students-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-
-@media (max-width: 1200px) {
+@media (max-width: 1100px) {
   .students-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .students-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
 }
 
@@ -187,8 +253,27 @@
 }
 
 @media (max-width: 768px) {
-  .students-grid {
-    grid-template-columns: 1fr;
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .template-btn span {
+    display: none;
+  }
+
+  .template-btn {
+    padding: 8px 12px;
+  }
+
+  .section-title {
+    font-size: 20px;
   }
 
   .delete-modal-actions,
@@ -199,5 +284,42 @@
   .delete-modal-actions app-button,
   .review-modal-actions app-button {
     width: 100%;
+  }
+
+  .students-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile: 1 column grid + pagination at bottom */
+@media (max-width: 600px) {
+  .registered-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .students-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .list-pagination-wrapper {
+    margin-top: 16px;
+    padding: 20px 0 32px;
+    min-height: 56px;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .registered-section {
+    padding: 0;
+  }
+
+  .section-title {
+    font-size: 18px;
   }
 }

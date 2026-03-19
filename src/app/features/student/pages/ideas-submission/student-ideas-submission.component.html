@@ -71,9 +71,15 @@
         placeholder="Enter your idea description..."
         (input)="onDescriptionChange($any($event.target).value)"
       ></textarea>
-      <div class="character-count">
-        {{ descriptionLength }}/{{ maxDescriptionLength }} characters
-      </div>
+@if (!isDescriptionMeaningful() && wordCount > 0) {
+  <div class="error-text">
+    Description must contain meaningful text (not only numbers or special characters).
+  </div>
+}
+
+     <div class="character-count">
+  {{ wordCount }}/{{ maxDescriptionLength }} words
+</div>
     </div>
   </div>
 

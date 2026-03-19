@@ -1,31 +1,75 @@
+@if (isPublicProfile) {
+  <app-header [standalone]="true" />
+}
+<div class="company-about-page">
 <!-- Hero Section -->
 <section class="hero-section">
-  <div class="hero-overlay"></div>
-  <div class="hero-content">
-    <h1 class="hero-heading">Empowering the Future Through Knowledge, Creativity, and Innovation</h1>
-    <div class="hero-buttons">
-            <app-button label="Invite Company" variant="secondary" (buttonClick)="onInviteCompany()" />
-<app-button 
-  label="Read More" 
-  variant="secondary" 
-  [disabled]="loadingCompanyDetails()"
-  (buttonClick)="onReadMore()" 
-/>    </div>
+  <div
+    class="hero-background"
+    [style.background-image]="'url(assets/images/login-hero-image.png)'"
+  ></div>
+
+  <div class="hero-banner">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        Hire Smarter!<br/>
+        Hire Skilled
+      </h1>
+
+      <!-- Follow button: top-right on desktop, below title on mobile -->
+      <div class="follow-btn-wrapper">
+        <button
+          class="follow-btn"
+          [disabled]="followingLoading() || isFollowing()"
+          (click)="onFollow()"
+        >
+          @if (isFollowing()) {
+            Following ✓
+          } @else if (followingLoading()) {
+            Following...
+          } @else {
+            Follow <span class="btn-arrows">&#62;&#62;</span>
+          }
+        </button>
+      </div>
+
+      <div class="hero-buttons">
+        @if (showInviteCompany()) {
+          <app-button
+            class="hero-cta-btn"
+            label="Invite Company >>"
+            variant="secondary"
+            (buttonClick)="onInviteCompany()"
+          />
+        }
+
+        <app-button
+          class="hero-cta-btn"
+          label="Read More >>"
+          variant="secondary"
+          [disabled]="loadingCompanyDetails()"
+          (buttonClick)="onReadMore()"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-metrics">
+    <span class="hero-metrics-value">{{ promotions }}</span> Promotions, <span class="hero-metrics-value">{{ followers }}</span> Followers—The Journey Thrives!
   </div>
 </section>
 
-<!-- Engagement Metrics -->
-<section class="engagement-metrics">
-  <p>{{ promotions }} Promotions, {{ followers }} Followers - The Journey Thrives!</p>
-</section>
 
 <!-- Company Insights -->
-<section class="company-insights">
-  <div class="container">
-    <h2 class="section-heading">Company Insights</h2>
-    <div class="insights-content">
+<section class="section company-insights">
+  <h2 class="section-title">{{ companyName || 'Company' }} Insights</h2>
+  <div class="insights-content">
       <div class="insights-image">
-        <img src="/assets/images/company-building.jpg" alt="Company Building" />
+        <img
+          [src]="resolvedCompanyLogoUrl"
+          [alt]="companyName || 'Company logo'"
+          (error)="$any($event.target).src = 'assets/images/company-building.jpg'"
+        />
       </div>
       <div class="insights-text">
        <p>
@@ -33,7 +77,6 @@
   </p>
       </div>
     </div>
-  </div>
 </section>
 
 <!-- ------------- current vacancy ----------  -->
@@ -108,6 +151,13 @@
         <span>{{ selectedVacancy()!.numberOfOpenings }}</span>
       </div>
 
+  @if (selectedVacancy()?.salary) {
+  <div class="job-row">
+    <span>Salary</span>
+    <span>{{ selectedVacancy()!.salary }}</span>
+  </div>
+}
+
       <div class="job-block">
         <h4>Job Description</h4>
         <p>{{ selectedVacancy()!.jobDescription }}</p>
@@ -149,7 +199,12 @@
       </div>
 
       <div class="apply-wrap">
-        <app-button label="Apply Now" variant="secondary"></app-button>
+        <app-button 
+          label="Apply Now" 
+          variant="secondary"
+          [disabled]="applyingToVacancy()"
+          (buttonClick)="onApplyToVacancy()"
+        ></app-button>
       </div>
     </div>
   }
@@ -173,12 +228,24 @@
 
 
       <div class="achievement-graph">
+        <div class="graph-header">
+          <label class="graph-year-label" for="achievement-chart-year">Year</label>
+          <select
+            id="achievement-chart-year"
+            class="graph-year-select"
+            [value]="selectedChartYear()"
+            (change)="onChartYearChange(+$any($event.target).value)"
+          >
+            @for (y of chartYearOptions; track y) {
+              <option [value]="y">{{ y }}</option>
+            }
+          </select>
+        </div>
         <div class="graph-container">
-          <div class="graph-placeholder">
-            <div class="graph-line"></div>
-            <div class="graph-shade"></div>
-          </div>
-          <button class="graph-more-btn">More</button>
+          <canvas #achievementChartCanvas></canvas>
+          @if (loadingOverviewStats() && overviewStats() === null) {
+            <div class="graph-loading-overlay">Loading chart data...</div>
+          }
         </div>
       </div>
     </div>
@@ -204,7 +271,11 @@
         <div class="campus-grid">
           @for (campus of campuses; track $index) {
             <div class="campus-card">
-              <img [src]="campus.image" [alt]="campus.name" />
+              <img
+                [src]="campus.image"
+                [alt]="campus.name"
+                (error)="$any($event.target).src = '/assets/images/campus-placeholder.jpg'"
+              />
               <p class="campus-name">{{ campus.name }}</p>
             </div>
           }
@@ -245,55 +316,58 @@
 </section>
 
 <!-- Benefits Section -->
-<section class="benefits-section">
-  <div class="container">
-    <h2 class="section-heading">Benefits we provide</h2>
-    <div class="benefits-top">
-      <div class="benefit-stat">
-        <div class="progress-circle">
-          <div class="progress-value">{{ internToJobRate }}%</div>
-          <svg class="progress-ring" width="200" height="200">
-            <circle
-              class="progress-ring-circle"
-              stroke="#f4a261"
-              stroke-width="20"
-              fill="transparent"
-              r="80"
-              cx="100"
-              cy="100"
-              [style.stroke-dasharray]="(internToJobRate / 100) * 502.4 + ' 502.4'"
-            />
-          </svg>
+@if (hasBenefitsData()) {
+  <section class="benefits-section">
+    <div class="container">
+      <h2 class="section-heading">Benefits we provide</h2>
+      <div class="benefits-top">
+        <div class="benefit-stat">
+          <div class="progress-circle">
+            <div class="progress-value">{{ internToJobRate }}%</div>
+            <svg class="progress-ring" width="200" height="200">
+              <circle
+                class="progress-ring-circle"
+                stroke="#f4a261"
+                stroke-width="20"
+                fill="transparent"
+                r="80"
+                cx="100"
+                cy="100"
+                [style.stroke-dasharray]="(internToJobRate / 100) * 502.4 + ' 502.4'"
+              />
+            </svg>
+          </div>
+          <p class="stat-label">Intern-to-Job Rate</p>
         </div>
-        <p class="stat-label">Intern-to-Job Rate</p>
-      </div>
-      <div class="benefit-stat">
-        <div class="salary-range">
-          <p class="salary-label">Starting Salary Range</p>
-          <div class="salary-visual">
-            <div class="salary-bar"></div>
+        <div class="benefit-stat">
+          <div class="salary-range">
+            <p class="salary-label">Starting Salary Range</p>
+            <p class="salary-value">{{ formattedSalaryRange }}</p>
+            <div class="salary-visual">
+              <div class="salary-bar" [style.width.%]="salaryBarWidthPercent"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="benefits-list">
-      @for (benefit of benefits; track $index) {
-        <div class="benefit-item" [class.open]="benefit.isOpen">
-          <button class="benefit-header" (click)="toggleBenefit($index)">
-            <span class="benefit-icon">{{ benefit.icon }}</span>
-            <span class="benefit-title">{{ benefit.title }}</span>
-            <span class="benefit-chevron">▼</span>
-          </button>
-          @if (benefit.isOpen) {
-            <div class="benefit-content">
+      <div class="benefits-list">
+        @for (benefit of benefits; track $index) {
+          <div class="benefit-item" [class.open]="benefit.isOpen">
+            <button class="benefit-header" (click)="toggleBenefit($index)">
+              <span class="benefit-icon">{{ benefit.icon }}</span>
+              <span class="benefit-title">{{ benefit.title }}</span>
+              <span class="benefit-chevron">▼</span>
+            </button>
+            @if (benefit.isOpen) {
+              <div class="benefit-content">
 <p>{{ benefit.description || ('Details about ' + benefit.title + ' will be displayed here.') }}</p>
-            </div>
-          }
-        </div>
-      }
+              </div>
+            }
+          </div>
+        }
+      </div>
     </div>
-  </div>
-</section>
+  </section>
+}
 
 <!-- Our Clients -->
 <section class="clients-section">
@@ -309,8 +383,11 @@
     >
       <div class="clients-grid">
         @for (client of clientList; track $index) {
-          <div class="client-logo">
-            <img [src]="client.logo" alt="Client Logo" />
+          <div class="client-card">
+            <div class="client-logo">
+              <img [src]="client.logo" [alt]="client.name" />
+            </div>
+            <p class="client-name">{{ client.name }}</p>
           </div>
         }
       </div>
@@ -322,93 +399,157 @@
 <section class="testimonial-section">
   <div class="container">
     <h2 class="testimonial-heading">Your Voice, Our Strength</h2>
-    <app-carousel
-      type="pagination"
-      [currentPage]="currentTestimonialPage()"
-      [totalPages]="testimonials.length"
-      [maxVisible]="1"
-      (pageChange)="onTestimonialPageChange($event)"
-    >
+    @if (loadingTestimonials()) {
       <div class="testimonial-content">
-        @for (testimonial of testimonials(); track $index) {
-          <div class="testimonial-item">
-            <p class="testimonial-quote">"{{ testimonial.quote }}"</p>
-            <div class="testimonial-author">
-              <img [src]="testimonial.image" [alt]="testimonial.author" />
-              <p class="author-name">{{ testimonial.author }}</p>
+        <div class="testimonial-loading">Loading testimonials...</div>
+      </div>
+    } @else {
+      <div class="testimonial-content">
+        <button
+          type="button"
+          class="testimonial-arrow left"
+          (click)="previousTestimonial()"
+          [disabled]="currentTestimonialPage() <= 1"
+          aria-label="Previous testimonial"
+        >
+          <span class="double-chevron">&#60;&#60;</span>
+        </button>
+        @if (currentTestimonial(); as t) {
+          <div class="testimonial-quote-block">
+            <p class="quote-text">"{{ t.quote }}"</p>
+            <div class="quote-author">
+              <app-avatar
+                [imageUrl]="t.image || null"
+                [name]="t.author"
+                size="medium"
+                [alt]="t.author"
+              />
+              <p class="author-name">{{ t.author ? '-' + t.author : '' }}</p>
             </div>
           </div>
+        } @else {
+          <div class="testimonial-quote-block">
+            <p class="quote-text">No testimonials available at the moment.</p>
+          </div>
         }
+        <button
+          type="button"
+          class="testimonial-arrow right"
+          (click)="nextTestimonial()"
+          [disabled]="currentTestimonialPage() >= totalTestimonialPages()"
+          aria-label="Next testimonial"
+        >
+          <span class="double-chevron">&#62;&#62;</span>
+        </button>
       </div>
-    </app-carousel>
+    }
   </div>
 </section>
 
 <!-- Footer -->
-<footer class="company-footer">
-  <div class="container">
-    <div class="footer-content">
-      <div class="footer-contact">
-        <h3 class="footer-heading">Get In Touch</h3>
-        <div class="contact-item">
-          <i class="fa-solid fa-envelope"></i>
-          <span>clavrit@gmail.com</span>
-        </div>
-        <div class="contact-item">
-          <i class="fa-solid fa-phone"></i>
-          <span>+91 987-654-3210</span>
-        </div>
-        <div class="contact-item">
-          <i class="fa-solid fa-location-dot"></i>
-          <span>113, 1st Main Road, 3rd Phase, JP Nagar, Bangalore - 560078</span>
-        </div>
-      </div>
-      <div class="footer-feedback">
-        <p class="feedback-intro">
-          Your input is valuable in recognizing accomplishments and guiding improvement. Let us know your insights on this
-          student's progress, abilities, and highlights using the form below!
-        </p>
-        <div class="feedback-form">
-          <p class="feedback-question">Would you recommend promoting this company based on their performance and potential?</p>
-          <div class="recommendation-buttons">
-            <button
-              type="button"
-              class="recommendation-btn"
-              [class.active]="feedbackForm.recommendation === 'yes'"
-              (click)="feedbackForm.recommendation = 'yes'"
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              class="recommendation-btn"
-              [class.active]="feedbackForm.recommendation === 'no'"
-              (click)="feedbackForm.recommendation = 'no'"
-            >
-              No
-            </button>
-          </div>
-          <app-input
-            label="Name"
-            type="text"
-            placeholder="Enter your name"
-            [value]="feedbackForm.name"
-            (valueChange)="feedbackForm.name = $event"
-          />
-          <app-textarea
-            label="Speak your mind about Clavrit!"
-            placeholder="Write your feedback here..."
-            [value]="feedbackForm.feedback"
-            (valueChange)="feedbackForm.feedback = $event"
-            [rows]="5"
-          />
-          <app-button label="send" variant="secondary" type="submit" (buttonClick)="submitFeedback()" />
-        </div>
+<!-- Get In Touch Section (Redesigned UI) -->
+<footer class="footer-section">
+ <div class="get-in-touch-wrapper">
+
+  <!-- TOP FULL WIDTH -->
+  <div class="get-in-touch-top">
+    <h2 class="get-title">Get In Touch</h2>
+
+    <p class="get-description">
+      Your input is valuable in recognizing accomplishments and guiding improvement.
+      Let us know your insights on {{ companyName || 'this company' }} using the form below!
+    </p>
+
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="get-in-touch-grid">
+
+    <!-- LEFT SIDE -->
+    <div class="get-in-touch-left">
+      <p class="recommend-text">
+        Would you recommend promoting this company based on their performance and potential?
+      </p>
+
+      <div class="recommendation-btns">
+        <button
+          type="button"
+          class="feedback-btn yes"
+          [class.active]="recommendation === 'yes'"
+          [disabled]="submittingRecommendation"
+          (click)="onRecommendationSelect('yes')"
+        >
+          <i class="fa-solid fa-thumbs-up"></i>
+          Yes
+        </button>
+
+        <button
+          type="button"
+          class="feedback-btn no"
+          [class.active]="recommendation === 'no'"
+          [disabled]="submittingRecommendation"
+          (click)="onRecommendationSelect('no')"
+        >
+          <i class="fa-solid fa-thumbs-down"></i>
+          No
+        </button>
       </div>
     </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="get-in-touch-right">
+
+      <form class="feedback-form" novalidate (ngSubmit)="submitFeedback($event)">
+
+        <app-input
+          label="Name"
+          type="text"
+          placeholder="Enter your name"
+          [required]="true"
+          [invalid]="nameTouched && isNameInvalid()"
+          [value]="feedbackForm.name"
+          (valueChange)="onNameChange($event)"
+          [disabled]="submittingFeedback"
+        />
+
+        @if (nameTouched && isNameInvalid()) {
+          <div class="app-input-error">
+            Please enter a valid name (letters and spaces only).
+          </div>
+        }
+
+        <app-textarea
+          [label]="'Speak your mind about ' + (companyName || 'this company') + '!'"
+          [value]="feedbackForm.feedback"
+          (valueChange)="feedbackForm.feedback = $event"
+          [rows]="5"
+          [maxlength]="1000"
+          [showCharCount]="true"
+          [disabled]="submittingFeedback"
+          placeholder="Write your feedback here..."
+        />
+
+        <div class="feedback-actions">
+          <button
+            type="button"
+            class="submit-feedback-btn"
+            [disabled]="submittingFeedback"
+            (click)="submitFeedback($event)"
+          >
+            Send
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+
   </div>
-  <div class="footer-bottom"></div>
+
+</div>
 </footer>
+
+</div><!-- /.company-about-page -->
 
 <!-- Company Invitation Form Modal -->
 <app-modal

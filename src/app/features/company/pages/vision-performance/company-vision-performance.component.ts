@@ -26,6 +26,11 @@ export class CompanyVisionPerformanceComponent {
   private readonly authState = inject(AuthStateService);
   private readonly storage = inject(StorageService);
   private readonly notify = inject(NotificationService);
+  readonly MIN_VISION_LENGTH = 20;
+readonly MAX_VISION_LENGTH = 500;
+
+visionCharCount = 0;
+
 
   /* ---------- Form State ---------- */
   value: VisionPerformanceFormValue = {
@@ -62,12 +67,12 @@ export class CompanyVisionPerformanceComponent {
     { label: '80%', value: '80%' },
   ];
 
+  /** Year options: current year and 5 years back (6 years total) */
   readonly yearItems: readonly DropdownItem<string>[] = (() => {
     const currentYear = new Date().getFullYear();
     const years: DropdownItem<string>[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const year = currentYear + i;
-      years.push({ label: year.toString(), value: year.toString() });
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+      years.push({ label: y.toString(), value: y.toString() });
     }
     return years;
   })();
@@ -97,10 +102,13 @@ export class CompanyVisionPerformanceComponent {
      Form Updates
   ======================= */
 
-  updateVision(vision: string): void {
-    this.value = { ...this.value, vision };
-    this.visionInvalid = false;
-  }
+updateVision(vision: string): void {
+  this.value = { ...this.value, vision };
+  
+}
+
+
+
 
   updateMetric(
     index: number,
@@ -122,28 +130,29 @@ export class CompanyVisionPerformanceComponent {
      Validation
   ======================= */
 
-  private validateForm(): boolean {
-    let isValid = true;
+private validateForm(): boolean {
+  let isValid = true;
 
-    // Validate vision
-    if (!this.value.vision || !this.value.vision.trim()) {
-      this.visionInvalid = true;
-      isValid = false;
-    } else {
-      this.visionInvalid = false;
-    }
+  const vision = this.value.vision?.trim() || '';
 
-    // Validate metrics
-    this.metricInvalidations = this.value.metrics.map((metric) => {
-      const isInvalid = !metric.name || !metric.value || !metric.year;
-      if (isInvalid) {
-        isValid = false;
-      }
-      return isInvalid;
-    });
-
-    return isValid;
+  if (vision.length < this.MIN_VISION_LENGTH) {
+    this.visionInvalid = true;
+    isValid = false;
+  } else {
+    this.visionInvalid = false;
   }
+
+  this.metricInvalidations = this.value.metrics.map((metric) => {
+    const isInvalid = !metric.name || !metric.value || !metric.year;
+    if (isInvalid) {
+      isValid = false;
+    }
+    return isInvalid;
+  });
+
+  return isValid;
+}
+
 
   /* =======================
      Form Reset
@@ -199,7 +208,6 @@ export class CompanyVisionPerformanceComponent {
     forkJoin(requests).subscribe({
       next: () => {
         this.notify.success('Vision & Achievements submitted successfully!');
-        this.resetForm();
         this.loading = false;
       },
       error: (error) => {

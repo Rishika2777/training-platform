@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
+import { SalaryInputComponent } from '../../../../shared/components/salary-input/salary-input.component';
+import { getSalaryAmount } from '../../../../shared/utils/salary.utils';
 
 export interface CurrentVacancyFormValue {
   // Job Details
@@ -36,7 +38,7 @@ export interface CurrentVacancyFormValue {
 @Component({
   selector: 'app-company-current-vacancy',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, DropdownComponent, InputComponent],
+  imports: [CommonModule, ButtonComponent, DropdownComponent, InputComponent, SalaryInputComponent],
   templateUrl: './company-current-vacancy.component.html',
   styleUrl: './company-current-vacancy.component.css',
 })
@@ -71,6 +73,37 @@ export class CompanyCurrentVacancyComponent {
   @Output() valueChange = new EventEmitter<CurrentVacancyFormValue>();
   @Output() submitted = new EventEmitter<CurrentVacancyFormValue>();
 
+  readonly salaryError = signal<string | null>(null);
+  readonly modeError = signal<string | null>(null);
+  readonly fieldErrors = signal<Record<string, boolean>>({});
+
+  private getEmptyForm(): CurrentVacancyFormValue {
+  return {
+    jobTitle: '',
+    jobType: '',
+    contractDuration: '',
+    jobLocation: '',
+    salary: '',
+    jobDescription: '',
+    department: '',
+    numberOfOpenings: '',
+    requiredQualifications: '',
+    streamsEligible: '',
+    yearOfPassing: '',
+    minimumCGPA: '',
+    selectionRounds: {
+      aptitudeTest: false,
+      groupDiscussion: false,
+      faceToFace: false,
+      all: false,
+    },
+    modeOfSelection: {
+      online: false,
+      offline: false,
+      both: false,
+    },
+  };
+}
   readonly jobTitleItems: readonly DropdownItem<string>[] = [
     { label: 'Software Engineer', value: 'software-engineer' },
     { label: 'Product Manager', value: 'product-manager' },
@@ -126,15 +159,31 @@ export class CompanyCurrentVacancyComponent {
     { label: 'Mechanical', value: 'mechanical' },
   ];
 
-  readonly yearItems: readonly DropdownItem<string>[] = [
-    { label: '2024', value: '2024' },
-    { label: '2025', value: '2025' },
-    { label: '2026', value: '2026' },
-  ];
+  /** Year options: current year and 5 years back (6 years total) */
+  readonly yearItems: readonly DropdownItem<string>[] = (() => {
+    const currentYear = new Date().getFullYear();
+    const years: DropdownItem<string>[] = [];
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+      years.push({ label: y.toString(), value: y.toString() });
+    }
+    return years;
+  })();
 
   updateField(field: keyof CurrentVacancyFormValue, value: string): void {
+    if (field === 'salary') {
+      this.salaryError.set(null);
+    }
+
     const next = { ...this.value, [field]: value };
     this.value = next;
+
+    // Clear any existing validation error for this field when user updates it
+    const currentErrors = { ...this.fieldErrors() };
+    if (currentErrors[field as string]) {
+      delete currentErrors[field as string];
+      this.fieldErrors.set(currentErrors);
+    }
+
     this.valueChange.emit(next);
   }
 
@@ -147,13 +196,17 @@ export class CompanyCurrentVacancyComponent {
   }
 
   toggleModeOfSelection(mode: keyof CurrentVacancyFormValue['modeOfSelection']): void {
-    const modeOfSelection = { ...this.value.modeOfSelection };
-    modeOfSelection[mode] = !modeOfSelection[mode];
+    this.modeError.set(null);
+    const modeOfSelection = {
+      online: false,
+      offline: false,
+      both: false,
+      [mode]: true
+    };
     const next = { ...this.value, modeOfSelection };
     this.value = next;
     this.valueChange.emit(next);
   }
-
   onFormSubmit(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
@@ -167,8 +220,115 @@ export class CompanyCurrentVacancyComponent {
     this.submit();
   }
 
+private validateRequiredFields(): boolean {
+  const errors: Record<string, boolean> = {};
+
+  const requiredFields: (keyof CurrentVacancyFormValue)[] = [
+    'jobTitle',
+    'jobType',
+    'contractDuration',
+    'jobLocation',
+    // salary handled via numeric validation below
+    'jobDescription',
+    'department',
+    'numberOfOpenings',
+    'requiredQualifications',
+    'streamsEligible',
+    'yearOfPassing',
+    'minimumCGPA'
+  ];
+
+  requiredFields.forEach(field => {
+    const value = this.value[field];
+    if (!value || !value.toString().trim()) {
+      errors[field] = true;
+    }
+  });
+
+  const rounds = this.value.selectionRounds;
+  if (!rounds.aptitudeTest && !rounds.groupDiscussion && !rounds.faceToFace && !rounds.all) {
+    errors['selectionRounds'] = true;
+  }
+
+  const mode = this.value.modeOfSelection;
+  if (!mode.online && !mode.offline && !mode.both) {
+    errors['modeOfSelection'] = true;
+  }
+
+  this.fieldErrors.set(errors);
+  return Object.keys(errors).length === 0;
+}
+
+
   submit(): void {
-    console.log('CompanyCurrentVacancyComponent: submit() called');
-    this.submitted.emit(this.value);
+  this.salaryError.set(null);
+  this.modeError.set(null);
+
+  const errors: Record<string, boolean> = {};
+
+  // ================= REQUIRED FIELD VALIDATION =================
+  const requiredFields: (keyof CurrentVacancyFormValue)[] = [
+    'jobTitle',
+    'jobType',
+    'contractDuration',
+    'jobLocation',
+    // salary handled via numeric validation below
+    'jobDescription',
+    'department',
+    'numberOfOpenings',
+    'requiredQualifications',
+    'streamsEligible',
+    'yearOfPassing',
+    'minimumCGPA'
+  ];
+
+  requiredFields.forEach(field => {
+    const value = this.value[field];
+    if (!value || !value.toString().trim()) {
+      errors[field] = true;
+    }
+  });
+
+  // Selection Rounds required
+  const rounds = this.value.selectionRounds;
+  if (!rounds.aptitudeTest && !rounds.groupDiscussion && !rounds.faceToFace && !rounds.all) {
+    errors['selectionRounds'] = true;
+  }
+
+  // Mode required
+  const mode = this.value.modeOfSelection;
+  if (!mode.online && !mode.offline && !mode.both) {
+    errors['modeOfSelection'] = true;
+  }
+
+  this.fieldErrors.set(errors);
+
+  if (Object.keys(errors).length > 0) {
+    return;
+  }
+
+  // ================= SALARY NUMBER VALIDATION =================
+  const salary = getSalaryAmount(this.value.salary);
+
+  if (isNaN(salary)) {
+    this.salaryError.set('Enter a valid salary amount');
+    return;
+  }
+
+  if (salary <= 0) {
+    this.salaryError.set('Salary must be greater than 0');
+    return;
+  }
+
+  // ================= SUCCESS =================
+  this.submitted.emit(this.value);
+}
+
+  /** Call this from parent after successful submit to clear the form. */
+  resetForm(): void {
+    this.salaryError.set(null);
+    this.modeError.set(null);
+    this.value = this.getEmptyForm();
+    this.valueChange.emit(this.value);
   }
 }

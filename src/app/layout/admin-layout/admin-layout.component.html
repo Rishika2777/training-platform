@@ -1,8 +1,24 @@
-<app-header [sidebarCollapsed]="sidebarCollapsed()" (toggleSidebar)="toggleSidebar()" />
-<div class="layout admin" [class.sidebar-collapsed]="sidebarCollapsed()">
-  <app-sidebar [collapsed]="sidebarCollapsed()" />
-  <main class="content">
-    <router-outlet />
-  </main>
+<div class="admin-wrapper">
+  <app-header [sidebarCollapsed]="sidebarCollapsed()" (toggleSidebar)="toggleSidebar()" />
+  @if (isMobile() && !sidebarCollapsed()) {
+    <div
+      class="sidebar-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close menu"
+      (click)="sidebarCollapsed.set(true)"
+      (keydown.enter)="sidebarCollapsed.set(true)"
+      (keydown.space)="$event.preventDefault(); sidebarCollapsed.set(true)"
+    ></div>
+  }
+  <div class="layout admin" [class.sidebar-collapsed]="sidebarCollapsed()" [class.mobile]="isMobile()">
+    <app-sidebar
+      [collapsed]="sidebarCollapsed()"
+      (menuItemClicked)="onSidebarMenuClick()"
+    />
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
 </div>
 

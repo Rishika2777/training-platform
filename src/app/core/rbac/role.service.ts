@@ -94,6 +94,9 @@ export class RoleService {
     if (userType === 'CAMPUS') {
       return '/campus/home';
     }
+    if (userType === 'DEPARTMENT') {
+      return '/department/home';
+    }
     if (userType === 'COMPANY') {
       return '/company/home';
     }
@@ -111,7 +114,7 @@ export class RoleService {
 
   /**
    * Registration is multi-step. When token exists but profile is incomplete,
-   * we allow access to `/register-(campus|student|company)` routes.
+   * we allow access to `/register/(campus|student|company)` routes.
    */
   isProfileIncomplete(): boolean {
     const user = this.getCurrentUser();
@@ -129,6 +132,9 @@ export class RoleService {
   getRegistrationRouteForUserType(userType: UserType | null): string {
     if (userType === 'CAMPUS') {
       return ROUTES.REGISTER_CAMPUS;
+    }
+    if (userType === 'DEPARTMENT') {
+      return ROUTES.REGISTER_OPTIONS;
     }
     if (userType === 'COMPANY') {
       return ROUTES.REGISTER_COMPANY;

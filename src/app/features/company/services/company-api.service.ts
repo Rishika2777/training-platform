@@ -1,7 +1,16 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, tap, catchError, of } from 'rxjs';
+import { Observable, map, tap, catchError, of, throwError } from 'rxjs';
 import { API_ENDPOINTS, APP_CONFIG, APP_CONFIG_TOKEN, EnumLoginStatus, UserType } from '../../../core/config/app.constants';
+import { unwrapApiResponse as unwrapApiResponseCore } from '../../../core/api/api-response.utils';
+import {
+  CampusItem,
+  CampusSearchItem,
+  CampusSearchResponse,
+  FollowerCountResponse,
+  PromotionsCountResponse,
+  GetCampusesResponse,
+} from '../models/company.models';
 
 /**
  * Placeholder for company API calls.
@@ -14,23 +23,97 @@ export class CompanyApiService {
   private readonly baseUrl = this.config.COMPANY_API_BASE_URL || this.config.API_BASE_URL;
 
   registerCompany(
-    data: CompanyRegisterRequest,
+    data: CompanyRegisterRequest | CompanyRegisterPayload,
     options?: RegisterCompanyOptions,
   ): Observable<CompanyRegistrationResponse | null> {
     const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.REGISTER);
     const headers = buildUserHeaders(options);
+    const payload = normalizeRegisterPayload(data);
+
+    // Add userType query parameter if provided (component will pass 'ADMIN' when needed)
+    let params = new HttpParams();
+    if (options?.userType) {
+      params = params.set('userType', options.userType);
+    }
 
     // Swagger-style backends often require X-User-Id for registration routes.
-    return this.http.post<unknown>(url, data, { headers }).pipe(map(extractCompanyRegistrationResponse));
+    if (hasRegisterFiles(payload.files)) {
+      const formData = buildRegisterCompanyFormData(payload);
+      const uploadHeaders = headers.set('Accept', 'application/json');
+      return this.http.post<unknown>(url, formData, { headers: uploadHeaders, params }).pipe(
+        map(extractCompanyRegistrationResponse),
+      );
+    }
+
+    return this.http.post<unknown>(url, payload.request, { headers, params }).pipe(
+      map(extractCompanyRegistrationResponse),
+    );
+  }
+
+  /**
+   * POST /company/bulk-upload
+   * Bulk upload companies from Excel file (Admin only).
+   * Uploads multiple company registrations from an Excel file (.xlsx).
+   * Requires userType=ADMIN query parameter.
+   */
+  bulkUploadCompanies(file: File): Observable<BulkUploadResponse | null> {
+    const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.BULK_UPLOAD);
+    
+    // Create FormData for multipart/form-data
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    
+    // Add required userType query parameter
+    const params = new HttpParams().set('userType', 'ADMIN');
+    
+    // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
+    const headers = new HttpHeaders({
+      'Accept': 'application/json'
+    });
+    
+    return this.http.post<unknown>(url, formData, { headers, params }).pipe(
+      map((raw) => {
+        if (!raw || typeof raw !== 'object') {
+          return null;
+        }
+        
+        const responseObj = raw as Record<string, unknown>;
+        
+        // Check if response is wrapped in ApiResponse
+        if ('success' in responseObj && 'message' in responseObj && 'data' in responseObj) {
+          const apiResponse = responseObj as unknown as ApiResponseBulkUploadResponse;
+          return apiResponse.data || null;
+        }
+        
+        // If response is directly BulkUploadResponse
+        if ('totalRows' in responseObj || 'successfulRows' in responseObj || 'failedRows' in responseObj) {
+          return raw as BulkUploadResponse;
+        }
+        
+        console.warn('CompanyApiService: bulkUploadCompanies - Invalid response format:', raw);
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CompanyApiService: bulkUploadCompanies - Error:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   /**
    * GET /company/company/all (Admin)
    * Swagger: requires `userType=ADMIN` query param.
+   * Optional approvalStatus filters server-side.
    */
-  getAllCompanies(requesterUserType: 'ADMIN'): Observable<readonly CompanyRegistrationResponse[]> {
+  getAllCompanies(
+    requesterUserType: 'ADMIN',
+    approvalStatus?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
+  ): Observable<readonly CompanyRegistrationResponse[]> {
     const url = buildUrl(this.baseUrl, API_ENDPOINTS.COMPANY.GET_ALL);
-    const params = new HttpParams().set('userType', requesterUserType);
+    let params = new HttpParams().set('userType', requesterUserType);
+    if (approvalStatus) {
+      params = params.set('approvalStatus', approvalStatus);
+    }
 
     return this.http.get<unknown>(url, { params }).pipe(
       map((raw) => {
@@ -56,11 +139,23 @@ export class CompanyApiService {
   updateCompany(
     companyId: string,
     userId: string,
-    request: CompanyRegisterRequest,
+    request: CompanyRegisterRequest | CompanyRegisterPayload,
   ): Observable<CompanyRegistrationResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.UPDATE, { companyId }));
     const params = new HttpParams().set('userId', userId);
-    return this.http.patch<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
+    const payload = normalizeRegisterPayload(request);
+
+    if (hasRegisterFiles(payload.files)) {
+      const formData = buildRegisterCompanyFormData(payload);
+      const headers = new HttpHeaders({ Accept: 'application/json' });
+      return this.http.patch<unknown>(url, formData, { params, headers }).pipe(
+        map(extractCompanyRegistrationResponse),
+      );
+    }
+
+    return this.http.patch<unknown>(url, payload.request, { params }).pipe(
+      map(extractCompanyRegistrationResponse),
+    );
   }
 
   /**
@@ -77,8 +172,15 @@ export class CompanyApiService {
       resolvePathParams(API_ENDPOINTS.COMPANY.UPDATE_APPROVAL_STATUS, { companyId }),
     );
     const params = new HttpParams().set('requesterUserType', requesterUserType);
-    return this.http.patch<unknown>(url, request, { params }).pipe(map(extractCompanyRegistrationResponse));
+  
+    return this.http.patch<unknown>(url, request, { params }).pipe(
+      tap((raw) => {
+        console.log('RAW approval response from backend:', raw);
+      }),
+      map(extractCompanyRegistrationResponse),
+    );
   }
+  
 
   /**
    * DELETE /company/delete/{companyId}
@@ -118,15 +220,34 @@ export class CompanyApiService {
    * GET /preferred-campus/{companyId}/campuses
    * Gets preferred campuses for a company.
    */
-  getPreferredCampuses(companyId: string): Observable<readonly PreferredCampusResponse[]> {
-    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.GET_PREFERRED_CAMPUSES, { companyId }));
-    return this.http.get<unknown>(url).pipe(
-      map((raw) => {
-        const data = unwrapResponse<PreferredCampusResponse[]>(raw);
-        return Array.isArray(data) ? data : [];
-      }),
-    );
-  }
+ getPreferredCampuses(companyId: string): Observable<readonly PreferredCampusResponse[]> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.GET_PREFERRED_CAMPUSES, { companyId })
+  );
+
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => {
+      const unwrapped = unwrapResponse<
+        PreferredCampusResponse[] | { content?: PreferredCampusResponse[] }
+      >(raw);
+
+      // Case 1: direct array
+      if (Array.isArray(unwrapped)) {
+        return unwrapped;
+      }
+
+      // Case 2: paginated response
+      if (unwrapped?.content && Array.isArray(unwrapped.content)) {
+        return unwrapped.content;
+      }
+
+      return [];
+    })
+  );
+}
+
+
 
   /**
    * GET /clients/{companyId}/clients
@@ -157,20 +278,39 @@ export class CompanyApiService {
   /**
    * POST /clients/{companyId}/clients
    * Adds a client for a company.
-   * Request body: { clientName, photourl }
+   * Request body: { clientName, photoUrl }
    */
-  addClient(companyId: string, request: ClientRequest): Observable<ClientResponse | null> {
+  addClient(
+    companyId: string,
+    request: ClientRequestInput | ClientUploadPayloadInput,
+  ): Observable<ClientResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_CLIENT, { companyId }));
-    console.log('CompanyApiService: addClient called', { url, companyId, request });
-    
-    // Set headers for JSON request - explicitly set Content-Type
+    const payload = normalizeClientPayload(request);
+    console.log('CompanyApiService: addClient called', { url, companyId, request: payload.request });
+
+    if (hasClientFiles(payload.files)) {
+      const formData = buildClientFormData(payload);
+      const headers = new HttpHeaders({ Accept: 'application/json' });
+      return this.http.post<unknown>(url, formData, { headers }).pipe(
+        tap({
+          next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+          error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+          complete: () => console.log('CompanyApiService: HTTP POST request completed')
+        }),
+        map((response) => {
+          console.log('CompanyApiService: Received response for addClient', response);
+          return extractClientResponse(response);
+        })
+      );
+    }
+
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     });
-    
-    console.log('CompanyApiService: Sending JSON request', request);
-    return this.http.post<unknown>(url, request, { headers }).pipe(
+
+    console.log('CompanyApiService: Sending JSON request', payload.request);
+    return this.http.post<unknown>(url, payload.request, { headers }).pipe(
       tap({
         next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
         error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
@@ -186,24 +326,43 @@ export class CompanyApiService {
   /**
    * POST /preferred-campus/{companyId}/addCampus
    * Adds a preferred campus for a company.
-   * Request body: { campusId, campusName, campusLogoUrl } as JSON
+   * Request body: { campusId, campusName, campusLogoUrl } or multipart with campusLogo
    */
-  addPreferredCampus(companyId: string, request: PreferredCampusRequest): Observable<PreferredCampusResponse | null> {
+  addPreferredCampus(
+    companyId: string,
+    request: PreferredCampusRequest | PreferredCampusUploadPayload
+  ): Observable<PreferredCampusResponse | null> {
     const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_PREFERRED_CAMPUS, { companyId }));
-    console.log('CompanyApiService: addPreferredCampus called', { url, companyId, request });
-    
-    // Always send as JSON according to API spec
-    // Don't set Content-Type explicitly - let Angular set it automatically for JSON
-      const headers = new HttpHeaders({
-        'Accept': 'application/json'
-      });
-      
-    console.log('CompanyApiService: Sending JSON request', request);
-    return this.http.post<unknown>(url, request, { headers }).pipe(
+    const payload = normalizePreferredCampusPayload(request);
+    console.log('CompanyApiService: addPreferredCampus called', { url, companyId, request: payload.request });
+
+    if (hasPreferredCampusFiles(payload.files)) {
+      const formData = buildPreferredCampusFormData(payload);
+      const headers = new HttpHeaders({ Accept: 'application/json' });
+      return this.http.post<unknown>(url, formData, { headers }).pipe(
         tap({
           next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
           error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
           complete: () => console.log('CompanyApiService: HTTP POST request completed')
+      }),
+      map((response) => {
+        console.log('CompanyApiService: Received response for addPreferredCampus', response);
+        return extractPreferredCampusResponse(response);
+      })
+    );
+    }
+
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+
+    console.log('CompanyApiService: Sending JSON request', payload.request);
+    return this.http.post<unknown>(url, payload.request, { headers }).pipe(
+      tap({
+        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
+        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
+        complete: () => console.log('CompanyApiService: HTTP POST request completed')
       }),
       map((response) => {
         console.log('CompanyApiService: Received response for addPreferredCampus', response);
@@ -288,29 +447,23 @@ export class CompanyApiService {
    * POST /specializations/{companyId}/technology
    * Adds a new technology for a company with name, description, and icon.
    */
-  addTechnology(companyId: string, request: TechnologyRequest): Observable<TechnologyResponse | null> {
-    const url = buildUrl(this.baseUrl, resolvePathParams(API_ENDPOINTS.COMPANY.ADD_TECHNOLOGY, { companyId }));
-    console.log('CompanyApiService: addTechnology called', { url, companyId, request });
-    
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    });
-    
-    console.log('CompanyApiService: Sending JSON request', request);
-    return this.http.post<unknown>(url, request, { headers }).pipe(
-      tap({
-        next: (response) => console.log('CompanyApiService: HTTP POST request successful', response),
-        error: (error) => console.error('CompanyApiService: HTTP POST request failed', error),
-        complete: () => console.log('CompanyApiService: HTTP POST request completed')
-      }),
-      map((response) => {
-        console.log('CompanyApiService: Received response for addTechnology', response);
-        return extractTechnologyResponse(response);
-      })
-    );
+ addTechnology(companyId: string, request: TechnologyRequest, iconFile?: File): Observable<TechnologyResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.ADD_TECHNOLOGY, { companyId })
+  );
+
+  const formData = new FormData();
+  formData.append('request', JSON.stringify(request));
+
+  if (iconFile) {
+    formData.append('iconFile', iconFile, iconFile.name);
   }
 
+  return this.http.post<unknown>(url, formData).pipe(
+    map((response) => extractTechnologyResponse(response))
+  );
+}
   /**
    * GET /company-landing/{companyId}/key-people
    * Gets key people for a company.
@@ -426,6 +579,76 @@ export class CompanyApiService {
     );
   }
 
+ // ------------------ DELETE VACANCY ------------
+
+deleteVacancy(companyId: string, vacancyId: string): Observable<boolean> {
+  const path = API_ENDPOINTS.COMPANY.DELETE_VACANCY.replace(':vacancyId', vacancyId);
+  const url = buildUrl(this.baseUrl, path);
+
+  return this.http.delete<unknown>(url, {
+    params: new HttpParams().set('companyId', companyId),
+  }).pipe(
+    map(() => true),
+    catchError((error) => {
+      console.error('CompanyApiService: deleteVacancy error', error);
+      return of(false);
+    })
+  );
+}
+
+  /**
+   * POST /apply/vacancy/{vacancyId}?companyId={companyId}&studentId={studentId}
+   * Apply to a vacancy. No request body required.
+   * Path parameter: vacancyId
+   * Query parameters: companyId, studentId
+   */
+  applyVacancy(vacancyId: string, companyId: string, studentId: string): Observable<{ success: boolean; message: string; statusCode: number; timestamp: string } | null> {
+    const path = resolvePathParams(API_ENDPOINTS.COMPANY.APPLY_VACANCY, { vacancyId });
+    const url = buildUrl(this.baseUrl, path);
+    
+    const params = new HttpParams()
+      .set('companyId', companyId)
+      .set('studentId', studentId);
+    
+    const headers = new HttpHeaders({
+      'Accept': '*/*',
+      'Content-Type': 'application/json'
+    });
+    
+    // POST with empty body as per API spec
+    return this.http.post<unknown>(url, {}, { headers, params }).pipe(
+      map((response) => {
+        if (!response || typeof response !== 'object') {
+          return null;
+        }
+        
+        const responseObj = response as Record<string, unknown>;
+        
+        // Check if response matches expected format
+        if ('success' in responseObj && 'message' in responseObj && 'statusCode' in responseObj) {
+          return {
+            success: responseObj['success'] as boolean,
+            message: responseObj['message'] as string,
+            statusCode: responseObj['statusCode'] as number,
+            timestamp: responseObj['timestamp'] as string
+          };
+        }
+        
+        // Try unwrapResponse pattern
+        const unwrapped = unwrapResponse<{ success: boolean; message: string; statusCode: number; timestamp: string }>(response);
+        if (unwrapped) {
+          return unwrapped;
+        }
+        
+        console.warn('CompanyApiService: applyVacancy - Unexpected response format:', response);
+        return null;
+      }),
+      catchError((error) => {
+        console.error('CompanyApiService: applyVacancy error', error);
+        return throwError(() => error);
+      })
+    );
+  }
 
 
   /**
@@ -538,6 +761,34 @@ getCompanyVision(companyId: string): Observable<VisionResponse | null> {
   );
 }
 
+  /**
+   * GET /company-landing/{companyId}/overview/stats
+   * Target campuses count and campus visits/placement drives count for the given year.
+   */
+  getOverviewStats(companyId: string, year?: number): Observable<CompanyOverviewStatsResponse | null> {
+    const url = buildUrl(
+      this.baseUrl,
+      resolvePathParams(API_ENDPOINTS.COMPANY.GET_OVERVIEW_STATS, { companyId })
+    );
+    let params = new HttpParams();
+    if (year != null) {
+      params = params.set('year', year.toString());
+    }
+    return this.http.get<unknown>(url, { params }).pipe(
+      map((raw) => {
+        const wrapped = unwrapResponse<CompanyOverviewStatsResponse>(raw);
+        if (wrapped) return wrapped;
+        if (raw && typeof raw === 'object') {
+          const rawObj = raw as Record<string, unknown>;
+          if (rawObj['data']) {
+            return rawObj['data'] as CompanyOverviewStatsResponse;
+          }
+        }
+        return null;
+      })
+    );
+  }
+
 
 
 
@@ -567,7 +818,7 @@ getCompanyVision(companyId: string): Observable<VisionResponse | null> {
    * This makes an actual HTTP call so it shows in network tab
    */
 
-getCampuses(): Observable<{ success: boolean; data: { campusId: string; campusName: string }[] }> {
+getCampuses(): Observable<GetCampusesResponse> {
   const url = buildUrl(this.baseUrl, API_ENDPOINTS.STUDENT.GET_REGISTERED_CAMPUSES);
   console.log('CompanyApiService: getCampuses called', { url });
 
@@ -579,12 +830,12 @@ getCampuses(): Observable<{ success: boolean; data: { campusId: string; campusNa
     map((raw) => {
       const wrapped = raw as { success?: boolean; data?: unknown };
 
-      let data: { campusId: string; campusName: string }[] = [];
+      let data: CampusItem[] = [];
 
       if (wrapped?.data && Array.isArray(wrapped.data)) {
-        data = wrapped.data as { campusId: string; campusName: string }[];
+        data = wrapped.data as CampusItem[];
       } else {
-        const unwrapped = unwrapResponse<{ campusId: string; campusName: string }[]>(raw);
+        const unwrapped = unwrapResponse<CampusItem[]>(raw);
         if (unwrapped && Array.isArray(unwrapped)) {
           data = unwrapped;
         }
@@ -606,16 +857,7 @@ getCampusesBySearch(
   searchTerm: string,
   page = 0,
   size = 20
-): Observable<{
-  success?: boolean;
-  data?: {
-    content?: {
-      id: string;
-      campusName: string;
-      campusAddress?: string;
-    }[];
-  };
-}> {
+): Observable<CampusSearchResponse> {
   const url = buildUrl(this.baseUrl, API_ENDPOINTS.CAMPUS.GET_CAMPUS_BY_SEARCH);
 
   let params = new HttpParams()
@@ -628,20 +870,13 @@ getCampusesBySearch(
 
   return this.http.get<unknown>(url, { params }).pipe(
     map((raw) => {
-      const wrapped = raw as {
-        success?: boolean;
-        data?: { content?: unknown };
-      };
+      const wrapped = raw as CampusSearchResponse;
 
       return {
         success: wrapped?.success ?? true,
         data: {
           content: Array.isArray(wrapped?.data?.content)
-            ? (wrapped.data!.content as {
-                id: string;
-                campusName: string;
-                campusAddress?: string;
-              }[])
+            ? (wrapped.data!.content as CampusSearchItem[])
             : [],
         },
       };
@@ -655,12 +890,7 @@ searchCampuses(
   campusName: string,
   page = 0,
   size = 20
-): Observable<{
-  success: boolean;
-  data: {
-    content: { id: string; campusName: string; campusAddress?: string }[];
-  };
-}> {
+): Observable<CampusSearchResponse> {
   const url = buildUrl(this.baseUrl, API_ENDPOINTS.CAMPUS.GET_CAMPUS_BY_SEARCH);
 
   let params = new HttpParams()
@@ -673,20 +903,13 @@ searchCampuses(
 
   return this.http.get<unknown>(url, { params }).pipe(
     map((raw) => {
-      const wrapped = raw as {
-        success?: boolean;
-        data?: { content?: unknown };
-      };
+      const wrapped = raw as CampusSearchResponse;
 
       return {
         success: wrapped?.success ?? true,
         data: {
           content: Array.isArray(wrapped?.data?.content)
-            ? (wrapped!.data!.content as {
-                id: string;
-                campusName: string;
-                campusAddress?: string;
-              }[])
+            ? (wrapped!.data!.content as CampusSearchItem[])
             : [],
         },
       };
@@ -715,31 +938,283 @@ searchCampuses(
 
   return this.http.get<unknown>(url, { params }).pipe(
     map((raw) => {
-      const wrapped = unwrapResponse<unknown>(raw) as {
-        content?: unknown;
-        totalPages?: number;
-        totalElements?: number;
-        number?: number;
-        size?: number;
-      } | null;
-
-      if (!wrapped) return null;
-
+      if (!raw || typeof raw !== 'object') return null;
+      const rec = raw as { data?: { content?: unknown[]; totalPages?: number; totalElements?: number; number?: number; size?: number } };
+      const d = rec.data;
+      if (!d) return null;
       return {
-        content: Array.isArray(wrapped.content)
-          ? (wrapped.content as TestimonialResponse[])
-          : [],
-        totalPages: wrapped.totalPages ?? 1,
-        totalElements: wrapped.totalElements ?? 0,
-        number: wrapped.number ?? 0,
-        size: wrapped.size ?? limit,
+        content: Array.isArray(d.content) ? (d.content as TestimonialResponse[]) : [],
+        totalPages: d.totalPages ?? 1,
+        totalElements: d.totalElements ?? 0,
+        number: d.number ?? 0,
+        size: d.size ?? limit,
       };
     })
   );
 }
 
+// --------------------- POST API submit company recommendation -------------
+
+submitCompanyRecommendation(
+  companyId: string,
+  reviewerId: string,
+  requesterUserType: 'STUDENT' | 'COMPANY' | 'CAMPUS',
+  request: CompanyRecommendationRequest
+): Observable<CompanyRecommendationResponse | null> {
+
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.SUBMIT_RECOMMENDATION, { companyId })
+  );
+
+  const params = new HttpParams()
+    .set('reviewerId', reviewerId)
+    .set('requesterUserType', requesterUserType)
+    .set('target', 'company'); // Routes to COMPANY backend (student uses same path, no target param)
+
+  const headers = new HttpHeaders({
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  });
+
+  // Build body explicitly to match Swagger: { publicCompanyId?, wouldRecommend }
+  const body: CompanyRecommendationRequest = {
+    wouldRecommend: request.wouldRecommend,
+    ...(request.publicCompanyId && { publicCompanyId: request.publicCompanyId }),
+  };
+
+  return this.http.post<unknown>(url, body, { params, headers }).pipe(
+    map(raw => unwrapResponse<CompanyRecommendationResponse>(raw)),
+    catchError(err => {
+      console.error('submitCompanyRecommendation error', err);
+      return of(null);
+    })
+  );
+}
+
+
+
+
+  /**
+   * POST /company/{companyId}/feedback?requesterUserType={STUDENT|CAMPUS}
+   * Submit feedback for a company profile.
+   */
+submitCompanyFeedback(
+  companyId: string,
+  reviewerId: string,
+  requesterUserType: 'STUDENT' | 'COMPANY' | 'CAMPUS',
+  request: CompanyFeedbackRequest
+): Observable<CompanyFeedbackResponse | null> {
+
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.SUBMIT_FEEDBACK, { companyId })
+  );
+
+  const params = new HttpParams()
+    .set('reviewerId', reviewerId)
+    .set('requesterUserType', requesterUserType);
+
+  const headers = new HttpHeaders({
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  });
+
+  return this.http.post<unknown>(url, request, { params, headers }).pipe(
+    map(raw => unwrapResponse<CompanyFeedbackResponse>(raw)),
+    catchError(err => {
+      console.error('submitCompanyFeedback error', err);
+      return throwError(() => err);
+    })
+  );
+}
+
+
+
+  // ------------------- get follow 
+  getFollowerCount(companyId: string): Observable<FollowerCountResponse> {
+    const path = API_ENDPOINTS.COMPANY.GET_FOLLOWERS_COUNT.replace(':companyId', companyId);
+    const url = buildUrl(this.baseUrl, path);
+  
+    return this.http.get<FollowerCountResponse>(url);
+  }
+
+
+  // ---------------------- PROMOTIONS COUNT -----------------
+
+  getPromotionsCount(companyId: string): Observable<PromotionsCountResponse> {
+    const path = API_ENDPOINTS.COMPANY.PROMOTIONS_COUNT.replace(':companyId', companyId);
+    const url = buildUrl(this.baseUrl, path);
+  
+    return this.http.get<PromotionsCountResponse>(url);
+  }
+  
+  
+  // -------------------------- PUBLIC LANDING (USING PUBLIC COMPANY ID) ------------------
+
+
+  getPublicCompanyProfile(publicCompanyId: string): Observable<CompanyRegistrationResponse | null> {
+    const url = buildUrl(
+      this.baseUrl,
+      resolvePathParams('/public-landing/:publicCompanyId/company-profile', { publicCompanyId })
+    );
+  
+    return this.http.get<unknown>(url).pipe(
+      map((raw) => {
+        const wrapped = unwrapResponse<CompanyRegistrationResponse>(raw);
+        if (wrapped) return wrapped;
+  
+        if (raw && typeof raw === 'object') {
+          const obj = raw as { data?: unknown };
+          if (obj.data) {
+            return obj.data as CompanyRegistrationResponse;
+          }
+        }
+        return null;
+      })
+    );
+  }
+  
+/**
+ * GET /public-landing/{publicCompanyId}/vision
+ * Fetch Vision for public landing page
+ */
+getPublicCompanyVision(publicCompanyId: string): Observable<VisionResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams('/public-landing/:publicCompanyId/vision', { publicCompanyId })
+  );
+
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => {
+      const wrapped = unwrapResponse<VisionResponse>(raw);
+      if (wrapped) return wrapped;
+
+      if (raw && typeof raw === 'object') {
+        const rawObj = raw as Record<string, unknown>;
+        if (rawObj['data']) {
+          return rawObj['data'] as VisionResponse;
+        }
+      }
+
+      return null;
+    })
+  );
+}
+
+
+getPublicVacancies(publicCompanyId: string): Observable<readonly VacancyResponse[]> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_VACANCIES, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<VacancyResponse[]>(raw) ?? [])
+  );
+}
+
+getPublicTestimonials(
+  publicCompanyId: string,
+  page = 1,
+  size = 5
+): Observable<PaginatedTestimonials | null> {
+
+  page = Math.max(1, page);
+
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_TESTIMONIALS, { publicCompanyId })
+  );
+
+  const params = new HttpParams()
+    .set('page', page.toString())
+    .set('size', size.toString());
+
+  return this.http.get<unknown>(url, { params }).pipe(
+    map((raw) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const rec = raw as { data?: { content?: unknown[]; totalPages?: number; totalElements?: number; number?: number; size?: number } };
+      const d = rec.data;
+      if (!d) return null;
+      return {
+        content: Array.isArray(d.content) ? (d.content as TestimonialResponse[]) : [],
+        totalPages: d.totalPages ?? 1,
+        totalElements: d.totalElements ?? 0,
+        number: d.number ?? 0,
+        size: d.size ?? 1,
+      } as PaginatedTestimonials;
+    })
+  );
+}
+
+
+getPublicTargetCampuses(publicCompanyId: string): Observable<readonly TargetCampusResponse[]> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_TARGET_CAMPUSES, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<TargetCampusResponse[]>(raw) ?? [])
+  );
+}
+
+getPublicKeyPeople(publicCompanyId: string): Observable<readonly KeyPersonResponse[]> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_KEY_PEOPLE, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<KeyPersonResponse[]>(raw) ?? [])
+  );
+}
+
+getPublicFollowers(publicCompanyId: string): Observable<{ companyId: string; followerCount: number } | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_FOLLOWERS, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<{ companyId: string; followerCount: number }>(raw))
+  );
+}
+
+getPublicPromotions(publicCompanyId: string): Observable<{ companyId: string; promotionCount: number } | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_PROMOTIONS, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<{ companyId: string; promotionCount: number }>(raw))
+  );
+}
+
+getPublicClients(publicCompanyId: string): Observable<readonly ClientResponse[]> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_CLIENTS, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<ClientResponse[]>(raw) ?? [])
+  );
+}
+
+getPublicBenefitsOffer(publicCompanyId: string): Observable<BenefitsOfferResponse | null> {
+  const url = buildUrl(
+    this.baseUrl,
+    resolvePathParams(API_ENDPOINTS.COMPANY.PUBLIC_GET_BENEFITS_OFFER, { publicCompanyId })
+  );
+  return this.http.get<unknown>(url).pipe(
+    map((raw) => unwrapResponse<BenefitsOfferResponse>(raw))
+  );
+}
+
+// ---------------------------------- END PUBLIC ID --------------------
+
+
 
 }
+
+
 
 
 
@@ -758,15 +1233,64 @@ export interface CompanyRegisterRequest {
   companyAddress: string;
 }
 
+export interface CompanyRegisterFiles {
+  companyLogo?: File | null;
+  keyPerson1Photo?: File | null;
+  keyPerson2Photo?: File | null;
+  keyPerson3Photo?: File | null;
+}
+
+export interface CompanyRegisterPayload {
+  request: CompanyRegisterRequest;
+  files?: CompanyRegisterFiles;
+}
+
 export interface RegisterCompanyOptions {
   userId?: string | number;
-  userType?: UserType;
+  userType?: UserType | 'ADMIN';
+}
+
+export interface CompanyRecommendationRequest {
+  publicCompanyId?: string;
+  wouldRecommend: boolean;
+}
+
+export interface CompanyRecommendationResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    recommendationId?: string;
+    companyId?: string;
+    reviewerId?: string;
+    wouldRecommend?: boolean;
+    createdAt?: string;
+  };
+}
+
+export interface CompanyFeedbackRequest {
+  reviewerName: string;
+  feedbackText: string;
+  reviewerEmail?: string;
+  reviewerDesignation?: string;
+}
+
+export interface CompanyFeedbackResponse {
+  feedbackId?: string;
+  companyId?: string;
+  reviewerName?: string;
+  reviewerEmail?: string;
+  reviewerDesignation?: string;
+  // Swagger response uses `feedbackText`
+  feedbackText?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface CompanyRegistrationResponse {
   companyId?: string;
   email?: string;
   userId?: string;
+  publicCompanyId?: string;
   companyName?: string;
   companyLogoUrl?: string;
   adminName?: string;
@@ -807,9 +1331,19 @@ export interface PreferredCampusRequest {
   campusLogoUrl?: string;
 }
 
+export interface PreferredCampusUploadFiles {
+  campusLogo?: File | null;
+}
+
+export interface PreferredCampusUploadPayload {
+  request: PreferredCampusRequest;
+  files?: PreferredCampusUploadFiles;
+}
+
 export interface PreferredCampusResponse {
   campusId?: string;
   companyId?: string;
+    publicCampusId?: string; 
   campusName?: string;
   campusLogoUrl?: string;
   createdAt?: string | null;
@@ -837,14 +1371,37 @@ export interface CompanyAutoSearchResponse {
 
 export interface ClientRequest {
   clientName: string;
+  photoUrl?: string;
+}
+
+export interface LegacyClientRequest {
+  clientName: string;
   photourl?: string;
+}
+
+export type ClientRequestInput = ClientRequest | LegacyClientRequest;
+
+export interface ClientUploadFiles {
+  photo?: File | null;
+}
+
+export interface ClientUploadPayload {
+  request: ClientRequest;
+  files?: ClientUploadFiles;
+}
+
+export interface ClientUploadPayloadInput {
+  request: ClientRequestInput;
+  files?: ClientUploadFiles;
 }
 
 export interface ClientResponse {
   clientId?: string;
   companyId?: string;
+     publicCompanyId?: string; 
   clientName?: string;
-  photourl?: string;    // API field for photo
+  photoUrl?: string;    // API field for photo (camelCase)
+  photourl?: string;    // API field for photo (legacy lowercase)
   clientLogo?: string;  // API might return this
   logoUrl?: string;     // fallback
   name?: string;        // optional
@@ -945,6 +1502,13 @@ export interface VisionResponse {
   updatedAt?: string | null;
 }
 
+export interface CompanyOverviewStatsResponse {
+  companyId?: string;
+  year?: number;
+  targetCampusesCount?: number;
+  campusVisitsOrDrivesThisYear?: number;
+}
+
 export interface BenefitsOfferRequest {
   internToJobRate: string;
   startingSalaryRange: string;
@@ -1020,15 +1584,21 @@ export interface TargetCampusResponse {
   campusId?: string;
   campusName?: string;
   campusLogo?: string;
+  campusLogoUrl?: string;
   address?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
 export interface TestimonialResponse {
   testimonialId?: string;
+  // Backend returns these (per your network screenshot)
+  reviewerName?: string;
+  reviewerEmail?: string;
+  reviewerDesignation?: string;
   quote?: string;
-  author?: string;
   photoUrl?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface PaginatedTestimonials {
@@ -1040,30 +1610,36 @@ export interface PaginatedTestimonials {
 }
 
 
-interface ApiResponse<T> {
-  success?: boolean;
-  message?: string;
-  data?: T;
-  error?: string;
-  statusCode?: number;
-  timestamp?: string;
+function unwrapResponse<T>(raw: unknown): T | null {
+  if (raw === null || raw === undefined) {
+    return null;
+  }
+  return unwrapApiResponseCore<T>(raw);
 }
 
-function unwrapResponse<T>(raw: unknown): T | null {
+// public id 
+function extractCompanyRegistrationResponse(raw: unknown): CompanyRegistrationResponse | null {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
-  const maybe = raw as ApiResponse<T>;
-  return maybe.data ?? null;
-}
 
-function extractCompanyRegistrationResponse(raw: unknown): CompanyRegistrationResponse | null {
-  const wrapped = unwrapResponse<unknown>(raw) ?? raw;
-  if (!wrapped || typeof wrapped !== 'object') {
+  // First unwrap
+  const level1 = unwrapResponse<unknown>(raw) ?? raw;
+
+  if (!level1 || typeof level1 !== 'object') {
     return null;
   }
-  return wrapped as CompanyRegistrationResponse;
+
+  // Handle possible double-wrap: { success, data: { success, data: {...} } }
+  const maybeWrappedAgain = level1 as { data?: unknown };
+
+  if (maybeWrappedAgain.data && typeof maybeWrappedAgain.data === 'object') {
+    return maybeWrappedAgain.data as CompanyRegistrationResponse;
+  }
+
+  return level1 as CompanyRegistrationResponse;
 }
+
 
 function extractPreferredCampusResponse(raw: unknown): PreferredCampusResponse | null {
   const wrapped = unwrapResponse<unknown>(raw) ?? raw;
@@ -1087,8 +1663,8 @@ function extractClientResponse(raw: unknown): ClientResponse | null {
   if (raw && typeof raw === 'object') {
     const rawObj = raw as Record<string, unknown>;
     
-    // Check if it's already a ClientResponse-like object (has clientId, clientName, or photourl)
-    if (rawObj['clientId'] || rawObj['clientName'] || rawObj['photourl']) {
+    // Check if it's already a ClientResponse-like object (has clientId, clientName, or photoUrl/photourl)
+    if (rawObj['clientId'] || rawObj['clientName'] || rawObj['photoUrl'] || rawObj['photourl']) {
       console.log('extractClientResponse: found direct ClientResponse', rawObj);
       return rawObj as ClientResponse;
     }
@@ -1198,6 +1774,28 @@ function extractVacancyResponse(raw: unknown): VacancyResponse | null {
   return null;
 }
 
+/** Normalizes benefits offer response to camelCase (handles PascalCase from backend). */
+function normalizeBenefitsOfferResponse(obj: Record<string, unknown>): BenefitsOfferResponse {
+  const get = (camel: string, pascal: string) =>
+    (obj[camel] ?? obj[pascal]) as string | undefined;
+  return {
+    benefitsOfferId: (obj['benefitsOfferId'] ?? obj['BenefitsOfferId']) as string | undefined,
+    companyId: (obj['companyId'] ?? obj['CompanyId']) as string | undefined,
+    internToJobRate: get('internToJobRate', 'InternToJobRate'),
+    startingSalaryRange: get('startingSalaryRange', 'StartingSalaryRange'),
+    performanceBonus: get('performanceBonus', 'PerformanceBonus'),
+    healthcare: get('healthcare', 'Healthcare'),
+    mentorBuddySystem: get('mentorBuddySystem', 'MentorBuddySystem'),
+    workLifeBalancePerks: get('workLifeBalancePerks', 'WorkLifeBalancePerks'),
+    appreciationDayOff: get('appreciationDayOff', 'AppreciationDayOff'),
+    trainingAndUpskilling: get('trainingAndUpskilling', 'TrainingAndUpskilling'),
+    sickLeaves: get('sickLeaves', 'SickLeaves'),
+    referralBonus: get('referralBonus', 'ReferralBonus'),
+    createdAt: (obj['createdAt'] ?? obj['CreatedAt']) as string | null | undefined,
+    updatedAt: (obj['updatedAt'] ?? obj['UpdatedAt']) as string | null | undefined,
+  };
+}
+
 /**
  * Normalizes VacancyResponse to handle API response format variations
  * (capital letters like JobTitle, JobLocation, etc.)
@@ -1209,7 +1807,7 @@ function extractBenefitsOfferResponse(raw: unknown): BenefitsOfferResponse | nul
   const wrapped = unwrapResponse<BenefitsOfferResponse>(raw);
   if (wrapped && typeof wrapped === 'object') {
     console.log('extractBenefitsOfferResponse: extracted from unwrapResponse', wrapped);
-    return wrapped;
+    return normalizeBenefitsOfferResponse(wrapped as Record<string, unknown>);
   }
   
   // If unwrapResponse returned null, try raw response directly
@@ -1219,21 +1817,21 @@ function extractBenefitsOfferResponse(raw: unknown): BenefitsOfferResponse | nul
     // Check if it's already a BenefitsOfferResponse-like object
     if (rawObj['benefitsOfferId'] || rawObj['companyId']) {
       console.log('extractBenefitsOfferResponse: found direct BenefitsOfferResponse', rawObj);
-      return rawObj as BenefitsOfferResponse;
+      return normalizeBenefitsOfferResponse(rawObj);
     }
     
     // Check if data field exists and extract from it
     if (rawObj['data'] && typeof rawObj['data'] === 'object') {
       const data = rawObj['data'] as Record<string, unknown>;
       console.log('extractBenefitsOfferResponse: extracted from data field', data);
-      return data as BenefitsOfferResponse;
+      return normalizeBenefitsOfferResponse(data);
     }
     
     // Check if response has nested structure
     if (rawObj['success'] !== undefined && rawObj['data']) {
       const data = rawObj['data'] as Record<string, unknown>;
       console.log('extractBenefitsOfferResponse: extracted from success.data', data);
-      return data as BenefitsOfferResponse;
+      return normalizeBenefitsOfferResponse(data);
     }
   }
   
@@ -1336,6 +1934,50 @@ function buildUserHeaders(options?: RegisterCompanyOptions): HttpHeaders {
   return headers;
 }
 
+function normalizeRegisterPayload(
+  data: CompanyRegisterRequest | CompanyRegisterPayload,
+): CompanyRegisterPayload {
+  if ('request' in data) {
+    return data;
+  }
+  return { request: data };
+}
+
+function hasRegisterFiles(files?: CompanyRegisterFiles): boolean {
+  if (!files) {
+    return false;
+  }
+  return Boolean(
+    files.companyLogo ||
+      files.keyPerson1Photo ||
+      files.keyPerson2Photo ||
+      files.keyPerson3Photo,
+  );
+}
+
+function buildRegisterCompanyFormData(payload: CompanyRegisterPayload): FormData {
+  const formData = new FormData();
+  formData.append('request', JSON.stringify(payload.request));
+
+  const files = payload.files;
+  if (!files) {
+    return formData;
+  }
+  if (files.companyLogo) {
+    formData.append('companyLogo', files.companyLogo, files.companyLogo.name);
+  }
+  if (files.keyPerson1Photo) {
+    formData.append('keyPerson1Photo', files.keyPerson1Photo, files.keyPerson1Photo.name);
+  }
+  if (files.keyPerson2Photo) {
+    formData.append('keyPerson2Photo', files.keyPerson2Photo, files.keyPerson2Photo.name);
+  }
+  if (files.keyPerson3Photo) {
+    formData.append('keyPerson3Photo', files.keyPerson3Photo, files.keyPerson3Photo.name);
+  }
+  return formData;
+}
+
 function buildUrl(baseUrl: string, endpoint: string): string {
   const trimmed = baseUrl.trim();
   if (!trimmed) {
@@ -1351,6 +1993,90 @@ function buildUrl(baseUrl: string, endpoint: string): string {
     return `http://${trimmed}` + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
   }
   return trimmed + (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+}
+
+function normalizeClientRequest(request: ClientRequestInput): ClientRequest {
+  const photoUrl = 'photoUrl' in request && request.photoUrl !== undefined
+    ? request.photoUrl
+    : ('photourl' in request ? request.photourl : undefined);
+  return photoUrl !== undefined
+    ? { clientName: request.clientName, photoUrl }
+    : { clientName: request.clientName };
+}
+
+function normalizeClientPayload(
+  request: ClientRequestInput | ClientUploadPayloadInput
+): ClientUploadPayload {
+  if ('request' in request) {
+    return { request: normalizeClientRequest(request.request), files: request.files };
+  }
+  return { request: normalizeClientRequest(request) };
+}
+
+function hasClientFiles(files?: ClientUploadFiles): boolean {
+  if (!files) {
+    return false;
+  }
+  return Boolean(files.photo);
+}
+
+function buildClientFormData(payload: ClientUploadPayload): FormData {
+  const formData = new FormData();
+  formData.append('request', JSON.stringify(payload.request));
+  const photo = payload.files?.photo ?? null;
+  if (photo) {
+    formData.append('photo', photo, photo.name);
+  }
+  return formData;
+}
+
+function normalizePreferredCampusPayload(
+  request: PreferredCampusRequest | PreferredCampusUploadPayload
+): PreferredCampusUploadPayload {
+  if ('request' in request) {
+    return request;
+  }
+  return { request };
+}
+
+function hasPreferredCampusFiles(files?: PreferredCampusUploadFiles): boolean {
+  if (!files) {
+    return false;
+  }
+  return Boolean(files.campusLogo);
+}
+
+function buildPreferredCampusFormData(payload: PreferredCampusUploadPayload): FormData {
+  const formData = new FormData();
+  formData.append('request', JSON.stringify(payload.request));
+  const logo = payload.files?.campusLogo ?? null;
+  if (logo) {
+    formData.append('campusLogo', logo, logo.name);
+  }
+  return formData;
+}
+
+export interface BulkUploadRowResult {
+  rowNumber?: number;
+  companyName?: string;
+  success?: boolean;
+  message?: string;
+  error?: string;
+  companyId?: string;
+}
+
+export interface BulkUploadResponse {
+  totalRows?: number;
+  successfulRows?: number;
+  failedRows?: number;
+  results?: BulkUploadRowResult[];
+}
+
+export interface ApiResponseBulkUploadResponse {
+  success: boolean;
+  message: string | null;
+  data: BulkUploadResponse | null;
+  error: string | null;
 }
 
 function resolvePathParams(endpoint: string, params: Record<string, string>): string {

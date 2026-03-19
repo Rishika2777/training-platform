@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { isValidUrl } from '../../../../core/validators/url.validator';
 
 export interface KeyPersonValue {
   name: string;
@@ -32,6 +33,9 @@ export interface CompanyFormValue {
   companyAddress: string;
 }
 
+const MIN_PHOTO_WIDTH = 300;
+const MIN_PHOTO_HEIGHT = 300;
+
 @Component({
   selector: 'app-company-form',
   standalone: true,
@@ -47,13 +51,22 @@ export class CompanyFormComponent {
   @Input() approveDisabled = false;
   @Input() isEditMode = false;
   @Input() value: CompanyFormValue = CompanyFormComponent.createEmptyValue();
+  @Input() verifiedPhoneNumber: string | null = null; // Phone number that has been verified
 
   @Output() valueChange = new EventEmitter<CompanyFormValue>();
   @Output() submitted = new EventEmitter<CompanyFormValue>();
   @Output() cancelled = new EventEmitter<void>();
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
+  @Output() verifyPhone = new EventEmitter<{ phoneNumber: string; fieldType: 'mobile' | 'adminPhone' | 'phone' }>();
 
   submitAttempted = false;
+
+  /** 300x300 validation: company photo */
+  companyPhotoDimensionError: string | null = null;
+  /** 300x300 validation: key person photos by index */
+  keyPersonDimensionErrors: (string | null)[] = [];
+
+  private readonly cdr = inject(ChangeDetectorRef);
 
   get isReviewMode(): boolean {
     return this.mode === 'review';
@@ -95,6 +108,13 @@ export class CompanyFormComponent {
     }
     const next: CompanyFormValue = { ...this.value, ...patch };
     this.value = next;
+    if (patch.keyPeople && patch.keyPeople.length !== this.keyPersonDimensionErrors.length) {
+      const len = patch.keyPeople.length;
+      this.keyPersonDimensionErrors = [...this.keyPersonDimensionErrors.slice(0, len)];
+      while (this.keyPersonDimensionErrors.length < len) {
+        this.keyPersonDimensionErrors.push(null);
+      }
+    }
     this.valueChange.emit(next);
   }
 
@@ -120,19 +140,87 @@ export class CompanyFormComponent {
   }
 
   onCompanyPhotoSelected(files: FileList): void {
+    this.companyPhotoDimensionError = null;
     const file = this.pickFirstFile(files);
-    // Clear URL when new file is selected
     this.patch({ companyPhoto: file, companyPhotoUrl: undefined });
+    if (!file) {
+      this.cdr.markForCheck();
+      return;
+    }
+    this.validatePhotoDimensions(file, (err) => {
+      this.companyPhotoDimensionError = err;
+      this.cdr.markForCheck();
+    });
   }
 
   onKeyPersonPhotoSelected(index: number, files: FileList): void {
+    while (this.keyPersonDimensionErrors.length <= index) {
+      this.keyPersonDimensionErrors.push(null);
+    }
+    this.keyPersonDimensionErrors[index] = null;
     const file = this.pickFirstFile(files);
-    // Clear URL when new file is selected
     this.patchKeyPerson(index, { photo: file, photoUrl: undefined });
+    if (!file) {
+      this.cdr.markForCheck();
+      return;
+    }
+    this.validatePhotoDimensions(file, (err) => {
+      this.keyPersonDimensionErrors[index] = err;
+      this.cdr.markForCheck();
+    });
+  }
+
+  private validatePhotoDimensions(file: File, onDone: (error: string | null) => void): void {
+    if (!file.type.startsWith('image/')) {
+      onDone('Please upload an image file (e.g. JPG, PNG).');
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = (): void => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      URL.revokeObjectURL(url);
+      if (w < MIN_PHOTO_WIDTH || h < MIN_PHOTO_HEIGHT) {
+        onDone(`Image must be at least ${MIN_PHOTO_WIDTH}x${MIN_PHOTO_HEIGHT} pixels.`);
+      } else {
+        onDone(null);
+      }
+    };
+    img.onerror = (): void => {
+      URL.revokeObjectURL(url);
+      onDone('Failed to load image. Please choose a valid image file.');
+    };
+    img.src = url;
+  }
+
+  getCompanyPhotoDimensionError(): string | null {
+    return this.companyPhotoDimensionError;
+  }
+
+  getKeyPersonDimensionError(index: number): string | null {
+    if (index >= this.keyPersonDimensionErrors.length) {
+      return null;
+    }
+    return this.keyPersonDimensionErrors[index] ?? null;
+  }
+
+  /** True when any upload photo fails 300x300 validation – used to disable Submit. */
+  hasPhotoDimensionErrors(): boolean {
+    if (this.companyPhotoDimensionError) {
+      return true;
+    }
+    for (let i = 0; i < this.value.keyPeople.length; i++) {
+      if (this.getKeyPersonDimensionError(i)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   addKeyPerson(): void {
     const next = [...this.value.keyPeople, CompanyFormComponent.createEmptyKeyPerson()];
+    this.keyPersonDimensionErrors = [...this.keyPersonDimensionErrors, null];
     this.patch({ keyPeople: next });
   }
 
@@ -141,6 +229,7 @@ export class CompanyFormComponent {
       return;
     }
     const next = this.value.keyPeople.filter((_, i) => i !== index);
+    this.keyPersonDimensionErrors = this.keyPersonDimensionErrors.filter((_, i) => i !== index);
     this.patch({ keyPeople: next.length ? next : [CompanyFormComponent.createEmptyKeyPerson()] });
   }
 
@@ -180,6 +269,46 @@ export class CompanyFormComponent {
     return digitsOnly.length !== 10;
   }
 
+  isCompanyWebsiteUrlInvalid(): boolean {
+    if (!this.submitAttempted) return false;
+    const s = (this.value.companyWebsiteUrl ?? '').trim();
+    if (s.length === 0) return true;
+    return !isValidUrl(s);
+  }
+
+isOtherWebsiteUrlInvalid(): boolean {
+
+  if (!this.submitAttempted) return false;
+
+  const s = (this.value.otherWebsiteUrl ?? '').trim();
+
+  if (s.length === 0) return false;
+
+  return !isValidUrl(s);
+}
+
+  private isFormValid(): boolean {
+    const required =
+      this.value.companyName.trim().length > 0 &&
+      this.value.adminName.trim().length > 0 &&
+      this.value.adminDesignation.trim().length > 0 &&
+      this.value.adminEmail.trim().length > 0 &&
+      !this.isAdminPhoneInvalid() &&
+      this.value.registerNumber.trim().length > 0 &&
+      this.value.aboutCompany.trim().length > 0 &&
+      this.value.companyAddress.trim().length > 0;
+const urlValid =
+  !this.isCompanyWebsiteUrlInvalid() &&
+  (!this.value.otherWebsiteUrl || !this.isOtherWebsiteUrlInvalid());
+    const keyPeopleValid = this.value.keyPeople.every(
+      (p) => p.name.trim().length > 0 && p.designation.trim().length > 0,
+    );
+    const photoValid =
+      !this.companyPhotoDimensionError &&
+      this.value.keyPeople.every((_, i) => !this.getKeyPersonDimensionError(i));
+    return required && urlValid && keyPeopleValid && photoValid;
+  }
+
   submit(): void {
     // In review mode, use the explicit Approve/Reject buttons instead of form submit.
     // But allow submission when edit mode is enabled.
@@ -187,6 +316,9 @@ export class CompanyFormComponent {
       return;
     }
     this.submitAttempted = true;
+    if (!this.isFormValid()) {
+      return;
+    }
     this.submitted.emit(this.value);
   }
 

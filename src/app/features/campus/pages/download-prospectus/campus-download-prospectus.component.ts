@@ -1,10 +1,14 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
 import { CampusApiService, ProspectusData, AddCourseResponseData, GetProspectusResponse } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { catchError, map } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 @Component({
   selector: 'app-campus-download-prospectus',
@@ -18,6 +22,7 @@ export class CampusDownloadProspectusComponent implements OnInit {
   private readonly notify = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly storage = inject(StorageService);
+  private readonly route = inject(ActivatedRoute);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId as object);
 
@@ -34,23 +39,35 @@ export class CampusDownloadProspectusComponent implements OnInit {
   readonly loadingProspectus = signal(false);
   readonly downloadingProspectus = signal(false);
 
-  // Store actual campus ID
+  // Store actual campus ID (for authenticated users) or public campus ID (for public users)
   private campusId: string | null = null;
+  private publicCampusId: string | null = null;
 
   ngOnInit(): void {
     this.loadCampusId();
-    this.loadCourses();
+    // Load courses for both authenticated and public users
+    if (this.campusId || this.publicCampusId) {
+      this.loadCourses();
+    }
   }
 
   /**
-   * Load campus ID from storage
+   * Load campus ID from route (for public users) or storage (for authenticated users)
    */
   private loadCampusId(): void {
     if (!this.isBrowser) {
       return;
     }
 
-    // Try to get campus ID from storage
+    // First, try to get public campus ID from route (for public/guest landing page)
+    const routePublicCampusId = this.route.snapshot.paramMap.get('publicCampusId');
+    if (routePublicCampusId) {
+      this.publicCampusId = routePublicCampusId;
+      console.log('CampusDownloadProspectusComponent: Public Campus ID loaded from route:', this.publicCampusId);
+      return;
+    }
+
+    // Try to get campus ID from storage (for authenticated users)
     const storedCampusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID);
     if (storedCampusId) {
       this.campusId = storedCampusId;
@@ -70,12 +87,58 @@ export class CampusDownloadProspectusComponent implements OnInit {
   }
 
   /**
-   * Load courses from API
+   * Load courses from API (supports both public and authenticated users)
    */
   loadCourses(): void {
     this.loadingCourses.set(true);
     
-    this.campusApi.getAllCourses().subscribe({
+    // Use public API if publicCampusId exists, otherwise use authenticated API
+    const source$ = this.publicCampusId
+      ? this.campusApi.getPublicCampusCourses(this.publicCampusId, 1, 100).pipe(
+          map((coursesData: unknown) => {
+            // Handle paginated response (might have content array) or direct array
+            let coursesArray: unknown[] = [];
+            
+            if (Array.isArray(coursesData)) {
+              coursesArray = coursesData;
+            } else if (coursesData && typeof coursesData === 'object') {
+              const data = coursesData as Record<string, unknown>;
+              // Check if response has content array (paginated response)
+              if (Array.isArray(data['content'])) {
+                coursesArray = data['content'] as unknown[];
+              } else if (Array.isArray(data['data'])) {
+                coursesArray = data['data'] as unknown[];
+              }
+            }
+            
+            // Map public API response to same format as authenticated API
+            return coursesArray.map((course: unknown) => {
+              const c = course as Record<string, unknown>;
+              return {
+                id: (c['id'] || c['courseId'] || '') as string,
+                courseName: (c['courseName'] || c['name'] || '') as string,
+                availableSeats: (c['availableSeats'] || c['seats'] || 0) as number,
+                totalSeats: (c['totalSeats'] || c['seats'] || 0) as number,
+                duration: (c['duration'] || 0) as number,
+                description: (c['description'] || c['fullName'] || '') as string
+              } as AddCourseResponseData;
+            });
+          }),
+          catchError((error) => {
+            console.error('CampusDownloadProspectusComponent: Error loading public courses:', error);
+            return of([]);
+          })
+        )
+      : this.campusId
+        ? this.campusApi.getAllCourses().pipe(
+            catchError((error) => {
+              console.error('CampusDownloadProspectusComponent: Error loading courses:', error);
+              return of([]);
+            })
+          )
+        : of([]);
+
+    source$.subscribe({
       next: (coursesData) => {
         this.loadingCourses.set(false);
         
@@ -118,10 +181,13 @@ export class CampusDownloadProspectusComponent implements OnInit {
   }
 
   /**
-   * Load prospectuses by course name
+   * Load prospectuses by course name (supports both public and authenticated users)
    */
   loadProspectusByCourse(courseName: string): void {
-    if (!this.campusId) {
+    // For public users, we need to use publicCampusId, but the API might not support public endpoint
+    // For now, we'll use campusId for authenticated users only
+    // TODO: Add public API endpoint for prospectus if needed
+    if (!this.campusId && !this.publicCampusId) {
       this.notify.error('Campus ID not found');
       return;
     }
@@ -130,18 +196,26 @@ export class CampusDownloadProspectusComponent implements OnInit {
       return;
     }
 
-    this.loadingProspectus.set(true);
-    console.log('CampusDownloadProspectusComponent: Loading prospectuses for course:', courseName, 'campusId:', this.campusId);
+    // Use campusId for authenticated users (public API for prospectus may not be available)
+    const campusIdToUse = this.campusId || this.publicCampusId;
+    if (!campusIdToUse) {
+      this.notify.error('Campus ID not found');
+      return;
+    }
 
-    this.campusApi.getProspectusByCourse(this.campusId, courseName.trim()).subscribe({
+    this.loadingProspectus.set(true);
+    console.log('CampusDownloadProspectusComponent: Loading prospectuses for course:', courseName, 'campusId:', campusIdToUse);
+
+    this.campusApi.getProspectusByCourse(campusIdToUse, courseName.trim()).subscribe({
       next: (response: GetProspectusResponse | null) => {
         this.loadingProspectus.set(false);
         console.log('CampusDownloadProspectusComponent: getProspectusByCourse response:', response);
         
         // Swagger response: { success: boolean, message: string | null, data: ProspectusData[], error: string | null }
-        if (response && Array.isArray(response.data)) {
-          console.log('CampusDownloadProspectusComponent: Setting prospectus list with', response.data.length, 'items');
-          this.prospectusList.set(response.data);
+        const items = unwrapApiResponse<ProspectusData[]>(response);
+        if (Array.isArray(items)) {
+          console.log('CampusDownloadProspectusComponent: Setting prospectus list with', items.length, 'items');
+          this.prospectusList.set(items);
         } else {
           console.log('CampusDownloadProspectusComponent: Response data is not an array, setting empty list');
           this.prospectusList.set([]);
@@ -177,7 +251,8 @@ export class CampusDownloadProspectusComponent implements OnInit {
       return;
     }
 
-    if (!this.campusId) {
+    const campusIdToUse = this.campusId || this.publicCampusId;
+    if (!campusIdToUse) {
       this.notify.error('Campus ID not found');
       return;
     }
@@ -206,7 +281,7 @@ export class CampusDownloadProspectusComponent implements OnInit {
 
     // Otherwise, use API download
     console.log('CampusDownloadProspectusComponent: Fetching file URLs from API...');
-    this.campusApi.downloadProspectus(this.campusId, courseName).subscribe({
+    this.campusApi.downloadProspectus(campusIdToUse, courseName).subscribe({
       next: (response) => {
         const apiFileUrls = response?.data?.fileUrls ?? [];
         if (response?.success && apiFileUrls.length > 0) {

@@ -1,0 +1,21 @@
+@if (shouldShow()) {
+  <div class="pwa-install-banner" role="banner">
+    <div class="pwa-install-content">
+      <div class="pwa-install-icon">
+        <i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>
+      </div>
+      <div class="pwa-install-text">
+        <span class="pwa-install-title">Install Synkup</span>
+        <span class="pwa-install-subtitle">Add to your home screen for quick access</span>
+      </div>
+    </div>
+    <div class="pwa-install-actions">
+      <button type="button" class="pwa-install-btn pwa-install-install" (click)="install()">
+        Install
+      </button>
+      <button type="button" class="pwa-install-btn pwa-install-dismiss" (click)="dismiss()" aria-label="Close">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+}

@@ -2,15 +2,17 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpErrorResponse } from '@angular/common/http';
-import { LOGIN_STATUS } from '../../../../core/config/app.constants';
+import { getAdditionalUserInfo, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { firstValueFrom } from 'rxjs';
+import { getFirebaseAuth } from '../../../../core/firebase/firebase-utils';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { RoleService } from '../../../../core/rbac/role.service';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
-import { VerifyOtpComponent } from '../../../registration/components/verify-otp/verify-otp.component';
+import { VerifyOtpComponent } from '../../../../shared/components/verify-otp/verify-otp.component';
+import { AuthFacadeService } from '../../services/auth-facade.service';
+import { UserType } from '../../../../core/config/app.constants';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -27,9 +29,9 @@ type LoginForm = FormGroup<{
 export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly roles = inject(RoleService);
   private readonly notifications = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly authFacade = inject(AuthFacadeService);
 
   submitting = false;
   verifyingOtp = false;
@@ -38,6 +40,9 @@ export class LoginComponent {
   userEmail = '';
   showForgotPasswordModal = false;
   submittingForgotPassword = false;
+  googleSigningIn = false;
+  showUserTypeModal = false;
+  googleIdToken: string | null = null;
 
   readonly form: LoginForm = new FormGroup({
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
@@ -60,88 +65,32 @@ export class LoginComponent {
     this.auth.login(payload).subscribe({
       next: (response) => {
         this.submitting = false;
-        const emailVerified = this.auth.extractEmailVerified(response);
-        const email = this.auth.extractEmailFromResponse(response);
-
-        if (emailVerified === false && email) {
-          this.userEmail = email.toLowerCase();
+        const otpDecision = this.authFacade.getOtpDecisionFromResponse(response);
+        if (otpDecision.needsOtp) {
+          this.userEmail = otpDecision.email;
           this.showOtpModal = true;
           this.handleResendOtp();
           this.cdr.detectChanges();
           return;
         }
 
-        this.handleLoginResponse();
+        this.authFacade.navigateAfterLogin();
       },
       error: (err: unknown) => {
         this.submitting = false;
-        
-        // Check if error response contains emailVerified: false (401 case)
-        if (err instanceof HttpErrorResponse) {
-          const errorResponse = err.error;
-          if (errorResponse && typeof errorResponse === 'object') {
-            const emailVerified = this.auth.extractEmailVerified(errorResponse);
-            const email = this.auth.extractEmailFromResponse(errorResponse);
-            
-            // If emailVerified is false in error response, show OTP modal instead of error
-            if (emailVerified === false && email) {
-              this.userEmail = email.toLowerCase();
-              this.showOtpModal = true;
-              this.handleResendOtp();
-              this.cdr.detectChanges();
-              return;
-            }
-          }
+        const otpDecision = this.authFacade.getOtpDecisionFromError(err);
+        if (otpDecision?.needsOtp) {
+          this.userEmail = otpDecision.email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
         }
-        
+
         // For other errors, let the error interceptor handle the notification
         this.cdr.detectChanges();
       },
     });
-  }
-
-  private handleLoginResponse(): void {
-    const user = this.roles.getCurrentUser();
-    if (!user) {
-      return;
-    }
-
-    // Skip approval status checks for admin users
-    if (this.roles.isAdmin()) {
-      void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
-      return;
-    }
-
-    const approvalStatus = user.approvalStatus;
-    const userType = user.userType ?? null;
-
-    if (approvalStatus === LOGIN_STATUS.PENDING_REGISTRATION) {
-      const registrationRoute = this.roles.getRegistrationRouteForUserType(userType);
-      void this.router.navigateByUrl(registrationRoute);
-      return;
-    }
-
-    if (approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
-      this.notifications.info('Admin still haven\'t reviewed your form. Please wait for approval.');
-      this.submitting = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    if (approvalStatus === LOGIN_STATUS.APPROVED) {
-      void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
-      return;
-    }
-
-    if (approvalStatus === LOGIN_STATUS.REJECTED) {
-      this.notifications.error('The admin rejected your form. Please contact admin for more information.');
-      this.submitting = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    // Fallback: if no approval status, navigate to home (for backward compatibility)
-    void this.router.navigateByUrl(this.roles.getHomeRouteForUser());
   }
 
   forgotPassword(): void {
@@ -202,7 +151,7 @@ export class LoginComponent {
         next: () => {
           this.verifyingOtp = false;
           this.showOtpModal = false;
-          this.handleLoginResponse();
+          this.authFacade.navigateAfterLogin();
           this.cdr.detectChanges();
         },
         error: () => {
@@ -233,6 +182,213 @@ export class LoginComponent {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  async signInWithGoogle(): Promise<void> {
+    if (this.submitting || this.googleSigningIn) {
+      return;
+    }
+    this.googleSigningIn = true;
+    try {
+      const auth = getFirebaseAuth();
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const credential = await signInWithPopup(auth, provider);
+      const additionalInfo = getAdditionalUserInfo(credential);
+      const isNewUser = additionalInfo?.isNewUser ?? false;
+
+      const email = credential.user?.email?.trim()?.toLowerCase();
+      if (!email) {
+        this.notifications.error('Google account did not provide an email address.');
+        return;
+      }
+      const idToken = await credential.user.getIdToken();
+      if (!idToken || idToken.trim().length === 0) {
+        this.notifications.error('Failed to retrieve Google authentication token. Please try again.');
+        return;
+      }
+      console.log('✅ Google Sign-In Success:', { email, idTokenLength: idToken.length, isNewUser });
+
+      // Store the token and try to login with each userType to find existing user
+      this.googleIdToken = idToken.trim();
+      this.userEmail = email;
+
+      // Firebase isNewUser: true = first-time sign-in (new account), false = returning user
+      if (isNewUser) {
+        // Brand new Firebase user - skip API calls, go directly to user type selection (registration)
+        this.showUserTypeModal = true;
+        this.cdr.detectChanges();
+      } else {
+        // Existing Firebase user - try to find their account in our backend
+        await this.tryGoogleLoginWithUserTypes();
+      }
+      
+    } catch (error: unknown) {
+      console.error('❌ Google Sign-In Error:', error);
+      
+      const errorCode = (error as { code?: string })?.code;
+      const errorMessage = (error as { message?: string })?.message || '';
+      
+      if (errorCode === 'auth/unauthorized-domain' || errorMessage.includes('unauthorized-domain')) {
+        const currentOrigin = window.location.origin;
+        this.notifications.error(
+          `Google sign-in is not authorized for this domain (${currentOrigin}). ` +
+          `Please add this domain to Firebase Console → Authentication → Settings → Authorized domains.`
+        );
+      } else if (errorCode === 'auth/popup-blocked') {
+        this.notifications.error('Popup was blocked by browser. Please allow popups and try again.');
+      } else if (errorCode === 'auth/popup-closed-by-user') {
+        // User closed popup - don't show error
+      } else if (errorCode === 'auth/network-request-failed') {
+        this.notifications.error('Network error. Please check your internet connection and try again.');
+      } else if (errorCode === 'auth/account-exists-with-different-credential') {
+        this.notifications.error('An account already exists with the same email address but different sign-in credentials.');
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        this.notifications.error('Google sign-in is not enabled. Please contact support.');
+      } else if (errorCode === 'auth/invalid-credential') {
+        this.notifications.error('Invalid credentials. Please try again.');
+      } else {
+        this.notifications.error('Google sign-in failed. Please try again.');
+      }
+    } finally {
+      this.googleSigningIn = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private async tryGoogleLoginWithUserTypes(): Promise<void> {
+    if (!this.googleIdToken) {
+      return;
+    }
+
+    // Store in local variable to satisfy TypeScript null check
+    const idToken = this.googleIdToken;
+    const userTypes: UserType[] = ['STUDENT', 'CAMPUS', 'COMPANY'];
+    let userFound = false;
+
+    // Try each userType sequentially to find existing user
+    for (const userType of userTypes) {
+      if (this.submitting || userFound) {
+        break;
+      }
+
+      try {
+        const requestPayload = {
+          idToken: idToken,
+          userType: userType,
+        };
+
+        console.log(`🔍 Trying Google login with userType: ${userType}`);
+
+        // Convert observable to promise for easier sequential handling
+        const response = await firstValueFrom(this.auth.googleLogin(requestPayload));
+        
+        // Success! User exists with this userType
+        console.log(`✅ User found with userType: ${userType}`);
+        userFound = true;
+        this.googleIdToken = null;
+
+        // Check if OTP verification is needed
+        const otpDecision = this.authFacade.getOtpDecisionFromResponse(response);
+        if (otpDecision.needsOtp) {
+          this.userEmail = otpDecision.email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
+        }
+
+        // Use the same navigation logic as manual registration/login
+        this.authFacade.navigateAfterLogin();
+        this.cdr.detectChanges();
+        return;
+
+      } catch (err: unknown) {
+        // Check if OTP is needed from error response
+        const otpDecision = this.authFacade.getOtpDecisionFromError(err);
+        if (otpDecision?.needsOtp) {
+          console.log(`✅ User found (needs OTP) with userType: ${userType}`);
+          userFound = true;
+          this.googleIdToken = null;
+          this.userEmail = otpDecision.email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
+        }
+
+        // User doesn't exist with this userType, try next one
+        console.log(`❌ User not found with userType: ${userType}, trying next...`);
+        continue;
+      }
+    }
+
+    // If we tried all userTypes and none worked, user doesn't exist - show selection modal
+    if (!userFound) {
+      console.log('ℹ️ User not found with any userType, showing selection modal for registration');
+      this.showUserTypeModal = true;
+      this.cdr.detectChanges();
+    }
+  }
+
+  handleUserTypeSelection(userType: UserType): void {
+    if (!this.googleIdToken || this.submitting) {
+      return;
+    }
+
+    this.submitting = true;
+    this.showUserTypeModal = false;
+
+    const requestPayload = {
+      idToken: this.googleIdToken,
+      userType: userType,
+    };
+
+    this.auth.googleLogin(requestPayload).subscribe({
+      next: (response) => {
+        this.submitting = false;
+        this.googleIdToken = null;
+
+        // Check if OTP verification is needed (same logic as regular login)
+        const otpDecision = this.authFacade.getOtpDecisionFromResponse(response);
+        if (otpDecision.needsOtp) {
+          this.userEmail = otpDecision.email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
+        }
+
+        // Use the same navigation logic as manual registration/login
+        // This checks approvalStatus, emailVerified, onboardingFormSubmit, etc.
+        // It will NOT blindly redirect to registration form or home page
+        this.authFacade.navigateAfterLogin();
+        this.cdr.detectChanges();
+      },
+      error: (err: unknown) => {
+        this.submitting = false;
+        this.googleIdToken = null;
+        
+        // Check if OTP is needed from error response
+        const otpDecision = this.authFacade.getOtpDecisionFromError(err);
+        if (otpDecision?.needsOtp) {
+          this.userEmail = otpDecision.email;
+          this.showOtpModal = true;
+          this.handleResendOtp();
+          this.cdr.detectChanges();
+          return;
+        }
+
+        // For other errors, let the error interceptor handle the notification
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  handleUserTypeModalCancel(): void {
+    this.showUserTypeModal = false;
+    this.googleIdToken = null;
+    this.cdr.detectChanges();
   }
 }
 

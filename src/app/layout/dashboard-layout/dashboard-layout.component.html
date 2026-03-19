@@ -1,14 +1,81 @@
-<app-header 
-  [sidebarCollapsed]="sidebarCollapsed()" 
-  [standalone]="isStandalone()"
-  (toggleSidebar)="toggleSidebar()" 
-/>
-<div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()" [class.standalone-mode]="isStandalone()">
-  @if (!isStandalone()) {
-    <app-sidebar [collapsed]="sidebarCollapsed()" />
+<div class="dashboard-wrapper" [class.standalone-mode]="isStandalone()" [class.company-module]="isCompanyModule()" [class.campus-module]="isCampusModule()" [class.student-module]="isStudentModule()">
+  <app-header 
+    [sidebarCollapsed]="sidebarCollapsed()" 
+    [standalone]="isStandalone()"
+    (toggleSidebar)="toggleSidebar()" 
+  />
+  @if (!isStandalone() && isMobile() && !sidebarCollapsed()) {
+    <div
+      class="sidebar-backdrop"
+      role="button"
+      tabindex="0"
+      aria-label="Close menu"
+      (click)="sidebarCollapsed.set(true)"
+      (keydown.enter)="sidebarCollapsed.set(true)"
+      (keydown.space)="$event.preventDefault(); sidebarCollapsed.set(true)"
+    ></div>
   }
-  <main class="content">
-    <router-outlet />
-  </main>
+  <div class="layout" [class.sidebar-collapsed]="sidebarCollapsed()" [class.standalone-mode]="isStandalone()" [class.mobile]="isMobile()">
+    @if (!isStandalone()) {
+      <app-sidebar
+        [collapsed]="sidebarCollapsed()"
+        (menuItemClicked)="onSidebarMenuClick()"
+      />
+    }
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+
+  <!-- Notice Board "Read More" - rendered at layout root so it appears above all content -->
+  @if (isNoticeDetailOpen()) {
+    <app-modal
+      [visible]="true"
+      title="Notice Detail"
+      size="sm"
+      modalClass="notice-detail-modal"
+      (closed)="closeNoticeDetail()"
+    >
+      <app-campus-notice-detail
+        [notice]="noticeDetailData()!"
+        [readonlyMode]="!(noticeDetailData()?.editable ?? noticeEditable())"
+        (closed)="closeNoticeDetail()"
+        (deleteRequested)="onNoticeDetailDelete($event)"
+        (editRequested)="onNoticeDetailEdit($event)"
+      />
+    </app-modal>
+  }
+
+  <!-- Delete Notice Confirmation Modal -->
+  @if (showDeleteNoticeModal) {
+    <app-modal
+      [visible]="true"
+      title="Delete Notice"
+      size="sm"
+      [stacked]="true"
+      (closed)="closeDeleteNoticeModal()"
+    >
+      <div class="delete-modal-content">
+        <p>Are you sure you want to delete this notice? This action cannot be undone.</p>
+        @if (noticeDetailData()?.title) {
+          <div class="delete-item-info">
+            <strong>{{ noticeDetailData()!.title }}</strong>
+          </div>
+        }
+        <div class="delete-modal-actions">
+          <app-button
+            label="Cancel"
+            variant="outline"
+            (buttonClick)="closeDeleteNoticeModal()"
+          ></app-button>
+          <app-button
+            label="Delete"
+            variant="primary"
+            (buttonClick)="confirmDeleteNotice()"
+          ></app-button>
+        </div>
+      </div>
+    </app-modal>
+  }
 </div>
 

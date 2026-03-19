@@ -1,5 +1,5 @@
 <form class="visit-campus-form" (ngSubmit)="onFormSubmit($event)">
-  <h2 class="form-title">Visit Campus Form</h2>
+  <!-- <h2 class="form-title">Visit Campus Form</h2> -->
   
   <!-- First Row: Three fields -->
   <div class="form-row-three">
@@ -23,6 +23,7 @@
       [value]="value.contactPersonPhoneNo"
       [disabled]="submitting"
       (valueChange)="patch({ contactPersonPhoneNo: $event })"
+       (paste)="onPhonePaste($event)"
     />
   </div>
 
@@ -80,25 +81,27 @@
     />
     <app-input
       label="Package"
-      type="text"
+      type="number"
+      min="1"
       [value]="value.package"
       [disabled]="submitting"
       (valueChange)="patch({ package: $event })"
     />
-    <app-input
-      label="Date of Visit"
-      type="date"
-      [value]="value.dateOfVisit"
-      [disabled]="submitting"
-      (valueChange)="patch({ dateOfVisit: $event })"
-    />
+ <app-input
+  label="Date of Visit"
+  type="date"
+  [value]="value.dateOfVisit"
+  [min]="todayDate"
+  [disabled]="submitting"
+  (valueChange)="patch({ dateOfVisit: $event })"
+/>
+
     <div class="time-input-wrapper">
       <app-input
         label="Time of Visit"
-        type="text"
+        type="time"
         [value]="value.timeOfVisit"
         [disabled]="submitting"
-        placeholder="HH:MM"
         (valueChange)="onTimeInputChange($event)"
       />
       <select
@@ -163,6 +166,8 @@
       [disabled]="submitting"
       [rows]="4"
       (valueChange)="patch({ additionalRequirements: $event })"
+      [maxlength]="500"
+      [showCharCount]="true"
     />
   </div>
 

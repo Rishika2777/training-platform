@@ -1,0 +1,104 @@
+<form class="department-form" (ngSubmit)="onFormSubmit($event)">
+  <div class="form-section">
+    <h3 class="section-title">Department Information</h3>
+    <div class="form-grid">
+      <div class="form-row">
+        <app-input
+          label="Department Name"
+          type="text"
+          [value]="value.name"
+          [disabled]="submitting || updatingDepartment"
+          [required]="true"
+          [invalid]="isNameInvalid()"
+          (valueChange)="patch({ name: $event })"
+          placeholder="Enter department name"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-input
+          label="Email"
+          type="email"
+          [value]="value.email"
+[disabled]="(submitting || updatingDepartment) || editMode"
+          [required]="true"
+          [invalid]="isEmailInvalid()"
+          (valueChange)="patch({ email: $event })"
+          placeholder="Enter email address"
+        />
+      </div>
+
+      <div class="form-row">
+        <app-input
+          label="Phone"
+          type="tel"
+          [value]="value.phone"
+          [disabled]="submitting || updatingDepartment"
+          [required]="true"
+          [invalid]="isPhoneInvalid()"
+          (valueChange)="patch({ phone: $event })"
+          placeholder="Enter phone number"
+        />
+      </div>
+
+      <div class="form-row">
+        <div class="file-input-wrapper">
+          <div class="field-label">Upload Photo</div>
+          <div class="file-input-container">
+            <app-input
+              type="text"
+              [value]="photoName || 'Select photo file'"
+              [disabled]="true"
+              placeholder="Select photo file"
+            />
+            <button
+              type="button"
+              class="file-attach-btn"
+              (click)="triggerPhotoSelect()"
+              [disabled]="submitting || updatingDepartment"
+              [attr.aria-label]="'Select photo file'"
+            >
+              <i class="fa-solid fa-paperclip"></i>
+            </button>
+            <input
+              #photoFileInput
+              type="file"
+              accept="image/*"
+              style="display: none"
+              [disabled]="submitting || updatingDepartment"
+              (change)="onPhotoSelected($any($event.target).files)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <app-textarea
+          label="About the Department"
+          [value]="value.about"
+          [disabled]="submitting || updatingDepartment"
+          [rows]="4"
+          (valueChange)="patch({ about: $event })"
+          placeholder="Enter department description"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <app-button
+      label="Cancel"
+      variant="outline"
+      type="button"
+      [disabled]="submitting || updatingDepartment"
+      (buttonClick)="onCancel()"
+    ></app-button>
+    <app-button
+[label]="editMode ? 'Update Department' : 'Add Department'"
+      variant="primary"
+      type="submit"
+      [disabled]="(submitting || updatingDepartment) || !isFormValid()"
+    ></app-button>
+  </div>
+</form>
+

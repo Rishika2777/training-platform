@@ -14,11 +14,11 @@
         <button
           type="button"
           class="delete-btn"
-          (click)="deleteCourse(course.id, course.name)"
-          [disabled]="deletingCourseId() === course.id"
+          (click)="onDeleteClick(course.id, course.name, course.departmentId)"
+          [disabled]="deletingCourseId === course.id"
           title="Delete course"
         >
-          @if (deletingCourseId() === course.id) {
+          @if (deletingCourseId === course.id) {
             <i class="fa-solid fa-spinner fa-spin"></i>
           } @else {
             <i class="fa-solid fa-trash"></i>

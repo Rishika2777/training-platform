@@ -9,6 +9,29 @@
   margin: 6px 0 8px;
 }
 
+.current-photo-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.current-photo-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.photo-preview-image {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+}
+
 .grid {
   display: grid;
   gap: 22px 35px;
@@ -35,7 +58,7 @@
 
 .key-person-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr minmax(90px, auto);
   gap: 22px 35px;
   align-items: end;
 }
@@ -46,12 +69,16 @@
   align-items: center;
   justify-content: flex-end;
   padding-bottom: 2px;
+  min-width: 0;
 }
 
 .icon-btn {
   width: 32px;
+  min-width: 32px;
   height: 32px;
-  border-radius: 999px;
+  min-height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
   border: 2px solid var(--color-secondary);
   background: var(--color-secondary);
   color: var(--color-white);
@@ -62,11 +89,34 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .icon-btn--remove {
   background: var(--color-white);
   color: var(--color-secondary);
+}
+
+/* Phone verify – blue theme */
+.phone-verified {
+  margin-top: 8px;
+  display: inline-block;
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 500;
+}
+.phone-verify-link {
+  margin-top: 8px;
+  display: inline-block;
+  font-size: 12px;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.phone-verify-link.phone-verify-disabled {
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .icon-btn:disabled {
@@ -98,6 +148,22 @@
 }
 
 @media (max-width: 900px) {
+  .form {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .grid-3,
+  .grid-2 {
+    min-width: 0;
+  }
+
+  .grid-3 > *,
+  .grid-2 > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .grid-3 {
     grid-template-columns: 1fr;
     gap: 16px 0;
@@ -112,10 +178,17 @@
     grid-template-columns: 1fr;
     gap: 16px 0;
     align-items: stretch;
+    min-width: 0;
+  }
+
+  .key-person-row > * {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .key-person-actions {
     justify-content: flex-start;
+    min-width: unset;
   }
 
   .actions {

@@ -1,5 +1,6 @@
 <form class="course-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-grid">
+
     <div class="form-row">
       <app-input
         label="Course Name"
@@ -22,16 +23,22 @@
     </div>
 
     <div class="form-row">
-      <app-input
-        label="Duration"
-        type="number"
-        [required]="true"
-        [value]="value.duration"
-        [disabled]="submitting"
-        [invalid]="isInvalid('duration')"
-        placeholder="e.g., 6"
-        (valueChange)="patch({ duration: $event })"
-      />
+      <div class="field-with-info" (focusin)="isDurationFocused = true" (focusout)="isDurationFocused = false">
+        <app-input
+          [id]="'duration-input'"
+          label="Duration"
+          type="number"
+          [required]="true"
+          [value]="value.duration"
+          [disabled]="submitting"
+          [invalid]="isInvalid('duration')"
+          placeholder="e.g., 6 years"
+          (valueChange)="patch({ duration: $event })"
+        />
+        @if (isDurationFocused) {
+          <span class="help-message">Duration is in years</span>
+        }
+      </div>
       @if (submitAttempted && isInvalid('duration')) {
         <span class="error-message">Duration is required</span>
       }
@@ -74,6 +81,23 @@
         </span>
       }
     </div>
+
+   @if (showDepartment) {
+  <div class="form-row full-width">
+    <app-dropdown
+      label="Department"
+      placeholder="Select Department"
+      [items]="departmentItems"
+      [value]="value.department || ''"
+      [disabled]="submitting"
+      (valueChange)="patch({ department: $event })"
+      [autocomplete]="false"
+    />
+  </div>
+}
+
+    
+
   </div>
 
   <div class="form-actions">

@@ -1,32 +1,62 @@
+@if (isPublicProfile) {
+  <app-header [standalone]="true" />
+}
 <div class="campus-about-page">
   <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="hero-background" [style.background-image]="'url(assets/images/login-hero-image.png)'"></div>
-    <div class="hero-banner">
-      <div class="hero-content">
-        <h1 class="hero-title">Shaping the Future Through Education and Innovation</h1>
-        <div class="hero-buttons">
-          <app-button label="Visit Campus" variant="primary" (buttonClick)="openVisitCampusModal()" />
-          <app-button label="Read More" variant="primary" (buttonClick)="openCampusWebsite()" />
-        </div>
-        <div class="hero-metrics">25 Promotions, 100 Followers—The Journey Thrives!</div>
-      </div>
-    </div>
-  </section>
+<section class="hero-section">
+  <div
+    class="hero-background"
+    [style.background-image]="'url(assets/images/login-hero-image.png)'"
+  ></div>
 
-  <!-- Campus Insights Section -->
+  <div class="hero-banner">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        Transform Learners<br/>
+        From Training to Talent!
+      </h1>
+
+      <!-- Follow button: top-right on desktop, below title on mobile -->
+      <div class="follow-btn-wrapper">
+        <button class="follow-btn" (click)="onFollowCampus()">
+          @if (isFollowing) {
+            Following ✓
+          } @else {
+            Follow <span class="btn-arrows">&#62;&#62;</span>
+          }
+        </button>
+      </div>
+
+      <div class="hero-buttons">
+
+      <button type="button" class="hero-cta-btn" (click)="openVisitCampusModal()">
+  {{ isDepartmentContext() ? 'Visit Department' : 'Visit Institute' }}
+  <span class="btn-arrows">&#62;&#62;</span>
+</button>
+
+        <button type="button" class="hero-cta-btn" (click)="openCampusWebsite()">
+          Read More <span class="btn-arrows">&#62;&#62;</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+  <div class="hero-metrics">
+    <span class="hero-metrics-value">{{ promotions }}</span> Promotions, <span class="hero-metrics-value">{{ followers }}</span> Followers—The Journey Thrives!
+  </div>
+</section>
+
+
+  <!-- Campus / Department Insights Section -->
   <section class="section campus-insights">
-    <h2 class="section-title">Campus Insights</h2>
+    <h2 class="section-title">{{ isDepartmentContext() ? 'Department Insights' : 'Campus Insights' }}</h2>
     <div class="insights-content">
       <div class="insights-image">
         <img src="assets/images/landing-card-campus.png" alt="Campus" />
-        
-        <!-- Download Prospectus Button -->
-        <app-button 
-          label="Download Prospectus" 
-          variant="primary" 
-          (buttonClick)="openDownloadProspectusModal()" 
-        />
+        <button type="button" class="prospectus-download-btn" (click)="openDownloadProspectusModal()">
+          <i class="fa-solid fa-download" aria-hidden="true"></i>
+          Download Prospectus <span class="btn-arrows">&#62;&#62;</span>
+        </button>
       </div>
       <div class="insights-text">
         @if (loadingAboutCampus()) {
@@ -49,16 +79,7 @@
   <section class="section rising-stars">
     <div class="section-header">
       <h2 class="section-title">Our Rising Stars</h2>
-      <div class="course-filter-wrapper">
-        <app-dropdown
-          label=""
-          placeholder="All Courses"
-          [items]="courseFilterItems()"
-          [value]="selectedCourseFilter() || ''"
-          (valueChange)="onRisingStarsCourseFilterChange($event)"
-          [autocomplete]="false"
-        />
-      </div>
+     
     </div>
     @if (loadingRisingStars()) {
       <div class="loading-indicator">Loading...</div>
@@ -71,7 +92,15 @@
       >
         <div class="avatar-row">
           @for (star of risingStarsPageItems(); track star.id) {
-            <div class="avatar-card">
+            <div
+              class="avatar-card"
+              role="button"
+              tabindex="0"
+              style="cursor: pointer;"
+              (click)="openStudentProfile(star)"
+              (keydown.enter)="openStudentProfile(star)"
+              (keydown.space)="openStudentProfile(star)"
+            >
               <img class="avatar" [src]="star.imageUrl" [alt]="star.name" />
               <div class="avatar-name">{{ star.name }}</div>
               <div class="avatar-sub">{{ star.company }}</div>
@@ -164,121 +193,247 @@
   <section class="section overview">
     <div class="overview-grid">
       <div class="total-count-card">
-        <div class="count-value">1,375</div>
-        <div class="count-label">Total Count</div>
+        @if (loadingAnalytics()) {
+          <div class="loading-state">Loading statistics...</div>
+        } @else {
+          <div class="total-count-donut">
+            <div class="donut-center">
+              <span class="count-value">{{ analyticsTotalCount() | number }}</span>
+              <span class="count-label">Total Count</span>
+            </div>
+            <div class="donut-segments" [style.background]="totalCountDonutGradient()"></div>
+          </div>
+          <div class="total-count-legend">
+            <span class="legend-item students"><span class="legend-dot"></span> Students</span>
+            <span class="legend-item faculty"><span class="legend-dot"></span> Faculties</span>
+            <span class="legend-item courses"><span class="legend-dot"></span> Courses</span>
+          </div>
+        }
       </div>
-      <div class="chart-card">
-        <h3 class="chart-title">Graduated Students</h3>
-        <div class="bar-chart">
-          <div class="bar-chart-item">
-            <div class="bar-label">MCA</div>
-            <div class="bar-wrapper">
-              <div class="bar" style="width: 80%; background: var(--color-secondary);"></div>
-            </div>
-          </div>
-          <div class="bar-chart-item">
-            <div class="bar-label">BCA</div>
-            <div class="bar-wrapper">
-              <div class="bar" style="width: 70%; background: var(--color-primary);"></div>
-            </div>
-          </div>
-          <div class="bar-chart-item">
-            <div class="bar-label">BBA</div>
-            <div class="bar-wrapper">
-              <div class="bar" style="width: 60%; background: var(--color-secondary);"></div>
-            </div>
-          </div>
-          <div class="bar-chart-item">
-            <div class="bar-label">B.Tech</div>
-            <div class="bar-wrapper">
-              <div class="bar" style="width: 90%; background: var(--color-primary);"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="pie-chart-card">
+
+      <!-- <div class="pie-chart-card">
         <h3 class="chart-title">Projects Developed by Our Students</h3>
         <div class="pie-chart-placeholder"></div>
       </div>
       <div class="pie-chart-card">
         <div class="pie-chart-placeholder"></div>
-      </div>
+      </div> -->
     </div>
   </section>
 
   <!-- Courses We Provide Section -->
-  <section class="section courses-provide">
+<section class="section courses-provide">
+  <div class="section-header">
     <h2 class="section-title">Courses we Provide</h2>
+
+    <div class="course-filter-wrapper">
+      <app-dropdown
+        placeholder="All Courses"
+        [items]="courseFilterItems()"
+        [value]="selectedCourseForCourses() || ''"
+        (valueChange)="onCourseFilterChange($event)"
+        [autocomplete]="true"
+      />
+    </div>
+  </div>
     @if (loadingCourses()) {
       <div class="loading-state">Loading courses...</div>
     } @else {
-      <app-carousel
-        type="pagination"
-        [currentPage]="coursePage()"
-        [totalPages]="coursesTotalPages()"
-        [maxVisible]="4"
-        (pageChange)="onCoursePageChange($event)"
-      >
-        <div class="courses-carousel">
-          @if (coursesPageItems().length === 0) {
-            <div class="empty-state">No courses found</div>
-          } @else {
-            @for (course of coursesPageItems(); track course.id) {
-              <div class="course-card">
-                <div class="course-card-top">
-                  <div class="course-code">{{ course.name }}</div>
-                  <div class="course-details">
-                    <span>seats: {{ course.seats }}</span>
-                    <span>Duration: {{ course.duration }}</span>
+      <div class="courses-carousel-wrapper">
+        <button
+          type="button"
+          class="courses-carousel-arrow left"
+          (click)="onCoursePageChange(coursePage() - 1)"
+          [disabled]="coursePage() <= 1 || loadingCourses()"
+          aria-label="Previous courses"
+        >
+          <span class="double-chevron">&#60;&#60;</span>
+        </button>
+        <app-carousel
+          type="pagination"
+          [currentPage]="coursePage()"
+          [totalPages]="coursesTotalPages()"
+          [maxVisible]="4"
+          (pageChange)="onCoursePageChange($event)"
+        >
+          <div class="courses-carousel">
+            @if (coursesPageItems().length === 0) {
+              <div class="empty-state">No courses found</div>
+            } @else {
+              @for (course of coursesPageItems(); track course.id) {
+                <div class="course-card">
+                  <div class="course-card-top">
+                    <div class="course-code">{{ course.name }}</div>
+                    <div class="course-details">
+                      <span>seats: {{ course.seats }}</span>
+                      <span>Duration: {{ course.duration }}</span>
+                    </div>
+                  </div>
+                  <div class="course-card-bottom">
+                    <div class="course-full-name">{{ course.fullName || course.name }}</div>
                   </div>
                 </div>
-                <div class="course-card-bottom">
-                  <div class="course-full-name">{{ course.fullName || course.name }}</div>
-                </div>
-              </div>
+              }
             }
-          }
-        </div>
-      </app-carousel>
+          </div>
+        </app-carousel>
+        <button
+          type="button"
+          class="courses-carousel-arrow right"
+          (click)="onCoursePageChange(coursePage() + 1)"
+          [disabled]="coursePage() >= coursesTotalPages() || loadingCourses()"
+          aria-label="Next courses"
+        >
+          <span class="double-chevron">&#62;&#62;</span>
+        </button>
+      </div>
     }
   </section>
 
-  <!-- Placement Highlights Section - Temporarily commented out (API returning 502 errors) -->
-  <!-- <section class="section placement-highlights">
+  <!-- Placement Highlights Section -->
+  <section class="section placement-highlights">
     <div class="placement-grid">
       <div class="placement-chart-card">
-        <h3 class="chart-title">Placement Chart</h3>
-        <div class="placement-bar-chart">
-          @if (loadingPlacementInsights()) {
-            <div class="loading-state">Loading placement data...</div>
-          } @else {
-            @for (year of placementYears(); track year) {
-              <div class="placement-bar-item">
-                <div class="placement-year">{{ year }}</div>
-                <div class="placement-bars">
-                  <div class="placement-bar" [style.width.%]="getPlacementValue(year)" [style.background]="getPlacementColor(year)"></div>
-                </div>
+        <h3 class="chart-title">Placement Highlights</h3>
+        @if (loadingPlacementInsights()) {
+          <div class="loading-state">Loading placement data...</div>
+        } @else {
+          <div class="placement-grouped-chart">
+            <div class="chart-y-axis">
+              @for (tick of placementChartYTicks(); track tick) {
+                <span class="y-tick">{{ tick }}</span>
+              }
+            </div>
+            <div class="chart-body">
+              <div class="chart-bars-area">
+                @for (year of placementYears(); track year) {
+                  @let data = getPlacementYearData(year);
+                  <div class="year-group">
+                    <div class="bar-wrapper-vertical">
+                      <div class="bar-vertical placed" [style.height.%]="getPlacementBarHeight(data.placedCount)" [title]="'Placed: ' + data.placedCount"></div>
+                      @if (data.placedCount > 0) {
+                        <span class="bar-value">{{ data.placedCount }}</span>
+                      }
+                    </div>
+                    <div class="bar-wrapper-vertical">
+                      <div class="bar-vertical total" [style.height.%]="getPlacementBarHeight(data.totalStudents)" [title]="'Total: ' + data.totalStudents"></div>
+                      @if (data.totalStudents > 0) {
+                        <span class="bar-value">{{ data.totalStudents }}</span>
+                      }
+                    </div>
+                  </div>
+                } @empty {
+                  <div class="empty-state">No placement data available</div>
+                }
               </div>
-            } @empty {
-              <div class="empty-state">No placement data available</div>
-            }
-          }
-        </div>
+              <div class="chart-x-axis">
+                @for (year of placementYears(); track year) {
+                  <span class="x-tick">{{ year }}</span>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="placement-legend">
+            <span class="legend-item"><span class="legend-dot placed"></span> Placed</span>
+            <span class="legend-item"><span class="legend-dot total"></span> Total Students</span>
+          </div>
+        }
       </div>
       <div class="donut-chart-card">
-        <h3 class="chart-title">Placement in Different Areas</h3>
-        <div class="donut-chart-placeholder"></div>
-      </div>
-      <div class="companies-grid-card">
-        <h3 class="chart-title">Top Companies Visited Our Campus</h3>
-        <div class="companies-grid">
-          @for (i of [1,2,3,4,5,6,7,8,9]; track i) {
-            <div class="company-logo"></div>
-          }
-        </div>
+        <h3 class="chart-title">Placement in different sector</h3>
+        @if (loadingPlacementInsights()) {
+          <div class="loading-state">Loading...</div>
+        } @else if (sectorBreakdown().length > 0) {
+          <div class="sector-donut-wrapper">
+            <div class="sector-donut" [style.background]="sectorDonutGradient()"></div>
+            <div class="sector-legend">
+              @for (s of sectorBreakdown(); track s.sector || $index) {
+                <div class="sector-legend-item">
+                  <span class="sector-dot" [style.background]="getSectorColor($index)"></span>
+                  <span class="sector-name">{{ s.sector }}</span>
+                  <span class="sector-pct">{{ s.percentage | number:'1.1-1' }}%</span>
+                </div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="donut-chart-placeholder"></div>
+        }
       </div>
     </div>
-  </section> -->
+  </section>
+
+  <!-- --------------------- OUR DEPARTMENTS SECTION ---------------- -->
+  <section class="departments-section">
+
+    <!-- Header -->
+    <div class="section-header">
+      <h2 class="section-title">Our Departments</h2>
+  
+      <div class="department-filter">
+        <app-dropdown
+        placeholder="Select Department"
+        [items]="departmentDropdownItems()"
+        [value]="selectedDepartment()"
+        (valueChange)="onDepartmentSelect($event)"
+        [autocomplete]="true"
+      ></app-dropdown>
+      
+      
+      </div>
+    </div>
+  
+    <!-- Cards -->
+    <div class="departments-grid">
+    @for (dept of paginatedDepartments(); track dept.id) {
+  <div class="department-card">
+    <div class="department-icon">
+      @if (dept.photoUrl) {
+        <img class="department-photo" [src]="dept.photoUrl" [alt]="dept.name" />
+      } @else {
+        <i class="fa-solid fa-building-columns" aria-hidden="true"></i>
+      }
+    </div>
+    <div class="department-name">{{ dept.name }}</div>
+  </div>
+}
+    </div>
+  
+  <!-- Pagination -->
+  @if (totalPages() > 1) {
+    <div class="pagination-wrapper">
+  
+      <button 
+        class="arrow-btn"
+        (click)="goToPage(currentPage() - 1)"
+        [disabled]="currentPage() === 1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+  
+      @for (page of pagesArray(); track page) {
+        <button
+          class="page-number"
+          [class.active]="page === currentPage()"
+          (click)="goToPage(page)">
+          {{ page }}
+        </button>
+      }
+  
+      <button 
+        class="arrow-btn"
+        (click)="goToPage(currentPage() + 1)"
+        [disabled]="currentPage() === totalPages()">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+  
+    </div>
+  }
+  
+
+  
+  </section>
+  
+
 
   <!-- Meet Our Faculties Section -->
   <section class="section faculties">
@@ -313,61 +468,86 @@
 
   <!-- Our Alumni Community Section -->
   <section class="section alumni">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div class="alumni-header">
       <h2 class="section-title" style="margin: 0;">Our Alumni Community</h2>
-      <app-dropdown
-        [items]="alumniYearOptions"
-        [value]="selectedAlumniYear()"
-        [disabled]="loadingAlumni()"
-        (valueChange)="onAlumniYearChange($event)"
-        [autocomplete]="false"
-        placeholder="Select Year"
-        style="width: 150px;"
-      />
+      <div class="alumni-year-filter">
+        <app-dropdown
+          [items]="alumniYearOptions()"
+          [value]="selectedAlumniYear()"
+          [disabled]="loadingAlumni()"
+          (valueChange)="onAlumniYearChange($event)"
+          [autocomplete]="true"
+          placeholder="Select Year"
+        />
+      </div>
+
+      @if (alumniYearTouched() && alumniYearError()) {
+        <div class="dropdown-error">
+          Please select a year.
+        </div>
+      }
     </div>
     @if (loadingAlumni()) {
       <div class="loading-indicator">Loading...</div>
     } @else {
-      <div class="carousel-wrapper">
+      <div class="carousel-wrapper alumni-carousel-wrapper">
         <button 
-          class="carousel-arrow left" 
+          type="button"
+          class="carousel-arrow alumni-arrow left" 
           (click)="previousAlumni()" 
           [disabled]="alumniPage === 1 || loadingAlumni()"
+          aria-label="Previous alumni"
         >
-          <i class="fa-solid fa-chevron-left"></i>
+          <span class="double-chevron">&#60;&#60;</span>
         </button>
-        <app-carousel type="none" [currentPage]="alumniPage" [totalPages]="alumniTotalPages()">
-          <div class="avatar-row">
-            @for (alumnus of alumniPageItems(); track alumnus.id) {
-              <div class="avatar-card">
-                <img
-                  class="avatar"
-                  [src]="avatarSrc(alumnus)"
-                  [alt]="alumnus.name"
-                  (error)="onAvatarError(alumnus, $event)"
-                />
-                <div class="avatar-name">{{ alumnus.name }}</div>
-                <div class="avatar-sub">{{ alumnus.designation }}</div>
-                <div class="avatar-sub">{{ alumnus.company }}</div>
-              </div>
-            } @empty {
-              <div class="empty-state">No alumni found</div>
-            }
-          </div>
-        </app-carousel>
+
+      <app-carousel 
+  type="pagination"
+  [currentPage]="alumniPage"
+  [totalPages]="alumniTotalPages()"
+  (pageChange)="onAlumniPageChange($event)"
+>
+  <div class="avatar-row">
+    @for (alumnus of alumniPageItems(); track alumnus.id) {
+      <div
+        class="avatar-card"
+        role="button"
+        tabindex="0"
+        style="cursor: pointer;"
+        (click)="openStudentProfile(alumnus)"
+        (keydown.enter)="openStudentProfile(alumnus)"
+        (keydown.space)="openStudentProfile(alumnus)"
+      >
+        <img
+          class="avatar"
+          [src]="avatarSrc(alumnus)"
+          [alt]="alumnus.name"
+        />
+        <div class="avatar-name">{{ alumnus.name }}</div>
+        <div class="avatar-sub">{{ alumnus.designation }}</div>
+        <div class="avatar-sub">{{ alumnus.company }}</div>
+      </div>
+    } @empty {
+      <div class="empty-state">No alumni found</div>
+    }
+  </div>
+</app-carousel>
         <button 
-          class="carousel-arrow right" 
+          type="button"
+          class="carousel-arrow alumni-arrow right" 
           (click)="nextAlumni()" 
           [disabled]="alumniPage === alumniTotalPages() || loadingAlumni()"
+          aria-label="Next alumni"
         >
-          <i class="fa-solid fa-chevron-right"></i>
+          <span class="double-chevron">&#62;&#62;</span>
         </button>
       </div>
     }
   </section>
 
-  <!-- Your Voice, Our Strength Section -->
+  <!-- Testimonial Section (Figma: "Your Voice" title inside teal block) -->
   <section class="section testimonial">
+    <h2 class="testimonial-section-title">Your Voice, Our Strength</h2>
     @if (loadingTestimonials()) {
       <div class="testimonial-content">
         <div class="loading-indicator" style="color: var(--color-white); text-align: center; grid-column: 1 / -1;">
@@ -377,11 +557,13 @@
     } @else {
       <div class="testimonial-content">
         <button 
+          type="button"
           class="testimonial-arrow left" 
           (click)="previousTestimonial()"
           [disabled]="testimonialPage <= 1 && currentTestimonialIndex() <= 0"
+          aria-label="Previous testimonial"
         >
-          <i class="fa-solid fa-chevron-left"></i>
+          <span class="double-chevron">&#60;&#60;</span>
         </button>
         @if (currentTestimonial) {
           <div class="testimonial-quote">
@@ -392,116 +574,158 @@
               <img 
                 class="author-avatar" 
                 [src]="currentTestimonial.photoUrl || currentTestimonial.profilePhotoUrl || currentTestimonial.imageUrl || currentTestimonial.avatarUrl || 'assets/images/landing-card-campus.png'" 
-                [alt]="currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || 'Student'" 
+                [alt]="currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || currentTestimonial.reviewerName || 'Student'" 
               />
-              <div class="author-name">
-                {{ currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || 'Student' }}
-              </div>
+              <div class="author-name">-{{ currentTestimonial.name || currentTestimonial.studentName || currentTestimonial.fullName || currentTestimonial.reviewerName || 'Student' }}</div>
             </div>
+            @if (testimonialsTotalPages() > 1) {
+              <p class="testimonial-page-indicator">{{ testimonialPage }} / {{ testimonialsTotalPages() }}</p>
+            }
           </div>
         } @else {
           <div class="testimonial-quote">
-            <p class="quote-text" style="color: var(--color-white);">
+            <p class="quote-text">
               No testimonials available at the moment.
             </p>
           </div>
         }
         <button 
+          type="button"
           class="testimonial-arrow right" 
           (click)="nextTestimonial()"
           [disabled]="testimonialPage >= testimonialsTotalPages() && currentTestimonialIndex() >= testimonials().length - 1"
+          aria-label="Next testimonial"
         >
-          <i class="fa-solid fa-chevron-right"></i>
+          <span class="double-chevron">&#62;&#62;</span>
         </button>
       </div>
     }
   </section>
 
   <!-- Footer Section -->
-  <footer class="footer-section">
-    <div class="footer-content">
-      <div class="footer-left">
-        <h3 class="footer-title">Get In Touch</h3>
-        <div class="contact-info">
-          <div class="contact-item">
-            <i class="fa-solid fa-envelope"></i>
-            <span>contact@university.edu</span>
-          </div>
-          <div class="contact-item">
-            <i class="fa-solid fa-phone"></i>
-            <span>+91 1234567890</span>
-          </div>
-          <div class="contact-item">
-            <i class="fa-solid fa-location-dot"></i>
-            <span>University Campus, City, State</span>
-          </div>
+  <footer class="footer-section redesigned-footer">
+
+  <!-- FULL WIDTH HEADER -->
+  <div class="footer-top">
+    <h2 class="get-in-touch-title">Get In Touch</h2>
+
+    <p class="footer-intro-text full-width-text">
+      Your input is valuable in recognizing accomplishments and guiding improvement.
+      Let us know your insights on this
+      {{ isDepartmentContext() ? "department's" : "campus's" }}
+      progress, abilities, and highlights using the form below!
+    </p>
+
+    <!-- <p class="login-note">
+      You have to first login to submit recommendation or feedback.
+    </p> -->
+  </div>
+
+  <!-- TWO COLUMN GRID -->
+  <div class="footer-content redesigned-grid">
+
+    <!-- LEFT SIDE -->
+    <div class="footer-left">
+
+      <!-- CONTACT INFO COMMENTED (DO NOT DELETE) -->
+      <!--
+      <div class="contact-info">
+        <div class="contact-item">
+          <i class="fa-solid fa-envelope"></i>
+          <span>{{ contactInfo()?.email }}</span>
         </div>
-        <div class="social-icons">
-          <i class="fa-brands fa-facebook"></i>
-          <i class="fa-brands fa-instagram"></i>
-          <i class="fa-brands fa-twitter"></i>
+        <div class="contact-item">
+          <i class="fa-solid fa-phone"></i>
+          <span>{{ contactInfo()?.phone }}</span>
+        </div>
+        <div class="contact-item">
+          <i class="fa-solid fa-location-dot"></i>
+          <span>{{ contactInfo()?.address }}</span>
         </div>
       </div>
-      <div class="footer-right">
-        <h3 class="footer-title">Feedback</h3>
-        <form class="feedback-form" novalidate (ngSubmit)="submitFeedback($event)">
-          <div class="feedback-question">
-            <p>Would you recommend promoting this campus based on their performance and potential?</p>
-            <div class="feedback-buttons">
-              <button 
-                type="button" 
-                class="feedback-btn yes" 
-                [class.active]="feedbackForm.recommendation === 'yes'"
-                (click)="feedbackForm.recommendation = 'yes'"
-              >
-                Yes
-              </button>
-              <button 
-                type="button" 
-                class="feedback-btn no"
-                [class.active]="feedbackForm.recommendation === 'no'"
-                (click)="feedbackForm.recommendation = 'no'"
-              >
-                No
-              </button>
-            </div>
-          </div>
-          <app-input 
-            label="Name" 
-            type="text" 
-            placeholder="Enter your name"
-            [value]="feedbackForm.name"
-            (valueChange)="feedbackForm.name = $event"
-            [disabled]="submittingFeedback"
-          />
-          <app-input 
-            label="Contact" 
-            type="text" 
-            placeholder="Enter your contact (email or phone)"
-            [value]="feedbackForm.contact"
-            (valueChange)="feedbackForm.contact = $event"
-            [disabled]="submittingFeedback"
-          />
-          <app-textarea 
-            label="Speak your mind about Mangalore University!" 
-            placeholder="Write your feedback here..."
-            [value]="feedbackForm.message"
-            (valueChange)="feedbackForm.message = $event"
-            [rows]="5"
-            [disabled]="submittingFeedback"
-          />
-          <app-button 
-            [label]="submittingFeedback ? 'Sending...' : 'Send'" 
-            variant="secondary" 
-            type="submit"
-            [disabled]="submittingFeedback"
-            (buttonClick)="submitFeedback($event)"
-          />
-        </form>
+      -->
+
+      <div class="recommendation-section">
+        <p class="feedback-question-text">
+          Would you recommend promoting this
+          {{ isDepartmentContext() ? 'department' : 'campus' }}
+          based on their performance and potential?
+        </p>
+
+        <div class="feedback-buttons">
+          <button
+            type="button"
+            class="feedback-btn"
+            [class.active]="recommendationChoice === 'yes'"
+            (click)="submitCampusRecommendation('yes')">
+            <i class="fa-solid fa-thumbs-up"></i>
+            Yes
+          </button>
+
+          <button
+            type="button"
+            class="feedback-btn"
+            [class.active]="recommendationChoice === 'no'"
+            (click)="submitCampusRecommendation('no')">
+            <i class="fa-solid fa-thumbs-down"></i>
+            No
+          </button>
+        </div>
       </div>
+
+      <!-- SOCIAL ICONS COMMENTED (DO NOT DELETE) -->
+      <!--
+      <div class="social-icons">
+        <i class="fa-brands fa-facebook"></i>
+        <i class="fa-brands fa-instagram"></i>
+        <i class="fa-brands fa-twitter"></i>
+      </div>
+      -->
+
     </div>
-    <div class="footer-bottom"></div>
-  </footer>
+
+    <!-- RIGHT SIDE -->
+    <div class="footer-right">
+
+      <form class="feedback-form" novalidate (ngSubmit)="submitCampusFeedback($event)">
+
+        <app-input
+          label="Name"
+          [required]="true"
+          [invalid]="reviewerNameTouched && isReviewerNameInvalid()"
+          [value]="campusFeedbackForm.reviewerName"
+          (valueChange)="onReviewerNameChange($event)"
+          [disabled]="submittingFeedback">
+        </app-input>
+
+        @if (reviewerNameTouched && isReviewerNameInvalid()) {
+          <div class="app-input-error">
+            Please enter a valid name (letters and spaces only).
+          </div>
+        }
+
+        <app-textarea
+          label="Speak your mind about this {{ isDepartmentContext() ? 'department' : 'campus' }}!"
+          [value]="campusFeedbackForm.feedbackText"
+          (valueChange)="campusFeedbackForm.feedbackText = $event"
+          [rows]="4"
+          [disabled]="submittingFeedback"
+          placeholder="Write your feedback here...">
+        </app-textarea>
+
+        <button
+          type="button"
+          class="submit-feedback-btn"
+          [disabled]="submittingFeedback"
+          (click)="submitCampusFeedback($event)">
+          send
+        </button>
+
+      </form>
+    </div>
+
+  </div>
+</footer>
 </div>
 
 <!-- Visit Campus Modal -->
@@ -532,19 +756,14 @@
   [visible]="isFacultyModalOpen()"
   [title]="isEditMode() ? 'Edit Faculty' : 'Add Faculty'"
   size="lg"
+  modalClass="add-faculty-modal"
   (closed)="closeModal()"
 >
   <app-campus-faculty
     [submitting]="submittingFaculty"
-    [value]="facultyFormValue || {
-      fullName: '',
-      photo: null,
-      email: '',
-      dateOfBirth: '',
-      phoneNumber: '',
-      professionalInfo: [{ designation: '', department: '', specialization: '', yearsOfExperience: '', qualifications: '', certificates: null }]
-    }"
+    [value]="facultyFormValue ?? getDefaultFacultyFormValue()"
     [isEditMode]="isEditMode()"
+    (valueChange)="facultyFormValue = $event"
     (submitted)="handleFacultySubmit($event)"
   />
 </app-modal>

@@ -11,7 +11,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
     CAMPUS: [
       {
         id: 'campus-about',
-        label: 'About campus',
+        label: 'Portfolio',
         icon: 'fa-angle-double-right',
         route: '/campus/about', // Will be constructed dynamically with IDs
         order: 1,
@@ -20,7 +20,34 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'campus-courses',
-        label: 'Courses',
+        label: 'Course Management',
+        icon: 'fa-angle-double-right',
+        route: '#',
+        order: 2,
+        module: 'campus',
+      },
+      {
+        id: 'campus-prospectus',
+        label: 'Upload Prospectus',
+        icon: 'fa-upload',
+        route: '#',
+        order: 3,
+        module: 'campus',
+      },
+    ],
+    DEPARTMENT: [
+      {
+        id: 'campus-about',
+        label: 'About Department',
+        icon: 'fa-angle-double-right',
+        route: '/department/about',
+        order: 1,
+        module: 'campus',
+        openInNewTab: true,
+      },
+      {
+        id: 'campus-courses',
+        label: 'Course Management',
         icon: 'fa-angle-double-right',
         route: '#',
         order: 2,
@@ -81,7 +108,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
     COMPANY: [
       {
         id: 'company-about',
-        label: 'About company',
+        label: 'Portfolio',
         icon: 'fa-angle-double-right',
         route: '/company/about', // Will be constructed dynamically with IDs
         order: 1,
@@ -90,7 +117,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'company-specialization',
-        label: 'Specialization',
+        label: 'Expertise',
         icon: 'fa-angle-double-right',
         route: '#',
         order: 2,
@@ -98,7 +125,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'company-vision-performance',
-        label: 'Vision & Performance',
+        label: 'Insights',
         icon: 'fa-angle-double-right',
         route: '#',
         order: 3,
@@ -106,7 +133,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'company-current-vacancy',
-        label: 'Current vacancy',
+        label: 'Opportunities',
         icon: 'fa-angle-double-right',
         route: '#',
         order: 4,
@@ -114,7 +141,7 @@ const USER_TYPE_MENU_CONFIG: Readonly<
       },
       {
         id: 'company-benefits',
-        label: 'Benefits Offer',
+        label: 'Employee Benefits',
         icon: 'fa-angle-double-right',
         route: '#',
         order: 5,
@@ -136,7 +163,7 @@ const ADMIN_MENU: readonly MenuItem[] = [
   },
   {
     id: 'admin-campus',
-    label: 'Campus Management',
+    label: 'Institute Management',
     icon: 'fa-building',
     route: '/admin/campus',
     order: 2,
@@ -146,7 +173,7 @@ const ADMIN_MENU: readonly MenuItem[] = [
   },
   {
     id: 'admin-student',
-    label: 'Student Management',
+    label: 'Aspirants Management',
     icon: 'fa-user-graduate',
     route: '/admin/student',
     order: 3,
@@ -156,10 +183,20 @@ const ADMIN_MENU: readonly MenuItem[] = [
   },
   {
     id: 'admin-company',
-    label: 'Company Management',
+    label: 'Employer/Recruiter Management',
     icon: 'fa-briefcase',
     route: '/admin/company',
     order: 4,
+    module: 'admin',
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    permissions: [],
+  },
+  {
+    id: 'admin-news',
+    label: 'News Management',
+    icon: 'fa-newspaper',
+    route: '/admin/news',
+    order: 5,
     module: 'admin',
     roles: ['ADMIN', 'SUPER_ADMIN'],
     permissions: [],
@@ -169,7 +206,7 @@ const ADMIN_MENU: readonly MenuItem[] = [
     label: 'App Management',
     icon: 'fa-cog',
     route: '/admin/app',
-    order: 5,
+    order: 6,
     module: 'admin',
     roles: ['ADMIN', 'SUPER_ADMIN'],
     permissions: [],
@@ -182,6 +219,9 @@ function roleForUserType(userType: UserType): UserRole {
   }
   if (userType === 'COMPANY') {
     return 'COMPANY_ADMIN';
+  }
+  if (userType === 'DEPARTMENT') {
+    return 'DEPARTMENT';
   }
   return 'STUDENT';
 }

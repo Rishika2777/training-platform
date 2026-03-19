@@ -1,31 +1,40 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { Campus, CampusApiService, CampusRegisterRequest, CampusRegistrationResponse } from '../../../campus/services/campus-api.service';
+import { Campus, CampusApiService, CampusRegisterRequest, CampusRegistrationResponse, BulkCampusUploadResponse } from '../../../campus/services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { APPROVAL_FILTER_ITEMS, EnumLoginStatus } from '../../../../core/config/app.constants';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
   CampusFormComponent,
   CampusFormValue,
 } from '../../../../shared/components/forms/campus-form/campus-form.component';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-admin-campus',
   standalone: true,
-  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CampusFormComponent],
+  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CampusFormComponent, DropdownComponent],
   templateUrl: './admin-campus.component.html',
   styleUrl: './admin-campus.component.css',
 })
 export class AdminCampusComponent implements OnInit {
+  @ViewChild('fileInput', { static: false }) fileInput!: ElementRef<HTMLInputElement>;
+
   private readonly campusApi = inject(CampusApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly announcementDate = 'January 7th, 2025';
+
+  uploadingTemplate = false;
 
   campuses: CardData[] = [];
   displayedCampuses: CardData[] = [];
@@ -67,6 +76,9 @@ export class AdminCampusComponent implements OnInit {
   readonly itemsPerPage = 9;
   totalPages = 1;
 
+  selectedApprovalFilter = '';
+  readonly approvalFilterItems = APPROVAL_FILTER_ITEMS;
+
   showCreateModal = false;
   createSubmitting = false;
   createFormValue: CampusFormValue = {
@@ -91,21 +103,33 @@ export class AdminCampusComponent implements OnInit {
     this.loadCampuses();
   }
 
+  onApprovalFilterChange(value: string): void {
+    this.selectedApprovalFilter = value ?? '';
+    this.cdr.detectChanges();
+    this.loadCampuses();
+  }
+
   private loadCampuses(): void {
     this.isLoading = true;
     this.campuses = [];
     this.displayedCampuses = [];
     
-    this.campusApi.getAllCampuses().subscribe({
+    const approvalStatus = this.selectedApprovalFilter || undefined;
+    this.campusApi.getAllCampuses(approvalStatus as 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | undefined).subscribe({
       next: (campuses: readonly Campus[]) => {
         try {
-          if (campuses && Array.isArray(campuses) && campuses.length > 0) {
-            this.campuses = campuses.map((campus) => {
+          const list = campuses && Array.isArray(campuses) ? [...campuses] : [];
+          if (list.length > 0) {
+            this.campuses = list.map((campus) => {
+              const imageUrl = cleanUiText(
+                readFirstNonEmptyString(campus as unknown, ['photoUrl', 'campusLogoUrl', 'logoUrl', 'imageUrl']),
+              );
               const cardData: CardData = {
                 id: campus.campusId ?? campus.id ?? `campus-${Math.random().toString(36).substr(2, 9)}`,
                 name: cleanUiText(campus.campusName) || cleanUiText(campus.email?.split('@')[0]) || 'Campus Name',
                 badge: toApprovalStatusLabel(campus.approvalStatus),
                 email: cleanUiText(campus.email),
+                imageUrl: imageUrl || undefined,
                 userId: campus.id ?? null,
               };
               return cardData;
@@ -425,7 +449,10 @@ export class AdminCampusComponent implements OnInit {
     }
 
     const currentUser = this.auth.getCurrentUser();
-    if (!currentUser?.userId || !currentUser.userType) {
+    const isAdminRoute = this.router.url.includes('/admin/campus');
+    
+    // On admin route, we only need userId. Otherwise, we need both userId and userType
+    if (!currentUser?.userId || (!isAdminRoute && !currentUser.userType)) {
       this.notify.error('Missing auth context. Please sign in and try again.');
       return;
     }
@@ -446,11 +473,15 @@ export class AdminCampusComponent implements OnInit {
       campusAddress: value.address || '',
     };
 
+    // Prepare options - include userType as 'ADMIN' if on admin route, otherwise use current user's type
+    const options = {
+      userId: currentUser.userId,
+      ...(isAdminRoute ? { userType: 'ADMIN' as const } : currentUser.userType ? { userType: currentUser.userType } : {}),
+    };
+
+    const photo = value.campusLogoFiles?.length ? value.campusLogoFiles[0] : null;
     this.campusApi
-      .registerCampus(registerRequest, {
-        userId: currentUser.userId,
-        userType: currentUser.userType,
-      })
+      .registerCampus(registerRequest, options, photo)
       .subscribe({
         next: (response: CampusRegistrationResponse | null) => {
           this.createSubmitting = false;
@@ -491,6 +522,147 @@ export class AdminCampusComponent implements OnInit {
     const status = toApprovalStatusLabel(this.selectedCampusApprovalStatus);
     return status === 'APPROVED' || status === 'REJECTED';
   }
+
+  downloadTemplate(): void {
+    const headers = [
+      'Campus Name',
+      'Campus Rank',
+      'Admin Name',
+      'Admin Email',
+      'Admin Phone',
+      'Admin Department (Optional)',
+      'Admin Designation',
+      'Website URL (Optional)',
+      'About Campus (Optional)',
+      'Campus Address',
+    ];
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+
+    // Set column widths for better readability
+    const columnWidths = [
+      { wch: 20 }, // Campus Name
+      { wch: 12 }, // Campus Rank
+      { wch: 20 }, // Admin Name
+      { wch: 25 }, // Admin Email
+      { wch: 15 }, // Admin Phone
+      { wch: 25 }, // Admin Department (Optional)
+      { wch: 20 }, // Admin Designation
+      { wch: 30 }, // Website URL (Optional)
+      { wch: 40 }, // About Campus (Optional)
+      { wch: 30 }, // Campus Address
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Campus Registration');
+
+    // Generate Excel file buffer
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+
+    // Create blob and download
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'campus_registration_template.xlsx');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.notify.success('Template downloaded successfully');
+  }
+
+  triggerFileUpload(): void {
+    if (this.fileInput) {
+      this.fileInput.nativeElement.click();
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    // Validate file extension (.xlsx or .xls)
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      this.notify.error('Please select an Excel file (.xlsx or .xls)');
+      return;
+    }
+
+    this.uploadBulkCampuses(file);
+  }
+
+  private uploadBulkCampuses(file: File): void {
+    if (this.uploadingTemplate) {
+      return;
+    }
+
+    this.uploadingTemplate = true;
+
+    this.campusApi.bulkUploadCampuses(file).subscribe({
+      next: (response: BulkCampusUploadResponse | null) => {
+        this.uploadingTemplate = false;
+        
+        if (response) {
+          const totalRows = response.totalRows || 0;
+          const successfulRows = response.successfulRows || 0;
+          const failedRows = response.failedRows || 0;
+          
+          if (failedRows === 0) {
+            this.notify.success(`Bulk upload completed successfully! ${successfulRows} campus(es) uploaded.`);
+          } else {
+            this.notify.warn(
+              `Bulk upload completed with some errors. ${successfulRows} successful, ${failedRows} failed out of ${totalRows} total rows.`
+            );
+          }
+          
+          // Reload campuses list to show newly uploaded campuses
+          this.loadCampuses();
+        } else {
+          this.notify.error('Bulk upload completed but received invalid response.');
+        }
+        
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.uploadingTemplate = false;
+        let errorMessage = 'Failed to upload file. Please try again.';
+        
+        if (error && typeof error === 'object') {
+          if ('error' in error && error.error) {
+            const errorObj = error.error as { message?: string; error?: string };
+            errorMessage = errorObj.message || errorObj.error || errorMessage;
+          } else if ('message' in error) {
+            errorMessage = String(error.message);
+          }
+        }
+        
+        this.notify.error(errorMessage);
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+    });
+  }
 }
 
 function toApprovalStatusLabel(status: string | null | undefined): string {
@@ -513,4 +685,18 @@ function cleanUiText(value: string | null | undefined): string {
   if (!cleaned) return '';
   if (cleaned.toLowerCase() === 'string') return '';
   return cleaned;
+}
+
+function readFirstNonEmptyString(obj: unknown, keys: readonly string[]): string {
+  if (!obj || typeof obj !== 'object') {
+    return '';
+  }
+  const rec = obj as Record<string, unknown>;
+  for (const key of keys) {
+    const val = rec[key];
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val;
+    }
+  }
+  return '';
 }

@@ -8,7 +8,7 @@
   color: var(--color-text-primary);
   font-weight: 400;
   font-size: 14px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
 }
 
 .asterisk {
@@ -29,7 +29,7 @@
   border-radius: 15px;
   padding: 0 40px 0 15px;
   height: 40px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-weight: 400;
   background: var(--color-white);
   appearance: none;
@@ -85,7 +85,7 @@
   border-radius: 15px;
   padding: 0 40px 0 15px;
   height: 40px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-weight: 400;
   background: var(--color-white);
   padding-right: 40px;
@@ -139,17 +139,19 @@
   font-size: 10px;
 }
 
+/* Fixed positioning escapes overflow:hidden on parents - prevents dropdown clipping */
 .dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
+  position: fixed;
+  top: 0;
   left: 0;
-  right: 0;
+  right: auto;
+  width: auto;
   background: var(--color-white);
   border: 2px solid var(--color-secondary);
   border-radius: 15px;
   max-height: 250px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 10050;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   margin-top: 4px;
 }
@@ -157,7 +159,7 @@
 .dropdown-item {
   padding: 10px 15px;
   cursor: pointer;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-size: 14px;
   color: var(--color-text-primary);
   transition: background-color 0.2s;
@@ -217,16 +219,25 @@
 }
 
 @media (max-width: 768px) {
+  .field {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .select-wrapper {
     max-width: 100%;
+    min-width: 0;
   }
 
   .autocomplete-wrapper {
     max-width: 100%;
+    min-width: 0;
+    position: relative;
   }
 
   .control {
     max-width: 100%;
+    min-width: 0;
     height: 56px;
     border-width: 3px;
     border-radius: 18px;
@@ -235,6 +246,8 @@
 
   .autocomplete-input {
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: 56px;
     border-width: 3px;
     border-radius: 18px;
@@ -242,6 +255,6 @@
   }
 
   .dropdown-menu {
-    max-height: 200px;
+    max-height: min(200px, calc(100vh - 120px));
   }
 }

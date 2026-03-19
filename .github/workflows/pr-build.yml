@@ -1,4 +1,4 @@
-name: Angular CI
+name: PR CI
 
 on:
   pull_request:

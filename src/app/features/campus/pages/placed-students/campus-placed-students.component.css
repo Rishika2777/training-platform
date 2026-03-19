@@ -67,9 +67,72 @@
   cursor: not-allowed;
 }
 
+@media (max-width: 1024px) {
+  .placed-students-form {
+    gap: 18px;
+  }
+
+  .form-grid {
+    gap: 18px;
+  }
+}
+
 @media (max-width: 768px) {
+  .placed-students-form {
+    gap: 16px;
+    overflow: visible;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+    overflow: visible;
+  }
+
+  .form-row {
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .file-attach-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .form-actions {
+    margin-top: 8px;
+  }
+
+  .form-actions .btn.primary {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .placed-students-form {
+    gap: 12px;
+  }
+
+  .form-grid {
+    gap: 12px;
+  }
+
+  .form-row {
+    gap: 8px;
+  }
+
+  .file-attach-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .form-actions .btn.primary {
+    padding: 10px 18px;
+    font-size: 14px;
+    width: 100%;
   }
 }
 

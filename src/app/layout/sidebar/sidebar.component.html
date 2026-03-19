@@ -1,101 +1,494 @@
 @if (isAuthenticated()) {
-  <aside class="sidebar" [class.collapsed]="collapsed">
-    <div class="profile">
-      @if (userImageUrl()) {
-        <img class="avatar-image" [src]="userImageUrl()!" [alt]="userLabel()" />
-      } @else {
-        <div class="avatar" aria-hidden="true">{{ initials(userLabel()) }}</div>
-      }
-      @if (!collapsed) {
-        <div class="profile-meta">
-          <div class="profile-name">{{ userLabel() }}</div>
-          <div class="profile-rank">{{ userRank() }}</div>
-        </div>
-      }
-    </div>
+<aside class="sidebar" [class.collapsed]="collapsed">
 
-    <nav class="sidebar-main">
-      <ul class="sidebar-menu">
-        @for (item of menuItems(); track item.id) {
-          <li
-            class="sidebar-menu-item"
-            [class.active]="isActive(item)"
-            (click)="handleMenuClick(item)"
-            role="button"
-            tabindex="0"
-            [attr.title]="collapsed ? item.label : null"
-          >
-            <i class="menu-icon" [class]="'fa-solid ' + item.icon" aria-hidden="true"></i>
-            @if (!collapsed) {
-              <span class="sidebar-menu-label">{{ item.label }}</span>
-            }
-          </li>
+  <!-- BRAND -->
+  <div class="sidebar-brand">
+    @if (!collapsed) {
+      <span class="sidebar-brand-text">Synkup</span>
+    }
+  </div>
+  <div class="sidebar-divider" aria-hidden="true"></div>
+
+  <!-- PROFILE -->
+  <div class="profile">
+    @if (userImageUrl()) {
+      <img class="avatar-image" [src]="userImageUrl()!" [alt]="userLabel()" />
+    } @else {
+      <div class="avatar" aria-hidden="true">{{ initials(userLabel()) }}</div>
+    }
+
+    @if (!collapsed) {
+      <div class="profile-meta">
+  <div class="profile-name">{{ userLabel() }}</div>
+
+  @if (isAdminUser()) {
+    <div class="profile-role">Administrator</div>
+  } @else if (userRank()) {
+    <div class="profile-rank">{{ userRank() }}</div>
+  }
+</div>
+    }
+  </div>
+
+  <!-- MAIN MENU -->
+  <nav class="sidebar-main">
+    <ul class="sidebar-menu">
+      @for (item of menuItems(); track item.id) {
+    <li
+  class="sidebar-menu-item"
+  [class.active]="isActive(item)"
+  (click)="handleMenuClick(item)"
+  (keyup.enter)="handleMenuClick(item)"
+  (keyup.space)="handleMenuClick(item)"
+  role="button"
+  tabindex="0"
+  [attr.title]="collapsed ? item.label : null"
+>
+
+          <i class="menu-icon" [class]="'fa-solid ' + item.icon"></i>
+
+          @if (!collapsed) {
+            <span class="sidebar-menu-label">{{ item.label }}</span>
+          }
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <!-- CAMPUS / DEPARTMENT SECTIONS -->
+  @if (!collapsed && showCampusFaculties()) {
+  <div class="sidebar-footer">
+
+    <!-- ==================== DEPARTMENTS ==================== -->
+    @if (showDepartmentsSection()) {
+    <div class="departments-section">
+
+      <div class="departments-header">
+        <div class="departments-title">Departments</div>
+        <button class="add-department-btn" type="button" (click)="onAddDepartmentClick()">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <div class="departments-list">
+
+        @if (loadingDepartments()) {
+          <div class="loading-text">Loading...</div>
         }
-      </ul>
-    </nav>
 
-    @if (!collapsed && showCampusFaculties()) {
-      <div class="sidebar-footer">
-        <div class="faculties-section">
-          <div class="faculties-header">
-            <div class="faculties-title">Our Faculties</div>
-            <button class="add-faculty-btn" type="button" (click)="onAddFacultyClick()" title="Add Faculty">
-              <i class="fa-solid fa-plus"></i>
-            </button>
-          </div>
-          <div class="faculties-list">
-            @for (faculty of displayedFaculty; track faculty.imageUrl) {
-              <div class="faculty-item" (click)="onFacultyClick(faculty)" role="button" tabindex="0" (keydown.enter)="onFacultyClick(faculty)" (keydown.space)="onFacultyClick(faculty); $event.preventDefault()">
-                <img class="faculty-avatar" [src]="faculty.imageUrl" [alt]="faculty.name" />
-                <div class="faculty-name">{{ faculty.name }}</div>
-              </div>
-            }
-          </div>
-          @if (facultyTotalPages > 1) {
-            <div class="faculties-pagination">
-              <button
-                type="button"
-                class="pagination-arrow"
-                [disabled]="facultyPage === 1"
-                (click)="onFacultyPageChange(facultyPage - 1)"
-                aria-label="Previous page"
-              >
-                <i class="fa-solid fa-chevron-left"></i>
-              </button>
-              @for (page of facultyPageNumbers; track page) {
-                <button
-                  type="button"
-                  class="pagination-page"
-                  [class.active]="facultyPage === page"
-                  (click)="onFacultyPageChange(page)"
-                >
-                  {{ page }}
-                </button>
-              }
-              <button
-                type="button"
-                class="pagination-arrow"
-                [disabled]="facultyPage === facultyTotalPages"
-                (click)="onFacultyPageChange(facultyPage + 1)"
-                aria-label="Next page"
-              >
-                <i class="fa-solid fa-chevron-right"></i>
-              </button>
+        @else if (displayedDepartments().length === 0) {
+          <div class="empty-text">No departments</div>
+        }
+
+        @else {
+          @for (dept of displayedDepartments(); track dept.id) {
+   <div
+  class="department-item"
+  (click)="onDepartmentClick(dept)"
+  (keyup.enter)="onDepartmentClick(dept)"
+  tabindex="0"
+>
+  <img class="department-avatar" [src]="dept.imageUrl" alt="department" />
+
+              <div class="department-name">{{ dept.name }}</div>
             </div>
           }
-        </div>
+        }
+
       </div>
+
+      @if (departmentTotalPages() > 1) {
+      <div class="departments-pagination">
+        <button
+          type="button"
+          class="pagination-arrow"
+          [disabled]="departmentPage() === 1"
+          (click)="onDepartmentPageChange(departmentPage() - 1)"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+
+        @for (page of departmentPageNumbers(); track page) {
+          <button
+            type="button"
+            class="pagination-page"
+            [class.active]="departmentPage() === page"
+            (click)="onDepartmentPageChange(page)"
+          >
+            {{ page }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="pagination-arrow"
+          [disabled]="departmentPage() === departmentTotalPages()"
+          (click)="onDepartmentPageChange(departmentPage() + 1)"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+      }
+
+    </div>
     }
 
-    @if (!collapsed && showStudentHomeFooter()) {
-      <div class="sidebar-footer">
-        <button class="quizhub" type="button">QuizHub <i class="fa-solid fa-angles-right"></i></button>
-        <div class="ideas">
-          <div class="ideas-title"><i class="fa-solid fa-lightbulb"></i> Your Ideas Matter!</div>
-          <button class="ideas-btn" type="button" (click)="onIdeasSubmitClick()">Submit Now <i class="fa-solid fa-angles-right"></i></button>
-        </div>
+    <!-- ==================== FACULTIES ==================== -->
+    <div class="faculties-section">
+      <div class="faculties-header">
+        <div class="faculties-title">Our Faculties</div>
+        <button class="add-faculty-btn" type="button" (click)="onAddFacultyClick()">
+          <i class="fa-solid fa-plus"></i>
+        </button>
       </div>
+
+      <div class="faculties-list">
+        @if (loadingFaculties() && faculty().length === 0) {
+          <div class="loading-text">Loading...</div>
+        }
+        @else if (displayedFaculty.length === 0) {
+          <div class="empty-text">No faculties</div>
+        }
+        @else {
+          @for (faculty of displayedFaculty; track faculty.id) {
+            <div
+              class="faculty-item"
+              (click)="onFacultyClick(faculty)"
+              (keyup.enter)="onFacultyClick(faculty)"
+              tabindex="0"
+            >
+              <img class="faculty-avatar" [src]="faculty.imageUrl" alt="faculty" />
+              <div class="faculty-name" [attr.title]="faculty.name">{{ faculty.name }}</div>
+            </div>
+          }
+        }
+      </div>
+
+      @if (facultyTotalPages > 1) {
+      <div class="faculties-pagination">
+
+        <button
+          type="button"
+          class="pagination-arrow"
+          [disabled]="facultyPage === 1 || loadingFaculties()"
+          (click)="onFacultyPageChange(facultyPage - 1)"
+        >
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+
+        @for (page of facultyPageNumbers; track page) {
+          <button
+            type="button"
+            class="pagination-page"
+            [class.active]="facultyPage === page"
+            [disabled]="loadingFaculties()"
+            (click)="onFacultyPageChange(page)"
+          >
+            {{ page }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="pagination-arrow"
+          [disabled]="facultyPage === facultyTotalPages || loadingFaculties()"
+          (click)="onFacultyPageChange(facultyPage + 1)"
+        >
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+
+      </div>
+      }
+
+    </div>
+
+    <!-- ==================== NOTICE BOARD ==================== -->
+    <div class="departments-section notice-board">
+
+      <div class="departments-header">
+        <div class="departments-title">
+          Notice Board
+        </div>
+
+@if (!isStudentUser()) {
+    <button
+    class="add-department-btn"
+    type="button"
+    (click)="onAddNoticeClick()"
+  >
+    <i class="fa-solid fa-plus"></i>
+  </button>
+}
+      </div>
+
+      <div class="departments-list">
+
+        @if (loadingNotices() && (!notices() || notices().length === 0)) {
+          <div class="loading-text">Loading notices...</div>
+        }
+        @else if (!notices() || notices().length === 0) {
+          <div class="empty-text">No notices yet</div>
+        }
+        @else {
+          @for (notice of notices(); track notice.id)
+ {
+
+<div class="notice-card" role="button" tabindex="0" (click)="onNoticeClick(notice)" (keyup.enter)="onNoticeClick(notice)" (keyup.space)="$event.preventDefault(); onNoticeClick(notice)">
+
+  <div class="notice-title">
+    {{ notice.title }}
+  </div>
+
+  <div class="notice-meta">
+    <span class="notice-date">
+      {{ notice.createdAt | date:'dd MMM y' }}
+    </span>
+  </div>
+
+  @if (notice.message) {
+    <div class="notice-desc-wrap">
+      <div class="notice-desc">
+        {{ notice.message.length > noticeDescTruncate ? (notice.message | slice:0:noticeDescTruncate) + '...' : notice.message }}
+      </div>
+      <span
+        class="notice-read-more"
+        role="button"
+        tabindex="0"
+        (click)="$event.stopPropagation(); onNoticeClick(notice, true)"
+        (keydown.enter)="$event.stopPropagation(); onNoticeClick(notice, true)"
+        (keydown.space)="$event.preventDefault(); $event.stopPropagation(); onNoticeClick(notice, true)"
+      >
+        Read more
+      </span>
+    </div>
+  } @else {
+    <span
+      class="notice-read-more"
+      role="button"
+      tabindex="0"
+      (click)="onNoticeClick(notice)"
+      (keydown.enter)="onNoticeClick(notice)"
+      (keydown.space)="$event.preventDefault(); onNoticeClick(notice)"
+    >
+      Read more
+    </span>
+  }
+
+</div>
+
+
+          }
+        }
+
+      </div>
+
+      <!-- NOTICE PAGINATION -->
+    @if (noticeTotalPages() > 1) {
+  <div class="faculties-pagination">
+
+    <button
+      type="button"
+      class="pagination-arrow"
+      [disabled]="noticePage() === 1 || loadingNotices()"
+      (click)="onNoticePageChange(noticePage() - 1)"
+    >
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+
+    @for (page of noticePageNumbers(); track page) {
+      <button
+        type="button"
+        class="pagination-page"
+        [class.active]="noticePage() === page"
+        [disabled]="loadingNotices()"
+        (click)="onNoticePageChange(page)"
+      >
+        {{ page }}
+      </button>
     }
-  </aside>
+
+    <button
+      type="button"
+      class="pagination-arrow"
+      [disabled]="noticePage() === noticeTotalPages() || loadingNotices()"
+      (click)="onNoticePageChange(noticePage() + 1)"
+    >
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+
+  </div>
 }
 
+
+    </div>
+
+  </div>
+  }
+
+  <!-- ================= STUDENT NOTICE BOARD ================= -->
+@if (!collapsed && isStudentUser()) {
+
+  <div class="sidebar-footer">
+
+    <div class="departments-section notice-board">
+
+      <div class="departments-header">
+        <div class="departments-title">
+          Notice Board
+        </div>
+      </div>
+
+      <div class="departments-list">
+
+        @if (loadingNotices() && (!notices() || notices().length === 0)) {
+          <div class="loading-text">Loading notices...</div>
+        }
+        @else if (!notices() || notices().length === 0) {
+          <div class="empty-text">No notices yet</div>
+        }
+        @else {
+          @for (notice of notices(); track notice.id) {
+
+            <div class="notice-card">
+
+              <div class="notice-title">
+                {{ notice.title }}
+              </div>
+
+              <div class="notice-meta">
+                <span class="notice-date">
+                  {{ notice.createdAt | date:'dd MMM y' }}
+                </span>
+              </div>
+
+              @if (notice.message) {
+                <div class="notice-desc-wrap">
+                  <div class="notice-desc">
+                    {{ notice.message.length > noticeDescTruncate ? (notice.message | slice:0:noticeDescTruncate) + '...' : notice.message }}
+                  </div>
+                  <span
+                    class="notice-read-more"
+                    role="button"
+                    tabindex="0"
+                    (click)="onNoticeClick(notice)"
+                    (keydown.enter)="onNoticeClick(notice)"
+                    (keydown.space)="$event.preventDefault(); onNoticeClick(notice)"
+                  >
+                    Read more
+                  </span>
+                </div>
+              } @else {
+                <span
+                  class="notice-read-more"
+                  role="button"
+                  tabindex="0"
+                  (click)="onNoticeClick(notice)"
+                  (keydown.enter)="onNoticeClick(notice)"
+                  (keydown.space)="$event.preventDefault(); onNoticeClick(notice)"
+                >
+                  Read more
+                </span>
+              }
+
+            </div>
+
+          }
+        }
+
+      </div>
+
+    </div>
+
+  </div>
+}
+
+  <!-- STUDENT FOOTER -->
+  @if (!collapsed && showStudentHomeFooter()) {
+  <div class="sidebar-footer">
+    <button class="quizhub">QuizHub <i class="fa-solid fa-angles-right"></i></button>
+
+    <div class="ideas">
+      <div class="ideas-title">
+        <i class="fa-solid fa-lightbulb"></i> Your Ideas Matter!
+      </div>
+
+      <button class="ideas-btn" (click)="onIdeasSubmitClick()">
+        Submit Now <i class="fa-solid fa-angles-right"></i>
+      </button>
+    </div>
+  </div>
+  }
+<!-- 
+@if (showNoticeModal() && selectedNotice()) {
+
+<div
+  class="notice-modal-overlay"
+  role="button"
+  tabindex="0"
+  (click)="onNoticeModalClose()"
+  (keyup.enter)="onNoticeModalClose()"
+  (keyup.space)="onNoticeModalClose()"
+>
+
+<div
+  class="notice-modal-wrapper"
+  role="dialog"
+  tabindex="-1"
+  (click)="$event.stopPropagation()"
+  (keyup.enter)="$event.stopPropagation()"
+  (keyup.space)="$event.stopPropagation()"
+>
+
+
+
+ <app-campus-notice-detail
+  [notice]="selectedNotice()"
+  (closed)="onNoticeModalClose()"
+  (deleteRequested)="onNoticeDelete($event)"
+  (editRequested)="onNoticeEdit($event)"
+/>
+
+    </div>
+
+  </div>
+
+} -->
+
+  <!-- ROBOT MASCOT + LOG OUT -->
+  <div class="sidebar-bottom">
+    @if (!collapsed) {
+      <div class="sidebar-robot" aria-hidden="true">
+        <svg class="sidebar-robot-svg" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+          <line x1="85" y1="40" x2="80" y2="10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="115" y1="40" x2="120" y2="10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="80" cy="10" r="3" fill="#5B8DEE"/>
+          <circle cx="120" cy="10" r="3" fill="#5B8DEE"/>
+          <rect x="50" y="45" width="100" height="70" rx="12" fill="#fff" opacity="0.95"/>
+          <circle class="sidebar-robot-eye" cx="85" cy="75" r="12" fill="#5B8DEE"/>
+          <circle class="sidebar-robot-eye" cx="115" cy="75" r="12" fill="#5B8DEE"/>
+          <circle cx="85" cy="75" r="5" fill="#A2C2F7"/>
+          <circle cx="115" cy="75" r="5" fill="#A2C2F7"/>
+          <path d="M 75 95 Q 100 108 125 95" stroke="#5B8DEE" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <rect x="88" y="112" width="24" height="8" rx="2" fill="#5B8DEE" opacity="0.8"/>
+          <rect x="40" y="120" width="120" height="90" rx="8" fill="#fff" opacity="0.95"/>
+          <rect x="55" y="135" width="35" height="25" rx="4" fill="#5B8DEE" opacity="0.35"/>
+          <rect x="110" y="135" width="35" height="25" rx="4" fill="#5B8DEE" opacity="0.35"/>
+          <circle cx="65" cy="215" r="8" fill="#5B8DEE" opacity="0.6"/>
+          <circle cx="135" cy="215" r="8" fill="#5B8DEE" opacity="0.6"/>
+          <rect x="55" y="218" width="30" height="18" rx="4" fill="#fff"/>
+          <rect x="115" y="218" width="30" height="18" rx="4" fill="#fff"/>
+        </svg>
+      </div>
+    }
+    <button type="button" class="sidebar-logout" (click)="onLogout()" [attr.title]="collapsed ? 'Log Out' : null">
+      <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+      @if (!collapsed) {
+        <span>Log Out</span>
+      }
+    </button>
+  </div>
+
+  <!-- Notice detail modal is rendered in dashboard-layout for correct z-index stacking -->
+
+</aside>
+}

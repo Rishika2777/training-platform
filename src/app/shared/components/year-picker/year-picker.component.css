@@ -10,7 +10,7 @@
   color: var(--color-text-primary);
   font-weight: 400;
   font-size: 14px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
 }
 
 .asterisk {
@@ -22,6 +22,7 @@
   position: relative;
   width: 100%;
   max-width: 280px;
+  z-index: 1;
 }
 
 .year-picker-input {
@@ -31,13 +32,14 @@
   height: 40px;
   border-radius: 15px;
   padding: 0 45px 0 15px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-weight: 400;
   display: flex;
   align-items: center;
   cursor: pointer;
   background: white;
   position: relative;
+  z-index: 1;
 }
 
 .year-picker-input:hover:not(.disabled) {

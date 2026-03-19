@@ -52,11 +52,11 @@ export class CompanyBenefitsComponent {
   ];
 
   readonly salaryItems: readonly DropdownItem<string>[] = [
-    { label: '30000-50000', value: '30000-50000' },
-    { label: '50000-80000', value: '50000-80000' },
-    { label: '80000-100000', value: '80000-100000' },
-    { label: '100000-150000', value: '100000-150000' },
-    { label: '150000-200000', value: '150000-200000' },
+    { label: '₹30,000 - ₹50,000 INR', value: '30000-50000' },
+    { label: '₹50,000 - ₹80,000 INR', value: '50000-80000' },
+    { label: '₹80,000 - ₹1,00,000 INR', value: '80000-100000' },
+    { label: '₹1,00,000 - ₹1,50,000 INR', value: '100000-150000' },
+    { label: '₹1,50,000 - ₹2,00,000 INR', value: '150000-200000' },
   ];
   
 readonly benefitFields: { key: keyof BenefitsFormValue; label: string }[] = [

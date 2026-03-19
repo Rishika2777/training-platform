@@ -74,3 +74,37 @@
 .form-actions app-button {
   flex: 0 0 auto;
 }
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .help-desk-form {
+    padding: 0.5rem 0;
+  }
+
+  .help-desk-layout {
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 0;
+  }
+
+  .contact-section {
+    flex: none;
+    padding: 0 0 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .help-desk-form-container {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .form-actions app-button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

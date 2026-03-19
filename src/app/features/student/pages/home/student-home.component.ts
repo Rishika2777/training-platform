@@ -1,32 +1,50 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { AfterViewInit, Component, computed, ElementRef, inject, NgZone, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { DropdownComponent, DropdownItem, ApiFetchFunction } from '../../../../shared/components/dropdown/dropdown.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { AvatarComponent } from '../../../../shared/components/avatar/avatar.component';
 import { YearPickerComponent } from '../../../../shared/components/year-picker/year-picker.component';
 import { ModalService } from '../../../../core/modal/modal.service';
 import { StudentResumeUploadComponent } from '../resume-upload/student-resume-upload.component';
 import { StudentCareerCheckinComponent } from '../career-checkin/student-career-checkin.component';
 import { StudentLearningPathwayComponent } from '../learning-pathway/student-learning-pathway.component';
 import { StudentIdeasSubmissionComponent } from '../ideas-submission/student-ideas-submission.component';
+import { AvatarComponent } from '../../../../shared/components/avatar/avatar.component';
+import { CreatePostComponent } from '../../../../shared/components/create-post/create-post.component';
+import type { CreatePostSubmitPayload } from '../../../../shared/components/create-post/create-post.component';
 import { StudentAiToolkitComponent } from '../ai-toolkit/ai-toolkit.component';
 import { StudentApiService } from '../../services/student-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { CommonApiService } from '../../../../core/services/common-api.service';
+import { EditPostStateService } from '../../../../core/services/edit-post-state.service';
+import { MediaViewerComponent } from '../../../../shared/components/media-viewer/media-viewer.component';
+import {
+  AnnouncementCarouselComponent,
+  AnnouncementCarouselItem,
+} from '../../../../shared/components/announcement-carousel/announcement-carousel.component';
+import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 import { catchError, of, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-import { CampusResponse } from '../../models/student.models';
+import { map, finalize, switchMap } from 'rxjs/operators';
+import type { Post } from '../../../../core/models/common-api.model';
+import { AlumniResponse, CampusResponse, PlacedStudentResponse } from '../../models/student.models';
 import { APP_CONFIG_TOKEN, APP_CONFIG } from '../../../../core/config/app.constants';
 import { CampusApiService, CampusAutocompleteResponse, CompanyVisitedItem } from '../../../../features/campus/services/campus-api.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
+import { NewsService } from '../../../admin/services/news.service';
+import { RelativeTimePipe } from '../../../../shared/pipes/relative-time.pipe';
 
 @Component({
   selector: 'app-student-home',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     CarouselComponent,
     ModalComponent,
     DropdownComponent,
@@ -38,17 +56,28 @@ import { STORAGE_KEYS } from '../../../../core/config/app.constants';
     StudentIdeasSubmissionComponent,
     StudentAiToolkitComponent,
     YearPickerComponent,
+    CreatePostComponent,
+    MediaViewerComponent,
+    AnnouncementCarouselComponent,
+    RelativeTimePipe,
   ],
   templateUrl: './student-home.component.html',
   styleUrl: './student-home.component.css',
 })
-export class StudentHomeComponent implements OnInit {
+export class StudentHomeComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly modalService = inject(ModalService);
   readonly studentApiService = inject(StudentApiService);
   readonly authService = inject(AuthService);
   private readonly campusApiService = inject(CampusApiService);
+  private readonly commonApi = inject(CommonApiService);
+  private readonly authState = inject(AuthStateService);
+  readonly editPostState = inject(EditPostStateService);
+  private readonly notify = inject(NotificationService);
   private readonly storage = inject(StorageService);
   private readonly config = inject(APP_CONFIG_TOKEN, { optional: true }) ?? APP_CONFIG;
+private newsService = inject(NewsService);
+readonly REPORT_MAX_LENGTH = 300;
+
 
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isResumeModalOpen = computed(() => this.activeModal() === 'resume-upload');
@@ -57,11 +86,231 @@ export class StudentHomeComponent implements OnInit {
   readonly isIdeasSubmissionModalOpen = computed(() => this.activeModal() === 'ideas-submission');
   readonly isDreamJobToolkitModalOpen = computed(() => this.activeModal() === 'dream-job-toolkit');
   readonly isFilterModalOpen = computed(() => this.activeModal() === 'batchmates-filter');
-
+  readonly isCreatePostModalOpen = computed(() => this.activeModal() === 'create-post');
+private readonly router = inject(Router);
   submittingResume = false;
   submittingCareerCheckin = false;
   submittingIdeas = false;
-  readonly announcementDate = 'January 7th, 2025';
+  readonly isSubmittingPost = signal(false);
+  
+  // Announcements - loaded from dedicated API
+  readonly announcementsLoaded = signal<FeedPost[]>([]);
+  readonly announcements = computed(() => this.announcementsLoaded());
+
+  readonly announcementCarouselItems = computed((): AnnouncementCarouselItem[] =>
+    this.announcementsLoaded().map((p) => ({
+      id: p.postId ?? undefined,
+      text: p.text ?? '',
+      date: p.createdAt ?? undefined,
+      mediaUrl: p.mediaUrl ?? null,
+      mediaType: p.mediaType ?? null,
+    }))
+  );
+
+  // ----------------- news -------------
+readonly newsList = signal<NewsItem[]>([]);
+readonly loadingNews = signal(false);
+
+newsPage = 0;
+newsPageSize = 2;
+
+
+// NEWS MODAL VIA MODAL SERVICE
+openNewsDetail(news: NewsItem): void {
+  this.newsModalData.set(news);
+  this.modalService.openModal('news-detail');
+}
+
+// --------------- open placed student --------------
+openPlacedStudentProfile(student: PersonCard): void {
+  const id = student.publicStudentId || student.id;
+  if (!id || !id.trim()) return;
+  const url = this.router.serializeUrl(this.router.createUrlTree(['/profile/student', id]));
+  window.open(url, '_blank');
+}
+
+// ----------------- open my batchmates ------------
+openBatchmateProfile(student: PersonCard): void {
+  const id = student.publicStudentId || student.id;
+  if (!id || !id.trim()) return;
+  const url = this.router.serializeUrl(this.router.createUrlTree(['/profile/student', id]));
+  window.open(url, '_blank');
+}
+
+// ------------------ open company profile ------------
+openCompanyProfile(company: CompanyCard): void {
+  const publicId = company.publicCompanyId;
+  if (!publicId || !String(publicId).trim()) return;
+  const url = this.router.serializeUrl(this.router.createUrlTree(['/profile/company', publicId]));
+  window.open(url, '_blank');
+}
+
+// -------------------- open alumni profile ---------------
+openAlumniProfile(student: PersonCard): void {
+  const id = student.publicStudentId || student.id;
+  if (!id || !id.trim()) return;
+  const url = this.router.serializeUrl(this.router.createUrlTree(['/profile/student', id]));
+  window.open(url, '_blank');
+}
+
+closeNewsDetail(): void {
+  this.modalService.closeModal();
+  this.newsModalData.set(null);
+}
+
+
+readonly isNewsDetailModalOpen = computed(
+  () => this.modalService.activeModal() === 'news-detail'
+);
+
+readonly newsModalData = signal<NewsItem | null>(null);
+
+  // Feed posts (excluding announcements)
+  readonly feedPosts = computed(() => {
+    return this.posts().filter((post) => post.postKind !== 'ANNOUNCEMENT');
+  });
+
+
+
+  // --------------- news ----------
+loadLatestNews(): void {
+  // Only load news if user is authenticated and has a valid token
+  const user = this.authState.user();
+  const token = this.authState.token();
+  if (!user || !token) {
+    this.newsList.set([]);
+    this.loadingNews.set(false);
+    return;
+  }
+
+  this.loadingNews.set(true);
+
+  this.newsService.getAllNews().subscribe({
+    next: (res: unknown) => {
+
+      if (Array.isArray(res)) {
+        this.newsList.set(res as NewsItem[]);
+      } 
+      else if (res && typeof res === 'object' && 'data' in res) {
+        const apiRes = res as { data: NewsItem[] };
+        this.newsList.set(apiRes.data || []);
+      } 
+      else {
+        this.newsList.set([]);
+      }
+
+      this.loadingNews.set(false);
+    },
+
+    error: (err) => {
+      // Only log non-401 errors (401 is expected if not authenticated or token expired)
+      if (err && typeof err === 'object' && 'status' in err && err.status !== 401) {
+        console.error('Student news load error:', err);
+      }
+      this.newsList.set([]);
+      this.loadingNews.set(false);
+    }
+  });
+}
+
+
+newsTotalPages(): number {
+  return Math.ceil(this.newsList().length / this.newsPageSize);
+}
+
+newsPageItems(): NewsItem[] {
+  const start = this.newsPage * this.newsPageSize;
+  return this.newsList().slice(start, start + this.newsPageSize);
+}
+
+onNewsPageChange(page: number) {
+  this.newsPage = page - 1;
+}
+
+
+
+  /** Scroll container: layout main.content when present (sticky sidebar), else window. */
+  private getScrollHost(): HTMLElement | null {
+    const el = this.elementRef?.nativeElement;
+    return el?.closest?.('.content') ?? null;
+  }
+
+  ngOnDestroy(): void {
+    this.feedIntersectionObserver?.disconnect();
+    this.feedIntersectionObserver = null;
+    const win = typeof window !== 'undefined' ? window : null;
+    if (this.feedScrollListener) {
+      if (this.feedScrollHost) this.feedScrollHost.removeEventListener('scroll', this.feedScrollListener as EventListener);
+      if (win) win.removeEventListener('scroll', this.feedScrollListener as EventListener);
+      this.feedScrollListener = null;
+    }
+    if (this.feedTopRefreshListener) {
+      if (this.feedScrollHost) this.feedScrollHost.removeEventListener('scroll', this.feedTopRefreshListener as EventListener);
+      if (win) win.removeEventListener('scroll', this.feedTopRefreshListener as EventListener);
+      this.feedTopRefreshListener = null;
+    }
+    this.feedScrollHost = null;
+  }
+  readonly postAuthorName = computed(() => {
+    // Use studentProfile signal so we react when loadData completes
+    const profile = this.studentProfile();
+    if (profile) {
+      const fullName = profile['fullName'] ?? profile['full_name'] ?? profile['name'];
+      if (fullName && String(fullName).trim()) return String(fullName).trim();
+      const firstName = profile['firstName'] ?? profile['first_name'];
+      const lastName = profile['lastName'] ?? profile['last_name'];
+      if (firstName || lastName) {
+        const name = [firstName, lastName].filter(Boolean).map(String).join(' ').trim();
+        if (name) return name;
+      }
+    }
+    // Fallback: read from localStorage (e.g. when coming from profile page)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const raw = window.localStorage.getItem('student_profile_data');
+        if (raw) {
+          const stored = JSON.parse(raw) as Record<string, unknown>;
+          const fullName = stored?.['fullName'] ?? stored?.['full_name'] ?? stored?.['name'];
+          if (fullName && String(fullName).trim()) return String(fullName).trim();
+          const firstName = stored?.['firstName'] ?? stored?.['first_name'];
+          const lastName = stored?.['lastName'] ?? stored?.['last_name'];
+          if (firstName || lastName) {
+            const name = [firstName, lastName].filter(Boolean).map(String).join(' ').trim();
+            if (name) return name;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return this.authState.user()?.displayName ?? this.authState.user()?.email ?? 'Student';
+  });
+  readonly postAuthorImageUrl = computed(() => {
+    // Use studentProfile signal so we react when loadData completes
+    const profile = this.studentProfile();
+    if (profile) {
+      const photoUrl = profile['profilePhotoUrl'] ?? profile['profile_photo_url'];
+      if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
+        const url = photoUrl.trim();
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        return url.startsWith('/') ? `/api/v1/files${url}` : `/api/v1/files/${url}`;
+      }
+    }
+    // Fallback: read from localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const raw = window.localStorage.getItem('student_profile_data');
+        if (raw) {
+          const stored = JSON.parse(raw) as Record<string, unknown>;
+          const photoUrl = stored?.['profilePhotoUrl'] ?? stored?.['profile_photo_url'];
+          if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
+            const url = photoUrl.trim();
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            return url.startsWith('/') ? `/api/v1/files${url}` : `/api/v1/files/${url}`;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return this.authState.user()?.imageUrl ?? null;
+  });
 
   readonly batchmates = signal<readonly PersonCard[]>([]);
   readonly placedStudents = signal<readonly PersonCard[]>([]);
@@ -84,33 +333,50 @@ export class StudentHomeComponent implements OnInit {
   // Filter state for placed students
   readonly placedStudentsYear = signal<string>(''); // YYYY-01-01 format
 
-  readonly posts: readonly FeedPost[] = [
-    {
-      author: 'Ankitha Wilson',
-      authorId: '1d',
-      imageUrl: 'assets/images/landing-card-institution.png',
-      text:
-        'Campus life isn’t just about lectures and exams—it’s about growth, friendships, and unforgettable experiences! From engaging classroom discussions to late-night study sessions, from club activities to spontaneous hangouts, every moment shapes who we become.',
-    },
-    {
-      author: 'Ankitha Wilson',
-      authorId: '1d',
-      imageUrl: 'assets/images/landing-card-campus.png',
-      text:
-        'Campus life isn’t just about lectures and exams—it’s about growth, friendships, and unforgettable experiences! From engaging classroom discussions to late-night study sessions, from club activities to spontaneous hangouts, every moment shapes who we become.',
-    },
-  ];
+  readonly posts = signal<FeedPost[]>([]);
+  readonly loadingFeed = signal(false);
+  readonly loadingMoreFeed = signal(false);
+  readonly hasMoreFeed = signal(true);
+  private feedPage = 0; // API uses 0-indexed pagination (page 0 for first page)
+  private readonly feedPageSize = 10;
+  private feedFirstLoadDone = false;
+  private feedIntersectionObserver: IntersectionObserver | null = null;
+  private feedScrollListener: (() => void) | null = null;
+  private feedTopRefreshListener: (() => void) | null = null;
+  private maxScrollY = 0; // Track maximum scroll position reached
+  private lastTopRefreshTime = 0; // Timestamp of last top refresh to prevent spam
+  private readonly TOP_REFRESH_THRESHOLD = 200; // Refresh when within 200px of top
+  private readonly MIN_SCROLL_DISTANCE = 500; // Must scroll down at least 500px before allowing refresh
+  private readonly TOP_REFRESH_COOLDOWN_MS = 2000; // 2 seconds cooldown between refreshes
+  private readonly ngZone = inject(NgZone);
+  private readonly elementRef = inject(ElementRef);
+  /** Layout main content element when inside dashboard layout; scroll happens here after sticky sidebar. */
+  private feedScrollHost: HTMLElement | null = null;
+  @ViewChild('feedSentinel') feedSentinel?: ElementRef<HTMLElement>;
+  readonly mediaViewerUrl = signal<string | null>(null);
+  readonly mediaViewerType = signal<'image' | 'video' | null>(null);
+  readonly reportPostId = signal<string | null>(null);
+  readonly reportReason = signal('');
+  readonly isReporting = signal(false);
+  readonly isReportModalOpen = computed(() => !!this.reportPostId());
+
+  /** Max characters to show before truncating; beyond this show "See more". */
+  readonly postTextTruncateLength = 200;
+  readonly expandedPostIds = signal<Set<string>>(new Set());
+
+  togglePostExpand(key: string): void {
+    const next = new Set(this.expandedPostIds());
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this.expandedPostIds.set(next);
+  }
 
   readonly registeredCompaniesSlots = 3;
 
-  get placedStudentsYearMax(): string {
-    // Allow next 5 years from current year
-    const currentYear = new Date().getFullYear();
-    const maxYear = currentYear + 5;
-    return `${maxYear}-12-31`;
-  }
-
-  // Carousel / pagination state (shared component usage)
+ get placedStudentsYearMax(): string {
+  const currentYear = new Date().getFullYear();
+  return `${currentYear}-12-31`;
+}
   readonly peoplePageSize = 6;
   readonly companiesPageSize = 6;
   batchmatesPage = 1;
@@ -136,13 +402,7 @@ export class StudentHomeComponent implements OnInit {
   }
 
   companiesPageItems(): readonly CompanyCard[] {
-    // API already handles pagination, so return companies directly without slicing
     return this.companies();
-  }
-
-  ngOnInit(): void {
-    this.loadInitialCampuses();
-    this.loadData();
   }
 
   /**
@@ -152,41 +412,236 @@ export class StudentHomeComponent implements OnInit {
   loadInitialCampuses(): void {
     this.campusApiService.getCampusBySearch('', 0, 20).subscribe({
       next: (response) => {        
-        if (response) {
-          let content: CampusAutocompleteResponse[] | undefined;
-          
-          // Check if content is in response.data.content
-          if (response.data?.content && Array.isArray(response.data.content)) {
-            content = response.data.content;
-          }
-          // Check if content is directly in response.data (array)
-          else if (response.data && Array.isArray(response.data)) {
-            content = response.data as CampusAutocompleteResponse[];
-          }
-          // Check if content is at root level
-          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
-            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
-          }
-          
-          if (content && content.length > 0) {
-            // Convert to CampusResponse format for compatibility
-            const campusResponses: CampusResponse[] = content
-              .filter((campus) => {
-                const campusId = campus.campusId || campus.id;
-                return !!campusId && !!campus.campusName;
-              })
-              .map((campus) => ({
-                campusId: campus.campusId || campus.id || '',
-                campusName: campus.campusName || '',
-                campusAddress: campus.campusAddress,
-              }));
-            this.campuses.set(campusResponses);
-          }
+        const content = this.extractCampusContent(response);
+        if (content.length > 0) {
+          // Convert to CampusResponse format for compatibility
+          const campusResponses: CampusResponse[] = content
+            .filter((campus) => {
+              const campusId = campus.campusId || campus.id;
+              return !!campusId && !!campus.campusName;
+            })
+            .map((campus) => ({
+              campusId: campus.campusId || campus.id || '',
+              campusName: campus.campusName || '',
+              campusAddress: campus.campusAddress,
+            }));
+          this.campuses.set(campusResponses);
         }
       },
       error: () => {
         // Error loading campuses
       },
+    });
+  }
+
+  private extractCampusContent(response: unknown): CampusAutocompleteResponse[] {
+    const content = unwrapApiResponse<CampusAutocompleteResponse[]>(response);
+    return Array.isArray(content) ? content : [];
+  }
+
+  ngOnInit(): void {
+    this.loadData();
+    this.loadInitialCampuses();
+    this.loadFeed();
+    this.loadAnnouncements();
+    this.loadLatestNews();
+  }
+
+  loadFeed(): void {
+    this.loadingFeed.set(true);
+    this.feedPage = 0; // API uses 0-indexed pagination
+    this.hasMoreFeed.set(true);
+    this.feedFirstLoadDone = false;
+    const user = this.authService.getCurrentUser();
+    const userId = user?.studentId ?? user?.userId?.toString();
+    const pageSize = this.feedPageSize;
+    this.commonApi
+      .getFeed({ pageSize, page: 0, viewerUserId: userId })
+      .pipe(
+        map((res) => {
+          const count = res.posts?.length ?? 0;
+          const items = mapPostsToFeedPost(res.posts ?? []);
+          const hasMore = count < pageSize ? false : (res.hasMore ?? count >= pageSize);
+          return { items, hasMore };
+        }),
+        switchMap(({ items, hasMore }) =>
+          this.commonApi.enrichFeedLikes(items, { id: userId, type: 'STUDENT' }).pipe(
+            map((enriched) => ({ items: enriched, hasMore }))
+          )
+        ),
+        catchError(() => of({ items: [] as FeedPost[], hasMore: false })),
+        finalize(() => {
+          this.loadingFeed.set(false);
+          this.feedFirstLoadDone = true;
+        })
+      )
+      .subscribe({
+        next: ({ items, hasMore }) => {
+          this.posts.set(items);
+          this.hasMoreFeed.set(hasMore);
+          this.feedPage = 0; // API uses 0-indexed pagination
+          this.setupFeedInfiniteScroll();
+        },
+        error: () => {
+          this.posts.set([]);
+          this.hasMoreFeed.set(false);
+        },
+      });
+  }
+
+  loadAnnouncements(): void {
+    const user = this.authService.getCurrentUser();
+    const studentId = user?.studentId ?? user?.userId?.toString();
+    const params: { viewerId?: string; viewerType?: string; viewerUserId?: string; pageSize?: number; page?: number } = {
+      pageSize: 10,
+      page: 0,
+    };
+    if (studentId) {
+      params.viewerId = studentId;
+      params.viewerType = 'STUDENT';
+      params.viewerUserId = studentId;
+    }
+    this.commonApi.getAnnouncements(params).pipe(
+      map((res) => mapPostsToFeedPost(res.posts ?? [])),
+      catchError(() => of([] as FeedPost[]))
+    ).subscribe({
+      next: (items) => this.announcementsLoaded.set(items),
+      error: () => this.announcementsLoaded.set([]),
+    });
+  }
+
+  private setupFeedInfiniteScroll(): void {
+    if (typeof window === 'undefined') return;
+    const el = this.feedSentinel?.nativeElement;
+    if (!el) return;
+    this.feedScrollHost = this.getScrollHost();
+    const contentTarget = this.feedScrollHost as EventTarget | null;
+    const win = typeof window !== 'undefined' ? window : null;
+
+    if (!this.feedIntersectionObserver) {
+      this.ngZone.runOutsideAngular(() => {
+        this.feedIntersectionObserver = new IntersectionObserver(
+          (entries) => {
+            const entry = entries[0];
+            if (!entry?.isIntersecting) return;
+            this.ngZone.run(() => {
+              if (
+                this.feedFirstLoadDone &&
+                this.hasMoreFeed() &&
+                !this.loadingMoreFeed() &&
+                !this.loadingFeed()
+              ) {
+                this.loadMoreFeed();
+              }
+            });
+          },
+          { root: null, rootMargin: '200px 0px', threshold: 0 }
+        );
+        this.feedIntersectionObserver.observe(el);
+      });
+    }
+    if (!this.feedScrollListener) {
+      const checkAndLoad = (): void => {
+        if (
+          !this.feedFirstLoadDone ||
+          !this.hasMoreFeed() ||
+          this.loadingMoreFeed() ||
+          this.loadingFeed()
+        )
+          return;
+        const sentinel = this.feedSentinel?.nativeElement;
+        if (!sentinel) return;
+        const rect = sentinel.getBoundingClientRect();
+        const viewHeight = win ? window.innerHeight : 0;
+        const triggerZone = viewHeight + 300;
+        if (rect.top <= triggerZone) {
+          this.ngZone.run(() => this.loadMoreFeed());
+        }
+      };
+      this.feedScrollListener = checkAndLoad;
+      this.ngZone.runOutsideAngular(() => {
+        if (contentTarget) contentTarget.addEventListener('scroll', this.feedScrollListener as EventListener, { passive: true });
+        if (win) win.addEventListener('scroll', this.feedScrollListener as EventListener, { passive: true });
+      });
+    }
+    if (!this.feedTopRefreshListener) {
+      const checkTopRefresh = (): void => {
+        const contentScroll = this.feedScrollHost ? this.feedScrollHost.scrollTop : 0;
+        const windowScroll = win ? (window.scrollY || window.pageYOffset || 0) : 0;
+        const scrollY = Math.max(contentScroll, windowScroll);
+        if (scrollY > this.maxScrollY) {
+          this.maxScrollY = scrollY;
+        }
+        if (
+          scrollY <= this.TOP_REFRESH_THRESHOLD &&
+          this.maxScrollY >= this.MIN_SCROLL_DISTANCE &&
+          this.feedFirstLoadDone &&
+          !this.loadingFeed() &&
+          !this.loadingMoreFeed()
+        ) {
+          const now = Date.now();
+          if (now - this.lastTopRefreshTime >= this.TOP_REFRESH_COOLDOWN_MS) {
+            this.lastTopRefreshTime = now;
+            this.maxScrollY = 0;
+            this.ngZone.run(() => this.loadFeed());
+          }
+        }
+      };
+      this.feedTopRefreshListener = checkTopRefresh;
+      this.ngZone.runOutsideAngular(() => {
+        if (contentTarget) contentTarget.addEventListener('scroll', this.feedTopRefreshListener as EventListener, { passive: true });
+        if (win) win.addEventListener('scroll', this.feedTopRefreshListener as EventListener, { passive: true });
+      });
+    }
+  }
+
+  loadMoreFeed(): void {
+    if (
+      this.loadingMoreFeed() ||
+      !this.hasMoreFeed() ||
+      this.loadingFeed() ||
+      !this.feedFirstLoadDone
+    )
+      return;
+    const user = this.authService.getCurrentUser();
+    const userId = user?.studentId ?? user?.userId?.toString();
+    const nextPage = this.feedPage + 1;
+    this.loadingMoreFeed.set(true);
+    this.commonApi
+      .getFeed({ pageSize: this.feedPageSize, page: nextPage, viewerUserId: userId })
+      .pipe(
+        map((res) => {
+          const count = res.posts?.length ?? 0;
+          const items = mapPostsToFeedPost(res.posts ?? []);
+          const hasMore =
+            count < this.feedPageSize ? false : (res.hasMore ?? count >= this.feedPageSize);
+          return { items, hasMore };
+        }),
+        switchMap(({ items, hasMore }) =>
+          this.commonApi.enrichFeedLikes(items, { id: userId, type: 'STUDENT' }).pipe(
+            map((enriched) => ({ items: enriched, hasMore }))
+          )
+        ),
+        catchError(() => of({ items: [] as FeedPost[], hasMore: false })),
+        finalize(() => this.loadingMoreFeed.set(false))
+      )
+      .subscribe({
+        next: ({ items, hasMore }) => {
+          if (items.length > 0) {
+            this.posts.update((prev) => [...prev, ...items]);
+          }
+          this.hasMoreFeed.set(hasMore);
+          this.feedPage = nextPage;
+        },
+      });
+  }
+
+  ngAfterViewInit(): void {
+    this.setupFeedInfiniteScroll();
+    queueMicrotask(() => {
+      if (this.posts().length === 0 && !this.loadingFeed()) {
+        this.loadFeed();
+      }
     });
   }
 
@@ -202,8 +657,8 @@ export class StudentHomeComponent implements OnInit {
     // Call getStudentFullProfile API to get fresh data
     this.studentApiService.getStudentFullProfile(studentId, userId, 'STUDENT').subscribe({
       next: (response) => {
-        if (response?.success && response.data) {
-          const profileData = response.data as Record<string, unknown>;
+        const profileData = unwrapApiResponse<Record<string, unknown>>(response);
+        if (profileData) {
           
           // Store profile data in localStorage for navbar and other components
           try {
@@ -215,12 +670,9 @@ export class StudentHomeComponent implements OnInit {
           }
           
           // Update signal with profile data
-          this.studentProfile.set(profileData);                
-          const institutionName = Array.isArray(profileData['institutionName']) && profileData['institutionName'].length > 0
-            ? String(profileData['institutionName'][0])
-            : null;
-          const yearOfPassing = profileData['yearOfPassing'] ? String(profileData['yearOfPassing']) : null;
-        
+          this.studentProfile.set(profileData);
+          const { institutionName, yearOfPassing } = this.getInstitutionAndYearFromProfile(profileData);
+
           this.selectedCampusName.set(institutionName);
           this.selectedYearOfPassing.set(yearOfPassing);
           
@@ -236,7 +688,10 @@ export class StudentHomeComponent implements OnInit {
           }
           
           // Fallback to storage if campusId is not in profile
-          const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;          
+          const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;   
+          if (campusId) {
+  this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
+}       
           // Load batchmates and alumni with the profile data
           if (institutionName && yearOfPassing) {
             this.loadBatchmates(studentId);
@@ -267,12 +722,9 @@ export class StudentHomeComponent implements OnInit {
     const storedProfile = this.getStoredProfileData();
     if (storedProfile) {
       this.studentProfile.set(storedProfile);
-      // Initialize filter values from profile
-      const institutionName = Array.isArray(storedProfile['institutionName']) && storedProfile['institutionName'].length > 0
-        ? String(storedProfile['institutionName'][0])
-        : null;
-      const yearOfPassing = storedProfile['yearOfPassing'] ? String(storedProfile['yearOfPassing']) : null;
-      
+      // Initialize filter values from profile (use institution with latest year)
+      const { institutionName, yearOfPassing } = this.getInstitutionAndYearFromProfile(storedProfile);
+
       this.selectedCampusName.set(institutionName);
       this.selectedYearOfPassing.set(yearOfPassing);
       
@@ -289,7 +741,9 @@ export class StudentHomeComponent implements OnInit {
       
       // Fallback to storage if campusId is not in stored profile
       const finalCampusId = campusId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) || null;
-      
+      if (campusId) {
+  this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
+}
       // Load batchmates, alumni, and placed students with the stored profile data
       if (institutionName && yearOfPassing) {
         this.loadBatchmates(studentId);
@@ -302,6 +756,37 @@ export class StudentHomeComponent implements OnInit {
         this.loadCompanies(finalCampusId);
       }
       }
+  }
+
+  /**
+   * Extracts institution name and year of passing for the most recent year.
+   */
+  private getInstitutionAndYearFromProfile(profile: Record<string, unknown>): {
+    institutionName: string | null;
+    yearOfPassing: string | null;
+  } {
+    const institutions = (profile?.['institutionName'] as string[]) ?? [];
+    const years = (profile?.['yearOfPassingList'] as string[]) ?? [];
+    const fallbackYear = profile?.['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
+    if (institutions.length === 0) {
+      return { institutionName: null, yearOfPassing: fallbackYear };
+    }
+    if (years.length === 0 || institutions.length !== years.length) {
+      return { institutionName: String(institutions[0]), yearOfPassing: fallbackYear };
+    }
+    let maxYear = '';
+    let maxIndex = 0;
+    for (let i = 0; i < years.length; i++) {
+      const y = String(years[i]).trim();
+      if (y > maxYear) {
+        maxYear = y;
+        maxIndex = i;
+      }
+    }
+    return {
+      institutionName: String(institutions[maxIndex]),
+      yearOfPassing: maxYear,
+    };
   }
 
   /**
@@ -320,16 +805,17 @@ export class StudentHomeComponent implements OnInit {
     return null;
   }
 
-  loadBatchmates(studentId: string): void {    
-    const profile = this.studentProfile();
-    if (!profile) {
-      return;
+  loadBatchmates(studentId: string): void {
+    // Prefer filter values when set; otherwise use profile
+    let institutionName = this.selectedCampusName();
+    let yearOfPassing = this.selectedYearOfPassing();
+    if (!institutionName || !yearOfPassing) {
+      const profile = this.studentProfile();
+      if (!profile) return;
+      const fromProfile = this.getInstitutionAndYearFromProfile(profile);
+      institutionName = fromProfile.institutionName ?? institutionName;
+      yearOfPassing = fromProfile.yearOfPassing ?? yearOfPassing;
     }
-
-    const institutionName = Array.isArray(profile['institutionName']) && profile['institutionName'].length > 0
-      ? String(profile['institutionName'][0])
-      : null;
-    const yearOfPassing = profile['yearOfPassing'] ? String(profile['yearOfPassing']) : null;
 
     if (!institutionName || !yearOfPassing) {
       return;
@@ -347,16 +833,15 @@ export class StudentHomeComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.loadingBatchmates.set(false);
-          if (response?.success && response.data) {
-            // API returns data.content array with pagination metadata, or data as array directly
-            const data = response.data as Record<string, unknown> | unknown[];
-            const content = Array.isArray(data) ? data : ((data as Record<string, unknown>)['content'] as unknown[] || []);
+          const content = unwrapApiResponse<unknown[]>(response);
+          if (Array.isArray(content)) {
             const items = content.map((item) => this.mapBatchmateToPersonCard(item as Record<string, unknown>));
             this.batchmates.set(items);
-            // Use pagination metadata from API if available
-            const totalPages = Array.isArray(data) 
-              ? Math.max(1, Math.ceil(items.length / this.peoplePageSize)) 
-              : (typeof (data as Record<string, unknown>)['totalPages'] === 'number' ? (data as Record<string, unknown>)['totalPages'] as number : 1);
+            const meta = response && typeof response === 'object' ? (response as { data?: unknown }).data : null;
+            const totalPages =
+              meta && typeof meta === 'object' && !Array.isArray(meta) && typeof (meta as Record<string, unknown>)['totalPages'] === 'number'
+                ? ((meta as Record<string, unknown>)['totalPages'] as number)
+                : Math.max(1, Math.ceil(items.length / this.peoplePageSize));
             this.batchmatesTotalPages.set(totalPages);
           }
         },
@@ -397,10 +882,14 @@ export class StudentHomeComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.loadingPlacedStudents.set(false);
-          if (response?.success && response.data) {
-            const items = (response.data.content || []).map((item) => this.mapPlacedStudentToPersonCard(item));
+          const content = unwrapApiResponse<PlacedStudentResponse[]>(response);
+          if (Array.isArray(content)) {
+            const items = content.map((item) => this.mapPlacedStudentToPersonCard(item));
             this.placedStudents.set(items);
-            this.placedStudentsTotalPages.set(response.data.totalPages || 1);
+            const totalPages = response?.data && typeof response.data === 'object' && !Array.isArray(response.data)
+              ? (response.data.totalPages || 1)
+              : 1;
+            this.placedStudentsTotalPages.set(totalPages);
           }
         },
         error: () => {
@@ -429,10 +918,14 @@ export class StudentHomeComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.loadingAlumni.set(false);
-          if (response?.success && response.data) {
-            const items = (response.data.content || []).map((item) => this.mapAlumniToPersonCard(item));
+          const content = unwrapApiResponse<AlumniResponse[]>(response);
+          if (Array.isArray(content)) {
+            const items = content.map((item) => this.mapAlumniToPersonCard(item));
             this.alumni.set(items);
-            this.alumniTotalPages.set(response.data.totalPages || 1);
+            const totalPages = response?.data && typeof response.data === 'object' && !Array.isArray(response.data)
+              ? (response.data.totalPages || 1)
+              : 1;
+            this.alumniTotalPages.set(totalPages);
           }
         },
         error: () => {
@@ -461,10 +954,14 @@ export class StudentHomeComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.loadingCompanies.set(false);
-          if (response?.success && response.data) {
-            const items = (response.data.content || []).map((item) => this.mapCompanyToCompanyCard(item));
+          const content = unwrapApiResponse<CompanyVisitedItem[]>(response);
+          if (Array.isArray(content)) {
+            const items = content.map((item) => this.mapCompanyToCompanyCard(item));
             this.companies.set(items);
-            this.companiesTotalPages.set(response.data.totalPages || 1);
+            const totalPages = response?.data && typeof response.data === 'object' && !Array.isArray(response.data)
+              ? (response.data.totalPages || 1)
+              : 1;
+            this.companiesTotalPages.set(totalPages);
           }
         },
         error: () => {
@@ -565,9 +1062,16 @@ export class StudentHomeComponent implements OnInit {
   }
 
   /**
-   * Open filter modal for batchmates/alumni
+   * Open filter modal for batchmates/alumni.
+   * Auto-populate campus (latest from profile) and year when opening.
    */
   openFilterModal(): void {
+    const profile = this.studentProfile();
+    if (profile) {
+      const { institutionName, yearOfPassing } = this.getInstitutionAndYearFromProfile(profile);
+      if (institutionName) this.selectedCampusName.set(institutionName);
+      if (yearOfPassing) this.selectedYearOfPassing.set(yearOfPassing);
+    }
     this.modalService.openModal('batchmates-filter');
   }
 
@@ -619,44 +1123,25 @@ export class StudentHomeComponent implements OnInit {
     return this.campusApiService.getCampusBySearch(searchTerm || '', 0, 20).pipe(
       map((response) => {        
         const items: DropdownItem<string>[] = [];
-        
-        if (response) {
-          // Try different response structures
-          let content: CampusAutocompleteResponse[] | undefined;
-          
-          // Check if content is in response.data.content
-          if (response.data?.content && Array.isArray(response.data.content)) {
-            content = response.data.content;
-          }
-          // Check if content is directly in response.data (array)
-          else if (response.data && Array.isArray(response.data)) {
-            content = response.data as CampusAutocompleteResponse[];
-          }
-          // Check if content is at root level
-          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
-            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
-          }
-          
-          if (content && content.length > 0) {
-            const campusItems = content
-              .filter((campus) => {
-                const campusId = campus.campusId || campus.id;
-                const hasId = !!campusId;
-                const hasName = !!campus.campusName;
-                // Only include campuses that match student's profile campusId(s)
-                const matchesStudentProfile = hasId && studentCampusIds.includes(String(campusId));
-                return hasId && hasName && matchesStudentProfile;
-              })
-              .map((campus) => {
-                const campusName = campus.campusName || '';
-                const item = {
-                  label: campusName,
-                  value: campusName, // Use campusName as value for filter dropdown
-                };
-                return item;
-              });
-            items.push(...campusItems);
-          }
+        const content = this.extractCampusContent(response);
+        if (content.length > 0) {
+          const campusItems = content
+            .filter((campus) => {
+              const campusId = campus.campusId || campus.id;
+              const hasId = !!campusId;
+              const hasName = !!campus.campusName;
+              // Only include campuses that match student's profile campusId(s)
+              const matchesStudentProfile = hasId && studentCampusIds.includes(String(campusId));
+              return hasId && hasName && matchesStudentProfile;
+            })
+            .map((campus) => {
+              const campusName = campus.campusName || '';
+              return {
+                label: campusName,
+                value: campusName, // Use campusName as value for filter dropdown
+              };
+            });
+          items.push(...campusItems);
         }
         return items;
       }),
@@ -673,15 +1158,12 @@ export class StudentHomeComponent implements OnInit {
     return this.campusItems();
   }
 
-  /**
-   * Get year dropdown items (generate years from current year to 10 years back)
-   */
+  /** Year options: next 6 years, current, and all past years (80 years back), newest first */
   getYearItems(): DropdownItem[] {
     const currentYear = new Date().getFullYear();
     const years: DropdownItem[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const year = (currentYear - i).toString();
-      years.push({ value: year, label: year });
+    for (let year = currentYear + 6; year >= currentYear - 80; year--) {
+      years.push({ value: year.toString(), label: year.toString() });
     }
     return years;
   }
@@ -727,39 +1209,56 @@ export class StudentHomeComponent implements OnInit {
     }
   }
 
-  private mapBatchmateToPersonCard(item: {
-    firstName?: string;
-    lastName?: string;
-    profilePhotoUrl?: string;
-    batch?: string;
-  }): PersonCard {
-    const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    const subtitle = item.batch || '';
-    return {
-      name,
-      subtitle,
-      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
-    };
-  }
+ private mapBatchmateToPersonCard(item: {
+  firstName?: string
+  lastName?: string
+  profilePhotoUrl?: string
+  batch?: string
+  publicStudentId?: string
+}): PersonCard {
 
-  private mapPlacedStudentToPersonCard(item: {
-    firstName?: string;
-    lastName?: string;
-    studentName?: string;
-    profilePhotoUrl?: string;
-    batch?: string;
-    companyName?: string;
-    designation?: string;
-  }): PersonCard {
-    // Use studentName if available, otherwise fall back to firstName + lastName
-    const name = item.studentName || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    const subtitle = [item.batch, item.companyName].filter(Boolean).join(' ') || '';
-    return {
-      name,
-      subtitle,
-      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
-    };
+  const name =
+    [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown'
+
+  return {
+    publicStudentId: item.publicStudentId || '',
+    name,
+    subtitle: item.batch || '',
+    imageUrl: this.buildImageUrl(item.profilePhotoUrl),
   }
+}
+
+ private mapPlacedStudentToPersonCard(item: {
+  studentId?: string
+  publicStudentId?: string
+  firstName?: string
+  lastName?: string
+  studentName?: string
+  profilePhotoUrl?: string
+  photoUrl?: string
+  batch?: string
+  companyName?: string
+  designation?: string
+}): PersonCard {
+
+  const name =
+    item.studentName ||
+    [item.firstName, item.lastName].filter(Boolean).join(' ') ||
+    'Unknown'
+
+  const subtitle =
+    [item.batch, item.companyName].filter(Boolean).join(' ') || ''
+
+  const photoUrl = item.profilePhotoUrl || item.photoUrl
+
+  return {
+    id: item.studentId || '',
+    publicStudentId: item.publicStudentId || '',
+    name,
+    subtitle,
+    imageUrl: this.buildImageUrl(photoUrl),
+  }
+}
 
   /**
    * Build full image URL from profilePhotoUrl
@@ -789,32 +1288,49 @@ export class StudentHomeComponent implements OnInit {
     return `${baseUrl}/images/${cleanUrl}`;
   }
 
-  private mapAlumniToPersonCard(item: {
-    name?: string;
-    firstName?: string;
-    lastName?: string;
-    profilePhotoUrl?: string;
-    designation?: string;
-    companyName?: string;
-    company?: string;
-  }): PersonCard {
-    // API returns 'name' field directly, fallback to firstName + lastName
-    const name = item.name || [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unknown';
-    const subtitle = [item.designation, item.companyName || item.company].filter(Boolean).join(' ') || '';
-    return {
-      name,
-      subtitle,
-      imageUrl: this.buildImageUrl(item.profilePhotoUrl),
-    };
+ private mapAlumniToPersonCard(item: {
+  studentId?: string
+  publicStudentId?: string
+  name?: string
+  firstName?: string
+  lastName?: string
+  profilePhotoUrl?: string
+  designation?: string
+  companyName?: string
+  company?: string
+}): PersonCard {
+
+  const name =
+    item.name ||
+    [item.firstName, item.lastName].filter(Boolean).join(' ') ||
+    'Unknown'
+
+  const subtitle =
+    [item.designation, item.companyName || item.company]
+      .filter(Boolean)
+      .join(' ') || ''
+
+  return {
+    id: item.studentId || '',
+    publicStudentId: item.publicStudentId || '',
+    name,
+    subtitle,
+    imageUrl: this.buildImageUrl(item.profilePhotoUrl),
   }
 
-  private mapCompanyToCompanyCard(item: CompanyVisitedItem): CompanyCard {
-    return {
-      name: item.companyName || 'Unknown Company',
-      logoUrl: this.buildImageUrl(item.logoUrl || item.logourl),
-      visitedDate: item.visitedDate,
-    };
+}
+
+private mapCompanyToCompanyCard(item: CompanyVisitedItem): CompanyCard {
+
+  return {
+    id: item.id || '',
+    publicCompanyId: item.publicCompanyId || '',
+    name: item.companyName || 'Unknown Company',
+    logoUrl: this.buildImageUrl(item.logoUrl || item.logourl),
+    visitedDate: item.visitedDate,
   }
+
+}
 
   closeModal(): void {
     this.modalService.closeModal();
@@ -838,25 +1354,284 @@ export class StudentHomeComponent implements OnInit {
     this.submittingIdeas = false;
     this.closeModal();
   }
+
+  openCreatePostModal(): void {
+    if (this.isSubmittingPost()) return;
+    this.editPostState.clearPostToEdit();
+    this.modalService.openModal('create-post');
+  }
+
+  openMediaViewer(url: string, type: 'image' | 'video'): void {
+    this.mediaViewerUrl.set(url);
+    this.mediaViewerType.set(type);
+  }
+
+  closeMediaViewer(): void {
+    this.mediaViewerUrl.set(null);
+    this.mediaViewerType.set(null);
+  }
+
+  onCreatePostClosed(): void {
+    this.editPostState.clearPostToEdit();
+    this.modalService.closeModal();
+  }
+
+  onCreatePostSubmitted(payload: CreatePostSubmitPayload): void {
+    if (payload.postId) {
+      const postToEdit = this.editPostState.postToEdit();
+      const authorId = postToEdit?.authorId ?? postToEdit?.author?.authorId;
+      if (!authorId) {
+        this.notify.error('Cannot update: author not found.');
+        return;
+      }
+      this.isSubmittingPost.set(true);
+      this.modalService.closeModal();
+
+      const isAnnouncement = payload.postKind === 'ANNOUNCEMENT';
+      if (payload.mediaFile) {
+        const formData = new FormData();
+        formData.append('authorId', String(authorId));
+        formData.append('text', payload.text);
+        const isVideo = payload.mediaFile.type.startsWith('video/');
+        formData.append(isVideo ? 'videos' : 'images', payload.mediaFile, payload.mediaFile.name);
+
+        const updateWithFiles$ = isAnnouncement
+          ? this.commonApi.updateAnnouncementWithFiles(payload.postId, formData)
+          : this.commonApi.updatePostWithFiles(payload.postId, formData);
+        updateWithFiles$.pipe(
+          finalize(() => this.isSubmittingPost.set(false))
+        ).subscribe({
+          next: () => {
+            this.notify.success(isAnnouncement ? 'Announcement updated successfully' : 'Post updated successfully');
+            if (isAnnouncement) this.loadAnnouncements(); else this.loadFeed();
+            this.onCreatePostClosed();
+          },
+          error: (err) => {
+            this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to update announcement' : 'Failed to update post'));
+          },
+        });
+      } else {
+        const update$ = isAnnouncement
+          ? this.commonApi.updateAnnouncement(payload.postId, { authorId: String(authorId), text: payload.text })
+          : this.commonApi.updatePost(payload.postId, { authorId: String(authorId), text: payload.text });
+        update$.pipe(
+          finalize(() => this.isSubmittingPost.set(false))
+        ).subscribe({
+          next: () => {
+            this.notify.success(isAnnouncement ? 'Announcement updated successfully' : 'Post updated successfully');
+            if (isAnnouncement) this.loadAnnouncements(); else this.loadFeed();
+            this.onCreatePostClosed();
+          },
+          error: (err) => {
+            this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to update announcement' : 'Failed to update post'));
+          },
+        });
+      }
+      return;
+    }
+
+    const user = this.authState.user();
+    const authorId =
+      user?.profileServiceId ?? user?.studentId ?? user?.campusId ?? user?.companyId ?? user?.userId;
+    const authorDisplayName = this.postAuthorName() || user?.displayName || user?.email || 'Student';
+
+    if (payload.mediaFile && !authorId) {
+      this.notify.error('Author information is required to post with media. Please log in again.');
+      return;
+    }
+
+    this.isSubmittingPost.set(true);
+    this.modalService.closeModal();
+
+    const isAnnouncement = payload.postKind === 'ANNOUNCEMENT';
+    const request = {
+      text: payload.text,
+      postType: 'STUDENT' as const,
+      postKind: payload.postKind,
+      ...(authorId && { authorId: String(authorId) }),
+      ...(authorDisplayName && { authorDisplayName }),
+    };
+
+    if (payload.mediaFile) {
+      const formData = new FormData();
+      formData.append('text', payload.text);
+      formData.append('postType', 'STUDENT');
+      formData.append('postKind', payload.postKind);
+      formData.append('authorId', String(authorId));
+      if (authorDisplayName) formData.append('authorDisplayName', authorDisplayName);
+      const isVideo = payload.mediaFile.type.startsWith('video/');
+      formData.append(isVideo ? 'videos' : 'images', payload.mediaFile, payload.mediaFile.name);
+
+      const api$ = isAnnouncement
+        ? this.commonApi.createAnnouncementWithFiles(formData)
+        : this.commonApi.createPostWithFiles(formData);
+
+      api$.pipe(finalize(() => this.isSubmittingPost.set(false))).subscribe({
+        next: () => {
+          this.notify.success(isAnnouncement ? 'Announcement submitted successfully' : 'Post submitted successfully');
+          if (isAnnouncement) this.loadAnnouncements(); else this.prependPostToFeed(payload, authorDisplayName);
+        },
+        error: (err) => {
+          this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to create announcement' : 'Failed to create post'));
+        },
+      });
+    } else {
+      const api$ = isAnnouncement ? this.commonApi.createAnnouncement(request) : this.commonApi.createPost(request);
+      api$.pipe(finalize(() => this.isSubmittingPost.set(false))).subscribe({
+        next: () => {
+          this.notify.success(isAnnouncement ? 'Announcement submitted successfully' : 'Post submitted successfully');
+          if (isAnnouncement) this.loadAnnouncements(); else this.prependPostToFeed(payload, authorDisplayName);
+        },
+        error: (err) => {
+          this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to create announcement' : 'Failed to create post'));
+        },
+      });
+    }
+  }
+
+  private prependPostToFeed(payload: CreatePostSubmitPayload, authorDisplayName: string): void {
+    const authorImgUrl = this.postAuthorImageUrl() ?? 'assets/images/login-news-image.png';
+    const mediaUrl = payload.mediaFile ? URL.createObjectURL(payload.mediaFile) : null;
+    const mediaType = payload.mediaFile?.type.startsWith('video/') ? 'video' : payload.mediaFile ? 'image' : null;
+    const newPost: FeedPost = {
+      postId: null,
+      author: authorDisplayName,
+      authorId: 'Just now',
+      authorImageUrl: authorImgUrl,
+      mediaUrl,
+      mediaType,
+      text: payload.text,
+      likedByMe: false,
+      likeCount: 0,
+    };
+    this.posts.update((list) => [newPost, ...list]);
+  }
+
+  onLikePost(post: FeedPost): void {
+    if (!post.postId) return;
+    const user = this.authService.getCurrentUser();
+    const userId = user?.studentId ?? user?.userId?.toString();
+    const userType = 'STUDENT';
+    if (!userId) return;
+    this.commonApi.likePost(post.postId, { userId, userType }).subscribe({
+      next: () => {
+        this.posts.update((list) =>
+          list.map((p) =>
+            p.postId === post.postId
+              ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) }
+              : p
+          )
+        );
+      },
+    });
+  }
+
+  onReportPost(post: FeedPost): void {
+    if (!post.postId) return;
+    this.reportPostId.set(post.postId);
+    this.reportReason.set('');
+  }
+
+  closeReportModal(): void {
+    if (this.isReporting()) return;
+    this.reportPostId.set(null);
+    this.reportReason.set('');
+  }
+
+  submitReport(): void {
+    const postId = this.reportPostId();
+    if (!postId) return;
+    const reason = this.reportReason().trim();
+    if (!reason) {
+      this.notify.error('Report reason is required.');
+      return;
+    }
+ if (reason.length > this.REPORT_MAX_LENGTH) {
+  this.notify.error(`Report reason must be at most ${this.REPORT_MAX_LENGTH} characters.`);
+  return;
+}
+
+    const user = this.authService.getCurrentUser();
+    const reporterId = user?.studentId ?? user?.userId?.toString();
+    if (!reporterId) return;
+    this.isReporting.set(true);
+    this.commonApi
+      .reportPost({
+        postId,
+        reporterId: String(reporterId),
+        reporterType: 'STUDENT',
+        reason,
+      })
+      .pipe(finalize(() => this.isReporting.set(false)))
+      .subscribe({
+        next: () => {
+          this.notify.success('Post reported successfully');
+          this.closeReportModal();
+        },
+        error: (err) => this.notify.error(err?.error?.message ?? err?.message ?? 'Failed to report post'),
+      });
+  }
 }
 
 interface PersonCard {
+    id?: string
+  publicStudentId?: string
   name: string;
   subtitle: string;
   imageUrl: string | null;
 }
 
+
+interface NewsItem {
+  id: string;
+  title: string;
+  description: string;
+  createDate: string;
+}
+
 interface CompanyCard {
+    id?: string
+  publicCompanyId?: string
   name: string;
   logoUrl: string | null;
   visitedDate?: string;
 }
 
 interface FeedPost {
+  postId: string | null;
   author: string;
   authorId: string;
-  imageUrl: string;
+  authorImageUrl: string;
+  mediaUrl: string | null;
+  mediaType: 'image' | 'video' | null;
   text: string;
+  likedByMe: boolean;
+  likeCount: number;
+  postKind?: 'FEED' | 'ANNOUNCEMENT';
+  createdAt?: string;
+}
+
+function mapPostsToFeedPost(posts: Post[]): FeedPost[] {
+  return posts.map((p) => {
+    const firstImage = p.imageUrls?.[0];
+    const firstVideo = p.videoUrls?.[0];
+    const hasImage = !!firstImage;
+    const hasVideo = !!firstVideo;
+    return {
+      postId: p.postId ?? p.id ?? null,
+      author: p.author?.displayName ?? p.authorDisplayName ?? 'Unknown',
+      authorId: p.author?.authorId ?? p.authorId ?? '',
+      authorImageUrl:
+        p.authorImageUrl ?? p.author?.imageUrl ?? 'assets/images/login-news-image.png',
+      mediaUrl: hasImage ? firstImage! : hasVideo ? firstVideo! : null,
+      mediaType: hasImage ? 'image' : hasVideo ? 'video' : null,
+      text: p.text ?? '',
+      likedByMe: p.likedByMe ?? false,
+      likeCount: p.likeCount ?? 0,
+      postKind: p.postKind,
+      createdAt: p.createdAt,
+    };
+  });
 }
 
 function totalPages(totalItems: number, pageSize: number): number {

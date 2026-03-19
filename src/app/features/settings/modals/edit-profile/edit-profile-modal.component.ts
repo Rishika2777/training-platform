@@ -1,18 +1,48 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output, inject, signal, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, EventEmitter, Output, inject, signal, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { RoleService } from '../../../../core/rbac/role.service';
-import { StudentApiService } from '../../../student/services/student-api.service';
-import { CompanyApiService } from '../../../company/services/company-api.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
+} from 'firebase/auth';
+import { getFirebaseAuth, formatPhoneNumber } from '../../../../core/firebase/firebase-utils';
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
+import { ButtonComponent } from '../../../../shared/components/button/button.component';
+import { InputComponent } from '../../../../shared/components/input/input.component';
+
+import {
+  StudentApiService,
+  StudentUpdateFiles,
+  StudentUpdatePayload,
+} from '../../../student/services/student-api.service';
+import {
+  CompanyApiService,
+  CompanyRegisterFiles,
+  CompanyRegisterPayload,
+  CompanyRegisterRequest,
+  CompanyRegistrationResponse,
+  KeyPersonResponse,
+} from '../../../company/services/company-api.service';
 import { CampusApiService, Campus, CampusProfileUpdateRequest } from '../../../campus/services/campus-api.service';
-import { StudentFormComponent, StudentFormValue, createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.component';
+import { StudentFormComponent } from '../../../../shared/components/forms/student-form/student-form.component';
+import type { StudentFormValue } from '../../../../shared/components/forms/student-form/student-form.models';
+import { createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.utils';
 import { CampusResponse } from '../../../student/models/student.models';
 import { CompanyFormComponent, CompanyFormValue } from '../../../../shared/components/forms/company-form/company-form.component';
 import { CampusFormComponent, CampusFormValue } from '../../../../shared/components/forms/campus-form/campus-form.component';
 import { NotificationService } from '../../../../core/notifications/notification.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import { UserType } from '../../../../core/config/app.constants';
 import { mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
-import { CompanyRegistrationResponse, KeyPersonResponse, CompanyRegisterRequest } from '../../../company/services/company-api.service';
+import { DepartmentDetailService } from '../../../campus/services/department-detail.service';
+import { DepartmentFormComponent, DepartmentFormValue } 
+from '../../../../shared/components/forms/department-form/department-form.component';
+import { UserData } from '../../../../core/models/user.model';
+
 
 @Component({
   selector: 'app-edit-profile-modal',
@@ -22,10 +52,14 @@ import { CompanyRegistrationResponse, KeyPersonResponse, CompanyRegisterRequest 
     StudentFormComponent,
     CompanyFormComponent,
     CampusFormComponent,
+    DepartmentFormComponent,
+    ModalComponent,
+    ButtonComponent,
+    InputComponent,
   ],
   templateUrl: './edit-profile-modal.component.html',
 })
-export class EditProfileModalComponent implements OnInit {
+export class EditProfileModalComponent implements OnInit, OnDestroy {
   @Output() closed = new EventEmitter<void>();
 
   private readonly auth = inject(AuthService);
@@ -35,6 +69,12 @@ export class EditProfileModalComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly notify = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
+
+  private readonly storage = inject(StorageService);
+
+  private readonly departmentApi = inject(CampusApiService);
+private readonly departmentDetailService = inject(DepartmentDetailService);
+
 
   isEditMode = signal(false);
   viewSubmitting = signal(false);
@@ -69,19 +109,77 @@ export class EditProfileModalComponent implements OnInit {
     pincode: '',
   };
 
+  selectedDepartmentId: string | null = null;
+
+departmentViewValue: DepartmentFormValue = {
+  departmentName: '',
+  email: '',
+  phone: '',
+  about: '',
+  photoUrl: '',
+  photo: null
+};
+
+  // Phone verification state
+  showPhoneVerificationModal = false;
+  phoneVerificationState = {
+    phoneNumber: '',
+    confirmationResult: null as ConfirmationResult | null,
+    otp: '',
+    sendingOtp: false,
+    verifyingOtp: false,
+    recaptchaVerifier: null as RecaptchaVerifier | null,
+  };
+  phoneVerified = signal(false);
+  verifiedPhoneNumber = signal<string | null>(null); // Track which phone number is verified
+  currentPhoneField: 'mobile' | 'adminPhone' | 'phone' | null = null;
+
+
+  private visibilityListener: (() => void) | null = null;
+
   ngOnInit(): void {
     this.userType = this.roleService.getUserType();
-    // Non-admin users should start in edit mode by default
     this.isEditMode.set(!this.isAdmin);
     this.loadCampuses();
-    this.loadUserProfile();
+    this.loadUserProfileWithRetry();
+    this.setupVisibilityReload();
+  }
+
+  private setupVisibilityReload(): void {
+    if (typeof document === 'undefined') return;
+    this.visibilityListener = () => {
+      if (document.visibilityState === 'visible') {
+        this.loadUserProfile();
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityListener);
+  }
+
+  private removeVisibilityListener(): void {
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+      this.visibilityListener = null;
+    }
+  }
+
+  /** Retry load when auth may not be ready yet (e.g. after tab switch). */
+  private loadUserProfileWithRetry(attempt = 0): void {
+    const maxAttempts = 3;
+    if (attempt > 0) {
+      this.userType = this.roleService.getUserType();
+    }
+    const didCallApi = this.loadUserProfile();
+    if (!didCallApi && attempt < maxAttempts - 1) {
+      setTimeout(() => this.loadUserProfileWithRetry(attempt + 1), 250);
+    }
   }
 
   private loadCampuses(): void {
     this.studentApi.getRegisteredCampuses().subscribe({
       next: (response) => {
-        if (response.data && Array.isArray(response.data)) {
-          this.campuses = response.data;
+        const items = unwrapApiResponse<CampusResponse[]>(response);
+        if (Array.isArray(items)) {
+          this.campuses = items;
           this.cdr.detectChanges();
         }
       },
@@ -109,23 +207,36 @@ export class EditProfileModalComponent implements OnInit {
     }
   }
 
-  private loadUserProfile(): void {
-    const currentUser = this.auth.getCurrentUser();
-    if (!currentUser?.userId || !this.userType) {
-      return;
+  /** Returns true if the API was called, false if it returned early. */
+  private loadUserProfile(): boolean {
+    let currentUser = this.auth.getCurrentUser();
+    if (!currentUser) {
+      const stored = this.storage.get(STORAGE_KEYS.USER_DATA) as Record<string, unknown> | null;
+      if (stored && typeof stored === 'object' && stored['userId']) {
+        currentUser = stored as unknown as UserData;
+        if (!this.userType && currentUser.userType) {
+          this.userType = currentUser.userType;
+        }
+      }
+    }
+    const effectiveUserType = this.userType ?? currentUser?.userType ?? null;
+    if (!currentUser?.userId || !effectiveUserType) {
+      return false;
     }
 
     this.viewSubmitting.set(true);
 
-    if (this.userType === 'STUDENT') {
-      // For STUDENT users, require studentId
-      if (!currentUser.studentId) {
+    if (effectiveUserType === 'STUDENT') {
+      // studentId can be in currentUser or in crm_student_id storage (set on login)
+      const studentIdFromUser = currentUser.studentId;
+      const studentIdFromStorage = this.storage.get(STORAGE_KEYS.STUDENT_ID) as string | null;
+      const studentIdToUse = studentIdFromUser ?? studentIdFromStorage;
+      if (!studentIdToUse) {
         this.viewSubmitting.set(false);
-        console.warn('Student ID not found for student user');
-        return;
+        console.warn('Student ID not found for student user (checked user.studentId and crm_student_id)');
+        return false;
       }
-      // Use userId as studentId for users editing their own profile
-      this.selectedStudentId = currentUser.studentId;
+      this.selectedStudentId = typeof studentIdToUse === 'string' ? studentIdToUse : String(studentIdToUse);
       this.selectedStudentUserId = currentUser.userId.toString();
 
       this.studentApi.getStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, 'STUDENT').subscribe({
@@ -144,15 +255,19 @@ export class EditProfileModalComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
-    } else if (this.userType === 'COMPANY') {
+      return true;
+    } else if (effectiveUserType === 'COMPANY') {
       // For company users editing their own profile
-      // Store userId first - we'll update companyId from the profile response
-      if (!currentUser.companyId) {
+      // companyId can be in currentUser or in crm_company_id storage (set separately on login)
+      const companyIdFromUser = currentUser.companyId;
+      const companyIdFromStorage = this.storage.get(STORAGE_KEYS.COMPANY_ID) as string | null;
+      const companyIdToUse = companyIdFromUser ?? companyIdFromStorage;
+      if (!companyIdToUse) {
         this.viewSubmitting.set(false);
-        console.warn('User ID not found for company user');
-        return;
+        console.warn('Company ID not found for company user (checked user.companyId and crm_company_id)');
+        return false;
       }
-      const companyUserId = currentUser.companyId.toString();
+      const companyUserId = typeof companyIdToUse === 'string' ? companyIdToUse : String(companyIdToUse);
       this.selectedCompanyUserId = companyUserId;
 
       // For users editing their own profile, try using userId as companyId
@@ -174,23 +289,19 @@ export class EditProfileModalComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
-    } else if (this.userType === 'CAMPUS') {
-      // For CAMPUS users, use campusId or profileServiceId if available
-      // If not available, we'll try to get it from the API response
-      this.selectedCampusId = currentUser?.campusId ?? currentUser?.profileServiceId ?? null;
-      this.selectedCampusEmail = currentUser?.email ?? null;
-
-      console.log('selectedCampusId', this.selectedCampusId);
-      console.log('selectedCampusEmail', this.selectedCampusEmail);
-
-      // If we don't have campusId, we need to find it another way
-      // For now, try using userId or email to get the campus profile
-      if (!currentUser.userId) {
+      return true;
+    } else if (effectiveUserType === 'CAMPUS') {
+      // campusId can be in currentUser (campusId/profileServiceId) or in crm_campus_id storage
+      const campusIdFromUser = currentUser?.campusId ?? currentUser?.profileServiceId ?? null;
+      const campusIdFromStorage = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+      const campusIdToUse = campusIdFromUser ?? campusIdFromStorage ?? currentUser?.userId?.toString() ?? null;
+      if (!campusIdToUse) {
         this.viewSubmitting.set(false);
-        console.warn('User ID not found for campus user');
-        return;
+        console.warn('Campus ID not found for campus user (checked user, crm_campus_id, and userId)');
+        return false;
       }
-      const campusIdToUse = this.selectedCampusId || currentUser.userId.toString();
+      this.selectedCampusId = campusIdToUse;
+      this.selectedCampusEmail = currentUser?.email ?? null;
 
       this.campusApi.getCampusById(campusIdToUse).subscribe({
         next: (profile) => {
@@ -213,7 +324,70 @@ export class EditProfileModalComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
+      return true;
     }
+ else if (effectiveUserType === 'DEPARTMENT') {
+
+  // departmentId can be in currentUser or in crm_department_id storage (set on login)
+  const departmentIdFromUser = currentUser?.departmentId;
+  const departmentIdFromStorage = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+  const departmentId = departmentIdFromUser ?? departmentIdFromStorage;
+
+  const userData = this.storage.get(STORAGE_KEYS.USER_DATA) as Record<string, unknown> | null;
+
+  const campusEmail: string | null =
+    (currentUser?.email as string | undefined) ??
+    (userData?.['email'] as string | undefined) ??
+    null;
+
+  this.selectedCampusEmail = campusEmail;
+
+  if (!departmentId) {
+    this.viewSubmitting.set(false);
+    console.warn('Department ID missing');
+    return false;
+  }
+
+ this.departmentApi.getDepartmentById(departmentId).subscribe({
+  next: (dept) => {
+    this.viewSubmitting.set(false);
+
+    if (!dept) return;
+
+   this.departmentViewValue = {
+  departmentName: dept.departmentName ?? '',
+  email: dept.email ?? '',
+  phone: dept.phone ?? '',
+  about: dept.aboutDepartment ?? '',
+  photoUrl: dept.photoUrl ?? '',
+  photo: null
+};
+
+// force UI refresh
+this.departmentViewValue = { ...this.departmentViewValue };
+this.cdr.detectChanges();
+
+
+    // Always store correct Mongo ID for update API
+this.selectedDepartmentId =
+  dept.id ||
+  ((dept as unknown as { _id?: string })._id) ||
+  departmentId;
+
+
+
+    this.cdr.detectChanges();
+  },
+  error: () => {
+    this.viewSubmitting.set(false);
+  },
+});
+
+  return true;
+}
+
+
+  return false;
   }
 
   handleFormSubmit(value: StudentFormValue | CompanyFormValue | CampusFormValue): void {
@@ -232,6 +406,8 @@ export class EditProfileModalComponent implements OnInit {
     } else if (this.userType === 'CAMPUS') {
       this.handleCampusFormSubmit(value as CampusFormValue);
     }
+ 
+
   }
 
   private handleStudentFormSubmit(value: StudentFormValue): void {
@@ -241,7 +417,8 @@ export class EditProfileModalComponent implements OnInit {
     }
 
     const updateRequest = this.mapStudentFormValueToUpdateRequest(value);
-    this.studentApi.updateStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, updateRequest).subscribe({
+    const updatePayload = this.buildStudentUpdatePayload(value, updateRequest);
+    this.studentApi.updateStudentFullProfile(this.selectedStudentId, this.selectedStudentUserId, updatePayload).subscribe({
       next: () => {
         this.notify.success('Profile updated successfully');
         this.reloadStudentProfile();
@@ -259,9 +436,9 @@ export class EditProfileModalComponent implements OnInit {
       return;
     }
 
-    const updateRequest = this.mapCompanyFormValueToUpdateRequest(value);
+    const updatePayload = this.buildCompanyUpdatePayload(value);
 
-    this.companyApi.updateCompany(this.selectedCompanyId, this.selectedCompanyUserId, updateRequest).subscribe({
+    this.companyApi.updateCompany(this.selectedCompanyId, this.selectedCompanyUserId, updatePayload).subscribe({
       next: () => {
         this.notify.success('Company profile updated successfully');
         this.reloadCompanyProfile();
@@ -281,7 +458,8 @@ export class EditProfileModalComponent implements OnInit {
     }
 
     const updateRequest = this.mapCampusFormValueToUpdateRequest(value);
-    this.campusApi.updateCampusProfile(this.selectedCampusEmail, updateRequest).subscribe({
+    const photo = value.campusLogoFiles?.length ? value.campusLogoFiles[0] : null;
+    this.campusApi.updateCampusProfile(this.selectedCampusEmail, updateRequest, photo).subscribe({
       next: () => {
         this.notify.success('Profile updated successfully');
         this.reloadCampusProfile();
@@ -308,6 +486,70 @@ export class EditProfileModalComponent implements OnInit {
       },
     });
   }
+
+handleDepartmentFormSubmit(value: {
+  departmentName: string;
+  email: string;
+  phone: string;
+  about: string;
+  photo?: File | null;
+}): void {
+
+  if (!this.selectedDepartmentId) {
+    this.notify.error('Department ID missing');
+    return;
+  }
+
+  if (!this.selectedCampusEmail) {
+    this.notify.error('Campus email missing');
+    return;
+  }
+
+  this.viewSubmitting.set(true);
+
+  // Use verified phone number if available
+  const phoneToUse = this.verifiedPhoneNumber() && 
+    value.phone.replace(/\D/g, '') === this.verifiedPhoneNumber()!.replace(/\D/g, '')
+    ? this.verifiedPhoneNumber()!.replace(/^\+/, '') // Remove + prefix if present
+    : value.phone;
+
+  //  clean payload (photo file alag handle hoga future me)
+  const payload = {
+    departmentName: value.departmentName,
+    email: value.email,
+    phone: phoneToUse,
+    aboutDepartment: value.about,
+  };
+
+  this.departmentApi.updateDepartment(
+    this.selectedDepartmentId,
+    payload,
+    this.selectedCampusEmail
+  ).subscribe({
+    next: () => {
+  this.notify.success('Department updated successfully');
+
+  //  refresh sidebar department list
+  window.dispatchEvent(new Event('departmentUpdated'));
+
+  //  refresh department detail modal if open
+  window.dispatchEvent(new Event('departmentReload'));
+
+  //  reload latest department data in edit profile
+  this.loadUserProfile();
+
+  this.isEditMode.set(false);
+  this.viewSubmitting.set(false);
+},
+
+    error: () => {
+      this.viewSubmitting.set(false);
+      this.notify.error('Update failed');
+    }
+  });
+}
+
+
 
   private reloadStudentProfile(): void {
     if (!this.selectedStudentId || !this.selectedStudentUserId) {
@@ -400,12 +642,18 @@ export class EditProfileModalComponent implements OnInit {
         technologiesUsed: p.technologiesUsed || [],
       }));
 
+    // Use verified phone number if available
+    const phoneToUse = this.verifiedPhoneNumber() && 
+      value.mobile.replace(/\D/g, '') === this.verifiedPhoneNumber()!.replace(/\D/g, '')
+      ? this.verifiedPhoneNumber()!.replace(/^\+/, '') // Remove + prefix if present
+      : personalInfo.phoneNumber;
+
     return {
       firstName: personalInfo.firstName,
       lastName: personalInfo.lastName,
       gender: personalInfo.gender,
       dateOfBirth: personalInfo.dateOfBirth,
-      phoneNumber: personalInfo.phoneNumber,
+      phoneNumber: phoneToUse,
       profilePhotoUrl: personalInfo.profilePhotoUrl || '',
       rank: '',
       address: personalInfo.address || '',
@@ -414,7 +662,8 @@ export class EditProfileModalComponent implements OnInit {
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
       campusId: educationDetails.campusId || [],
-      campusAddress: educationDetails.campusAddress || [], // Include campusAddress array from form
+      campusAddress: educationDetails.campusAddress || [],
+      departmentId: educationDetails.departmentId || [],
       other: educationDetails.other || false,
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
@@ -448,50 +697,106 @@ export class EditProfileModalComponent implements OnInit {
     };
   }
 
+  private buildStudentUpdatePayload(
+    value: StudentFormValue,
+    request: Record<string, unknown>,
+  ): StudentUpdatePayload {
+    return {
+      request,
+      files: this.buildStudentUpdateFiles(value),
+    };
+  }
+
+  private buildStudentUpdateFiles(value: StudentFormValue): StudentUpdateFiles {
+    return {
+      profilePhoto: value.photoFiles?.item(0) ?? null,
+      resume: value.additional.resumeFiles?.item(0) ?? null,
+      govtIdProof: value.additional.govtIdProofFiles?.item(0) ?? null,
+      portfolio: null,
+    };
+  }
+
   private mapCompanyFormValueToUpdateRequest(value: CompanyFormValue): CompanyRegisterRequest {
+    // Use verified phone number if available, otherwise use form value
+    const phoneToUse = this.verifiedPhoneNumber() && 
+      value.adminPhone.replace(/\D/g, '') === this.verifiedPhoneNumber()!.replace(/\D/g, '')
+      ? this.verifiedPhoneNumber()!.replace(/^\+/, '') // Remove + prefix if present
+      : value.adminPhone || '';
+    
     return {
       companyName: value.companyName || '',
-      companyLogoUrl: value.companyPhoto ? value.companyPhoto.name : undefined,
+      companyLogoUrl: this.resolveCompanyPhotoValue(value.companyPhoto, value.companyPhotoUrl),
       adminName: value.adminName || '',
       adminDesignation: value.adminDesignation || '',
       adminEmail: (value.adminEmail || '').toLowerCase(),
-      adminPhone: value.adminPhone || '',
+      adminPhone: phoneToUse,
       websiteUrl: value.companyWebsiteUrl || '',
       otherWebsiteUrl: value.otherWebsiteUrl || '',
       registerNumber: value.registerNumber || '',
       keyPeople: value.keyPeople.map((p) => ({
         name: p.name || '',
         designation: p.designation || '',
-        photoUrl: p.photo ? p.photo.name : undefined,
+        photoUrl: this.resolveCompanyPhotoValue(p.photo, p.photoUrl),
       })),
       aboutCompany: value.aboutCompany || '',
       companyAddress: value.companyAddress || '',
     };
   }
 
-  private mapCampusFormValueToUpdateRequest(value: CampusFormValue): CampusProfileUpdateRequest {
-    // Parse rank - only send if it's a valid positive number
-    let campusRank: number | undefined = undefined;
-    if (value.rank && value.rank.trim().length > 0) {
-      const parsedRank = Number(value.rank.trim());
-      if (Number.isFinite(parsedRank) && parsedRank > 0) {
-        campusRank = parsedRank;
-      }
+  private buildCompanyUpdatePayload(value: CompanyFormValue): CompanyRegisterPayload {
+    return {
+      request: this.mapCompanyFormValueToUpdateRequest(value),
+      files: this.buildCompanyUpdateFiles(value),
+    };
+  }
+
+  private buildCompanyUpdateFiles(value: CompanyFormValue): CompanyRegisterFiles {
+    const keyPersonPhotos = value.keyPeople.map((person) => person.photo);
+    return {
+      companyLogo: value.companyPhoto,
+      keyPerson1Photo: keyPersonPhotos[0] ?? null,
+      keyPerson2Photo: keyPersonPhotos[1] ?? null,
+      keyPerson3Photo: keyPersonPhotos[2] ?? null,
+    };
+  }
+
+  private resolveCompanyPhotoValue(file: File | null, existingUrl?: string): string | undefined {
+    const fileName = file?.name?.trim();
+    if (fileName) {
+      return fileName;
     }
-    
+    const cleaned = (existingUrl ?? '').trim();
+    if (!cleaned) {
+      return undefined;
+    }
+    if (cleaned.toLowerCase() === 'string') {
+      return undefined;
+    }
+    return cleaned;
+  }
+
+  private mapCampusFormValueToUpdateRequest(value: CampusFormValue): CampusProfileUpdateRequest {
+    const campusRank = value.rank?.trim() ? value.rank.trim() : undefined;
+
     const campusLogoFileName = value.campusLogoFiles?.item(0)?.name?.trim();
 
     // Only include campusLogoUrl if a new file is selected
     // If no new file is selected, don't send it (backend will keep existing)
     const campusLogoUrl = campusLogoFileName ? campusLogoFileName : undefined;
 
+    // Use verified phone number if available
+    const phoneToUse = this.verifiedPhoneNumber() && 
+      value.adminPhone.replace(/\D/g, '') === this.verifiedPhoneNumber()!.replace(/\D/g, '')
+      ? this.verifiedPhoneNumber()!.replace(/^\+/, '') // Remove + prefix if present
+      : value.adminPhone?.trim() || undefined;
+
     return {
       campusName: value.campusName?.trim() || undefined,
       campusLogoUrl: campusLogoUrl,
-      campusRank: campusRank,
+      campusRank,
       adminName: value.adminName?.trim() || undefined,
       adminEmail: value.adminEmail ? value.adminEmail.toLowerCase().trim() : undefined,
-      adminPhone: value.adminPhone?.trim() || undefined,
+      adminPhone: phoneToUse,
       adminDepartment: value.adminDept?.trim() || undefined,
       adminDesignation: value.adminDesignation?.trim() || undefined,
       websiteUrl: value.website?.trim() || undefined,
@@ -625,6 +930,12 @@ export class EditProfileModalComponent implements OnInit {
   private mapProfileToFormValue(profile: CompanyRegistrationResponse): CompanyFormValue {
     const aboutCompany = readFirstNonEmptyString(profile, ['aboutCompany', 'description', 'about']);
     const companyAddress = readFirstNonEmptyString(profile, ['companyAddress', 'address']);
+    const adminPhone = profile.adminPhone ?? '';
+
+    // If phone is verified, mark it as verified
+    if (adminPhone && this.verifiedPhoneNumber() && adminPhone.replace(/\D/g, '') === this.verifiedPhoneNumber()!.replace(/\D/g, '')) {
+      // Phone is already verified
+    }
 
     return {
       ...CompanyFormComponent.createEmptyValue(),
@@ -634,7 +945,7 @@ export class EditProfileModalComponent implements OnInit {
       adminName: profile.adminName ?? '',
       adminDesignation: profile.adminDesignation ?? '',
       adminEmail: profile.adminEmail ?? profile.email ?? '',
-      adminPhone: profile.adminPhone ?? '',
+      adminPhone: adminPhone,
       companyWebsiteUrl: profile.websiteUrl ?? '',
       otherWebsiteUrl: profile.otherWebsiteUrl ?? '',
       registerNumber: profile.registerNumber ?? '',
@@ -650,6 +961,288 @@ export class EditProfileModalComponent implements OnInit {
       aboutCompany,
       companyAddress,
     };
+  }
+
+  ngOnDestroy(): void {
+    this.removeVisibilityListener();
+    // Clean up reCAPTCHA verifier
+    if (this.phoneVerificationState.recaptchaVerifier) {
+      this.phoneVerificationState.recaptchaVerifier.clear();
+      this.phoneVerificationState.recaptchaVerifier = null;
+    }
+  }
+
+  openPhoneVerification(phoneNumber: string, fieldType: 'mobile' | 'adminPhone' | 'phone'): void {
+    if (!phoneNumber || phoneNumber.trim().length === 0) {
+      this.notify.error('Please enter a phone number first');
+      return;
+    }
+
+    this.currentPhoneField = fieldType;
+    this.phoneVerificationState.phoneNumber = phoneNumber.trim();
+    this.showPhoneVerificationModal = true;
+    this.phoneVerificationState.otp = '';
+    this.phoneVerificationState.confirmationResult = null;
+    
+    // Wait for modal to render before initializing reCAPTCHA
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.initializeRecaptchaAndSendOtp();
+    }, 100);
+  }
+
+  private initializeRecaptchaAndSendOtp(): void {
+    // Clear existing verifier if any
+    if (this.phoneVerificationState.recaptchaVerifier) {
+      this.phoneVerificationState.recaptchaVerifier.clear();
+      this.phoneVerificationState.recaptchaVerifier = null;
+    }
+
+    // Check if container element exists
+    const container = document.getElementById('phone-recaptcha-container');
+    if (!container) {
+      console.error('reCAPTCHA container not found');
+      this.notify.error('Failed to initialize verification. Please try again.');
+      this.showPhoneVerificationModal = false;
+      return;
+    }
+
+    try {
+      const auth = getFirebaseAuth();
+      this.phoneVerificationState.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        'phone-recaptcha-container',
+        {
+          size: 'invisible',
+          callback: () => {
+            console.log('✅ reCAPTCHA verified');
+          },
+          'expired-callback': () => {
+            console.warn('⚠️ reCAPTCHA expired');
+            this.notify.error('reCAPTCHA expired. Please try again.');
+            this.phoneVerificationState.sendingOtp = false;
+            this.cdr.detectChanges();
+          },
+        }
+      );
+
+      // Automatically send OTP after reCAPTCHA is initialized
+      void this.sendPhoneOtp();
+    } catch (error) {
+      console.error('❌ Failed to initialize reCAPTCHA:', error);
+      this.notify.error('Failed to initialize verification. Please refresh and try again.');
+      this.showPhoneVerificationModal = false;
+    }
+  }
+
+  async sendPhoneOtp(): Promise<void> {
+    if (this.phoneVerificationState.sendingOtp) {
+      return;
+    }
+
+    this.phoneVerificationState.sendingOtp = true;
+    try {
+      const formattedPhone = formatPhoneNumber(this.phoneVerificationState.phoneNumber);
+      console.log('📱 Sending OTP to:', formattedPhone);
+
+      const auth = getFirebaseAuth();
+      const confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        this.phoneVerificationState.recaptchaVerifier!
+      );
+      
+      this.phoneVerificationState.confirmationResult = confirmationResult;
+      this.notify.success('OTP sent to your phone number');
+    } catch (error: unknown) {
+      console.error('❌ Phone OTP Send Error:', error);
+      
+      const errorCode = (error as { code?: string })?.code;
+      const errorMessage = (error as { message?: string })?.message || '';
+
+      if (errorCode === 'auth/invalid-phone-number') {
+        this.notify.error('Invalid phone number format. Please check and try again.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        this.notify.error('Too many requests. Please try again later.');
+      } else if (errorCode === 'auth/billing-not-enabled') {
+        this.notify.error(
+          'Phone Authentication requires a paid Firebase plan (Blaze plan). Please upgrade your Firebase project or use test phone numbers for development.'
+        );
+        console.error('❌ Firebase billing not enabled. Phone Auth requires Blaze plan.');
+        // Close modal
+        this.showPhoneVerificationModal = false;
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        this.notify.error(
+          'Phone authentication is not enabled. Please enable it in Firebase Console → Authentication → Sign-in method → Phone.'
+        );
+        console.error('❌ Phone authentication not enabled in Firebase Console');
+        // Close modal
+        this.showPhoneVerificationModal = false;
+      } else if (errorCode === 'auth/captcha-check-failed' || errorCode === 'auth/argument-error') {
+        this.notify.error('reCAPTCHA verification failed. Please try again.');
+        // Reset reCAPTCHA
+        if (this.phoneVerificationState.recaptchaVerifier) {
+          this.phoneVerificationState.recaptchaVerifier.clear();
+          this.phoneVerificationState.recaptchaVerifier = null;
+        }
+        // Close modal to allow retry
+        this.showPhoneVerificationModal = false;
+      } else {
+        const errorMsg = errorMessage || 'Failed to send OTP. Please try again.';
+        this.notify.error(errorMsg);
+        console.error('Full error details:', error);
+      }
+    } finally {
+      this.phoneVerificationState.sendingOtp = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async verifyPhoneOtp(): Promise<void> {
+    if (
+      !this.phoneVerificationState.confirmationResult ||
+      !this.phoneVerificationState.otp.trim() ||
+      this.phoneVerificationState.verifyingOtp
+    ) {
+      return;
+    }
+
+    this.phoneVerificationState.verifyingOtp = true;
+    try {
+      const result = await this.phoneVerificationState.confirmationResult.confirm(
+        this.phoneVerificationState.otp.trim()
+      );
+      console.log('✅ Phone Verification Success:', result.user.phoneNumber);
+
+      // Phone verified via Firebase!
+      const verifiedPhone = this.phoneVerificationState.phoneNumber;
+      this.phoneVerified.set(true);
+      this.verifiedPhoneNumber.set(verifiedPhone); // Store verified phone number
+      this.showPhoneVerificationModal = false;
+
+      // Update the form value with verified phone
+      this.updatePhoneInForm(verifiedPhone);
+
+      // Call backend API to update isPhoneVerified in database
+      // Use the original phone number format (not Firebase formatted)
+      // Check if user is authenticated before making the API call
+      if (!this.auth.isAuthenticated()) {
+        console.warn('⚠️ User not authenticated, skipping backend phone verification');
+        this.notify.success('Phone number verified successfully');
+        this.notify.warn('Please refresh the page or log in again to sync verification status with the server.');
+        return;
+      }
+
+      this.auth.verifyPhone({ phoneNumber: verifiedPhone }).subscribe({
+        next: () => {
+          console.log('✅ Phone number verified in backend database');
+          this.notify.success('Phone number verified successfully');
+        },
+        error: (err: unknown) => {
+          console.error('❌ Backend phone verification error:', err);
+          
+          // Check if it's an authentication error
+          if (err && typeof err === 'object' && 'status' in err) {
+            const httpError = err as { status?: number; error?: unknown; message?: string };
+            if (httpError.status === 401) {
+              console.warn('⚠️ Authentication token expired or invalid');
+              this.notify.success('Phone number verified successfully');
+              this.notify.warn('Phone verified but authentication expired. Please refresh the page to sync with server.');
+              return;
+            }
+          }
+          
+          // Firebase verification succeeded, but backend update failed for other reasons
+          this.notify.success('Phone number verified successfully');
+          console.warn('⚠️ Backend verification failed but Firebase verification succeeded');
+        },
+      });
+
+      this.phoneVerificationState.otp = '';
+      this.phoneVerificationState.confirmationResult = null;
+      
+      // Force UI update
+      this.cdr.detectChanges();
+    } catch (error: unknown) {
+      console.error('❌ Phone OTP Verification Error:', error);
+
+      const errorCode = (error as { code?: string })?.code;
+      if (errorCode === 'auth/invalid-verification-code') {
+        this.notify.error('Invalid OTP code. Please try again.');
+      } else if (errorCode === 'auth/code-expired') {
+        this.notify.error('OTP code expired. Please request a new one.');
+        this.showPhoneVerificationModal = false;
+        this.phoneVerificationState.confirmationResult = null;
+      } else {
+        this.notify.error('Failed to verify OTP. Please try again.');
+      }
+    } finally {
+      this.phoneVerificationState.verifyingOtp = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  handlePhoneVerificationCancel(): void {
+    this.showPhoneVerificationModal = false;
+    this.phoneVerificationState.otp = '';
+    this.phoneVerificationState.confirmationResult = null;
+    
+    // Clean up reCAPTCHA verifier
+    if (this.phoneVerificationState.recaptchaVerifier) {
+      this.phoneVerificationState.recaptchaVerifier.clear();
+      this.phoneVerificationState.recaptchaVerifier = null;
+    }
+    
+    this.cdr.detectChanges();
+  }
+
+  resendPhoneOtp(): void {
+    // Clear current confirmation and start over
+    this.phoneVerificationState.confirmationResult = null;
+    this.phoneVerificationState.otp = '';
+    
+    // Re-initialize reCAPTCHA and send OTP
+    if (this.phoneVerificationState.recaptchaVerifier) {
+      this.phoneVerificationState.recaptchaVerifier.clear();
+      this.phoneVerificationState.recaptchaVerifier = null;
+    }
+    
+    // Wait a bit for cleanup, then reinitialize
+    setTimeout(() => {
+      this.initializeRecaptchaAndSendOtp();
+    }, 200);
+  }
+
+  private updatePhoneInForm(verifiedPhone: string): void {
+    // Update based on userType and currentPhoneField
+    if (this.userType === 'STUDENT' && this.currentPhoneField === 'mobile') {
+      this.studentViewValue = { ...this.studentViewValue, mobile: verifiedPhone };
+    } else if (
+      (this.userType === 'COMPANY' || this.userType === 'CAMPUS') &&
+      this.currentPhoneField === 'adminPhone'
+    ) {
+      if (this.userType === 'COMPANY') {
+        this.companyViewValue = { ...this.companyViewValue, adminPhone: verifiedPhone };
+      } else {
+        this.campusViewValue = { ...this.campusViewValue, adminPhone: verifiedPhone };
+      }
+    } else if (this.userType === 'DEPARTMENT' && this.currentPhoneField === 'phone') {
+      this.departmentViewValue = { ...this.departmentViewValue, phone: verifiedPhone };
+    }
+    
+    // Store verified phone for button state
+    this.verifiedPhoneNumber.set(verifiedPhone);
+    this.cdr.detectChanges();
+  }
+
+  isPhoneVerified(phoneNumber: string): boolean {
+    if (!phoneNumber || !this.verifiedPhoneNumber()) {
+      return false;
+    }
+    // Compare phone numbers (normalize by removing formatting)
+    const normalizedCurrent = phoneNumber.replace(/\D/g, '');
+    const normalizedVerified = this.verifiedPhoneNumber()!.replace(/\D/g, '');
+    return normalizedCurrent === normalizedVerified;
   }
 
   private mapCampusProfileToFormValue(profile: Campus | null): CampusFormValue {
@@ -741,11 +1334,13 @@ function mapBooleanToYesNo(value: boolean | null): 'yes' | 'no' | null {
   return null;
 }
 
+/** Maps API JobAlertPreference enum (NONE, EMAIL, SMS, BOTH; legacy EMAIL_SMS → BOTH) to form value. */
 function mapJobAlertPreferenceFromApi(apiValue: string): string {
-  if (apiValue === 'EMAIL') return 'Email';
-  if (apiValue === 'SMS') return 'SMS';
-  if (apiValue === 'EMAIL_SMS' || apiValue === 'BOTH') return 'Email & SMS';
-  return '';
+  const v = (apiValue || '').trim().toUpperCase();
+  if (v === 'EMAIL') return 'EMAIL';
+  if (v === 'SMS') return 'SMS';
+  if (v === 'BOTH' || v === 'EMAIL_SMS') return 'BOTH';
+  return 'NONE';
 }
 
 function convertYearToDate(value: string): string {
@@ -770,12 +1365,32 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
 
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
-  const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
-  const campusAddresses = readStringArray(education, 'campusAddress'); // Read campusAddress array from API
+  const campusIds = readStringArray(education, 'campusId');
+  const campusAddresses = readStringArray(education, 'campusAddress');
+  const departmentIds = readStringArray(education, 'departmentId');
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
-  const yearOfPassing = readString(education, 'yearOfPassing');
-  const cgpa = readString(education, 'cgpa');
+  // Prefer new array keys yearOfPassingList / cgpalist; fallback to yearOfPassing / cgpa
+  const yearOfPassings: string[] = readStringArray(education, 'yearOfPassingList').length > 0
+    ? readStringArray(education, 'yearOfPassingList')
+    : (() => {
+        const raw = education?.['yearOfPassing'];
+        return Array.isArray(raw)
+          ? (raw as string[]).filter((v): v is string => typeof v === 'string')
+          : typeof raw === 'string' && raw.trim().length > 0
+            ? [raw]
+            : [];
+      })();
+  const cgpas: string[] = readStringArray(education, 'cgpalist').length > 0
+    ? readStringArray(education, 'cgpalist')
+    : (() => {
+        const raw = education?.['cgpa'];
+        return Array.isArray(raw)
+          ? (raw as string[]).filter((v): v is string => typeof v === 'string')
+          : typeof raw === 'string'
+            ? [raw]
+            : [];
+      })();
   const certificates = readStringArray(education, 'certificates');
   const other = readBoolean(education, 'other') ?? false; // Read "other" flag
 
@@ -791,13 +1406,14 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
     
     out.push({
       qualification: qualifications[i] ?? '',
-      institution: isCustomInstitution ? institutionName : institutionName, // Keep the institution name as-is
-      campusId: isCustomInstitution ? undefined : campusId, // Clear campusId for custom institutions
-      campusAddress: isCustomInstitution ? undefined : campusAddresses[i], // Clear campusAddress for custom institutions
+      institution: institutionName,
+      campusId: isCustomInstitution ? undefined : campusId,
+      campusAddress: isCustomInstitution ? undefined : campusAddresses[i],
+      departmentId: isCustomInstitution ? undefined : departmentIds[i],
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
-      yearOfPassing: convertYearToDate(yearOfPassing),
-      percentageOrCgpa: cgpa,
+      yearOfPassing: convertYearToDate(yearOfPassings[i] ?? yearOfPassings[0]),
+      percentageOrCgpa: cgpas[i] ?? cgpas[0] ?? '',
       certificateFiles: null,
       certificateFileNames: i === 0 ? certificates : [],
     });

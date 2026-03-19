@@ -6,6 +6,8 @@ import { TextareaComponent } from '../../../../shared/components/textarea/textar
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { AuthApiService } from '../../../auth/services/auth-api.service';
+import { ReportType } from '../../../admin/models/admin-api.models';
 
 @Component({
   selector: 'app-feedback-form',
@@ -20,6 +22,7 @@ export class FeedbackFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly notify = inject(NotificationService);
+  private readonly authApi = inject(AuthApiService);
 
   readonly form: FormGroup;
   readonly submitting = signal(false);
@@ -54,15 +57,26 @@ export class FeedbackFormComponent {
 
     this.submitting.set(true);
 
-    // TODO: Implement API call to submit feedback
-    setTimeout(() => {
-      this.submitting.set(false);
-      this.notify.success('Thank you for your feedback! We will review it soon.');
-      setTimeout(() => {
-        this.form.reset();
-        this.closed.emit();
-      }, 1500);
-    }, 1000);
+    const payload = {
+      title: this.form.get('title')?.value ?? '',
+      description: this.form.get('description')?.value ?? '',
+      type: ReportType.FEEDBACK,
+    };
+
+    this.authApi.reportIssue(payload).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.notify.success('Thank you for your feedback! We will review it soon.');
+        setTimeout(() => {
+          this.form.reset();
+          this.closed.emit();
+        }, 1500);
+      },
+      error: () => {
+        this.submitting.set(false);
+        this.notify.error('Failed to submit feedback. Please try again.');
+      },
+    });
   }
 
   onCancel(): void {

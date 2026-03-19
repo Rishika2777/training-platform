@@ -10,6 +10,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (req.url.includes('/public/landing/')) {
     return next(req);
   }
+
+  // Recommendation endpoint uses reviewerId in query - backend may not expect Bearer token
+  if (req.url.includes('/recommendation/')) {
+    return next(req);
+  }
   
   if (!token) {
     return next(req);

@@ -1,81 +1,129 @@
 <div class="register-page">
-  <div class="header-bar">
-      <div class="brand" aria-label="Synkup">
-        <div class="brand-mark">Synkup</div>
-      </div>
-
-      <app-button
-        class="login-btn"
-        type="button"
-        variant="outline"
-        label="Sign In"
-        (buttonClick)="goToLogin()"
-      />
+  <div class="header-btn">
+    <app-button
+      class="login-btn"
+      type="button"
+      variant="outline"
+      label="Sign In"
+      (buttonClick)="goToLogin()"
+    />
   </div>
 
   <div class="container">
-      <!-- Left Welcome Box -->
-      <div class="left-box">
-          <h2>Create Your<br />Professional Account</h2>
-          <p>
-              Join our platform and connect with your professional community. Grow your network
-              and explore new opportunities.
-          </p>
+    <!-- Left: Form -->
+    <div class="form-section">
+      <h1 class="auth-title">Register</h1>
+
+      <form class="register-form" [formGroup]="form" (ngSubmit)="submit()">
+        <div class="auth-input-wrap">
+          <input
+            class="auth-input"
+            type="email"
+            placeholder="Email"
+            [value]="form.controls.email.value"
+            (input)="form.controls.email.setValue($any($event.target).value); form.controls.email.markAsTouched()"
+          />
+          <span class="auth-input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </span>
+        </div>
+        @if (form.controls.email.hasError('emailPattern') && form.controls.email.value.trim()) {
+          <div class="field-help"><small class="error">Only letters, numbers, dots and one @ are allowed.</small></div>
+        }
+
+        <div class="auth-input-wrap">
+          <input
+            class="auth-input"
+            type="password"
+            placeholder="Password"
+            [value]="form.controls.password.value"
+            (input)="form.controls.password.setValue($any($event.target).value); form.controls.password.markAsTouched()"
+          />
+          <span class="auth-input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          </span>
+        </div>
+        <div class="field-help">
+          <small class="hint">Min 6 characters, one upper, one lower, one number, one special, no spaces.</small>
+          @if (form.controls.password.touched && form.controls.password.hasError('passwordStrength')) {
+            <small class="error">Password must match the rules above.</small>
+          }
+        </div>
+
+        <div class="auth-input-wrap">
+          <input
+            class="auth-input"
+            type="password"
+            placeholder="Confirm Password"
+            [value]="form.controls.confirmPassword.value"
+            (input)="form.controls.confirmPassword.setValue($any($event.target).value); form.controls.confirmPassword.markAsTouched()"
+          />
+          <span class="auth-input-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          </span>
+        </div>
+
+        <button
+          class="auth-btn"
+          type="submit"
+          [disabled]="submitting || googleSigningIn || form.invalid"
+        >
+          Sign Up
+        </button>
+
+        <div class="divider"><span>or</span></div>
+
+        <button
+          class="google-btn"
+          type="button"
+          [disabled]="submitting || googleSigningIn"
+          (click)="signInWithGoogle()"
+        >
+          <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span class="google-btn-text">Continue with Google</span>
+        </button>
+
+        <p class="auth-footer-text">
+          Already have an account? <span class="auth-link" role="link" tabindex="0" (click)="goToLogin()" (keyup.enter)="goToLogin()">Log In</span>
+        </p>
+      </form>
+    </div>
+
+    <!-- Right: Robot (mirrored, same animation) -->
+    <div class="robot-section robot-section--right" aria-hidden="true">
+      <div class="robot-wrap">
+        <svg class="robot-mascot robot-mascot--mirror" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+          <line x1="85" y1="40" x2="80" y2="10" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+          <line x1="115" y1="40" x2="120" y2="10" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="80" cy="10" r="4" fill="#5885E6"/>
+          <circle cx="120" cy="10" r="4" fill="#5885E6"/>
+          <rect x="50" y="45" width="100" height="70" rx="12" fill="#fff"/>
+          <circle class="robot-eye" cx="85" cy="75" r="14" fill="#5885E6" filter="url(#glowR)"/>
+          <circle class="robot-eye" cx="115" cy="75" r="14" fill="#5885E6" filter="url(#glowR)"/>
+          <circle cx="85" cy="75" r="6" fill="#A2C2F7"/>
+          <circle cx="115" cy="75" r="6" fill="#A2C2F7"/>
+          <path d="M 75 95 Q 100 108 125 95" stroke="#5885E6" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <rect x="88" y="112" width="24" height="8" rx="2" fill="#5885E6" opacity="0.8"/>
+          <rect x="40" y="120" width="120" height="90" rx="8" fill="#fff"/>
+          <rect x="55" y="135" width="35" height="25" rx="4" fill="#A2C2F7" opacity="0.5"/>
+          <rect x="110" y="135" width="35" height="25" rx="4" fill="#A2C2F7" opacity="0.5"/>
+          <circle cx="65" cy="215" r="8" fill="#5885E6" opacity="0.7"/>
+          <circle cx="135" cy="215" r="8" fill="#5885E6" opacity="0.7"/>
+          <rect x="55" y="218" width="30" height="18" rx="4" fill="#fff"/>
+          <rect x="115" y="218" width="30" height="18" rx="4" fill="#fff"/>
+          <filter id="glowR" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </svg>
       </div>
-
-      <!-- Register Box -->
-      <div class="right-box">
-          <h3>New to Synkup?</h3>
-          <p class="subtitle">Register</p>
-
-          <form class="register-form" [formGroup]="form" (ngSubmit)="submit()">
-            <app-input
-              label=""
-              type="email"
-              placeholder="Email"
-              [value]="form.controls.email.value"
-              [disabled]="submitting"
-              (valueChange)="form.controls.email.setValue($event)"
-            />
-
-            <app-input
-              label=""
-              type="password"
-              placeholder="Password"
-              [value]="form.controls.password.value"
-              [disabled]="submitting"
-              (valueChange)="form.controls.password.setValue($event)"
-            />
-            <div class="field-help">
-              <small class="hint">Min 12 chars, 1 uppercase, 1 number, 1 special character.</small>
-              @if (form.controls.password.touched && form.controls.password.hasError('passwordStrength')) {
-                <small class="error">Password must match the rules above.</small>
-              }
-            </div>
-
-            <app-input
-              label=""
-              type="password"
-              placeholder="Confirm Password"
-              [value]="form.controls.confirmPassword.value"
-              [disabled]="submitting"
-              (valueChange)="form.controls.confirmPassword.setValue($event)"
-            />
-
-            <app-button
-              class="signin-btn"
-              type="submit"
-              variant="outline"
-              label="Register Now"
-              [disabled]="submitting || form.invalid"
-            />
-          </form>
-
-          <div class="links">
-              <p>Already Registered? <span role="link" tabindex="0" (click)="goToLogin()" (keyup.enter)="goToLogin()">Sign In</span></p>
-          </div>
-      </div>
+    </div>
   </div>
 
-  <footer>© 2025 Synkup Solutions. All rights reserved.</footer>
+  <footer class="auth-page-footer">© 2025 Synkup Solutions. All rights reserved.</footer>
 </div>

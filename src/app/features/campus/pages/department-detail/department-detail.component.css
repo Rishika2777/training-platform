@@ -1,0 +1,144 @@
+.department-detail-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 30px 24px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.08);
+}
+
+/* avatar */
+.dept-avatar {
+  width: 120px;
+  height: 120px;
+  margin: auto;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #8b5cf6;
+}
+
+.dept-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* name */
+.dept-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 14px;
+  color: #2f4a80;
+}
+
+/* about */
+.dept-about {
+  margin-top: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* contact */
+.dept-contact {
+  margin-top: 20px;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+.contact-row i {
+  color: #f97316;
+}
+
+/* close button */
+.close-btn {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  border: none;
+  background: #f97316;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* delete */
+.delete-btn {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  border: none;
+  background: #f97316;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* edit button */
+.edit-btn {
+  position: absolute;
+  left: 60px;      /* delete ke side me */
+  top: 14px;
+  border: 2px solid #f97316;
+  background: transparent;
+  color: #f97316;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Delete Department Modal */
+.delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.delete-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info {
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: 8px;
+}
+
+.delete-item-info strong {
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.delete-modal-actions app-button {
+  min-width: 100px;
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-white);
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary:hover {
+  opacity: 0.9;
+}

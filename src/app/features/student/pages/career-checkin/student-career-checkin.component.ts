@@ -7,6 +7,7 @@ import { StudentApiService } from '../../services/student-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { CompanyApiService } from '../../../company/services/company-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import { catchError, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -115,15 +116,15 @@ export class StudentCareerCheckinComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          if (response?.success && response.data) {
-            const data = response.data;
+          const data = unwrapApiResponse<Record<string, unknown>>(response);
+          if (data) {
             this.patch({
-              companyName: data.companyName || '',
-              jobTitle: data.jobTitle || '',
-              startDate: data.startDate || '',
-              endDate: data.endDate || '',
-              currentlyWorking: data.isCurrentlyWorking || false,
-              recnHelped: data.recnHelped || false,
+              companyName: (data['companyName'] as string) || '',
+              jobTitle: (data['jobTitle'] as string) || '',
+              startDate: (data['startDate'] as string) || '',
+              endDate: (data['endDate'] as string) || '',
+              currentlyWorking: Boolean(data['isCurrentlyWorking']),
+              recnHelped: Boolean(data['recnHelped']),
             });
             // Some parts of the app appear to use manual change detection.
             // Defer to avoid ExpressionChangedAfterItHasBeenCheckedError.

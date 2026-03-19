@@ -4,9 +4,10 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import { AdminApiService } from '../../../admin/services/admin-api.service';
+import { UserManagementService } from '../../../admin/services/user-management.service';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { RoleService } from '../../../../core/rbac/role.service';
 import { Router } from '@angular/router';
 import { ROUTES } from '../../../../core/config/app.constants';
 
@@ -21,9 +22,10 @@ export class DeleteAccountComponent implements OnInit {
   @Output() closed = new EventEmitter<void>();
 
   private readonly fb = inject(FormBuilder);
-  private readonly adminApi = inject(AdminApiService);
+  private readonly userManagement = inject(UserManagementService);
   private readonly auth = inject(AuthService);
   private readonly authState = inject(AuthStateService);
+  private readonly roles = inject(RoleService);
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
 
@@ -49,11 +51,20 @@ export class DeleteAccountComponent implements OnInit {
     return !!(control && control.invalid && control.touched);
   }
 
+  get isAdminUser(): boolean {
+    return this.roles.isAdmin();
+  }
+
   onSubmit(event?: Event | MouseEvent): void {
     // Prevent default form submission
     if (event) {
       event.preventDefault();
       event.stopPropagation();
+    }
+
+    if (this.isAdminUser) {
+      this.notify.error('Admins cannot delete their own account.');
+      return;
     }
 
     if (this.form.invalid || this.submitting()) {
@@ -69,7 +80,7 @@ export class DeleteAccountComponent implements OnInit {
 
     this.submitting.set(true);
 
-    this.adminApi.deleteUserByEmail(email).subscribe({
+    this.userManagement.deleteUserByEmail(email).subscribe({
       next: () => {
         this.submitting.set(false);
         this.notify.success('Your account has been deleted successfully.');

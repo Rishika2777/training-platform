@@ -14,6 +14,9 @@ type CarouselType = 'pagination' | 'none';
 export class CarouselComponent {
   @Input() type: CarouselType = 'none';
 
+  /** When true, content area scrolls and footer stays fixed at bottom (for fixed-height containers). */
+  @Input() scrollable = false;
+
   @Input() currentPage = 1;
   @Input() totalPages = 1;
   @Input() maxVisible = 6;

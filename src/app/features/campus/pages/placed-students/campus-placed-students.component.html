@@ -8,7 +8,7 @@
         (valueChange)="patch({ studentName: $event })"
         [autocomplete]="true"
         [apiFetchFn]="fetchStudentNames"
-        [allowCustom]="true"
+        [allowCustom]="false"
         [minSearchLength]="0"
         [debounceTime]="300"
         placeholder="Select or type student name"
@@ -89,6 +89,21 @@
         [autocomplete]="true"
       />
     </div>
+
+   @if (showDepartment) {
+  <div class="form-row">
+    <app-dropdown
+      label="Department"
+      [items]="departmentItems"
+      [value]="value.department || null"
+      [disabled]="submitting"
+      (valueChange)="patch({ department: $event })"
+      [autocomplete]="true"
+    />
+  </div>
+}
+
+    
   </div>
 
   <div class="form-actions">

@@ -1,16 +1,35 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { CardComponent } from '../../../../shared/components/card/card.component';
+import { Component, OnInit, inject, signal, ViewChild, ElementRef } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { TextareaComponent } from '../../../../shared/components/textarea/textarea.component';
+import { AppHeaderComponent } from '../../../../shared/components/header/header.component';
 import { StudentApiService } from '../../services/student-api.service';
+import { CommonApiService } from '../../../../core/services/common-api.service';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { ApiResponseObject, ApiResponseBatchmateResponse, ApiResponsePageAlumniResponse } from '../../models/student.models';
-import { catchError, of } from 'rxjs';
+import { NotificationService } from '../../../../core/notifications/notification.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import {
+  ApiResponseObject,
+  ApiResponseBatchmateResponse,
+  ApiResponsePageAlumniResponse,
+  ApiResponseTestimonialResponse,
+  ApiResponsePromotionCountResponse,
+  ApiResponseFollowerCountResponse,
+  ApiResponseKnowledgeBaseResponse,
+  KnowledgeBaseResponse,
+  StudentPublicProfileResponse,
+  TestimonialResponse,
+} from '../../models/student.models';
+import { catchError, of, forkJoin } from 'rxjs';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 
 interface PersonCard {
+  id?: string;
+  publicStudentId?: string;
   name: string;
   imageUrl: string;
   designation?: string;
@@ -20,19 +39,25 @@ interface PersonCard {
 @Component({
   selector: 'app-student-profile',
   standalone: true,
-  imports: [CommonModule, CardComponent, ButtonComponent, InputComponent, TextareaComponent],
+  imports: [CommonModule, ButtonComponent, InputComponent, TextareaComponent, AppHeaderComponent],
   templateUrl: './student-profile.component.html',
   styleUrl: './student-profile.component.css',
 })
 export class StudentProfileComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly studentApi = inject(StudentApiService);
+  private readonly commonApi = inject(CommonApiService);
   private readonly auth = inject(AuthService);
+  private readonly notifications = inject(NotificationService);
+  private readonly storage = inject(StorageService);
 
   // Route parameters
   readonly studentId = signal<string | null>(null);
   readonly userId = signal<string | null>(null);
+  readonly publicStudentId = signal<string | null>(null);
   readonly isStandalone = signal<boolean>(false);
+  readonly isPublicProfile = signal<boolean>(false);
 
   // Profile data
   readonly profileData = signal<Record<string, unknown> | null>(null);
@@ -44,16 +69,34 @@ export class StudentProfileComponent implements OnInit {
   readonly alumni = signal<readonly PersonCard[]>([]);
   readonly loadingBatchmates = signal<boolean>(false);
   readonly loadingAlumni = signal<boolean>(false);
+  readonly testimonials = signal<readonly TestimonialResponse[]>([]);
+  readonly promotionCount = signal<number>(0);
+  readonly followerCount = signal<number>(0);
+  readonly isFollowing = signal<boolean>(false);
+  readonly followSubmitting = signal<boolean>(false);
 
   // Feedback form
   feedbackName = '';
   feedbackComment = '';
   feedbackRecommendation: 'yes' | 'no' | null = null;
+  readonly feedbackSubmitError = signal<string | null>(null);
+  readonly feedbackSubmitSuccess = signal<boolean>(false);
+  readonly feedbackSubmitting = signal<boolean>(false);
+  readonly recommendationSubmitting = signal<boolean>(false);
+  readonly recommendationSubmitSuccess = signal<boolean>(false);
+
+  readonly resumeUrlFromApi = signal<string | null>(null);
+  readonly resumeUrlLoading = signal<boolean>(false);
+
+  readonly knowledgeBase = signal<KnowledgeBaseResponse | null>(null);
+  readonly loadingKnowledgeBase = signal<boolean>(false);
 
   // Pagination and carousel
   currentBatchmatesPage = 1;
   currentAlumniIndex = 0;
   currentTestimonialIndex = 0;
+
+  @ViewChild('alumniList') alumniListRef?: ElementRef<HTMLElement>;
 
   ngOnInit(): void {
     // Check if opened in standalone mode (new tab)
@@ -65,24 +108,144 @@ export class StudentProfileComponent implements OnInit {
 
     // Extract route parameters
     this.route.paramMap.subscribe((params) => {
+      const publicStudentIdFromRoute = params.get('publicStudentId');
       const studentIdFromRoute = params.get('studentId');
       const userIdFromRoute = params.get('userId');
 
-      console.log('📋 Profile Page - Route Params:', {
-        studentId: studentIdFromRoute,
-        userId: userIdFromRoute,
-      });
+      if (publicStudentIdFromRoute) {
+        this.publicStudentId.set(publicStudentIdFromRoute);
+        this.isPublicProfile.set(true);
+        this.loadPublicStudentProfile(publicStudentIdFromRoute);
+        return;
+      }
 
-      // If route params exist, use them (opened from "Get to Know Me")
       if (studentIdFromRoute && userIdFromRoute) {
         this.studentId.set(studentIdFromRoute);
         this.userId.set(userIdFromRoute);
         this.loadStudentProfile(studentIdFromRoute);
       } else {
-        // Get studentId from current user and load profile
         this.loadProfileFromCurrentUser();
       }
     });
+  }
+
+  /**
+   * Load public student profile and related data by publicStudentId (landing search).
+   */
+  private loadPublicStudentProfile(publicStudentId: string): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.studentApi.getPublicStudentProfile(publicStudentId).subscribe({
+      next: (resp) => {
+        const data: StudentPublicProfileResponse | undefined = resp?.data;
+        if (!data) {
+          this.loading.set(false);
+          this.error.set(resp?.message ?? 'Profile not found');
+          return;
+        }
+        const profileRecord: Record<string, unknown> = { ...data };
+        this.profileData.set(profileRecord);
+        const { campusName, yearOfPassing } = this.getInstitutionAndYearFromProfile(profileRecord);
+        this.studentId.set(data.studentId ?? null);
+        this.userId.set(data.userId ?? null);
+        this.loadResumeUrl();
+
+        const batchmates$ =
+          data.studentId && campusName && yearOfPassing
+            ? this.studentApi
+                .getBatchmates(data.studentId, campusName, String(yearOfPassing), 1, 12)
+                .pipe(catchError(() => of({ success: true, data: [] } as ApiResponseBatchmateResponse)))
+            : of({ success: true, data: [] } as ApiResponseBatchmateResponse);
+
+        this.loadKnowledgeBase(publicStudentId);
+
+        forkJoin({
+          testimonials: this.studentApi.getPublicTestimonials(publicStudentId, 20, 1),
+          promotions: this.studentApi.getPublicPromotions(publicStudentId),
+          followers: this.studentApi.getPublicFollowers(publicStudentId),
+          batchmates: batchmates$,
+        }).subscribe({
+          next: (res: {
+            testimonials?: ApiResponseTestimonialResponse;
+            promotions?: ApiResponsePromotionCountResponse;
+            followers?: ApiResponseFollowerCountResponse;
+            batchmates?: ApiResponseBatchmateResponse;
+          }) => {
+            const testimonialData = res.testimonials?.data as
+              | { content?: TestimonialResponse[] }
+              | TestimonialResponse[]
+              | undefined;
+            const rawList = Array.isArray(testimonialData)
+              ? testimonialData
+              : (testimonialData as { content?: TestimonialResponse[] })?.content ?? [];
+            const list = this.normalizeTestimonials(Array.isArray(rawList) ? rawList : []);
+            this.testimonials.set(list);
+            this.promotionCount.set((res.promotions?.data as { promotionCount?: number })?.promotionCount ?? 0);
+            this.followerCount.set(res.followers?.data?.followerCount ?? 0);
+            const batchmateList = unwrapApiResponse<unknown[]>(res.batchmates);
+            if (Array.isArray(batchmateList)) {
+              this.batchmates.set(batchmateList.map((item) => this.mapBatchmateToPersonCard(item as unknown)));
+            }
+            if (campusName && yearOfPassing) {
+              this.loadPublicAlumni(publicStudentId, campusName, String(yearOfPassing));
+            }
+            this.loading.set(false);
+          },
+          error: () => {
+            this.loading.set(false);
+          },
+        });
+      },
+      error: (err: { message?: string }) => {
+        this.loading.set(false);
+        this.error.set(err?.message ?? 'Failed to load profile');
+      },
+    });
+  }
+
+  private loadKnowledgeBase(publicStudentId: string): void {
+    this.loadingKnowledgeBase.set(true);
+    this.studentApi
+      .getKnowledgeBase(publicStudentId)
+      .pipe(
+        catchError(() => {
+          this.loadingKnowledgeBase.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (resp: ApiResponseKnowledgeBaseResponse | null) => {
+          this.loadingKnowledgeBase.set(false);
+          this.knowledgeBase.set(resp?.data ?? null);
+        },
+      });
+  }
+
+  private loadPublicAlumni(
+    publicStudentId: string,
+    campusName: string,
+    yearOfPassing: string,
+  ): void {
+    this.loadingAlumni.set(true);
+    this.studentApi
+      .getPublicAlumni(publicStudentId, campusName, yearOfPassing, 12, 1)
+      .pipe(
+        catchError(() => {
+          this.loadingAlumni.set(false);
+          return of(null);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.loadingAlumni.set(false);
+          const alumniList = unwrapApiResponse<unknown[]>(response);
+          if (Array.isArray(alumniList)) {
+            const items = alumniList.map((item) => this.mapAlumniToPersonCard(item as unknown));
+            this.alumni.set(items);
+          }
+        },
+      });
   }
 
   /**
@@ -138,9 +301,23 @@ export class StudentProfileComponent implements OnInit {
         console.log('✅ Student full profile loaded:', response);
         this.loading.set(false);
         
-        if (response.success && response.data) {
-          const profileData = response.data as Record<string, unknown>;
+        const profileData = unwrapApiResponse<Record<string, unknown>>(response);
+        if (profileData) {
           this.profileData.set(profileData);
+          // Extract follower/promotion counts from profile response (API returns these)
+          const followerCount = Number(profileData['followerCount']) || 0;
+          const promotionCount = Number(profileData['promotionCount']) || 0;
+          this.followerCount.set(followerCount);
+          this.promotionCount.set(promotionCount);
+          // Load Knowledge Base when we have publicStudentId (for standalone / own profile view)
+          const publicStudentId =
+            (profileData['publicStudentId'] as string) ??
+            (profileData['publicId'] as string) ??
+            null;
+          if (publicStudentId) {
+            this.publicStudentId.set(publicStudentId);
+            this.loadKnowledgeBase(publicStudentId);
+          }
           // Store profile data in localStorage for use on home page (to avoid calling profile API there)
           try {
             localStorage.setItem('student_profile_data', JSON.stringify(profileData));
@@ -152,6 +329,7 @@ export class StudentProfileComponent implements OnInit {
           // Load batchmates and alumni after profile is loaded
           this.loadBatchmates(studentId);
           this.loadAlumni(studentId);
+          this.loadResumeUrl();
         } else {
           this.error.set(response.message || 'Failed to load profile data');
         }
@@ -169,10 +347,37 @@ export class StudentProfileComponent implements OnInit {
    * Reload profile data
    */
   reload(): void {
+    const pubId = this.publicStudentId();
+    if (pubId) {
+      this.loadPublicStudentProfile(pubId);
+      return;
+    }
     const studentId = this.studentId();
     if (studentId) {
       this.loadStudentProfile(studentId);
     }
+  }
+
+  getPromotionCount(): number {
+    return this.promotionCount();
+  }
+
+  /**
+   * Map API testimonial shape (quote, reviewerName) to UI shape (content, author).
+   */
+  private normalizeTestimonials(raw: TestimonialResponse[]): TestimonialResponse[] {
+    return raw.map((item) => ({
+      ...item,
+      content: (item as { quote?: string }).quote ?? item.content ?? '',
+      author: (item as { reviewerName?: string }).reviewerName ?? item.author ?? '',
+    }));
+  }
+
+  getCurrentTestimonial(): TestimonialResponse | null {
+    const list = this.testimonials();
+    if (!list.length) return null;
+    const idx = this.currentTestimonialIndex % list.length;
+    return list[idx] ?? null;
   }
 
   /**
@@ -205,10 +410,8 @@ export class StudentProfileComponent implements OnInit {
       .subscribe({
         next: (response: ApiResponseBatchmateResponse | null) => {
           this.loadingBatchmates.set(false);
-          if (response?.success && response.data) {
-            // Check if data has content property (paginated response)
-            const data = response.data as unknown as { content?: unknown[] };
-            const batchmateList = data.content || (Array.isArray(response.data) ? response.data : []);
+          const batchmateList = unwrapApiResponse<unknown[]>(response);
+          if (Array.isArray(batchmateList)) {
             const items = batchmateList.map((item) => this.mapBatchmateToPersonCard(item as unknown));
             this.batchmates.set(items);
           }
@@ -241,8 +444,9 @@ export class StudentProfileComponent implements OnInit {
       .subscribe({
         next: (response: ApiResponsePageAlumniResponse | null) => {
           this.loadingAlumni.set(false);
-          if (response?.success && response.data) {
-            const items = (response.data.content || []).map((item) => this.mapAlumniToPersonCard(item as unknown));
+          const alumniList = unwrapApiResponse<unknown[]>(response);
+          if (Array.isArray(alumniList)) {
+            const items = alumniList.map((item) => this.mapAlumniToPersonCard(item as unknown));
             this.alumni.set(items);
           }
         },
@@ -253,16 +457,22 @@ export class StudentProfileComponent implements OnInit {
    * Map batchmate data to PersonCard
    */
   private mapBatchmateToPersonCard(item: unknown): PersonCard {
-    const batchmate = item as { firstName?: string; lastName?: string; profilePhotoUrl?: string };
-    const firstName = (batchmate.firstName || '').trim();
-    const lastName = (batchmate.lastName || '').trim();
+    const batchmate = item as Record<string, unknown>;
+    const firstName = ((batchmate['firstName'] as string) || '').trim();
+    const lastName = ((batchmate['lastName'] as string) || '').trim();
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
-    const photoUrl = batchmate.profilePhotoUrl || '';
+    const photoUrl = (batchmate['profilePhotoUrl'] as string) || '';
     const imageUrl = photoUrl
       ? (photoUrl.startsWith('http') ? photoUrl : `/api/v1/files/${photoUrl}`)
       : 'assets/images/login-news-image.png';
-    
-    return { name: fullName, imageUrl };
+    const publicStudentId = (batchmate['publicStudentId'] as string) || (batchmate['studentId'] as string) || (batchmate['userId'] as string);
+
+    return {
+      name: fullName,
+      imageUrl,
+      id: publicStudentId || '',
+      publicStudentId: publicStudentId || undefined,
+    };
   }
 
   /**
@@ -302,6 +512,38 @@ export class StudentProfileComponent implements OnInit {
   }
 
   /**
+   * Extracts institution name and year of passing for the most recent year.
+   * Used when profile data is not yet in profileData signal (e.g. during loadPublicStudentProfile).
+   */
+  private getInstitutionAndYearFromProfile(profile: Record<string, unknown>): {
+    campusName: string;
+    yearOfPassing: string;
+  } {
+    const institutions = (profile?.['institutionName'] as string[]) ?? [];
+    const years = (profile?.['yearOfPassingList'] as string[]) ?? [];
+    const fallbackYear = String(profile?.['yearOfPassing'] ?? profile?.['batch'] ?? '');
+    if (institutions.length === 0) {
+      return { campusName: '', yearOfPassing: fallbackYear };
+    }
+    if (years.length === 0 || institutions.length !== years.length) {
+      return { campusName: String(institutions[0]), yearOfPassing: fallbackYear };
+    }
+    let maxYear = '';
+    let maxIndex = 0;
+    for (let i = 0; i < years.length; i++) {
+      const y = String(years[i]).trim();
+      if (y > maxYear) {
+        maxYear = y;
+        maxIndex = i;
+      }
+    }
+    return {
+      campusName: String(institutions[maxIndex]),
+      yearOfPassing: maxYear,
+    };
+  }
+
+  /**
    * Helper methods to extract data from profileData
    */
   getProfileValue(key: string): unknown {
@@ -332,21 +574,93 @@ export class StudentProfileComponent implements OnInit {
     return [first, last].filter(Boolean).join(' ') || 'Unknown';
   }
 
+  getContactEmail(): string {
+    return this.getStringValue('email', '—');
+  }
+
+  getContactPhone(): string {
+    return this.getStringValue('phoneNumber', '—');
+  }
+
+  getContactAddress(): string {
+    return this.getStringValue('address', '—');
+  }
+
+  /** Truncate address for display (Figma: short line, no long paragraph). */
+  getContactAddressDisplay(maxLen = 80): string {
+    const raw = this.getContactAddress();
+    if (raw === '—' || raw.length <= maxLen) return raw;
+    return raw.slice(0, maxLen).trim() + '…';
+  }
+
   getProfilePhotoUrl(): string {
     const photoUrl = this.getStringValue('profilePhotoUrl');
     if (!photoUrl) return 'assets/images/login-news-image.png';
     return photoUrl.startsWith('http') ? photoUrl : `/api/v1/files/${photoUrl}`;
   }
 
+  /** Backend returns placeholders like "no.pdf" when there is no resume; do not use as URL. */
+  private isPlaceholderResumeValue(value: string): boolean {
+    const v = value.trim().toLowerCase();
+    return !v || v === 'no.pdf' || v === 'no' || v === 'none' || v === 'null' || v === 'n/a';
+  }
+
+  /**
+   * Fetch resume URL from GET /student/{studentId}/resume (works for public and logged-in).
+   */
+  loadResumeUrl(): void {
+    const studentId = this.studentId();
+    if (!studentId) return;
+    const requesterUserType = this.auth.getCurrentUser()?.userType ?? 'STUDENT';
+    this.resumeUrlLoading.set(true);
+    this.resumeUrlFromApi.set(null);
+    this.studentApi.getResume(studentId, requesterUserType).subscribe({
+      next: (res) => {
+        this.resumeUrlLoading.set(false);
+        const raw = res?.data?.trim() ?? '';
+        if (!raw || this.isPlaceholderResumeValue(raw)) {
+          this.resumeUrlFromApi.set(null);
+          return;
+        }
+        const url = raw.startsWith('http') ? raw : `/api/v1/files/${raw}`;
+        this.resumeUrlFromApi.set(url);
+      },
+      error: () => {
+        this.resumeUrlLoading.set(false);
+        this.resumeUrlFromApi.set(null);
+      },
+    });
+  }
+
   getResumeUrl(): string {
+    const fromApi = this.resumeUrlFromApi();
+    if (fromApi) return fromApi;
     const resumeUrl = this.getStringValue('resumeUrl');
-    if (!resumeUrl) return '#';
+    if (!resumeUrl || this.isPlaceholderResumeValue(resumeUrl)) return '#';
     return resumeUrl.startsWith('http') ? resumeUrl : `/api/v1/files/${resumeUrl}`;
   }
 
+  /**
+   * Returns the institution name for the most recent year of passing.
+   * If yearOfPassingList exists, picks the institution at the index of the max year.
+   */
   getInstitutionName(): string {
-    const institutions = this.getArrayValue('institutionName');
-    return institutions.length > 0 ? String(institutions[0]) : '';
+    const institutions = this.getArrayValue('institutionName') as string[];
+    const years = this.getArrayValue('yearOfPassingList') as string[];
+    if (institutions.length === 0) return '';
+    if (years.length === 0 || institutions.length !== years.length) {
+      return String(institutions[0]);
+    }
+    let maxYear = '';
+    let maxIndex = 0;
+    for (let i = 0; i < years.length; i++) {
+      const y = String(years[i]).trim();
+      if (y > maxYear) {
+        maxYear = y;
+        maxIndex = i;
+      }
+    }
+    return String(institutions[maxIndex]);
   }
 
   getCompanyName(): string {
@@ -405,7 +719,20 @@ export class StudentProfileComponent implements OnInit {
     return this.getStringValue('cgpa');
   }
 
+  /**
+   * Returns the most recent year of passing.
+   * Uses yearOfPassingList when available; otherwise falls back to yearOfPassing.
+   */
   getYearOfPassing(): string {
+    const years = this.getArrayValue('yearOfPassingList') as string[];
+    if (years.length > 0) {
+      let maxYear = '';
+      for (const y of years) {
+        const s = String(y).trim();
+        if (s > maxYear) maxYear = s;
+      }
+      return maxYear;
+    }
     return this.getStringValue('yearOfPassing');
   }
 
@@ -474,32 +801,250 @@ export class StudentProfileComponent implements OnInit {
   }
 
   /**
-   * Handle feedback form submission
+   * Whether the current user can submit feedback (logged in, not self when student).
    */
-  submitFeedback(): void {
-    if (!this.feedbackName.trim() || !this.feedbackComment.trim() || !this.feedbackRecommendation) {
+  canSubmitFeedback(): boolean {
+    if (!this.isPublicProfile() || !this.studentId()) {
+      return false;
+    }
+    const user = this.auth.getCurrentUser();
+    if (!user?.userType) {
+      return false;
+    }
+    const reviewerId = this.getReviewerId();
+    if (!reviewerId) {
+      return false;
+    }
+    if (user.userType === 'STUDENT' && user.studentId === this.studentId()) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Reviewer ID from current user (studentId, companyId, or campusId).
+   */
+  private getReviewerId(): string | null {
+    const user = this.auth.getCurrentUser();
+    if (!user) {
+      return null;
+    }
+    return user.studentId ?? user.companyId ?? user.campusId ?? null;
+  }
+
+  /**
+   * Called when user clicks Yes or No: submits recommendation only.
+   */
+  onRecommendationClick(value: 'yes' | 'no'): void {
+    this.feedbackRecommendation = value;
+    this.feedbackSubmitError.set(null);
+    this.recommendationSubmitSuccess.set(false);
+
+    if (!this.canSubmitFeedback()) {
+      this.feedbackSubmitError.set('You have to first login.');
       return;
     }
-    // TODO: Implement feedback submission API call
-    console.log('Feedback submitted:', {
-      name: this.feedbackName,
-      comment: this.feedbackComment,
-      recommendation: this.feedbackRecommendation,
-    });
-    // Reset form
-    this.feedbackName = '';
-    this.feedbackComment = '';
-    this.feedbackRecommendation = null;
+
+    const targetStudentId = this.studentId();
+    const reviewerId = this.getReviewerId();
+    const user = this.auth.getCurrentUser();
+    const requesterUserType = user?.userType;
+    if (!targetStudentId || !reviewerId || !requesterUserType) {
+      this.feedbackSubmitError.set('You have to first login.');
+      return;
+    }
+
+    this.recommendationSubmitting.set(true);
+    const request = { wouldRecommend: value === 'yes' };
+
+    this.studentApi
+      .submitRecommendation(targetStudentId, reviewerId, requesterUserType, request)
+      .pipe(
+        catchError((err: { status?: number; error?: { message?: string }; message?: string }) => {
+          const status = err?.status;
+          const msg = err?.error?.message ?? err?.message ?? 'Failed to submit recommendation.';
+          if (status === 403) {
+            this.feedbackSubmitError.set('You cannot give recommendation to yourself.');
+          } else if (status === 409) {
+            this.feedbackSubmitError.set('You have already submitted recommendation for this student.');
+          } else {
+            this.feedbackSubmitError.set(msg);
+          }
+          return of(null);
+        }),
+      )
+      .subscribe((result) => {
+        this.recommendationSubmitting.set(false);
+        if (result) {
+          this.recommendationSubmitSuccess.set(true);
+          this.feedbackSubmitError.set(null);
+          const newCount = (this.promotionCount() ?? 0) + 1;
+          this.promotionCount.set(newCount);
+          this.notifications.success('Your recommendation has been submitted.');
+        }
+      });
+  }
+
+  /**
+   * Handle feedback form submission: POST feedback only (no recommendation).
+   */
+  submitFeedback(): void {
+    if (!this.feedbackName.trim() || !this.feedbackComment.trim()) {
+      return;
+    }
+
+    if (!this.canSubmitFeedback()) {
+      this.feedbackSubmitError.set('You have to first login.');
+      return;
+    }
+
+    const targetStudentId = this.studentId();
+    const reviewerId = this.getReviewerId();
+    const user = this.auth.getCurrentUser();
+    const requesterUserType = user?.userType;
+    if (!targetStudentId || !reviewerId || !requesterUserType) {
+      this.feedbackSubmitError.set('You have to first login.');
+      return;
+    }
+    if (user?.userType === 'STUDENT' && user.studentId === targetStudentId) {
+      this.feedbackSubmitError.set('You cannot give feedback to yourself.');
+      return;
+    }
+
+    this.feedbackSubmitError.set(null);
+    this.feedbackSubmitSuccess.set(false);
+    this.feedbackSubmitting.set(true);
+
+    const feedbackReq = {
+      reviewerName: this.feedbackName.trim(),
+      feedbackText: this.feedbackComment.trim(),
+    };
+
+    this.studentApi
+      .submitFeedback(targetStudentId, reviewerId, requesterUserType, feedbackReq)
+      .pipe(
+        catchError((err: { status?: number; error?: { message?: string }; message?: string }) => {
+          const status = err?.status;
+          const msg = err?.error?.message ?? err?.message ?? 'Failed to submit feedback.';
+          if (status === 403) {
+            this.feedbackSubmitError.set('You cannot give feedback to yourself.');
+          } else if (status === 409) {
+            this.feedbackSubmitError.set('You have already submitted feedback for this student.');
+          } else {
+            this.feedbackSubmitError.set(msg);
+          }
+          return of(null);
+        }),
+      )
+      .subscribe((result) => {
+        this.feedbackSubmitting.set(false);
+        if (result) {
+          this.feedbackSubmitSuccess.set(true);
+          this.feedbackSubmitError.set(null);
+          this.feedbackName = '';
+          this.feedbackComment = '';
+        }
+      });
   }
 
   /**
    * Download resume
    */
   downloadResume(): void {
-    const resumeUrl = this.getResumeUrl();
-    if (resumeUrl && resumeUrl !== '#') {
-      window.open(resumeUrl, '_blank');
+    const studentId = this.studentId();
+    if (!studentId) {
+      const fallback = this.getResumeUrl();
+      if (fallback && fallback !== '#') {
+        window.open(fallback, '_blank');
+      }
+      return;
     }
+    const requesterUserType = this.auth.getCurrentUser()?.userType ?? 'STUDENT';
+    this.studentApi.getResume(studentId, requesterUserType).subscribe({
+      next: (res) => {
+        const raw = res?.data?.trim() ?? '';
+        if (!raw || this.isPlaceholderResumeValue(raw)) return;
+        const url = raw.startsWith('http') ? raw : `/api/v1/files/${raw}`;
+        window.open(url, '_blank');
+      },
+    });
+  }
+
+  followStudent(): void {
+    const targetStudentId = this.studentId();
+    if (!targetStudentId) {
+      this.notifications.error('Student ID not found.');
+      return;
+    }
+    const currentUser = this.auth.getCurrentUser();
+    const userType = currentUser?.userType ?? null;
+    if (!currentUser || !userType) {
+      this.notifications.error('Please login first to do this action.');
+      return;
+    }
+
+    let actorType: 'STUDENT' | 'COMPANY' | 'CAMPUS';
+    let actorId: string;
+
+    if (userType === 'STUDENT') {
+      actorType = 'STUDENT';
+      actorId = currentUser.studentId ?? currentUser.profileServiceId ?? '';
+      if (!actorId) {
+        this.notifications.error('Student ID not found.');
+        return;
+      }
+    } else if (userType === 'COMPANY') {
+      actorType = 'COMPANY';
+      actorId = currentUser.companyId ?? currentUser.profileServiceId ?? '';
+      if (!actorId) {
+        this.notifications.error('Company ID not found.');
+        return;
+      }
+    } else if (userType === 'CAMPUS' || userType === 'DEPARTMENT') {
+      actorType = 'CAMPUS';
+      actorId = currentUser.campusId ?? this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string ?? '';
+      if (!actorId) {
+        this.notifications.error('Campus ID not found.');
+        return;
+      }
+    } else {
+      this.notifications.error('User type not supported for follow.');
+      return;
+    }
+
+    this.followSubmitting.set(true);
+    this.commonApi.follow({
+      actorType,
+      actorId,
+      targetType: 'STUDENT',
+      targetId: targetStudentId,
+    }).subscribe({
+      next: () => {
+        this.followSubmitting.set(false);
+        this.isFollowing.set(true);
+        this.followerCount.set(this.followerCount() + 1);
+        this.notifications.success('Followed successfully.');
+      },
+      error: (err: unknown) => {
+        this.followSubmitting.set(false);
+        if (err instanceof HttpErrorResponse) {
+          if (err.status === 409) {
+            this.isFollowing.set(true);
+            this.notifications.info('You are already following this student.');
+            return;
+          }
+          if (err.status === 403) {
+            this.notifications.error('A student cannot follow themselves.');
+            return;
+          }
+          if (err.status === 404) {
+            this.notifications.error('Student not found.');
+            return;
+          }
+        }
+        this.notifications.error('Failed to follow student.');
+      },
+    });
   }
 
   /**
@@ -565,30 +1110,43 @@ export class StudentProfileComponent implements OnInit {
   }
 
   /**
-   * Get skill bar height percentage (mock data for now)
+   * Get knowledge base labels (tech names) from API
+   */
+  getKnowledgeBaseLabels(): string[] {
+    return this.knowledgeBase()?.xaxisLabels ?? [];
+  }
+
+  /**
+   * Get knowledge base values (proficiency 0-10) from API
+   */
+  getKnowledgeBaseValues(): number[] {
+    return this.knowledgeBase()?.yaxisValues ?? [];
+  }
+
+  /**
+   * Get bar height percentage for proficiency 0-10 (Y-axis scale)
+   */
+  getKnowledgeBaseBarHeight(value: number): number {
+    const v = Math.min(10, Math.max(0, Number(value) || 0));
+    return (v / 10) * 100;
+  }
+
+  /**
+   * Get skill bar height percentage (fallback for non-public profile)
    */
   getSkillBarHeight(skill: string, index: number): number {
-    // Mock heights based on skill index - in real app, this would come from API
-    const heights: Record<string, number> = {
-      'Python': 28,
-      'HTML/CSS': 92,
-      'Java': 81,
-      'React.js': 62,
-      'Node.js': 41,
-      'UX': 83,
-      'DBMS': 80,
-    };
-    
-    // Try to match by name
-    const skillLower = skill.toLowerCase();
-    for (const [key, value] of Object.entries(heights)) {
-      if (skillLower.includes(key.toLowerCase())) {
-        return value;
-      }
+    const values = this.getKnowledgeBaseValues();
+    if (values[index] != null) {
+      return this.getKnowledgeBaseBarHeight(values[index]);
     }
-    
-    // Default: use index-based height
     return 30 + (index * 10);
+  }
+
+  openBatchmateProfile(batchmate: PersonCard): void {
+    const id = batchmate.publicStudentId || batchmate.id;
+    if (!id || !id.trim()) return;
+    const url = this.router.serializeUrl(this.router.createUrlTree(['/profile/student', id]));
+    window.open(url, '_blank');
   }
 
   /**
@@ -613,30 +1171,50 @@ export class StudentProfileComponent implements OnInit {
     // TODO: Load batchmates for this page
   }
 
+  /** Scroll amount for alumni carousel (one card width + gap). */
+  private static readonly ALUMNI_SCROLL_PX = 180;
+
   /**
-   * Carousel navigation for alumni
+   * Carousel navigation for alumni – scroll the list left.
    */
   previousAlumni(): void {
-    // TODO: Implement carousel logic
-    console.log('Previous alumni');
+    const el = this.alumniListRef?.nativeElement;
+    if (el) {
+      el.scrollBy({ left: -StudentProfileComponent.ALUMNI_SCROLL_PX, behavior: 'smooth' });
+    }
   }
 
+  /**
+   * Carousel navigation for alumni – scroll the list right.
+   */
   nextAlumni(): void {
-    // TODO: Implement carousel logic
-    console.log('Next alumni');
+    const el = this.alumniListRef?.nativeElement;
+    if (el) {
+      el.scrollBy({ left: StudentProfileComponent.ALUMNI_SCROLL_PX, behavior: 'smooth' });
+    }
   }
 
   /**
    * Carousel navigation for testimonials
    */
   previousTestimonial(): void {
-    // TODO: Implement carousel logic
-    console.log('Previous testimonial');
+    const list = this.testimonials();
+    if (!list.length) return;
+    this.currentTestimonialIndex =
+      (this.currentTestimonialIndex - 1 + list.length) % list.length;
   }
 
   nextTestimonial(): void {
-    // TODO: Implement carousel logic
-    console.log('Next testimonial');
+    const list = this.testimonials();
+    if (!list.length) return;
+    this.currentTestimonialIndex = (this.currentTestimonialIndex + 1) % list.length;
+  }
+
+  /**
+   * Navigate to registration (Get Started for Free)
+   */
+  onGetStartedForFree(): void {
+    void this.router.navigate(['/register/options']);
   }
 
   /**

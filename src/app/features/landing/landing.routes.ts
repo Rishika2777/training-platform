@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { rootRedirectGuard } from '../../core/routing/root-redirect.guard';
 import { LandingComponent } from './pages/landing/landing.component';
 
 /**
@@ -11,7 +10,6 @@ export const landingRoutes: Routes = [
     path: '',
     pathMatch: 'full',
     component: LandingComponent,
-    canMatch: [rootRedirectGuard],
   },
 ];
 

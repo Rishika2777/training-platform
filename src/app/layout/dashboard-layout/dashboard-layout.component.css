@@ -1,8 +1,28 @@
+.dashboard-wrapper {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Public/standalone pages (e.g. campus about): let wrapper grow so window scrolls */
+.dashboard-wrapper.standalone-mode {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
 .layout {
   display: flex;
-  min-height: calc(100vh - 56px);
-  overflow-x: hidden;
-  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - var(--app-header-height, 60px));
+  overflow: hidden;
+  font-family: var(--font-primary);
+  gap: 0;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .layout.sidebar-collapsed .content {
@@ -12,6 +32,8 @@
 /* Standalone mode: full-width content without sidebar */
 .layout.standalone-mode {
   display: block;
+  height: auto;
+  min-height: calc(100vh - var(--app-header-height, 60px));
 }
 
 .layout.standalone-mode .content {
@@ -19,14 +41,88 @@
   max-width: 100%;
   padding: 0;
   margin: 0;
+  overflow: visible;
 }
 
+/* Full width: no left margin, content uses 100% of remaining space */
 .content {
   flex: 1;
   min-width: 0;
-  padding: var(--space-lg);
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding: var(--space-md, 16px);
   box-sizing: border-box;
   overflow-x: hidden;
-  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  overflow-y: auto;
+  font-family: var(--font-primary);
+  transition: padding 0.25s ease;
+}
+
+/* Mobile: backdrop when sidebar overlay is open */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  top: var(--app-header-height, 60px);
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  cursor: pointer;
+}
+
+/* Mobile: content takes full width when sidebar is overlay (no reserved space) */
+@media (max-width: 768px) {
+  .layout.mobile .content {
+    margin-left: 0;
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+}
+
+/* Delete Notice Modal */
+.delete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.delete-modal-content p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-item-info {
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: 8px;
+}
+
+.delete-item-info strong {
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.delete-modal-actions app-button {
+  min-width: 100px;
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-white);
+}
+
+:host ::ng-deep .delete-modal-actions app-button:last-child .btn.primary:hover {
+  opacity: 0.9;
 }
 

@@ -51,11 +51,11 @@ export interface ForgotPasswordRequest {
 
 export interface ResetPasswordRequest {
   resetToken: string;
-  newPassword: string;
+  password: string;
 }
 
 export interface ResetPasswordWithEmailRequest {
-  email: string;
+  emailId: string;
   currentPassword: string;
   newPassword: string;
 }
@@ -149,6 +149,7 @@ export interface StudentRegistrationResponse {
 export interface CompanyRegistrationResponse {
   companyId?: string;
   userId?: string;
+  // publicCompanyId?: string; 
   companyName?: string;
   companyLogoUrl?: string;
   adminName?: string;
@@ -174,5 +175,45 @@ export interface CampusRegistrationResponse {
   websiteUrl?: string;
   approvalStatus?: string;
   createdAt?: string;
+}
+
+// Report/Support Models
+export enum ReportType {
+  CONTACT_SUPPORT = 'CONTACT_SUPPORT',
+  BUG = 'BUG',
+  FEEDBACK = 'FEEDBACK',
+}
+
+export interface ReportIssueRequest {
+  title: string;
+  description: string;
+  type: ReportType;
+}
+
+// Admin Dashboard API responses (monthly data Jan–Dec, index 0–11)
+// Backend may send xaxisLabels + yaxisValues; we support both shapes.
+export interface UserEngagementResponse {
+  year?: number;
+  monthlyCounts?: number[];
+  xaxisLabels?: string[];
+  yaxisValues?: number[];
+}
+
+export interface SuccessfulPlacementsResponse {
+  year?: number;
+  monthlyCounts?: number[];
+  xaxisLabels?: string[];
+  yaxisValues?: number[];
+}
+
+export interface RegisteredEntitiesResponse {
+  year?: number;
+  student?: number[];
+  company?: number[];
+  campus?: number[];
+  xaxisLabels?: string[];
+  studentCounts?: number[];
+  companyCounts?: number[];
+  campusCounts?: number[];
 }
 

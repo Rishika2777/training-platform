@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Input, computed, inject, signal, PLATFORM_ID } from '@angular/core';
+import { Component, Input, Output, EventEmitter, computed, inject, signal, PLATFORM_ID } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { MenuService } from '../../core/menu/menu.service';
@@ -10,12 +10,17 @@ import { UserData } from '../../core/models/user.model';
 import { AuthService } from '../../core/auth/auth.service';
 import { ModalService, ModalType } from '../../core/modal/modal.service';
 import { FacultyDetailService } from '../../features/campus/services/faculty-detail.service';
+import { DepartmentDetailService } from '../../features/campus/services/department-detail.service';
 import { FacultyDetailData } from '../../features/campus/pages/faculty-detail/campus-faculty-detail.component';
 import { CampusApiService } from '../../features/campus/services/campus-api.service';
+import { CompanyApiService } from '../../features/company/services/company-api.service';
 import { OnInit } from '@angular/core';
 import { StorageService } from '../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../core/config/app.constants';
 import { catchError, of } from 'rxjs';
+import { unwrapApiResponse } from '../../core/api/api-response.utils';
+import { NoticeDetailData } from '../../features/campus/pages/notice-detail/campus-notice-detail.component';
+import { NoticeItem } from '../../features/campus/services/campus-api.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -33,16 +38,35 @@ export class SidebarComponent implements OnInit {
   private readonly notifications = inject(NotificationService);
   private readonly roles = inject(RoleService);
   private readonly auth = inject(AuthService);
-  private readonly modalService = inject(ModalService);
-  private readonly facultyDetailService = inject(FacultyDetailService);
+readonly modalService = inject(ModalService);  private readonly facultyDetailService = inject(FacultyDetailService);
+  private readonly departmentDetailService = inject(DepartmentDetailService);
   private readonly campusApi = inject(CampusApiService);
+  private readonly companyApi = inject(CompanyApiService);
   private readonly storage = inject(StorageService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+readonly isStudentUser = computed(
+  () => this.roles.getUserType() === 'STUDENT'
+);
 
+readonly isAdminUser = computed(() => {
+  const role = this.roles.getPrimaryRole();
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+});
+
+
+readonly noticeModalData = computed(
+  () => this.modalService.getModalData() as NoticeDetailData | null
+);
+readonly activeModalType = computed(
+  () => this.modalService.activeModal()
+);
   @Input() collapsed = false;
+  /** Emitted when a menu item is clicked (e.g. to close mobile overlay). */
+  @Output() menuItemClicked = new EventEmitter<void>();
 
   private readonly path = signal<string>(this.currentPath());
+readonly editingNotice = signal<NoticeDetailData | null>(null);
 
   readonly isAuthenticated = computed(() => this.roles.isAuthenticated());
   readonly menuItems = computed(() => this.menu.menuItems());
@@ -52,6 +76,40 @@ export class SidebarComponent implements OnInit {
   readonly campusRank = signal<number | null>(null);
   readonly campusImageUrl = signal<string | null>(null);
   
+  // Company data signals (for COMPANY users)
+  readonly companyName = signal<string | null>(null);
+  readonly companyRank = signal<number | null>(null);
+  readonly companyImageUrl = signal<string | null>(null);
+
+  // Department data signals (for DEPARTMENT users - department name & image for display)
+  readonly departmentName = signal<string | null>(null);
+  readonly departmentImageUrl = signal<string | null>(null);
+
+selectedDepartment = signal<DepartmentCard | null>(null);
+selectedDepartmentId = signal<string | null>(null);
+
+//  ------------------------ news
+readonly notices = signal<NoticeItem[]>([]);
+readonly loadingNotices = signal(false);
+noticePage = signal(1);
+readonly noticePageSize = 3;
+
+/** Max characters for notice description in sidebar before truncation + "Read more". */
+readonly noticeDescTruncate = 60;
+
+readonly noticeTotalPages = signal(1);
+
+readonly noticePageNumbers = computed(() => {
+  const total = this.noticeTotalPages();
+  return Array.from({ length: total }, (_, i) => i + 1);
+});
+
+// --------------notice
+// readonly selectedNotice = signal<NoticeDetailData | null>(null);
+// readonly showNoticeModal = signal(false);
+
+
+  
   // Signal to track profile updates (for reactive updates)
   readonly profileRefresh = signal<number>(0);
   
@@ -60,10 +118,37 @@ export class SidebarComponent implements OnInit {
     this.profileRefresh();
     
     const userType = this.roles.getUserType();
-    
+      const primaryRole = this.roles.getPrimaryRole(); 
+
+  // ✅ ADMIN FIX
+  if (primaryRole === 'ADMIN' || primaryRole === 'SUPER_ADMIN') {
+    return 'Admin';
+  }
+
+  
     // For CAMPUS users, show campus name instead of email
     if (userType === 'CAMPUS') {
       const name = this.campusName();
+      if (name && name.trim()) {
+        return name;
+      }
+    }
+
+    // For DEPARTMENT users, show department name or campus name
+    if (userType === 'DEPARTMENT') {
+      const deptName = this.departmentName();
+      if (deptName && deptName.trim()) {
+        return deptName;
+      }
+      const campusName = this.campusName();
+      if (campusName && campusName.trim()) {
+        return campusName;
+      }
+    }
+    
+    // For COMPANY users, show company name instead of email
+    if (userType === 'COMPANY') {
+      const name = this.companyName();
       if (name && name.trim()) {
         return name;
       }
@@ -75,20 +160,19 @@ export class SidebarComponent implements OnInit {
       return 'Student';
     }
     
-    // For students, try to get firstName and lastName from localStorage (stored profile data)
+    // For students, try to get name from localStorage (stored profile data)
     if (user.userType === 'STUDENT') {
       try {
         const storedProfile = localStorage.getItem('student_profile_data');
         if (storedProfile) {
           const profileData = JSON.parse(storedProfile) as Record<string, unknown>;
-          const firstName = profileData['firstName'] ? String(profileData['firstName']).trim() : '';
-          const lastName = profileData['lastName'] ? String(profileData['lastName']).trim() : '';
-          
+          const fullName = profileData['fullName'] ?? profileData['full_name'] ?? profileData['name'];
+          if (fullName && String(fullName).trim()) return String(fullName).trim();
+          const firstName = (profileData['firstName'] ?? profileData['first_name']) ? String(profileData['firstName'] ?? profileData['first_name']).trim() : '';
+          const lastName = (profileData['lastName'] ?? profileData['last_name']) ? String(profileData['lastName'] ?? profileData['last_name']).trim() : '';
           if (firstName || lastName) {
-            const fullName = [firstName, lastName].filter(Boolean).join(' ');
-            if (fullName) {
-              return fullName;
-            }
+            const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+            if (name) return name;
           }
         }
       } catch (error) {
@@ -111,14 +195,42 @@ export class SidebarComponent implements OnInit {
       }
       return 'Rank';
     }
+
+    // For DEPARTMENT users, do not show rank
+    if (userType === 'DEPARTMENT') {
+      return '';
+    }
+    
+    // For COMPANY users, show dynamic rank (if available)
+    if (userType === 'COMPANY') {
+      const rank = this.companyRank();
+      if (rank !== null) {
+        return `Rank ${rank}`;
+      }
+      return 'Rank';
+    }
     
     // For other users, show static "Rank"
-    return 'Rank';
+    return '';
   });
   
   readonly userImageUrl = computed(() => {
+    this.profileRefresh(); // React to profile updates
+
     const userType = this.roles.getUserType();
-    
+
+    // For DEPARTMENT users, prefer department image if available, then fallback to campus image
+    if (userType === 'DEPARTMENT') {
+      const deptImage = this.departmentImageUrl();
+      if (deptImage && deptImage.trim()) {
+        return deptImage;
+      }
+      const campusImg = this.campusImageUrl();
+      if (campusImg && campusImg.trim()) {
+        return campusImg;
+      }
+    }
+
     // For CAMPUS users, show campus image if available
     if (userType === 'CAMPUS') {
       const imageUrl = this.campusImageUrl();
@@ -126,8 +238,31 @@ export class SidebarComponent implements OnInit {
         return imageUrl;
       }
     }
-    
-    // For other users or if no image, return null (will show initials)
+
+    // For COMPANY users, show company image if available
+    if (userType === 'COMPANY') {
+      const imageUrl = this.companyImageUrl();
+      if (imageUrl && imageUrl.trim()) {
+        return imageUrl;
+      }
+    }
+
+    // For STUDENT users, show profile photo from localStorage
+    if (userType === 'STUDENT') {
+      try {
+        const storedProfile = localStorage.getItem('student_profile_data');
+        if (storedProfile) {
+          const profileData = JSON.parse(storedProfile) as Record<string, unknown>;
+          const photoUrl = profileData['profilePhotoUrl'] ?? profileData['profile_photo_url'];
+          if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim()) {
+            const url = photoUrl.trim();
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            return url.startsWith('/') ? `/api/v1/files${url}` : `/api/v1/files/${url}`;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     return null;
   });
   readonly sidebarTitle = computed(() => {
@@ -147,28 +282,66 @@ export class SidebarComponent implements OnInit {
   readonly showCampusFaculties = computed(() => {
     const userType = this.roles.getUserType();
     const path = this.path();
+    const isCampusOrDeptPath = path === '/campus/home' || path === '/campus/about' || path === '/department/home' || path === '/department/about';
+    return (userType === 'CAMPUS' || userType === 'DEPARTMENT') && isCampusOrDeptPath;
+  });
+
+  /** Departments section: only for CAMPUS users (hidden for DEPARTMENT) */
+  readonly showDepartmentsSection = computed(() => {
+    const userType = this.roles.getUserType();
+    const path = this.path();
     return userType === 'CAMPUS' && (path === '/campus/home' || path === '/campus/about');
   });
 
-  // Faculty list from API (no static fallback - show empty if no faculties)
+  // Faculty list from API (paginated: one page per request)
   readonly faculty = signal<readonly FacultyCard[]>([]);
   loadingFaculties = signal(false);
+  private readonly facultyTotalPagesFromApi = signal(1);
 
   facultyPage = 1;
   readonly facultyPageSize = 3;
 
   get facultyTotalPages(): number {
-    return Math.max(1, Math.ceil(this.faculty().length / this.facultyPageSize));
+    return Math.max(1, this.facultyTotalPagesFromApi());
   }
 
+  /** Max 4 page numbers shown, then arrows only. One line. */
   get facultyPageNumbers(): number[] {
-    return Array.from({ length: this.facultyTotalPages }, (_, i) => i + 1);
+    const total = this.facultyTotalPages;
+    const current = this.facultyPage;
+    const maxVisible = 4;
+
+    if (total <= maxVisible) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    let start = Math.max(1, current - 1);
+    const end = Math.min(total, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }
 
+  /** Current page content from API (no client-side slice). */
   get displayedFaculty(): readonly FacultyCard[] {
-    const start = (this.facultyPage - 1) * this.facultyPageSize;
-    return this.faculty().slice(start, start + this.facultyPageSize);
+    return this.faculty();
   }
+
+  // Departments (API returns one page; totalPages from API)
+  readonly departments = signal<readonly DepartmentCard[]>([]);
+  readonly loadingDepartments = signal(false);
+  readonly departmentPage = signal(1);
+  readonly departmentPageSize = 3;
+  private readonly departmentTotalPagesFromApi = signal(1);
+
+  readonly departmentTotalPages = computed(() => Math.max(1, this.departmentTotalPagesFromApi()));
+  readonly departmentPageNumbers = computed(() => {
+    const total = this.departmentTotalPages();
+    return Array.from({ length: total }, (_, i) => i + 1);
+  });
+  /** Current page content from API (no client-side slice). */
+  readonly displayedDepartments = computed(() => this.departments());
 
   ngOnInit(): void {
     // Only run in browser context (skip during SSR)
@@ -176,16 +349,24 @@ export class SidebarComponent implements OnInit {
       return;
     }
 
-    // Only load faculties if user is a CAMPUS user (not admin, not student)
+    // Only load faculties if user is a CAMPUS or DEPARTMENT user (not admin, not student)
     const userType = this.roles.getUserType();
     const primaryRole = this.roles.getPrimaryRole();
     const isAdmin = primaryRole === 'ADMIN' || primaryRole === 'SUPER_ADMIN';
     const isCampus = userType === 'CAMPUS';
+    const isDepartment = userType === 'DEPARTMENT';
+    const isCompany = userType === 'COMPANY';
+    const isStudent = userType === 'STUDENT';
     
     // Load campus data (name, rank, image) for CAMPUS users
     if (isCampus && !isAdmin) {
       this.loadCampusData();
       this.loadFaculties();
+this.noticePage.set(1);
+this.loadNotices();
+
+
+      this.loadDepartments();
       // Listen for faculty refresh events (add, delete, update)
       window.addEventListener('facultyAdded', () => {
         this.loadFaculties();
@@ -193,6 +374,54 @@ export class SidebarComponent implements OnInit {
       window.addEventListener('facultyDeleted', () => {
         this.loadFaculties();
       });
+      window.addEventListener('noticeAdded', () => {
+  this.loadNotices();
+});
+window.addEventListener('noticeDeleted', () => {
+  this.loadNotices();
+});
+
+
+
+      // Listen for department refresh events
+      window.addEventListener('departmentAdded', () => {
+        this.loadDepartments();
+      });
+      window.addEventListener('departmentDeleted', () => {
+        this.loadDepartments();
+      });
+    }
+
+   // Load department + campus data for DEPARTMENT users (resolve campusId from department first)
+if (isDepartment && !isAdmin) {
+  this.loadDepartmentUserData();
+
+  const deptId = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+  if (deptId) {
+    this.selectedDepartmentId.set(deptId);
+  }
+
+  // IMPORTANT — notice load here
+  this.loadNotices();
+
+  window.addEventListener('noticeAdded', () => this.loadNotices());
+  window.addEventListener('noticeDeleted', () => this.loadNotices());
+}
+
+if (isStudent && !isAdmin) {
+  this.noticePage.set(1);
+  this.loadNotices();
+
+  window.addEventListener('noticeAdded', () => this.loadNotices());
+  window.addEventListener('noticeDeleted', () => this.loadNotices());
+}
+
+
+
+    
+    // Load company data (name, rank, image) for COMPANY users
+    if (isCompany && !isAdmin) {
+      this.loadCompanyData();
     }
     
     // Trigger initial profile refresh
@@ -211,11 +440,135 @@ export class SidebarComponent implements OnInit {
     });
   }
   
+// --------------- on notice click
+onNoticeClick(notice: NoticeItem, forceReadOnly = false): void {
+  this.menuItemClicked.emit();
+  if (!notice?.id) return;
+
+  this.campusApi
+    .getNoticeById(
+      notice.id,
+      notice.campusId,
+      notice.departmentId
+    )
+    .subscribe({
+      next: (res) => {
+        if (!res?.data) return;
+
+        // attach editable flag so destination doesn't depend on timing
+        const userType = this.roles.getUserType();
+        const editable = !forceReadOnly && userType !== 'STUDENT';
+
+        // set data first so the layout can read it immediately when modal becomes visible
+        this.modalService.setModalData({
+          ...res.data,
+          editable,
+        });
+        this.modalService.openModal('notice-detail');
+      },
+      error: (err) => {
+        console.error('Notice detail load failed', err);
+      }
+    });
+}
+
+// onNoticeEdit(notice: NoticeDetailData): void {
+
+//   this.showNoticeModal.set(false);
+
+//   this.editingNotice.set(notice);
+
+//   this.modalService.openModal('notice-board');
+// }
+
+
+
+// onNoticeModalClose(): void {
+//   this.showNoticeModal.set(false);
+//   this.selectedNotice.set(null);
+// }
+
+
+// onNoticeDelete(noticeId: string): void {
+
+//   const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+//   const departmentId = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+
+//   if (!campusId) {
+//     console.error('Campus ID missing');
+//     return;
+//   }
+
+//   this.campusApi
+//     .deleteNotice(noticeId, campusId, departmentId || undefined)
+//     .subscribe({
+//       next: (res) => {
+
+//         if (res?.success) {
+//           window.dispatchEvent(new Event('noticeDeleted'));
+// this.showNoticeModal.set(false);
+// this.selectedNotice.set(null);
+//           this.loadNotices();
+//         } else {
+//           console.error('Notice delete failed', res?.error);
+//         }
+//       },
+//       error: (err) => {
+//         console.error('Delete notice failed', err);
+//       }
+//     });
+// }
+
+
   /**
    * Refreshes the profile signal to trigger computed re-evaluation
    */
   refreshProfile(): void {
     this.profileRefresh.update(v => v + 1);
+  }
+
+  /**
+   * For DEPARTMENT users: fetch department by id to get campusId, set campusId in storage,
+   * then load campus data, faculties, and departments. DEPARTMENT uses campus home.
+   */
+  loadDepartmentUserData(): void {
+    const departmentId = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+    if (!departmentId || !departmentId.trim()) {
+      console.warn('SidebarComponent: ❌ No departmentId found for DEPARTMENT user');
+      return;
+    }
+
+    this.campusApi.getDepartmentById(departmentId.trim()).pipe(
+      catchError((error) => {
+        console.error('SidebarComponent: Error loading department for DEPARTMENT user:', error);
+        return of(null);
+      })
+    ).subscribe({
+      next: (dept) => {
+        if (dept?.campusId) {
+          this.storage.set(STORAGE_KEYS.CAMPUS_ID, dept.campusId);
+
+          if (dept.departmentName?.trim()) {
+            this.departmentName.set(dept.departmentName.trim());
+          }
+
+          // Set department image (logo) for DEPARTMENT users if available
+          if (typeof dept.photoUrl === 'string' && dept.photoUrl.trim()) {
+            const resolved = this.resolveDepartmentImage(dept.photoUrl);
+            this.departmentImageUrl.set(resolved);
+          } else {
+            this.departmentImageUrl.set(null);
+          }
+
+          this.loadCampusData();
+          this.loadFaculties();
+          window.addEventListener('facultyAdded', () => this.loadFaculties());
+          window.addEventListener('facultyDeleted', () => this.loadFaculties());
+        } else {
+          console.warn('SidebarComponent: Department response missing campusId');
+        }
+      },
+    });
   }
 
   /**
@@ -299,72 +652,405 @@ export class SidebarComponent implements OnInit {
   }
 
   /**
+   * Load company data (name, rank, image) from API
+   * Uses getCompanyById to fetch company information
+   */
+  loadCompanyData(): void {
+    // Get companyId from storage (same as other company APIs use)
+    const storedCompanyId = this.storage.get(STORAGE_KEYS.COMPANY_ID) as string | null;
+    
+    if (!storedCompanyId) {
+      console.warn('SidebarComponent: ❌ No companyId found in storage, cannot load company data');
+      return;
+    }
+    
+    // Clean companyId (remove any unwanted prefixes)
+    const companyId = storedCompanyId.replace(/^COMPANY-/i, '').trim();
+    
+    console.log('SidebarComponent: Loading company data - companyId:', companyId);
+    
+    // Fetch company data using getCompanyById
+    this.companyApi.getCompanyById(companyId).pipe(
+      catchError((error) => {
+        console.error('SidebarComponent: Error loading company data:', error);
+        return of(null);
+      })
+    ).subscribe({
+      next: (companyData) => {
+        if (companyData) {
+          // Set company name
+          if (companyData.companyName && companyData.companyName.trim()) {
+            this.companyName.set(companyData.companyName.trim());
+            console.log('SidebarComponent: ✅ Company name loaded:', companyData.companyName);
+          }
+          
+          // Note: Company rank is not currently in the API response, so we'll keep it as null
+          // If rank becomes available in the future, uncomment and set it here:
+          // if (companyData.companyRank !== null && companyData.companyRank !== undefined) {
+          //   this.companyRank.set(companyData.companyRank);
+          //   console.log('SidebarComponent: ✅ Company rank loaded:', companyData.companyRank);
+          // }
+          
+          // Set company image (logo)
+          if (companyData.companyLogoUrl && companyData.companyLogoUrl.trim()) {
+            // Construct full image URL from companyLogoUrl (API returns relative path or full URL)
+            let imageUrl = companyData.companyLogoUrl.trim();
+            
+            // If companyLogoUrl is already a full URL (starts with http:// or https://), use it as is
+            if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+              if (imageUrl.startsWith('/')) {
+                // If it starts with /, it's an absolute path - construct full URL
+                imageUrl = `/api/v1/files${imageUrl}`;
+              } else {
+                // Relative path like "company/filename.jpg" - construct full URL
+                imageUrl = `/api/v1/files/${imageUrl}`;
+              }
+            }
+            
+            this.companyImageUrl.set(imageUrl);
+            console.log('SidebarComponent: ✅ Company image URL loaded:', imageUrl);
+          }
+        } else {
+          console.warn('SidebarComponent: ⚠️ Company data not found');
+        }
+      },
+      error: (error) => {
+        console.error('SidebarComponent: Error in company data subscription:', error);
+      }
+    });
+  }
+
+  /**
    * Load faculties from API - shows empty list if no faculties or on error
    * No static fallback - new campuses should show empty until faculties are added
    */
   loadFaculties(): void {
-    // Skip loading during SSR or if window is not available
     if (typeof window === 'undefined') {
       this.faculty.set([]);
       return;
     }
 
     this.loadingFaculties.set(true);
+    const page = Math.max(0, this.facultyPage - 1);
 
-    this.campusApi.getAllFaculties().subscribe({
+    this.campusApi.getAllFaculties(undefined, undefined, page, this.facultyPageSize).subscribe({
       next: (response) => {
         this.loadingFaculties.set(false);
 
+        if (response?.totalPages != null) {
+          this.facultyTotalPagesFromApi.set(response.totalPages);
+        }
+
         if (response?.data && response.data.length > 0) {
-          // Convert API data to FacultyCard format
           const apiFacultyCards: FacultyCard[] = response.data.map((item) => {
-            // Construct full image URL from photoUrl (API returns relative path or full URL)
-            let imageUrl = 'assets/images/login-news-image.png'; // Default fallback
-            
+            let imageUrl = 'assets/images/login-news-image.png';
             if (item.photoUrl) {
-              // If photoUrl is already a full URL (starts with http:// or https://), use it as is
               if (item.photoUrl.startsWith('http://') || item.photoUrl.startsWith('https://')) {
                 imageUrl = item.photoUrl;
               } else if (item.photoUrl.startsWith('/')) {
-                // If it starts with /, it's an absolute path - construct full URL
                 imageUrl = `/api/v1/files${item.photoUrl}`;
               } else {
-                // Relative path like "faculty/filename.jpg" - construct full URL
                 imageUrl = `/api/v1/files/${item.photoUrl}`;
               }
             }
-            
             return {
-              id: item.id, // Store ID for fetching details
+              id: item.id,
               name: item.fullName || 'Unknown',
-              imageUrl: imageUrl,
+              imageUrl,
             };
           });
-
           this.faculty.set(apiFacultyCards);
         } else {
-          // No faculties found - show empty list (correct for new campuses)
           this.faculty.set([]);
+          if (response?.totalPages == null && response?.data?.length === 0) {
+            this.facultyTotalPagesFromApi.set(1);
+          }
         }
       },
       error: () => {
         this.loadingFaculties.set(false);
-        // Show empty list on error - no static fallback
-        // New campuses should show empty until faculties are added
         this.faculty.set([]);
       },
     });
   }
 
-  onFacultyPageChange(page: number): void {
-    this.facultyPage = page;
+loadNotices(): void {
+
+  const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+  // const departmentId = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+
+  if (!campusId) {
+    console.warn('Campus ID missing → notices load skipped');
+    return;
   }
+
+  this.loadingNotices.set(true);
+
+  this.campusApi
+    .getAllNotices(
+      this.noticePage() - 1,
+      this.noticePageSize,
+      campusId,
+    )
+    .subscribe({
+      next: (res) => {
+
+        this.loadingNotices.set(false);
+
+        if (!res || !res.data) {
+          this.notices.set([]);
+          this.noticeTotalPages.set(1);
+          return;
+        }
+
+        this.notices.set(res.data.content || []);
+        this.noticeTotalPages.set(res.data.totalPages || 1);
+      },
+
+      error: (err) => {
+        console.error('Notice load failed', err);
+        this.loadingNotices.set(false);
+        this.notices.set([]);
+      }
+    });
+}
+
+
+
+  onFacultyPageChange(page: number): void {
+    if (page < 1 || page > this.facultyTotalPages) return;
+    this.facultyPage = page;
+    this.loadFaculties();
+  }
+
+  onNoticePageChange(page: number): void {
+  if (page < 1 || page > this.noticeTotalPages()) return;
+
+  this.noticePage.set(page);
+
+  // reload API for that page
+  this.loadNotices();
+}
+
+
+
 
   onAddFacultyClick(): void {
+    this.modalService.setModalData({ mode: 'add' });
     this.modalService.openModal('faculty');
   }
+  private getCampusId(): string | null {
+  return this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null;
+}
+
+private resolveDepartmentImage(photoUrl?: string): string {
+  const trimmed = (photoUrl || '').trim();
+
+  if (!trimmed) {
+    return 'assets/images/login-news-image.png';
+  }
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:')
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('/')) {
+    return `/api/v1/files${trimmed}`;
+  }
+
+  return `/api/v1/files/${trimmed}`;
+}
+
+
+
+  // Departments methods
+loadDepartments(): void {
+  const campusId = this.getCampusId();
+
+  if (!campusId) {
+    console.warn('Sidebar: Campus ID missing');
+    this.departments.set([]);
+    return;
+  }
+
+  // Only show loading on initial load to avoid UI flicker when changing pages
+  if (this.departments().length === 0) {
+    this.loadingDepartments.set(true);
+  }
+
+  this.campusApi
+    .getDepartments(campusId, this.departmentPage() - 1, this.departmentPageSize)
+    .subscribe({
+      next: (response: unknown) => {
+        this.loadingDepartments.set(false);
+
+        const res = response as {
+          data?: { content?: unknown[]; totalPages?: number };
+        };
+
+        const content = Array.isArray(res?.data?.content)
+          ? res.data.content
+          : [];
+        const totalPages = typeof res?.data?.totalPages === 'number' ? res.data.totalPages : 1;
+        this.departmentTotalPagesFromApi.set(totalPages);
+
+        const mapped: DepartmentCard[] = content.map((item) => {
+          const d = item as {
+            id?: string;
+            _id?: string;
+            departmentId?: string;
+            departmentName?: string;
+            photoUrl?: string;
+          };
+
+          return {
+            // Prefer Mongo id for detail endpoints, fallback to departmentId.
+            id: d._id || d.id || d.departmentId || '',
+            name: d.departmentName || '',
+            imageUrl: this.resolveDepartmentImage(d.photoUrl),
+          };
+        });
+
+        this.departments.set(mapped);
+      },
+
+      error: (err: unknown) => {
+        console.error('Sidebar: department load failed', err);
+        this.loadingDepartments.set(false);
+        this.departments.set([]);
+      },
+    });
+}
+
+
+// ------------------- delete department ---------------
+deleteDepartment(departmentId: string): void {
+  const campusEmail = this.auth.getCurrentUser()?.email;
+
+  if (!campusEmail) {
+    console.error('Campus email missing');
+    this.notifications.error('Campus email missing');
+    return;
+  }
+
+  this.campusApi.deleteDepartment(departmentId, campusEmail).subscribe({
+    next: (res) => {
+      //  FIX: null safety added
+      if (res && res.success) {
+        this.notifications.success(res.message || 'Department deleted successfully');
+        this.loadDepartments(); // refresh list
+      } else {
+        this.notifications.error(res?.message || 'Delete failed');
+      }
+    },
+    error: () => {
+      this.notifications.error('Failed to delete department');
+    }
+  });
+}
+
+// ----------------------- get department by email ---------------------
+
+getDepartmentFromEmail(): void {
+  const email = this.auth.getCurrentUser()?.email;
+
+  if (!email) return;
+
+  this.campusApi.getDepartmentByEmail(email).subscribe({
+    next: (res) => {
+      if (res && res.success && res.data) {
+        console.log('Department ID:', res.data.departmentId);
+
+        // use id to fetch department details
+        this.campusApi.getDepartmentById(res.data.departmentId).subscribe();
+      }
+    },
+    error: () => {
+      console.error('Failed to fetch department by email');
+    }
+  });
+}
+
+
+
+
+
+  onDepartmentPageChange(page: number): void {
+    const total = this.departmentTotalPages();
+    if (page < 1 || page > total) return;
+    this.departmentPage.set(page);
+    this.loadDepartments();
+  }
+
+  onAddDepartmentClick(): void {
+    this.modalService.openModal('add-department');
+  }
+
+  onDepartmentClick(dept: DepartmentCard): void {
+    this.menuItemClicked.emit();
+    const departmentId = dept.id;
+    if (!departmentId) {
+      this.notifications.error('Department ID missing');
+      return;
+    }
+
+    this.campusApi.getDepartmentById(departmentId).subscribe({
+      next: (res) => {
+        if (!res) {
+          this.notifications.error('Department details not found');
+          return;
+        }
+
+        this.departmentDetailService.setSelectedDepartment({
+          id: res.id,
+          name: res.departmentName,
+          imageUrl: this.resolveDepartmentImage(res.photoUrl),
+          email: res.email || 'Not available',
+          phone: res.phone || 'Not available',
+          about: res.aboutDepartment || 'Department details not available',
+        });
+        this.modalService.openModal('department-detail' as ModalType);
+      },
+      error: (err) => {
+        console.error('Department detail API error:', err);
+        this.notifications.error('Failed to load department details');
+      },
+    });
+  }
+
+onAddNoticeClick(): void {
+  const userType = this.roles.getUserType();
+
+  // CAMPUS user → normal notice
+  if (userType === 'CAMPUS') {
+    this.modalService.setModalData({ mode: 'add' });
+    this.modalService.openModal('notice-board');
+    return;
+  }
+
+  // DEPARTMENT user → departmentId ke sath notice
+  if (userType === 'DEPARTMENT') {
+    const departmentId = this.storage.get(STORAGE_KEYS.DEPARTMENT_ID) as string | null;
+
+    if (!departmentId) {
+      this.notifications.error('Department ID missing');
+      return;
+    }
+
+    // department context ke sath modal open
+    this.modalService.setModalData({ mode: 'add' });
+    this.modalService.openModal('notice-board');
+  }
+}
+
+
 
   onFacultyClick(faculty: FacultyCard): void {
+    this.menuItemClicked.emit();
     // If faculty has ID, fetch from API using getFacultyById; otherwise use static data as fallback
     if (faculty.id) {
       this.loadingFaculties.set(true);
@@ -373,9 +1059,23 @@ export class SidebarComponent implements OnInit {
         next: (response) => {
           this.loadingFaculties.set(false);
           
-          if (response?.success && response.data) {
-            const basicInfo = response.data.basicInformation;
-            const professionalInfo = response.data.professionalInformation;
+          const profile = unwrapApiResponse<Record<string, unknown>>(response);
+          if (profile) {
+            const basicInfo = profile['basicInformation'] as {
+              id?: string;
+              fullName?: string;
+              email?: string;
+              phoneNumber?: string;
+              photoUrl?: string;
+            } | undefined;
+            const professionalInfo = profile['professionalInformation'] as {
+              designationDisplay?: string[];
+              designation?: string[];
+              department?: string[];
+              qualifications?: string[];
+              yearsOfExperience?: number[];
+              experienceDisplay?: string[];
+            } | undefined;
             
             // Construct full image URL
             let imageUrl = 'assets/images/login-news-image.png';
@@ -465,6 +1165,7 @@ export class SidebarComponent implements OnInit {
   }
 
   handleMenuClick(item: MenuItem): void {
+    this.menuItemClicked.emit();
     if (item.route === '#') {
       const modalType = this.getModalTypeForMenuItem(item.id);
       if (modalType) {
@@ -486,6 +1187,13 @@ export class SidebarComponent implements OnInit {
       return;
     }
     void this.router.navigateByUrl(item.route);
+  }
+
+  onLogout(): void {
+    this.auth.logout().subscribe({
+      next: () => void this.router.navigateByUrl('/login'),
+      error: () => void this.router.navigateByUrl('/login'),
+    });
   }
 
   /**
@@ -564,14 +1272,14 @@ export class SidebarComponent implements OnInit {
       }
     }
     
-    // Build URL with IDs for campus about
+    // Build URL with IDs for campus/department about
     if (item.id === 'campus-about') {
-      const campusId = user.campusId || user.profileServiceId || user.userId;
+      const campusId = user.campusId || user.profileServiceId || this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string | null || user.userId;
       const userId = user.userId;
-      
+      const basePath = user.userType === 'DEPARTMENT' ? '/department' : '/campus';
       
       if (campusId && userId) {
-        fullUrl = `${window.location.origin}/campus/about/${campusId}/${userId}?standalone=true`;
+        fullUrl = `${window.location.origin}${basePath}/about/${campusId}/${userId}?standalone=true`;
       } else {
         console.error('❌ Campus ID or User ID not found:', { campusId, userId, user });
         this.notifications.error('Campus ID or User ID not found');
@@ -637,6 +1345,14 @@ export class SidebarComponent implements OnInit {
 
 interface FacultyCard {
   id?: string;
+  name: string;
+  imageUrl: string;
+}
+
+
+
+interface DepartmentCard {
+  id: string;
   name: string;
   imageUrl: string;
 }

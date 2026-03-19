@@ -1,15 +1,16 @@
 /* Global styles + theme tokens (ported from legacy Synkup_FE) */
 
 :root {
-  /* Theme */
-  /* (swapped as per latest Figma request) */
-  --color-primary: #628a8e;
-  --color-primary-dark: #4f7477;
-  --color-primary-light: #7ba0a4;
-  --color-secondary: #f4a261;
-  --color-secondary-light: #f7b27b;
-  --color-secondary-dark: #e8954a;
-  --color-background: #f6f7f8;
+  /* Theme – blue (orange removed); primary/secondary for buttons & accents */
+  --color-primary: #5b7cba;
+  --color-primary-dark: #4a6aa8;
+  --color-primary-light: #7a9ac9;
+  --color-secondary: #5b7cba;
+  --color-secondary-light: #7a9ac9;
+  --color-secondary-dark: #4a6aa8;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-background: #f0f4f8;
   --color-footer: var(--color-secondary);
   --color-white: #ffffff;
   --color-text-primary: #333333;
@@ -51,17 +52,264 @@
   --radius-xl: 25px;
   --radius-full: 9999px;
 
+  /* Typography – Poppins for UI (Campus, Company, Student, Admin) */
+  --font-primary: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --font-brand: 'Playfair Display', Georgia, serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-base: 0.3s ease;
   --transition-slow: 0.5s ease;
 
-  /* Responsive layout spacing */
+  /* Responsive layout spacing (LinkedIn-style) */
   --page-padding-x: 80px;
   --page-padding-y: 40px;
 
-  /* Layout */
+  /* Layout - single content section for whole app (landing, dashboard, admin, auth, registration) */
   --app-header-height: 60px;
+  --layout-max-width: 1440px;
+  --layout-padding-x: clamp(2.25rem, 9vw, 10rem);
+
+  /* Auth screens (Login / Register) – blue gradient theme */
+  --auth-bg-start: #A2C2F7;
+  --auth-bg-end: #5885E6;
+  --auth-gradient: linear-gradient(135deg, var(--auth-bg-start) 0%, var(--auth-bg-end) 100%);
+  --auth-btn-bg: #164277;
+  --auth-text: #ffffff;
+  --auth-input-underline: rgba(255, 255, 255, 0.9);
+
+  /* Dashboard sidebar (SkillBridge-style) */
+  --sidebar-bg: #2E3171;
+  --sidebar-text: #ffffff;
+  --sidebar-active-bg: #ffffff;
+  --sidebar-active-text: #2E3171;
+  --sidebar-divider: rgba(255, 255, 255, 0.2);
+}
+
+/* Company, Campus, Student modules: same UI theme – sidebar + hero navy; header + content light blue; buttons blue */
+.dashboard-wrapper.company-module,
+.dashboard-wrapper.campus-module,
+.dashboard-wrapper.student-module {
+  --color-hero: #2E3171;
+  --color-hero-dark: #252a5c;
+  --color-primary: #5b7cba;
+  --color-primary-dark: #4a6aa8;
+  --color-primary-light: #7a9ac9;
+  --color-secondary: #5b7cba;
+  --color-secondary-light: #7a9ac9;
+  --color-secondary-dark: #4a6aa8;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-footer: #4f5a9e;
+  --gradient-primary: linear-gradient(135deg, #5b7cba 0%, #4a6aa8 100%);
+  --gradient-secondary: linear-gradient(135deg, #5b7cba 0%, #4a6aa8 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(46, 49, 113, 0.97) 0%, rgba(37, 42, 92, 0.97) 100%);
+  /* Header & content: light blue background */
+  --header-bg: #eef4fb;
+  --header-text: #1e293b;
+  --header-border: #d4e1f0;
+  --header-icon-border: #d4e1f0;
+  --header-icon-bg: rgba(0, 0, 0, 0.05);
+  --color-input-border: #d4e1f0;
+  --color-input-focus: #5b7cba;
+  --color-input-focus-ring: rgba(91, 124, 186, 0.25);
+  --color-border: #d4e1f0;
+}
+
+/* Admin module: same header + content theme as Company, Campus, Student */
+.admin-wrapper {
+  --color-hero: #2E3171;
+  --color-hero-dark: #252a5c;
+  --color-primary: #5b7cba;
+  --color-primary-dark: #4a6aa8;
+  --color-primary-light: #7a9ac9;
+  --color-secondary: #5b7cba;
+  --color-secondary-light: #7a9ac9;
+  --color-secondary-dark: #4a6aa8;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-footer: #4f5a9e;
+  --gradient-primary: linear-gradient(135deg, #5b7cba 0%, #4a6aa8 100%);
+  --gradient-secondary: linear-gradient(135deg, #5b7cba 0%, #4a6aa8 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(46, 49, 113, 0.97) 0%, rgba(37, 42, 92, 0.97) 100%);
+  --header-bg: #eef4fb;
+  --header-text: #1e293b;
+  --header-border: #d4e1f0;
+  --header-icon-border: #d4e1f0;
+  --header-icon-bg: rgba(0, 0, 0, 0.05);
+  --color-input-border: #d4e1f0;
+  --color-input-focus: #5b7cba;
+  --color-input-focus-ring: rgba(91, 124, 186, 0.25);
+  --color-border: #d4e1f0;
+}
+.admin-wrapper .layout,
+.admin-wrapper .content {
+  background: #eef4fb;
+}
+
+/* Company, Campus, Student: content area – light blue */
+.dashboard-wrapper.company-module .layout,
+.dashboard-wrapper.campus-module .layout,
+.dashboard-wrapper.student-module .layout {
+  background: #eef4fb;
+}
+.dashboard-wrapper.company-module .content,
+.dashboard-wrapper.campus-module .content,
+.dashboard-wrapper.student-module .content {
+  background: #eef4fb;
+}
+
+/* Company, Campus, Student: cards – soft shadow, rounded (same as company) */
+.dashboard-wrapper.company-module .panel,
+.dashboard-wrapper.campus-module .panel,
+.dashboard-wrapper.student-module .panel,
+.dashboard-wrapper.company-module .notice-card,
+.dashboard-wrapper.campus-module .notice-card,
+.dashboard-wrapper.student-module .notice-card,
+.dashboard-wrapper.company-module .post,
+.dashboard-wrapper.campus-module .post,
+.dashboard-wrapper.student-module .post,
+.dashboard-wrapper.company-module [class*="tile"],
+.dashboard-wrapper.campus-module [class*="tile"],
+.dashboard-wrapper.student-module [class*="tile"],
+.dashboard-wrapper.company-module .technology-card,
+.dashboard-wrapper.campus-module .technology-card,
+.dashboard-wrapper.student-module .technology-card,
+.dashboard-wrapper.company-module .specialization-item,
+.dashboard-wrapper.campus-module .specialization-item,
+.dashboard-wrapper.student-module .specialization-item,
+.dashboard-wrapper.company-module .avatar-card,
+.dashboard-wrapper.campus-module .avatar-card,
+.dashboard-wrapper.student-module .avatar-card,
+.dashboard-wrapper.company-module .composer-button,
+.dashboard-wrapper.campus-module .composer-button,
+.dashboard-wrapper.student-module .composer-button,
+.dashboard-wrapper.company-module .vacancy-card,
+.dashboard-wrapper.campus-module .vacancy-card,
+.dashboard-wrapper.student-module .vacancy-card {
+  border-radius: 18px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+/* Latest News notice-card: no white box, no heavy shadow – content blends with page */
+.dashboard-wrapper.company-module .notice-card,
+.dashboard-wrapper.campus-module .notice-card,
+.dashboard-wrapper.student-module .notice-card {
+  box-shadow: none !important;
+  background: color-mix(in srgb, var(--color-secondary) 28%, #eef4fb) !important;
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 22%, transparent) !important;
+}
+/* Inner content area (carousel) – no white box, inherit card background */
+.dashboard-wrapper.company-module .notice-card .content,
+.dashboard-wrapper.campus-module .notice-card .content,
+.dashboard-wrapper.student-module .notice-card .content {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.dashboard-wrapper.company-module .notice-card:hover,
+.dashboard-wrapper.campus-module .notice-card:hover,
+.dashboard-wrapper.student-module .notice-card:hover {
+  box-shadow: none !important;
+}
+
+.dashboard-wrapper.company-module .panel:hover,
+.dashboard-wrapper.campus-module .panel:hover,
+.dashboard-wrapper.student-module .panel:hover,
+.dashboard-wrapper.company-module .post:hover,
+.dashboard-wrapper.campus-module .post:hover,
+.dashboard-wrapper.student-module .post:hover,
+.dashboard-wrapper.company-module .avatar-card:hover,
+.dashboard-wrapper.campus-module .avatar-card:hover,
+.dashboard-wrapper.student-module .avatar-card:hover,
+.dashboard-wrapper.company-module .composer-button:hover,
+.dashboard-wrapper.campus-module .composer-button:hover,
+.dashboard-wrapper.student-module .composer-button:hover,
+.dashboard-wrapper.company-module .vacancy-card:hover,
+.dashboard-wrapper.campus-module .vacancy-card:hover,
+.dashboard-wrapper.student-module .vacancy-card:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Company, Campus, Student: lighter input/textarea borders and focus (cards + modals) */
+.dashboard-wrapper.company-module .control,
+.dashboard-wrapper.campus-module .control,
+.dashboard-wrapper.student-module .control,
+.dashboard-wrapper.company-module input.control,
+.dashboard-wrapper.campus-module input.control,
+.dashboard-wrapper.student-module input.control,
+.dashboard-wrapper.company-module textarea.control,
+.dashboard-wrapper.campus-module textarea.control,
+.dashboard-wrapper.student-module textarea.control,
+.dashboard-wrapper.company-module .file-wrapper,
+.dashboard-wrapper.campus-module .file-wrapper,
+.dashboard-wrapper.student-module .file-wrapper,
+.dashboard-wrapper.company-module select.control,
+.dashboard-wrapper.campus-module select.control,
+.dashboard-wrapper.student-module select.control {
+  border: 1px solid var(--color-input-border, #e2e8f0) !important;
+}
+.dashboard-wrapper.company-module .control:focus,
+.dashboard-wrapper.campus-module .control:focus,
+.dashboard-wrapper.student-module .control:focus,
+.dashboard-wrapper.company-module .control:focus-visible,
+.dashboard-wrapper.campus-module .control:focus-visible,
+.dashboard-wrapper.student-module .control:focus-visible,
+.dashboard-wrapper.company-module input.control:focus,
+.dashboard-wrapper.campus-module input.control:focus,
+.dashboard-wrapper.student-module input.control:focus,
+.dashboard-wrapper.company-module input.control:focus-visible,
+.dashboard-wrapper.campus-module input.control:focus-visible,
+.dashboard-wrapper.student-module input.control:focus-visible,
+.dashboard-wrapper.company-module textarea.control:focus,
+.dashboard-wrapper.campus-module textarea.control:focus,
+.dashboard-wrapper.student-module textarea.control:focus,
+.dashboard-wrapper.company-module textarea.control:focus-visible,
+.dashboard-wrapper.campus-module textarea.control:focus-visible,
+.dashboard-wrapper.student-module textarea.control:focus-visible,
+.dashboard-wrapper.company-module .file-wrapper:focus,
+.dashboard-wrapper.campus-module .file-wrapper:focus,
+.dashboard-wrapper.student-module .file-wrapper:focus,
+.dashboard-wrapper.company-module .file-wrapper:focus-within,
+.dashboard-wrapper.campus-module .file-wrapper:focus-within,
+.dashboard-wrapper.student-module .file-wrapper:focus-within {
+  border-color: var(--color-input-focus, #94a3b8) !important;
+  box-shadow: 0 0 0 2px var(--color-input-focus-ring, rgba(148, 163, 184, 0.25)) !important;
+}
+.dashboard-wrapper.company-module .control.invalid,
+.dashboard-wrapper.campus-module .control.invalid,
+.dashboard-wrapper.student-module .control.invalid,
+.dashboard-wrapper.company-module .file-wrapper.invalid,
+.dashboard-wrapper.campus-module .file-wrapper.invalid,
+.dashboard-wrapper.student-module .file-wrapper.invalid {
+  border-color: var(--color-error) !important;
+}
+/* Softer outline for file/icon buttons (Company, Campus, Student) */
+.dashboard-wrapper.company-module .icon-btn,
+.dashboard-wrapper.campus-module .icon-btn,
+.dashboard-wrapper.student-module .icon-btn {
+  border: 1px solid var(--color-input-border, #e2e8f0) !important;
+  color: var(--color-secondary) !important;
+}
+.dashboard-wrapper.company-module .icon-btn:hover:not(:disabled),
+.dashboard-wrapper.campus-module .icon-btn:hover:not(:disabled),
+.dashboard-wrapper.student-module .icon-btn:hover:not(:disabled) {
+  border-color: var(--color-input-focus, #94a3b8) !important;
 }
 
 *,
@@ -76,12 +324,17 @@ body {
 }
 
 html {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-primary);
+  font-size: 16px;
+  line-height: var(--leading-normal);
 }
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-normal);
   color: var(--color-text-primary);
   background: var(--color-background);
   overflow-x: hidden;
@@ -89,8 +342,96 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Typography: Campus, Company, Student, Admin – Poppins everywhere */
+.dashboard-wrapper,
+.admin-wrapper {
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+.dashboard-wrapper h1,
+.admin-wrapper h1 { font-size: var(--text-3xl); font-weight: var(--font-bold); line-height: var(--leading-tight); }
+.dashboard-wrapper h2,
+.admin-wrapper h2 { font-size: var(--text-2xl); font-weight: var(--font-bold); line-height: var(--leading-tight); }
+.dashboard-wrapper h3,
+.admin-wrapper h3 { font-size: var(--text-xl); font-weight: var(--font-semibold); line-height: var(--leading-tight); }
+
+/* Single container for all app pages – max-width + horizontal padding (no per-page CSS needed) */
+.app-container {
+  width: 100%;
+  max-width: var(--layout-max-width, 1440px);
+  margin: 0 auto;
+  padding-left: var(--layout-padding-x);
+  padding-right: var(--layout-padding-x);
+  box-sizing: border-box;
+  min-height: 100%;
+}
+
+/* Auth/Register/Register-Options and registration forms (Campus/Company/Student): full viewport width, no side margins */
+.app-container:has(.login-page),
+.app-container:has(.register-page),
+.app-container:has(.register-options-page),
+.app-container:has(.shell) {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Dashboard: full width, no side margins (content uses 100% beside sidebar) */
+.app-container:has(.dashboard-wrapper) {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* About Campus (Portfolio) page: full-width content, no horizontal padding */
+.app-container .content:has(.campus-about-page) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Company About & Student Profile: full-width content (match campus) */
+.app-container .content:has(.company-about-page),
+.app-container .content:has(.student-profile-page) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Admin panel: same full width as dashboard (company/campus/student) */
+.app-container:has(.admin-wrapper) {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 a {
   color: inherit;
+}
+
+/* Global scrollbar styling - thin, blue (app theme) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-secondary) rgba(0, 0, 0, 0.08);
+}
+
+*::-webkit-scrollbar {
+  width: 1px;
+  height: 1px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-full, 9999px);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-secondary);
+  border-radius: var(--radius-full, 9999px);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary-dark);
 }
 
 img,
@@ -118,11 +459,81 @@ app-modal:has(.review-confirmation-modal) .modal {
   :root {
     --page-padding-x: 16px;
     --page-padding-y: 24px;
+    --layout-padding-x: 0;
 
     --space-sm: 8px;
     --space-md: 12px;
     --space-lg: 16px;
     --space-xl: 24px;
     --space-xxl: 32px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  :root {
+    --layout-padding-x: 4rem;
+  }
+}
+
+@media (min-width: 1201px) and (max-width: 1600px) {
+  :root {
+    --layout-padding-x: 6rem;
+  }
+}
+
+@media (min-width: 1601px) {
+  :root {
+    --layout-padding-x: 10rem;
+  }
+}
+
+/* ngx-toastr error toast: light red, rounded corners, black shadow (always) */
+.toast-container .toast.toast-error {
+  background-color: #f8d7da !important;
+  border: 1px solid #f5c2c7;
+  color: #842029;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+.toast-container .toast.toast-error .toast-message {
+  color: #842029;
+}
+
+.toast-container .toast.toast-error .toast-close-button {
+  color: #842029;
+  opacity: 0.8;
+}
+
+.toast-container .toast.toast-error:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Admin list grids: 3 cards per row (narrower cards) – Company, Campus, Student */
+.companies-grid,
+.campuses-grid,
+.students-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+.layout.sidebar-collapsed .companies-grid,
+.layout.sidebar-collapsed .campuses-grid,
+.layout.sidebar-collapsed .students-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+@media (max-width: 1024px) {
+  .companies-grid,
+  .campuses-grid,
+  .students-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .companies-grid,
+  .campuses-grid,
+  .students-grid {
+    grid-template-columns: 1fr !important;
   }
 }

@@ -1,0 +1,36 @@
+@if (visible && mediaUrl) {
+  <div
+    class="media-viewer-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="View media"
+    tabindex="0"
+    (click)="onBackdropClick($event)"
+    (keydown.enter)="onBackdropClick($event)"
+    (keydown.space)="$event.preventDefault(); onBackdropClick($event)"
+  >
+    <button
+      class="media-viewer-close"
+      type="button"
+      (click)="close()"
+      aria-label="Close"
+    >
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div
+      class="media-viewer-content"
+      tabindex="0"
+      role="group"
+      aria-label="Media content"
+      (click)="$event.stopPropagation()"
+      (keydown.enter)="$event.stopPropagation()"
+      (keydown.space)="$event.preventDefault(); $event.stopPropagation()"
+    >
+      @if (mediaType === 'video') {
+        <video class="media-viewer-media" [src]="mediaUrl" controls playsinline></video>
+      } @else {
+        <img class="media-viewer-media" [src]="mediaUrl" alt="Full size view" />
+      }
+    </div>
+  </div>
+}

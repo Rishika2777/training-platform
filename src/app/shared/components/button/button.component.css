@@ -10,13 +10,21 @@
 .btn.primary {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: var(--color-white);
+  color: var(--color-on-primary, var(--color-white));
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
 }
 
 .btn.secondary {
   background: var(--color-secondary);
   border-color: var(--color-secondary);
-  color: var(--color-white);
+  color: var(--color-on-secondary, var(--color-white));
+}
+.btn.secondary:hover:not(:disabled) {
+  background: var(--color-secondary-dark);
+  border-color: var(--color-secondary-dark);
 }
 
 .btn.outline {

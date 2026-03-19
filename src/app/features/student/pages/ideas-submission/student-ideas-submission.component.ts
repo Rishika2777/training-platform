@@ -37,6 +37,9 @@ export class StudentIdeasSubmissionComponent {
   downloadingInternal = false;
   isDragging = false;
   readonly maxDescriptionLength = 100;
+  getWordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
   triggerFileSelect(): void {
     if (this.fileInputRef?.nativeElement && !this.submitting) {
@@ -82,17 +85,33 @@ export class StudentIdeasSubmissionComponent {
     }
   }
 
-  onDescriptionChange(value: string): void {
-    if (value.length <= this.maxDescriptionLength) {
-      this.patch({ description: value });
-    }
+onDescriptionChange(value: string): void {
+  const words = this.getWordCount(value);
+
+  if (words <= this.maxDescriptionLength) {
+    this.patch({ description: value });
   }
+}
 
   patch(patch: Partial<IdeasSubmissionFormValue>): void {
     const next: IdeasSubmissionFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
   }
+
+  private resetForm(): void {
+  this.value = {
+    documentFile: null,
+    description: '',
+  };
+
+  this.valueChange.emit(this.value);
+
+  // Clear native file input
+  if (this.fileInputRef?.nativeElement) {
+    this.fileInputRef.nativeElement.value = '';
+  }
+}
 
   submit(): void {
     if (!this.isFormValid() || this.submittingInternal) {
@@ -120,15 +139,19 @@ export class StudentIdeasSubmissionComponent {
           return of(null);
         }),
       )
-      .subscribe((resp) => {
-        this.submittingInternal = false;
-        if (resp?.success) {
-          this.notify.success(resp.message || 'Idea submitted successfully.');
-          this.submitted.emit(this.value);
-        } else if (resp) {
-          this.notify.error(resp.message || 'Failed to submit idea');
-        }
-      });
+     .subscribe((resp) => {
+  this.submittingInternal = false;
+
+  if (resp?.success) {
+    this.notify.success(resp.message || 'Idea submitted successfully.');
+
+    this.submitted.emit(this.value);
+
+    this.resetForm();
+  } else if (resp) {
+    this.notify.error(resp.message || 'Failed to submit idea');
+  }
+});
   }
 
   downloadTemplate(): void {
@@ -136,33 +159,15 @@ export class StudentIdeasSubmissionComponent {
       return;
     }
 
-    const studentId = this.auth.getCurrentUser()?.studentId?.toString();
-    if (!studentId) {
-      this.notify.error('Student ID not found');
-      return;
-    }
-
     this.downloadingInternal = true;
 
-    this.studentApi
-      .getIdeaTemplateInfo(studentId)
-      .pipe(
-        catchError((error) => {
-          this.downloadingInternal = false;
-          this.notify.error(error?.message || 'Failed to get template info');
-          return of(null);
-        }),
-      )
-      .subscribe((resp) => {
-        this.downloadingInternal = false;
-        if (resp?.success && resp.data) {
-          // If backend returns a URL, open it. Otherwise still try to open as-is.
-          window.open(resp.data, '_blank');
-          this.notify.success(resp.message || 'Downloading template...');
-        } else if (resp) {
-          this.notify.error(resp.message || 'Failed to download template');
-        }
-      });
+    const link = document.createElement('a');
+    link.href = 'assets/idea-submission-template.rtf';
+    link.download = 'Idea-Submission-Template.rtf';
+    link.rel = 'noopener';
+    link.click();
+    this.downloadingInternal = false;
+    this.notify.success('Downloading template...');
   }
 
   get fileName(): string {
@@ -173,16 +178,34 @@ export class StudentIdeasSubmissionComponent {
     return this.value.documentFile !== null;
   }
 
-  get descriptionLength(): number {
-    return this.value.description.length;
-  }
+ get wordCount(): number {
+  return this.getWordCount(this.value.description);
+}
 
-  get remainingCharacters(): number {
-    return this.maxDescriptionLength - this.descriptionLength;
-  }
+get remainingWords(): number {
+  return this.maxDescriptionLength - this.wordCount;
+}
 
-  isFormValid(): boolean {
-    return this.value.documentFile !== null && this.value.description.trim().length > 0;
-  }
+isDescriptionMeaningful(): boolean {
+  const desc = this.value.description.trim();
+
+  if (!desc) return false;
+
+  // Must contain at least one alphabet
+  const hasLetter = /[A-Za-z]/.test(desc);
+
+  return hasLetter;
+}
+
+isFormValid(): boolean {
+  const words = this.getWordCount(this.value.description);
+
+  return (
+    this.value.documentFile !== null &&
+    words > 0 &&
+    words <= this.maxDescriptionLength &&
+    this.isDescriptionMeaningful()
+  );
+}
 }
 

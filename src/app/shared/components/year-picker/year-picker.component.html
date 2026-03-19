@@ -1,6 +1,14 @@
 <div class="year-picker-field">
   @if (label) {
-    <label [attr.for]="pickerId" class="year-picker-label">
+    <label
+      [attr.for]="pickerId"
+      class="year-picker-label"
+      tabindex="0"
+      role="button"
+      (click)="onLabelClick($event)"
+      (keydown.enter)="onLabelClick($event)"
+      (keydown.space)="$event.preventDefault(); onLabelClick($event)"
+    >
       {{ label }}
       @if (required) {
         <span class="asterisk" aria-hidden="true">*</span>
@@ -10,11 +18,12 @@
 
   <div class="year-picker-wrapper" #pickerWrapper>
     <div
+      #triggerEl
       [attr.id]="pickerId"
       class="year-picker-input"
       [class.invalid]="invalid"
       [class.disabled]="disabled"
-      (click)="togglePicker()"
+      (click)="onTriggerClick($event)"
       [attr.aria-disabled]="disabled"
       tabindex="0"
       role="button"
@@ -26,7 +35,7 @@
     </div>
 
     @if (isOpen()) {
-      <div class="year-picker-dropdown">
+      <div #dropdownEl class="year-picker-dropdown">
         <div class="year-picker-header">
           <button
             type="button"

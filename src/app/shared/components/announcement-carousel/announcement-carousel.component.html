@@ -1,0 +1,75 @@
+<div class="announcement-carousel">
+  @if (loading) {
+    <div class="announcement-content">
+      <div class="announcement-text">Loading announcements...</div>
+    </div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+    </div>
+  } @else if (items.length === 0) {
+    <div class="announcement-content">
+      <div class="announcement-text">{{ defaultTitle }}</div>
+    </div>
+    <div class="announcement-dots" aria-hidden="true">
+      <span class="dot active"></span>
+    </div>
+  } @else {
+    <div class="announcement-main">
+      @if (items.length > 1) {
+        <button
+          class="announcement-arrow announcement-arrow-left"
+          type="button"
+          (click)="previous()"
+          aria-label="Previous announcement"
+        >
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <button
+          class="announcement-arrow announcement-arrow-right"
+          type="button"
+          (click)="next()"
+          aria-label="Next announcement"
+        >
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      }
+      @if (currentItem()?.mediaUrl && currentItem()?.mediaType === 'image') {
+        <img
+          class="announcement-media announcement-image"
+          [src]="currentItem()!.mediaUrl!"
+          [alt]="currentItem()?.text || 'Announcement'"
+          role="button"
+          tabindex="0"
+          (click)="onMediaClick(currentItem()!.mediaUrl!, 'image')"
+          (keydown.enter)="onMediaClick(currentItem()!.mediaUrl!, 'image')"
+          (keydown.space)="$event.preventDefault(); onMediaClick(currentItem()!.mediaUrl!, 'image')"
+        />
+      } @else if (currentItem()?.mediaUrl && currentItem()?.mediaType === 'video') {
+        <video
+          class="announcement-media announcement-video"
+          [src]="currentItem()!.mediaUrl!"
+          controls
+          playsinline
+        ></video>
+      } @else {
+        <div class="announcement-content">
+          <div class="announcement-text">
+            {{ currentItem()?.text || defaultTitle }}
+          </div>
+        </div>
+      }
+    </div>
+    <div class="announcement-dots" aria-hidden="true">
+      @for (item of items; track item.id ?? $index) {
+        <span
+          class="dot"
+          [class.active]="$index === currentIndex()"
+          (click)="onDotClick($index)"
+          (keydown.enter)="onDotClick($index)"
+          (keydown.space)="$event.preventDefault(); onDotClick($index)"
+          [attr.aria-label]="'Go to announcement ' + ($index + 1)"
+        ></span>
+      }
+    </div>
+  }
+</div>

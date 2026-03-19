@@ -9,7 +9,7 @@
       Need a professional resume? Use AI to generate yours in just a few clicks!
     </p>
 
-    <button type="button" class="download-btn" (click)="submit()">
+    <button type="button" class="download-btn" (click)="downloadTemplate()">
       Download Now
     </button>
 
@@ -39,7 +39,7 @@
 
       @if (hasFile) {
         <div class="file-selected">
-          <i class="fa-solid fa-file-pdf file-icon"></i>
+          <i [class]="fileIconClass + ' file-icon ' + fileIconColorClass"></i>
           <span class="file-name">{{ fileName }}</span>
         </div>
       } @else {

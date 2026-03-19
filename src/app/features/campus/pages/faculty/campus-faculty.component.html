@@ -57,9 +57,9 @@
         @if (checkingEmail) {
           <span class="email-checking">Checking email...</span>
         }
-        @if (emailErrorMessage) {
-          <span class="error-message">{{ emailErrorMessage }}</span>
-        }
+      <div class="error-container">
+  {{ emailErrorMessage || '' }}
+</div>
       </div>
 
       <div class="form-row">
@@ -67,6 +67,8 @@
           label="Date of Birth"
           type="date"
           [value]="value.dateOfBirth"
+           [max]="maxDobDate"
+  [min]="minDobDate"
           [disabled]="submitting"
           [required]="true"
           (valueChange)="patch({ dateOfBirth: $event })"
@@ -74,14 +76,24 @@
       </div>
 
       <div class="form-row">
-        <app-input
-          label="Phone Number"
-          type="tel"
-          [value]="value.phoneNumber"
-          [disabled]="submitting"
-          [required]="true"
-          (valueChange)="patch({ phoneNumber: $event })"
-        />
+      <app-input
+  label="Phone Number"
+  type="tel"
+  [value]="value.phoneNumber"
+  [disabled]="submitting"
+  [required]="true"
+  [invalid]="phoneExists || !!phoneErrorMessage"
+  (valueChange)="patch({ phoneNumber: $event })"
+/>
+
+@if (checkingPhone) {
+  <span class="email-checking">Checking phone...</span>
+}
+
+@if (phoneErrorMessage) {
+  <span class="error-message">{{ phoneErrorMessage }}</span>
+}
+
       </div>
     </div>
   </div>
@@ -107,36 +119,43 @@
             <app-dropdown
               label="Designation"
               placeholder="Select Designation"
-              [items]="designationItems()"
+              [items]="designationItems"
               [value]="info.designation"
               [disabled]="submitting"
               [required]="true"
+              [autocomplete]="true"
               (valueChange)="updateProfessionalInfo($index, 'designation', $event)"
             />
           </div>
 
-          <div class="form-row">
-            <app-dropdown
-              label="Department"
-              placeholder="Select Department"
-              [items]="departmentItems"
-              [value]="info.department"
-              [disabled]="submitting"
-              [required]="true"
-              (valueChange)="updateProfessionalInfo($index, 'department', $event)"
-            />
-          </div>
+      @if (showDepartment) {
+  <div class="form-row">
+    <app-dropdown
+      label="Department"
+      placeholder="Select Department"
+      [items]="departmentItems"
+      [value]="info.department"
+      [displayText]="departmentDisplayText($index)"
+      [disabled]="submitting"
+      [required]="true"
+      [autocomplete]="true"
+      (valueChange)="updateProfessionalInfo($index, 'department', $event)"
+    />
+  </div>
+}
 
           <div class="form-row">
-            <app-dropdown
-              label="Specialization"
-              placeholder="Select Specialization"
-              [items]="specializationItems"
-              [value]="info.specialization"
-              [disabled]="submitting"
-              [required]="true"
-              (valueChange)="updateProfessionalInfo($index, 'specialization', $event)"
-            />
+          <app-dropdown
+  label="Specialization"
+  placeholder="Select Specialization"
+  [items]="specializationItems"
+  [value]="info.specialization ?? null"
+  [disabled]="submitting"
+  [required]="false"
+  [invalid]="false"
+  [autocomplete]="true"
+  (valueChange)="updateProfessionalInfo($index, 'specialization', $event)"
+/>
           </div>
 
           <div class="form-row">
@@ -147,6 +166,7 @@
               [value]="info.yearsOfExperience"
               [disabled]="submitting"
               [required]="true"
+              [autocomplete]="true"
               (valueChange)="updateProfessionalInfo($index, 'yearsOfExperience', $event)"
             />
           </div>
@@ -196,22 +216,8 @@
     }
   </div>
 
-  <div class="add-professional-info">
-    <button
-      type="button"
-      class="add-btn-with-text"
-      (click)="addProfessionalInfo()"
-      [disabled]="submitting"
-      title="Add Professional Information"
-    >
-      <span>Add</span>
-      <i class="fa-solid fa-plus"></i>
-    </button>
-  </div>
-
   <div class="form-actions">
     <app-button type="button" label="Cancel" variant="primary" [disabled]="submitting" (buttonClick)="cancel()" />
     <app-button type="submit" label="Submit" variant="primary" [disabled]="submitting" (buttonClick)="onFormSubmit($event)" />
   </div>
 </form>
-

@@ -7,6 +7,7 @@ export type ModalType =
   | 'placed-students'
   | 'courses'
   | 'faculty'
+  | 'create-post'
   | 'faculty-detail'
   | 'course-form'
   | 'visit-campus'
@@ -23,6 +24,14 @@ export type ModalType =
   | 'company-preferred-campus-form'
   | 'company-invitation-form'
   | 'batchmates-filter'
+  | 'add-department'
+  | 'department-detail'
+  | 'add-news'
+  | 'notice-board'
+  | 'notice-detail'
+  | 'news-detail'
+
+
   | null;
 
 @Injectable({ providedIn: 'root' })
@@ -38,5 +47,22 @@ export class ModalService {
   closeModal(): void {
     this.activeModalSignal.set(null);
   }
+
+    // 🔹 NOTICE / MODAL DATA PASSING SUPPORT
+  // switched to a signal so consumers can reactively depend on it
+  private modalDataSignal = signal<unknown>(null);
+
+  setModalData(data: unknown): void {
+    this.modalDataSignal.set(data);
+  }
+
+  getModalData(): unknown {
+    return this.modalDataSignal();
+  }
+
+  /** expose the underlying signal for direct subscriptions if needed */
+  readonly modalData = this.modalDataSignal.asReadonly();
+
+
 }
 

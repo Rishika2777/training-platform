@@ -11,7 +11,31 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client
   },
   {
+    path: 'department/about/:campusId/:userId',
+    renderMode: RenderMode.Client
+  },
+  {
     path: 'company/about/:companyId/:userId',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'profile/student/:publicStudentId',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'profile/company/:publicCompanyId',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'profile/campus/:publicCampusId',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'reset-password/:userId',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'reset-password',
     renderMode: RenderMode.Client
   },
   // All other routes use prerendering

@@ -11,8 +11,11 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { LOGIN_STATUS, STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { RegistrationStateService } from '../../services/registration-state.service';
 import {
   CompanyApiService,
+  CompanyRegisterFiles,
+  CompanyRegisterPayload,
   CompanyRegisterRequest,
   CompanyRegistrationResponse,
   KeyPersonRequest,
@@ -33,9 +36,10 @@ export class RegisterCompanyComponent {
   private readonly storage = inject(StorageService);
   private readonly companyApi = inject(CompanyApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly registrationState = inject(RegistrationStateService);
 
   private readonly initialAdminEmail =
-    this.auth.getCurrentUser()?.email ?? this.auth.getRegistrationData()?.email ?? '';
+    this.auth.getCurrentUser()?.email ?? this.registrationState.getDraft()?.email ?? '';
 
   readonly adminEmailLocked = this.initialAdminEmail.trim().length > 0;
 
@@ -68,7 +72,7 @@ export class RegisterCompanyComponent {
     this.submitting = true;
     this.companyApi
       .registerCompany(
-        this.buildRegisterRequest(value),
+        this.buildRegisterPayload(value),
         { userId: user.userId, userType: user.userType },
       )
       .subscribe({
@@ -88,14 +92,14 @@ export class RegisterCompanyComponent {
 
           if (approvalStatus === 'PENDING' || approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
             this.notify.success(
-              'You have successfully submitted the form, please wait until admin review and approve you form',
+              'You have successfully submitted the form, please wait until admin review and approve your form',
             );
             void this.router.navigateByUrl('/login');
             return;
           }
 
           if (approvalStatus === LOGIN_STATUS.PENDING_REGISTRATION) {
-            void this.router.navigateByUrl('/register-company');
+            void this.router.navigateByUrl('/register/company');
             return;
           }
 
@@ -112,6 +116,13 @@ export class RegisterCompanyComponent {
           this.cdr.detectChanges();
         },
       });
+  }
+
+  private buildRegisterPayload(value: CompanyFormValue): CompanyRegisterPayload {
+    return {
+      request: this.buildRegisterRequest(value),
+      files: this.buildRegisterFiles(value),
+    };
   }
 
   private buildRegisterRequest(value: CompanyFormValue): CompanyRegisterRequest {
@@ -131,6 +142,16 @@ export class RegisterCompanyComponent {
     };
   }
 
+  private buildRegisterFiles(value: CompanyFormValue): CompanyRegisterFiles {
+    const keyPersonPhotos = value.keyPeople.map((person) => person.photo);
+    return {
+      companyLogo: value.companyPhoto,
+      keyPerson1Photo: keyPersonPhotos[0] ?? null,
+      keyPerson2Photo: keyPersonPhotos[1] ?? null,
+      keyPerson3Photo: keyPersonPhotos[2] ?? null,
+    };
+  }
+
   private mapKeyPeople(values: readonly { name: string; designation: string; photo: File | null }[]): KeyPersonRequest[] {
     return values.map((p) => ({
       name: p.name,
@@ -145,7 +166,7 @@ export class RegisterCompanyComponent {
 
   cancel(): void {
     // TODO: decide navigation target
-    void this.router.navigateByUrl('/register-options');
+    void this.router.navigateByUrl('/register/options');
   }
 }
 

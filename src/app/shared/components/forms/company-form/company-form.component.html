@@ -3,25 +3,42 @@
     <h2 class="form-title">{{ title }}</h2>
   }
 
+  @if (value.companyPhotoUrl) {
+    <div class="current-photo-header">
+      <span class="current-photo-label">Current Photo</span>
+      <img [src]="value.companyPhotoUrl" alt="Company logo" class="photo-preview-image" />
+    </div>
+  }
+
   <div class="grid grid-3">
     <app-input
       label="Company Name"
+      [required]="true"
+      [invalid]="submitAttempted && !value.companyName.trim()"
       [value]="value.companyName"
       (valueChange)="patch({ companyName: $event })"
       [disabled]="isFieldsDisabled"
     />
 
-    <app-input
-      label="Upload Photo"
-      type="file"
-      accept="image/*"
-      [placeholder]="companyPhotoPlaceholder"
-      [disabled]="isFieldsDisabled"
-      (filesSelected)="onCompanyPhotoSelected($event)"
-    />
+    <div class="app-form-field-wrapper">
+      <app-input
+        label="Upload Photo"
+        type="file"
+        accept="image/*"
+        [existingFileName]="value.companyPhotoUrl"
+        [invalid]="!!companyPhotoDimensionError"
+        [disabled]="isFieldsDisabled"
+        (filesSelected)="onCompanyPhotoSelected($event)"
+      />
+      @if (companyPhotoDimensionError) {
+        <div class="app-input-error">{{ companyPhotoDimensionError }}</div>
+      }
+    </div>
 
     <app-input
       label="Admin Name"
+      [required]="true"
+      [invalid]="submitAttempted && !value.adminName.trim()"
       [value]="value.adminName"
       (valueChange)="patch({ adminName: $event })"
       [disabled]="isFieldsDisabled"
@@ -29,6 +46,8 @@
 
     <app-input
       label="Admin Designation"
+      [required]="true"
+      [invalid]="submitAttempted && !value.adminDesignation.trim()"
       [value]="value.adminDesignation"
       (valueChange)="patch({ adminDesignation: $event })"
       [disabled]="isFieldsDisabled"
@@ -37,6 +56,8 @@
     <app-input
       label="Admin Email"
       type="email"
+      [required]="true"
+      [invalid]="submitAttempted && !value.adminEmail.trim()"
       [value]="value.adminEmail"
       (valueChange)="patch({ adminEmail: $event })"
       [disabled]="isFieldsDisabled || adminEmailLocked"
@@ -55,26 +76,62 @@
       @if (submitAttempted && isAdminPhoneNotTenDigits()) {
         <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
       }
+      @if (isEditMode && value.adminPhone && value.adminPhone.trim().length > 0) {
+        @if (verifiedPhoneNumber && value.adminPhone.replace(/\D/g, '') === verifiedPhoneNumber.replace(/\D/g, '')) {
+          <span class="phone-verified">✓ Verified</span>
+        } @else {
+          <span
+            tabindex="0"
+            role="button"
+            class="phone-verify-link"
+            [class.phone-verify-disabled]="isFieldsDisabled"
+            [style.cursor]="isFieldsDisabled ? 'not-allowed' : 'pointer'"
+            [style.text-decoration]="isFieldsDisabled ? 'none' : 'underline'"
+            [attr.aria-disabled]="isFieldsDisabled"
+            (click)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+            (keyup.enter)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+            (keyup.space)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+          >
+            Verify
+          </span>
+        }
+      }
+    </div>
+
+    <div class="app-form-field-wrapper">
+      <app-input
+        label="Company Website URL"
+        type="text"
+        [required]="true"
+        [invalid]="isCompanyWebsiteUrlInvalid()"
+        [value]="value.companyWebsiteUrl"
+        (valueChange)="patch({ companyWebsiteUrl: $event })"
+        [disabled]="isFieldsDisabled"
+      />
+      @if (isCompanyWebsiteUrlInvalid()) {
+        <div class="app-input-error">Please enter a valid URL.</div>
+      }
+    </div>
+
+    <div class="app-form-field-wrapper">
+      <app-input
+        label="Other website URL"
+        type="text"
+        [required]="false"
+        [invalid]="isOtherWebsiteUrlInvalid()"
+        [value]="value.otherWebsiteUrl"
+        (valueChange)="patch({ otherWebsiteUrl: $event })"
+        [disabled]="isFieldsDisabled"
+      />
+      @if (isOtherWebsiteUrlInvalid()) {
+        <div class="app-input-error">Please enter a valid URL.</div>
+      }
     </div>
 
     <app-input
-      label="Company Website URL"
-      type="url"
-      [value]="value.companyWebsiteUrl"
-      (valueChange)="patch({ companyWebsiteUrl: $event })"
-      [disabled]="isFieldsDisabled"
-    />
-
-    <app-input
-      label="Other website URL"
-      type="url"
-      [value]="value.otherWebsiteUrl"
-      (valueChange)="patch({ otherWebsiteUrl: $event })"
-      [disabled]="isFieldsDisabled"
-    />
-
-    <app-input
       label="Register Number"
+      [required]="true"
+      [invalid]="submitAttempted && !value.registerNumber.trim()"
       [value]="value.registerNumber"
       (valueChange)="patch({ registerNumber: $event })"
       [disabled]="isFieldsDisabled"
@@ -89,22 +146,32 @@
         <div class="key-person-row">
           <app-input
             [label]="$index === 0 ? 'Name' : ''"
+            [required]="true"
+            [invalid]="submitAttempted && !person.name.trim()"
             [value]="person.name"
             (valueChange)="patchKeyPerson($index, { name: $event })"
             [disabled]="isFieldsDisabled"
           />
 
-          <app-input
-            [label]="$index === 0 ? 'Upload Photo' : ''"
-            type="file"
-            accept="image/*"
-            [placeholder]="keyPersonPhotoPlaceholder($index)"
-            [disabled]="isFieldsDisabled"
-            (filesSelected)="onKeyPersonPhotoSelected($index, $event)"
-          />
+          <div class="app-form-field-wrapper">
+            <app-input
+              [label]="$index === 0 ? 'Upload Photo' : ''"
+              type="file"
+              accept="image/*"
+              [placeholder]="keyPersonPhotoPlaceholder($index)"
+              [invalid]="!!getKeyPersonDimensionError($index)"
+              [disabled]="isFieldsDisabled"
+              (filesSelected)="onKeyPersonPhotoSelected($index, $event)"
+            />
+            @if (getKeyPersonDimensionError($index)) {
+              <div class="app-input-error">{{ getKeyPersonDimensionError($index) }}</div>
+            }
+          </div>
 
           <app-input
             [label]="$index === 0 ? 'Designation' : ''"
+            [required]="true"
+            [invalid]="submitAttempted && !person.designation.trim()"
             [value]="person.designation"
             (valueChange)="patchKeyPerson($index, { designation: $event })"
             [disabled]="isFieldsDisabled"
@@ -145,6 +212,8 @@
   <div class="grid grid-2">
     <app-textarea
       label="About Company"
+      [required]="true"
+      [invalid]="submitAttempted && !value.aboutCompany.trim()"
       [rows]="4"
       [value]="value.aboutCompany"
       (valueChange)="patch({ aboutCompany: $event })"
@@ -155,6 +224,8 @@
 
     <app-textarea
       label="Company Address"
+      [required]="true"
+      [invalid]="submitAttempted && !value.companyAddress.trim()"
       [rows]="4"
       [value]="value.companyAddress"
       (valueChange)="patch({ companyAddress: $event })"
@@ -184,7 +255,7 @@
       </div>
     } @else if (mode === 'review' && isEditMode) {
       <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
-      <app-button type="submit" variant="primary" label="Update" [disabled]="submitting" />
+      <app-button type="submit" variant="primary" label="Update" [disabled]="submitting || hasPhotoDimensionErrors()" />
     } @else {
       @if (mode === 'edit') {
         <app-button type="button" variant="outline" label="Cancel" [disabled]="submitting" (buttonClick)="cancelled.emit()" />
@@ -193,7 +264,7 @@
         type="submit"
         variant="primary"
         [label]="mode === 'edit' ? 'Save' : 'Submit'"
-        [disabled]="submitting"
+        [disabled]="submitting || hasPhotoDimensionErrors()"
       />
     }
   </div>

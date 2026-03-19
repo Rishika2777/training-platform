@@ -30,7 +30,7 @@ yarn-error.log
 
 # Miscellaneous
 /.angular/cache
-# .env
+.env
 .sass-cache/
 /connect.lock
 /coverage
@@ -42,6 +42,7 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+.env
 
 # Local development scripts (for memory fixes)
 start-dev.sh

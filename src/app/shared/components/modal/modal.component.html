@@ -1,19 +1,25 @@
 @if (visible) {
-  <button class="backdrop" type="button" (click)="onBackdropClick()" aria-label="Close dialog"></button>
-  <div class="modal" [class.sm]="size === 'sm'" [class.md]="size === 'md'" [class.lg]="size === 'lg'">
-    <div class="panel" [class]="modalClass ?? ''">
+  <div class="modal-root" [class.modal-stacked]="stacked">
+    <button class="backdrop" type="button" (click)="onBackdropClick()" aria-label="Close dialog"></button>
+    <div class="modal" [class.sm]="size === 'sm'" [class.md]="size === 'md'" [class.lg]="size === 'lg'">
+    <div class="panel" [ngClass]="modalClass ?? ''">
       <div class="header">
-        <button class="close" type="button" (click)="close()">×</button>
+        @if (!hideCloseButton) {
+          <button class="close" type="button" (click)="close()">×</button>
+        }
         <div class="title" [class.left-align]="titleAlign === 'left'" [class.lowercase]="title.toLowerCase() === title">
           {{ title }}
         </div>
-        <div class="close-spacer"></div>
+        @if (!hideCloseButton) {
+          <div class="close-spacer"></div>
+        }
       </div>
 
       <div class="body">
         <ng-content></ng-content>
       </div>
     </div>
+  </div>
   </div>
 }
 

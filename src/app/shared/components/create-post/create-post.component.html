@@ -1,0 +1,99 @@
+<app-modal
+  [visible]="visible()"
+  title=""
+  size="lg"
+  [hideCloseButton]="true"
+  modalClass="create-post-modal"
+  (closed)="onCancel()"
+>
+  <div class="create-post">
+    <div class="create-post-header">
+      <app-avatar
+        [imageUrl]="authorImageUrl() || authorFallbackImage()"
+        [name]="authorName()"
+        size="medium"
+        alt="Author"
+      />
+      <div class="post-user">
+        <div class="post-name">{{ authorName() || 'Author' }}</div>
+      </div>
+    </div>
+
+    <textarea
+      class="post-textarea"
+      placeholder="Start a post..."
+      rows="4"
+      [(ngModel)]="postText"
+      (input)="onPostTextChange($event)"
+      [maxlength]="1500"
+    ></textarea>
+    <div class="post-char-count">{{ postText.length }}/1500</div>
+
+    @if (isCompressing()) {
+      <div class="compression-indicator">
+        <div class="compression-spinner"></div>
+        <div class="compression-text">
+          <span>{{ compressionStatus() || 'Compressing file...' }}</span>
+        </div>
+      </div>
+    }
+    @if (postMediaPreview() && !isCompressing()) {
+      <div class="post-media-preview">
+        <button
+          type="button"
+          class="remove-media"
+          (click)="removePostMedia()"
+          aria-label="Remove media"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        @if (postMediaType() === 'video') {
+          <video [src]="postMediaPreview()" controls muted class="preview-media"></video>
+        } @else {
+          <img [src]="postMediaPreview()" alt="preview" class="preview-media" />
+        }
+      </div>
+    }
+
+    <div class="post-options">
+      <button class="add-media" type="button" (click)="openMediaPicker()" [disabled]="isCompressing()">
+        <i class="fa-solid fa-image"></i>
+        <span>@if (isCompressing()) { Compressing... } @else { Add a photo or video }</span>
+      </button>
+      @if (postType() !== 'STUDENT') {
+        <div class="post-type">
+          <label>
+            <input type="radio" name="postKind" value="FEED" [(ngModel)]="postKind" />
+            Feed
+          </label>
+          <label>
+            <input type="radio" name="postKind" value="ANNOUNCEMENT" [(ngModel)]="postKind" />
+            Announcement
+          </label>
+        </div>
+      }
+    </div>
+
+    <input
+      #postMediaInput
+      type="file"
+      hidden
+      accept="image/*,video/*"
+      (change)="onPostMediaSelected($event)"
+    />
+
+    <div class="post-footer">
+      <button class="btn cancel" type="button" (click)="onCancel()">
+        Cancel
+      </button>
+      <button
+        class="btn post"
+        type="button"
+        [disabled]="(postKind === 'ANNOUNCEMENT' ? (!postText.trim() && !postMediaFile) : !postText.trim()) || postText.length > 1500 || isSubmitting()"
+        (click)="onSubmit()"
+      >
+        {{ isSubmitting() ? (initialPost() ? 'Updating...' : 'Posting...') : (initialPost() ? 'Update Post' : 'Post') }}
+      </button>
+    </div>
+  </div>
+</app-modal>

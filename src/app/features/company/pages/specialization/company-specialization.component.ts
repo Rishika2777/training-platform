@@ -117,13 +117,18 @@ export class CompanySpecializationComponent {
     return this.value.technologies[index]?.icon?.name ?? '';
   }
 
-  getSpecializationIconUrl(iconUrl: string | undefined | null): string | null {
-    if (!iconUrl) return null;
-    if (iconUrl.startsWith('http://') || iconUrl.startsWith('https://')) {
-      return iconUrl;
-    }
-    return `/api/v1/files/${iconUrl}`;
+getSpecializationIconUrl(iconUrl: string | undefined | null): string | null {
+  if (!iconUrl) return null;
+
+  // If backend returns full S3 URL
+  if (iconUrl.startsWith('http')) {
+    return iconUrl;
   }
+
+  // If old records contain only filename
+  return `http://localhost:5000/uploads/${iconUrl}`;
+}
+
 
   onDeleteTechnology(technologyId: string | undefined): void {
     if (!technologyId) {
@@ -137,12 +142,19 @@ export class CompanySpecializationComponent {
   isDeleting(technologyId: string | undefined): boolean {
     return this.deletingTechnologyId === technologyId;
   }
+private isValidDescription(text: string): boolean {
+  return /^[A-Za-z\s]+$/.test(text.trim());
+}
 
-  isTechnologyValid(tech: TechnologyItem): boolean {
-    return tech.technologyName.trim().length > 0 && 
-           tech.description.trim().length > 0 && 
-           tech.icon !== null;
-  }
+isTechnologyValid(tech: TechnologyItem): boolean {
+  return (
+    tech.technologyName.trim().length > 0 &&
+    this.isValidDescription(tech.technologyName) &&
+    tech.description.trim().length > 0 &&
+    this.isValidDescription(tech.description) &&
+    tech.icon !== null
+  );
+}
 
   isFormValid(): boolean {
     return this.value.technologies.some((t) => this.isTechnologyValid(t));

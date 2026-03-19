@@ -1,0 +1,131 @@
+<div class="my-post-feed">
+  @if (showAnnouncementsTab()) {
+    <div class="my-post-feed-tabs">
+      <button
+        type="button"
+        class="my-post-feed-tab"
+        [class.active]="activeTab() === 'posts'"
+        (click)="setTab('posts')"
+      >
+        Posts
+      </button>
+      <button
+        type="button"
+        class="my-post-feed-tab"
+        [class.active]="activeTab() === 'announcements'"
+        (click)="setTab('announcements')"
+      >
+        Announcements
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="my-post-feed-loading">
+      {{ showAnnouncementsTab() && activeTab() === 'announcements' ? 'Loading announcements...' : 'Loading your posts...' }}
+    </div>
+  } @else if (error()) {
+    <div class="my-post-feed-error">{{ error() }}</div>
+  } @else if (isEmpty()) {
+    <div class="my-post-feed-empty">
+      {{ showAnnouncementsTab() && activeTab() === 'announcements' ? 'No announcements to show.' : 'No posts to show.' }}
+    </div>
+  } @else {
+    <div class="my-post-feed-list-wrapper">
+      <ul class="my-post-feed-list">
+        @for (post of displayItems(); track post.postId ?? post.id ?? $index) {
+          <li class="my-post-feed-item">
+            <div class="my-post-feed-item-main">
+              <app-avatar
+                [imageUrl]="post.authorImageUrl ?? post.author?.imageUrl"
+                [name]="post.authorDisplayName ?? post.author?.displayName ?? 'Author'"
+                size="small"
+                [alt]="post.authorDisplayName ?? post.author?.displayName ?? 'Author'"
+              />
+              <div class="my-post-feed-item-content">
+                <div class="my-post-feed-item-header">
+                  <span class="my-post-feed-item-name">{{
+                    post.authorDisplayName ?? post.author?.displayName ?? 'Unknown'
+                  }}</span>
+                  @if (post.createdAt) {
+                    <span class="my-post-feed-item-date">{{
+                      post.createdAt | relativeTime
+                    }}</span>
+                  }
+                </div>
+                <p class="my-post-feed-item-text">{{ post.text }}</p>
+              </div>
+            </div>
+            <div class="my-post-feed-item-actions">
+              <button
+                type="button"
+                class="my-post-feed-btn my-post-feed-btn-edit"
+                (click)="onEdit(post)"
+                [disabled]="editingId() === (post.postId ?? post.id)"
+                title="Edit post"
+              >
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button
+                type="button"
+                class="my-post-feed-btn my-post-feed-btn-delete"
+                (click)="openDeleteConfirm(post)"
+                [disabled]="isDeleting(post)"
+                [attr.aria-busy]="isDeleting(post)"
+                title="Delete post"
+              >
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (showAnnouncementsTab() && canLoadMoreAnnouncements()) {
+        <div class="my-post-feed-load-more">
+          <app-button
+            label="Load More"
+            type="button"
+            variant="outline"
+            [disabled]="loadingMore()"
+            (buttonClick)="loadMoreAnnouncements()"
+          />
+        </div>
+      }
+    </div>
+  }
+  <div class="my-post-feed-footer">
+    <app-button label="Close" type="button" variant="outline" (buttonClick)="close()" />
+  </div>
+</div>
+
+@if (postToDelete()) {
+  <app-modal
+    [visible]="true"
+    size="sm"
+    title=""
+    [hideCloseButton]="true"
+    modalClass="delete-post-modal-panel"
+    (closed)="closeDeleteConfirm()"
+  >
+    <div class="delete-post-modal">
+      <div class="delete-post-icon" aria-hidden="true">
+        <i class="fa-solid fa-trash"></i>
+      </div>
+      <div class="delete-post-title">Are you sure you want to delete this post?</div>
+      <div class="delete-post-actions">
+        <button class="delete-post-btn delete-post-btn-cancel" type="button" (click)="closeDeleteConfirm()">
+          Cancel
+        </button>
+        <button
+          class="delete-post-btn delete-post-btn-confirm"
+          type="button"
+          (click)="confirmDelete()"
+          [disabled]="isDeleting(postToDelete()!)"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </app-modal>
+}

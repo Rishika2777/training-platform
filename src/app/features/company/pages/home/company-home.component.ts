@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, effect, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AfterViewInit, Component, computed, effect, inject, NgZone, OnDestroy, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
 import { CarouselComponent } from '../../../../shared/components/carousel/carousel.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ModalService } from '../../../../core/modal/modal.service';
@@ -10,18 +11,35 @@ import { CompanyCurrentVacancyComponent, CurrentVacancyFormValue } from '../curr
 import { CompanyClientFormComponent, ClientFormValue } from '../client-form/company-client-form.component';
 import { CompanyPreferredCampusFormComponent, PreferredCampusFormValue } from '../preferred-campus-form/company-preferred-campus-form.component';
 import { SpecializationFormValue } from '../specialization/company-specialization.component';
-import { CompanyApiService, KeyPersonResponse, PreferredCampusResponse, PreferredCampusRequest, ClientResponse, ClientRequest, VacancyRequest, VacancyResponse, TechnologyRequest, TechnologyResponse, BenefitsOfferRequest, BenefitsOfferResponse } from '../../services/company-api.service';
+import { CreatePostComponent } from '../../../../shared/components/create-post/create-post.component';
+import type { CreatePostSubmitPayload } from '../../../../shared/components/create-post/create-post.component';
+import { CompanyApiService,  ClientRequest, VacancyRequest, VacancyResponse, TechnologyRequest, TechnologyResponse, BenefitsOfferRequest, BenefitsOfferResponse, ClientResponse } from '../../services/company-api.service';
+import { CompanyHomeService } from '../../services/company-home.service';
+import { ImageTile, PersonCard } from '../../models/company-home.models';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { catchError, of } from 'rxjs';
+import { map, finalize, switchMap } from 'rxjs/operators';
+import { CommonApiService } from '../../../../core/services/common-api.service';
+import type { Post } from '../../../../core/models/common-api.model';
+import { EditPostStateService } from '../../../../core/services/edit-post-state.service';
+import { MediaViewerComponent } from '../../../../shared/components/media-viewer/media-viewer.component';
+import {
+  AnnouncementCarouselComponent,
+  AnnouncementCarouselItem,
+} from '../../../../shared/components/announcement-carousel/announcement-carousel.component';
+import {  NewsService } from '../../../admin/services/news.service'; // path adjust karo
+import { RelativeTimePipe } from '../../../../shared/pipes/relative-time.pipe';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-company-home',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     CarouselComponent,
     ModalComponent,
     CompanySpecializationComponent,
@@ -30,17 +48,25 @@ import { catchError, of } from 'rxjs';
     CompanyCurrentVacancyComponent,
     CompanyClientFormComponent,
     CompanyPreferredCampusFormComponent,
+    CreatePostComponent,
+    MediaViewerComponent,
+    AnnouncementCarouselComponent,
+    RelativeTimePipe,
   ],
   templateUrl: './company-home.component.html',
   styleUrl: './company-home.component.css',
 })
-export class CompanyHomeComponent implements OnInit {
+export class CompanyHomeComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly modalService = inject(ModalService);
   private readonly companyApi = inject(CompanyApiService);
+  private readonly companyHome = inject(CompanyHomeService);
   private readonly authState = inject(AuthStateService);
   private readonly storage = inject(StorageService);
   private readonly notify = inject(NotificationService);
-
+  private readonly commonApi = inject(CommonApiService);
+  readonly editPostState = inject(EditPostStateService);
+private newsService = inject(NewsService);
+readonly REPORT_MAX_LENGTH = 300;
   readonly activeModal = computed(() => this.modalService.activeModal());
   readonly isSpecializationModalOpen = computed(() => this.activeModal() === 'company-specialization');
   readonly isVisionPerformanceModalOpen = computed(() => this.activeModal() === 'company-vision-performance');
@@ -48,12 +74,76 @@ export class CompanyHomeComponent implements OnInit {
   readonly isCurrentVacancyModalOpen = computed(() => this.activeModal() === 'company-current-vacancy');
   readonly isClientFormModalOpen = computed(() => this.activeModal() === 'company-client-form');
   readonly isPreferredCampusFormModalOpen = computed(() => this.activeModal() === 'company-preferred-campus-form');
+  readonly isCreatePostModalOpen = computed(() => this.activeModal() === 'create-post');
+  showVacancyForm = signal(false);
+readonly newsList = signal<NewsItem[]>([]);
+readonly loadingNews = signal(false);
 
+private router = inject(Router);
   // Track previous modal states for form reset
   private clientFormModalWasOpen = false;
   private preferredCampusFormModalWasOpen = false;
 
+  // NEWS MODAL VIA MODAL SERVICE
+  openNewsDetail(news: NewsItem): void {
+    this.newsModalData.set(news);
+    this.modalService.openModal('news-detail');
+  }
+
+
+  // --------------- open cilent of our company -----
+openClientCompany(company: ImageTile): void {
+
+  console.log("Company clicked:", company);
+
+  const companyId = company.id;
+
+  if (!companyId) {
+    console.warn("Company ID not available");
+    return;
+  }
+
+  this.router.navigate(['/profile/company', companyId]);
+
+}
+
+// ------------------- open preferred campus page ------------
+openPreferredCampus(campus: ImageTile): void {
+
+  console.log("Preferred campus clicked:", campus);
+
+  if (!campus.id) {
+    console.warn("Campus ID not available");
+    return;
+  }
+
+  this.router.navigate([
+    '/profile/campus',
+    campus.id
+  ]);
+}
+
+
+
+
+  closeNewsDetail(): void {
+    this.modalService.closeModal();
+    this.newsModalData.set(null);
+  }
+  readonly isNewsDetailModalOpen = computed(
+    () => this.modalService.activeModal() === 'news-detail'
+  );
+  
+  readonly newsModalData = signal<NewsItem | null>(null);
+  
+
+
   @ViewChild(CompanySpecializationComponent) specializationComponent?: CompanySpecializationComponent;
+  @ViewChild(CompanyCurrentVacancyComponent)
+vacancyFormComponent?: CompanyCurrentVacancyComponent;
+  private readonly elementRef = inject(ElementRef);
+  private feedScrollHost: HTMLElement | null = null;
+  @ViewChild('feedSentinel') feedSentinel?: ElementRef<HTMLElement>;
 
   submittingSpecialization = false;
   submittingVisionPerformance = false;
@@ -61,7 +151,10 @@ export class CompanyHomeComponent implements OnInit {
   submittingCurrentVacancy = false;
   submittingClientForm = false;
   submittingPreferredCampusForm = false;
-  readonly announcementDate = 'January 7th, 2025';
+  readonly isSubmittingPost = signal(false);
+
+  readonly postAuthorName = signal<string>('');
+  readonly postAuthorImageUrl = signal<string | null>(null);
 
   // Form values for reset functionality
   clientFormValue: ClientFormValue = {
@@ -80,7 +173,7 @@ export class CompanyHomeComponent implements OnInit {
   readonly loadingKeyPeople = signal(false);
 
   // Clients - API Integration
-  readonly clients = signal<ImageTile[]>([]);
+  readonly clients = signal<readonly ImageTile[]>([]);
   readonly loadingClients = signal(false);
   clientsPage = 0;
   readonly clientsPageSize = 10; // API page size
@@ -90,7 +183,7 @@ export class CompanyHomeComponent implements OnInit {
   readonly clientsCarouselPageSize = 3;
 
   // Preferred Campuses - API Integration
-  readonly preferredCampuses = signal<ImageTile[]>([]);
+  readonly preferredCampuses = signal<readonly ImageTile[]>([]);
   readonly loadingPreferredCampuses = signal(false);
   // Carousel pagination for preferred campuses (3 items per page)
   preferredCampusesCarouselPage = 1;
@@ -109,22 +202,83 @@ export class CompanyHomeComponent implements OnInit {
   vacanciesPage = 0;
   readonly vacanciesPageSize = 10;
 
-  readonly posts: readonly FeedPost[] = [
-    {
-      author: 'Ankitha Wilson',
-      authorId: '1d',
-      imageUrl: 'assets/images/landing-card-institution.png',
-      text:
-        '🚀 Innovate. Grow. Succeed.\nCommitted to excellence, driven by innovation, and focused on making an impact. The journey to a better future starts here!\n#Innovation #Success #Growth',
-    },
-    {
-      author: 'Ankitha Wilson',
-      authorId: '1d',
-      imageUrl: 'assets/images/landing-card-institution.png',
-      text:
-        '🚀 Innovate. Grow. Succeed.\nCommitted to excellence, driven by innovation, and focused on making an impact. The journey to a better future starts here!\n#Innovation #Success #Growth',
-    },
-  ];
+  readonly posts = signal<FeedPost[]>([]);
+  readonly loadingFeed = signal(false);
+  readonly loadingMoreFeed = signal(false);
+  readonly hasMoreFeed = signal(true);
+  private feedPage = 0; // API uses 0-indexed pagination (page 0 for first page)
+  private readonly feedPageSize = 5;
+  /** Set true after first loadFeed() completes; prevents observer from firing before we have hasMore from API */
+  private feedFirstLoadDone = false;
+  private feedIntersectionObserver: IntersectionObserver | null = null;
+  private feedScrollListener: (() => void) | null = null;
+  private feedTopRefreshListener: (() => void) | null = null;
+  private maxScrollY = 0;
+  private lastTopRefreshTime = 0;
+  private readonly TOP_REFRESH_THRESHOLD = 200;
+  private readonly MIN_SCROLL_DISTANCE = 500;
+  private readonly TOP_REFRESH_COOLDOWN_MS = 2000;
+  private readonly ngZone = inject(NgZone);
+  readonly mediaViewerUrl = signal<string | null>(null);
+  readonly mediaViewerType = signal<'image' | 'video' | null>(null);
+  readonly reportPostId = signal<string | null>(null);
+  readonly reportReason = signal('');
+  readonly isReporting = signal(false);
+  readonly isReportModalOpen = computed(() => !!this.reportPostId());
+
+  readonly postTextTruncateLength = 200;
+  readonly expandedPostIds = signal<Set<string>>(new Set());
+
+  togglePostExpand(key: string): void {
+    const next = new Set(this.expandedPostIds());
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this.expandedPostIds.set(next);
+  }
+
+  // Announcements - loaded from dedicated API
+  readonly announcementsLoaded = signal<FeedPost[]>([]);
+  readonly announcements = computed(() => this.announcementsLoaded());
+
+  readonly announcementCarouselItems = computed((): AnnouncementCarouselItem[] =>
+    (this.announcementsLoaded() ?? []).map((p) => ({
+      id: p.postId ?? undefined,
+      text: p.text ?? '',
+      date: p.createdAt ?? undefined,
+      mediaUrl: p.mediaUrl ?? null,
+      mediaType: p.mediaType ?? null,
+    }))
+  );
+
+  // ------------ news 
+  newsPage = 0;
+newsPageSize = 2;
+
+
+  // Feed posts (excluding announcements)
+  readonly feedPosts = computed(() => {
+    return this.posts().filter((post) => post.postKind !== 'ANNOUNCEMENT');
+  });
+
+
+  // ----------------- news --------
+  newsTotalPages(): number {
+  return Math.ceil(this.newsList().length / this.newsPageSize);
+}
+
+newsPageItems() {
+  const start = this.newsPage * this.newsPageSize;
+  return this.newsList().slice(start, start + this.newsPageSize);
+}
+
+onNewsPageChange(page: number) {
+  this.newsPage = page - 1;
+}
+
+
+  // -------------- vacancy ------------------
+selectedVacancy = signal<VacancyResponse | null>(null);
+
 
   // Carousel / pagination state (shared component usage)
   readonly peoplePageSize = 7;
@@ -186,38 +340,367 @@ export class CompanyHomeComponent implements OnInit {
   return this.getCompanyId();
 }
 
+  private readonly clientFormResetEffect = effect(() => {
+    const isClientModalOpen = this.isClientFormModalOpen();
+    if (isClientModalOpen && !this.clientFormModalWasOpen) {
+      // Reset client form when modal opens
+      this.clientFormValue = {
+        logo: null,
+        clientName: '',
+      };
+    }
+    this.clientFormModalWasOpen = isClientModalOpen;
+  });
+
+  private readonly preferredCampusFormResetEffect = effect(() => {
+    const isPreferredCampusModalOpen = this.isPreferredCampusFormModalOpen();
+    if (isPreferredCampusModalOpen && !this.preferredCampusFormModalWasOpen) {
+      // Reset preferred campus form when modal opens
+      this.preferredCampusFormValue = {
+        photo: null,
+        campusName: '',
+        campusId: undefined,
+      };
+    }
+    this.preferredCampusFormModalWasOpen = isPreferredCampusModalOpen;
+  });
+
+
+  private dataLoaded = false; // Track if company data has been loaded
+
+  /** effect() must run in injection context (field initializer), not in ngOnInit */
+  private readonly companyDataWhenReadyEffect = effect(() => {
+    const currentUser = this.authState.user();
+    const currentCompanyId = this.getCompanyId();
+    if (!this.dataLoaded && currentUser && currentCompanyId) {
+      this.loadCompanyData();
+    }
+  });
 
   ngOnInit(): void {
+    // Load feed and other non-company-specific data immediately
+    this.loadFeed();
+    this.loadAnnouncements();
+    this.loadLatestNews();
+
+    // Load company data now if user is already available; otherwise effect will run when user becomes available
+    const user = this.authState.user();
+    const companyId = this.getCompanyId();
+    if (user && companyId) {
+      this.loadCompanyData();
+    }
+  }
+
+  private loadCompanyData(): void {
+    if (this.dataLoaded) {
+      return; // Prevent duplicate loads
+    }
+    
+    this.dataLoaded = true;
     this.loadKeyPeople();
     this.loadPreferredCampuses();
     this.loadClients();
     this.loadSpecializations();
     this.loadVacancies();
+    this.loadPostAuthorData();
+  }
 
-    // Watch for modal state changes to reset forms
-    effect(() => {
-      const isClientModalOpen = this.isClientFormModalOpen();
-      if (isClientModalOpen && !this.clientFormModalWasOpen) {
-        // Reset client form when modal opens
-        this.clientFormValue = {
-          logo: null,
-          clientName: '',
-        };
-      }
-      this.clientFormModalWasOpen = isClientModalOpen;
+  private getScrollHost(): HTMLElement | null {
+    const el = this.elementRef?.nativeElement;
+    return el?.closest?.('.content') ?? null;
+  }
+
+  ngOnDestroy(): void {
+    this.feedIntersectionObserver?.disconnect();
+    this.feedIntersectionObserver = null;
+    const win = typeof window !== 'undefined' ? window : null;
+    if (this.feedScrollListener) {
+      if (this.feedScrollHost) this.feedScrollHost.removeEventListener('scroll', this.feedScrollListener as EventListener);
+      if (win) win.removeEventListener('scroll', this.feedScrollListener as EventListener);
+      this.feedScrollListener = null;
+    }
+    if (this.feedTopRefreshListener) {
+      if (this.feedScrollHost) this.feedScrollHost.removeEventListener('scroll', this.feedTopRefreshListener as EventListener);
+      if (win) win.removeEventListener('scroll', this.feedTopRefreshListener as EventListener);
+      this.feedTopRefreshListener = null;
+    }
+    this.feedScrollHost = null;
+  }
+
+  loadFeed(): void {
+    this.loadingFeed.set(true);
+    this.feedPage = 0; // API uses 0-indexed pagination
+    this.hasMoreFeed.set(true);
+    this.feedFirstLoadDone = false;
+    const user = this.authState.user();
+    const userId = this.companyId ?? user?.companyId ?? user?.profileServiceId ?? user?.userId?.toString();
+    const pageSize = this.feedPageSize;
+    this.commonApi
+      .getFeed({ pageSize, page: 0, viewerUserId: userId })
+      .pipe(
+        map((res) => {
+          const count = res.posts?.length ?? 0;
+          const items = mapPostsToFeedPost(res.posts ?? []);
+          // If we got fewer than pageSize, there is no next page (ignore backend hasMore)
+          const hasMore =
+            count < pageSize ? false : (res.hasMore ?? count >= pageSize);
+          return { items, hasMore };
+        }),
+        switchMap(({ items, hasMore }) =>
+          this.commonApi.enrichFeedLikes(items, { id: userId, type: 'COMPANY' }).pipe(
+            map((enriched) => ({ items: enriched, hasMore }))
+          )
+        ),
+        catchError(() => of({ items: [] as FeedPost[], hasMore: false })),
+        finalize(() => {
+          this.loadingFeed.set(false);
+          this.feedFirstLoadDone = true;
+        })
+      )
+      .subscribe({
+        next: ({ items, hasMore }) => {
+          this.posts.set(items);
+          this.hasMoreFeed.set(hasMore);
+          this.feedPage = 0; // API uses 0-indexed pagination
+          this.setupFeedInfiniteScroll();
+        },
+        error: () => {
+          this.posts.set([]);
+          this.hasMoreFeed.set(false);
+        },
+      });
+  }
+
+  loadAnnouncements(): void {
+    const companyId = this.getCompanyId();
+    const params: { viewerId?: string; viewerType?: string; pageSize?: number; page?: number } = { pageSize: 10, page: 0 };
+    if (companyId) {
+      params.viewerId = companyId;
+      // params.viewerType = 'COMPANY';
+    }
+    this.commonApi.getAnnouncements(params).pipe(
+      map((res) => mapPostsToFeedPost(res.posts ?? [])),
+      catchError(() => of([] as FeedPost[]))
+    ).subscribe({
+      next: (items) => {
+        queueMicrotask(() => this.announcementsLoaded.set(items));
+      },
+      error: () => {
+        queueMicrotask(() => this.announcementsLoaded.set([]));
+      },
     });
+  }
 
-    effect(() => {
-      const isPreferredCampusModalOpen = this.isPreferredCampusFormModalOpen();
-      if (isPreferredCampusModalOpen && !this.preferredCampusFormModalWasOpen) {
-        // Reset preferred campus form when modal opens
-        this.preferredCampusFormValue = {
-          photo: null,
-          campusName: '',
-          campusId: undefined,
-        };
+  // ==================== news
+  // --------------- news ----------
+loadLatestNews(): void {
+  // Only load news if user is authenticated and has a valid token
+  const user = this.authState.user();
+  const token = this.authState.token();
+  if (!user || !token) {
+    this.newsList.set([]);
+    this.loadingNews.set(false);
+    return;
+  }
+
+  this.loadingNews.set(true);
+
+  this.newsService.getAllNews().subscribe({
+    next: (res: unknown) => {
+
+      if (Array.isArray(res)) {
+        this.newsList.set(res as NewsItem[]);
+      } 
+      else if (res && typeof res === 'object' && 'data' in res) {
+        const apiRes = res as { data: NewsItem[] };
+        this.newsList.set(apiRes.data || []);
+      } 
+      else {
+        this.newsList.set([]);
       }
-      this.preferredCampusFormModalWasOpen = isPreferredCampusModalOpen;
+
+      this.loadingNews.set(false);
+    },
+
+    error: (err) => {
+      // Only log non-401 errors (401 is expected if not authenticated or token expired)
+      if (err && typeof err === 'object' && 'status' in err && err.status !== 401) {
+        console.error('Student news load error:', err);
+      }
+      this.newsList.set([]);
+      this.loadingNews.set(false);
+    }
+  });
+}
+
+
+
+  /** Attach observer and scroll listener after first load so sentinel is in correct place. */
+  private setupFeedInfiniteScroll(): void {
+    if (typeof window === 'undefined') return;
+    const el = this.feedSentinel?.nativeElement;
+    if (!el) return;
+
+    this.feedScrollHost = this.getScrollHost();
+    const contentTarget = this.feedScrollHost as EventTarget | null;
+    const win = typeof window !== 'undefined' ? window : null;
+
+    if (!this.feedIntersectionObserver) {
+      this.ngZone.runOutsideAngular(() => {
+        this.feedIntersectionObserver = new IntersectionObserver(
+          (entries) => {
+            const entry = entries[0];
+            if (!entry?.isIntersecting) return;
+            this.ngZone.run(() => {
+              if (
+                this.feedFirstLoadDone &&
+                this.hasMoreFeed() &&
+                !this.loadingMoreFeed() &&
+                !this.loadingFeed()
+              ) {
+                this.loadMoreFeed();
+              }
+            });
+          },
+          { root: null, rootMargin: '200px 0px', threshold: 0 }
+        );
+        this.feedIntersectionObserver.observe(el);
+      });
+    }
+
+    if (!this.feedScrollListener) {
+      const checkAndLoad = (): void => {
+        if (
+          !this.feedFirstLoadDone ||
+          !this.hasMoreFeed() ||
+          this.loadingMoreFeed() ||
+          this.loadingFeed()
+        )
+          return;
+        const sentinel = this.feedSentinel?.nativeElement;
+        if (!sentinel) return;
+        const rect = sentinel.getBoundingClientRect();
+        const viewHeight = win ? window.innerHeight : 0;
+        const triggerZone = viewHeight + 300;
+        if (rect.top <= triggerZone) {
+          this.ngZone.run(() => this.loadMoreFeed());
+        }
+      };
+      this.feedScrollListener = (): void => checkAndLoad();
+      this.ngZone.runOutsideAngular(() => {
+        if (contentTarget) contentTarget.addEventListener('scroll', this.feedScrollListener as EventListener, { passive: true });
+        if (win) win.addEventListener('scroll', this.feedScrollListener as EventListener, { passive: true });
+      });
+    }
+    if (!this.feedTopRefreshListener) {
+      const checkTopRefresh = (): void => {
+        const contentScroll = this.feedScrollHost ? this.feedScrollHost.scrollTop : 0;
+        const windowScroll = win ? (window.scrollY || window.pageYOffset || 0) : 0;
+        const scrollY = Math.max(contentScroll, windowScroll);
+        if (scrollY > this.maxScrollY) {
+          this.maxScrollY = scrollY;
+        }
+        if (
+          scrollY <= this.TOP_REFRESH_THRESHOLD &&
+          this.maxScrollY >= this.MIN_SCROLL_DISTANCE &&
+          this.feedFirstLoadDone &&
+          !this.loadingFeed() &&
+          !this.loadingMoreFeed()
+        ) {
+          const now = Date.now();
+          if (now - this.lastTopRefreshTime >= this.TOP_REFRESH_COOLDOWN_MS) {
+            this.lastTopRefreshTime = now;
+            this.maxScrollY = 0;
+            this.ngZone.run(() => this.loadFeed());
+          }
+        }
+      };
+      this.feedTopRefreshListener = checkTopRefresh;
+      this.ngZone.runOutsideAngular(() => {
+        if (contentTarget) contentTarget.addEventListener('scroll', this.feedTopRefreshListener as EventListener, { passive: true });
+        if (win) win.addEventListener('scroll', this.feedTopRefreshListener as EventListener, { passive: true });
+      });
+    }
+  }
+
+  loadMoreFeed(): void {
+    if (
+      this.loadingMoreFeed() ||
+      !this.hasMoreFeed() ||
+      this.loadingFeed() ||
+      !this.feedFirstLoadDone
+    )
+      return;
+    const user = this.authState.user();
+    const userId = this.companyId ?? user?.companyId ?? user?.profileServiceId ?? user?.userId?.toString();
+    const nextPage = this.feedPage + 1;
+    this.loadingMoreFeed.set(true);
+    this.commonApi
+      .getFeed({ pageSize: this.feedPageSize, page: nextPage, viewerUserId: userId })
+      .pipe(
+        map((res) => {
+          const count = res.posts?.length ?? 0;
+          const items = mapPostsToFeedPost(res.posts ?? []);
+          const hasMore =
+            count < this.feedPageSize ? false : (res.hasMore ?? count >= this.feedPageSize);
+          return { items, hasMore };
+        }),
+        switchMap(({ items, hasMore }) =>
+          this.commonApi.enrichFeedLikes(items, { id: userId, type: 'COMPANY' }).pipe(
+            map((enriched) => ({ items: enriched, hasMore }))
+          )
+        ),
+        catchError(() => of({ items: [] as FeedPost[], hasMore: false })),
+        finalize(() => this.loadingMoreFeed.set(false))
+      )
+      .subscribe({
+        next: ({ items, hasMore }) => {
+          if (items.length > 0) {
+            this.posts.update((prev) => [...prev, ...items]);
+          }
+          this.hasMoreFeed.set(hasMore);
+          this.feedPage = nextPage;
+        },
+      });
+  }
+
+  ngAfterViewInit(): void {
+    this.setupFeedInfiniteScroll();
+    queueMicrotask(() => {
+      if (this.posts().length === 0 && !this.loadingFeed()) {
+        this.loadFeed();
+      }
+    });
+  }
+
+  private loadPostAuthorData(): void {
+    const companyId = this.companyId;
+    if (!companyId) {
+      const user = this.authState.user();
+      this.postAuthorName.set(user?.email ?? user?.displayName ?? 'Company');
+      this.postAuthorImageUrl.set(user?.imageUrl ?? null);
+      return;
+    }
+    const cleanId = String(companyId).replace(/^COMPANY-/i, '').trim();
+    this.companyApi.getCompanyById(cleanId).pipe(
+      catchError(() => of(null))
+    ).subscribe({
+      next: (data) => {
+        if (data?.companyName?.trim()) {
+          this.postAuthorName.set(data.companyName.trim());
+        } else {
+          this.postAuthorName.set(this.authState.user()?.email ?? 'Company');
+        }
+        if (data?.companyLogoUrl?.trim()) {
+          let url = data.companyLogoUrl.trim();
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = url.startsWith('/') ? `/api/v1/files${url}` : `/api/v1/files/${url}`;
+          }
+          this.postAuthorImageUrl.set(url);
+        } else {
+          this.postAuthorImageUrl.set(this.authState.user()?.imageUrl ?? null);
+        }
+      },
     });
   }
 
@@ -259,23 +742,16 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.loadingKeyPeople.set(true);
-    this.companyApi.getKeyPeople(companyId).pipe(
+    this.companyHome.getKeyPeople(companyId).pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error loading key people:', error);
         this.loadingKeyPeople.set(false);
         return of([]);
       })
     ).subscribe({
-      next: (response: readonly KeyPersonResponse[]) => {
+      next: (response) => {
         this.loadingKeyPeople.set(false);
-        // Map API response to PersonCard interface
-        const mappedKeyPeople: PersonCard[] = response.map((person) => ({
-          name: person.name || 'Name',
-          subtitle: person.designation || 'Designation',
-          imageUrl: person.photoUrl || 'assets/images/login-news-image.png',
-        }));
-        this.keyPeople.set(mappedKeyPeople);
-        // Reset to first page when data loads
+        this.keyPeople.set(response);
         this.keyPeoplePage = 1;
       },
       error: (error: unknown) => {
@@ -294,43 +770,16 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.loadingPreferredCampuses.set(true);
-    this.companyApi.getPreferredCampuses(companyId).pipe(
+    this.companyHome.getPreferredCampuses(companyId).pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error loading preferred campuses:', error);
         this.loadingPreferredCampuses.set(false);
         return of([]);
       })
     ).subscribe({
-      next: (response: readonly PreferredCampusResponse[]) => {
+      next: (response) => {
         this.loadingPreferredCampuses.set(false);
-        // Map API response to ImageTile interface
-        const mappedCampuses: ImageTile[] = response.map((campus, index) => {
-          // Handle image URL - construct full URL from filename
-          let imageUrl = campus.campusLogoUrl || null;
-          if (imageUrl) {
-            // Check if it's already a full URL
-            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              // Already a full URL, use as-is
-              // No modification needed
-            } else if (imageUrl.startsWith('/')) {
-              // Absolute path - construct full URL
-              imageUrl = `/api/v1/files${imageUrl}`;
-            } else if (imageUrl.startsWith('assets/')) {
-              // Asset path, use as-is
-              // No modification needed
-            } else {
-              // Relative filename - construct full URL using /api/v1/files/ pattern
-              imageUrl = `/api/v1/files/${imageUrl}`;
-            }
-          }
-          return {
-            id: campus.campusId || `campus-${index}`, // Unique ID for tracking
-            imageUrl: imageUrl || 'assets/images/landing-card-campus.png',
-          alt: campus.campusName || 'Preferred campus',
-          };
-        });
-        this.preferredCampuses.set(mappedCampuses);
-        // Reset to first page when data loads
+        this.preferredCampuses.set(response);
         this.preferredCampusesCarouselPage = 1;
       },
       error: (error: unknown) => {
@@ -349,7 +798,7 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.loadingVacancies.set(true);
-    this.companyApi.getVacancies(companyId, this.vacanciesPage, this.vacanciesPageSize).pipe(
+    this.companyHome.getVacancies(companyId, this.vacanciesPage, this.vacanciesPageSize).pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error loading vacancies:', error);
         this.loadingVacancies.set(false);
@@ -377,45 +826,17 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.loadingClients.set(true);
-    this.companyApi.getClients(companyId, this.clientsPage, this.clientsPageSize).pipe(
+    this.companyHome.getClients(companyId, this.clientsPage, this.clientsPageSize).pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error loading clients:', error);
         this.loadingClients.set(false);
         return of([]);
       })
     ).subscribe({
-      next: (response: readonly ClientResponse[]) => {
+      next: (response) => {
         this.loadingClients.set(false);
-        // Map API response to ImageTile interface
-        const mappedClients: ImageTile[] = response.map((client, index) => {
-          // Handle image URL - construct full URL from filename
-          let imageUrl = client.photourl || null;
-          if (imageUrl) {
-            // Check if it's already a full URL
-            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              // Already a full URL, use as-is
-              // No modification needed
-            } else if (imageUrl.startsWith('/')) {
-              // Absolute path - construct full URL
-              imageUrl = `/api/v1/files${imageUrl}`;
-            } else if (imageUrl.startsWith('assets/')) {
-              // Asset path, use as-is
-              // No modification needed
-            } else {
-              // Relative filename - construct full URL using /api/v1/files/ pattern
-              imageUrl = `/api/v1/files/${imageUrl}`;
-            }
-          }
-          return {
-            id: client.clientId || `client-${index}`, // Unique ID for tracking
-            imageUrl: imageUrl, // Show image if available, otherwise null
-          alt: client.clientName || 'Client',
-          };
-        });
-        this.clients.set(mappedClients);
-        // Reset to first page when data loads
+        this.clients.set(response);
         this.clientsCarouselPage = 1;
-        // TODO: Update totalPages from API response if available
       },
       error: (error: unknown) => {
         console.error('CompanyHomeComponent: Error in clients subscription:', error);
@@ -433,7 +854,7 @@ export class CompanyHomeComponent implements OnInit {
     }
 
     this.loadingSpecializations.set(true);
-    this.companyApi.getSpecializations(companyId).pipe(
+    this.companyHome.getSpecializations(companyId).pipe(
       catchError((error) => {
         console.error('CompanyHomeComponent: Error loading specializations:', error);
         this.loadingSpecializations.set(false);
@@ -455,8 +876,14 @@ export class CompanyHomeComponent implements OnInit {
 
 
   closeModal(): void {
+    const wasVacancyModal = this.activeModal() === 'company-current-vacancy';
+    this.selectedVacancy.set(null);
+    if (wasVacancyModal) {
+      this.showVacancyForm.set(false);
+    }
     this.modalService.closeModal();
   }
+
 
   handleImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
@@ -505,25 +932,22 @@ export class CompanyHomeComponent implements OnInit {
     let completed = 0;
     let hasError = false;
 
-    validTechnologies.forEach((tech, index) => {
-      // Build request according to API spec: { technologyName, description, iconUrl }
-      const request: TechnologyRequest = {
-        technologyName: tech.technologyName.trim(),
-        description: tech.description.trim(),
-        iconUrl: tech.icon ? tech.icon.name : undefined, // Use filename as iconUrl
-      };
+   validTechnologies.forEach((tech, index) => {
 
-      console.log(`CompanyHomeComponent: ========== CALLING API FOR TECHNOLOGY ${index + 1} ==========`);
-      console.log(`CompanyHomeComponent: Request payload:`, request);
-      console.log(`CompanyHomeComponent: Calling companyApi.addTechnology for technology ${index + 1}...`);
-      
-      const subscription = this.companyApi.addTechnology(companyId, request).pipe(
+  // Build request according to API spec: { technologyName, description }
+  const request: TechnologyRequest = {
+    technologyName: tech.technologyName.trim(),
+    description: tech.description.trim(),
+  };
+
+  const subscription =
+    this.companyApi.addTechnology(companyId, request, tech.icon ?? undefined)
+      .pipe(
         catchError((error) => {
           console.error(`CompanyHomeComponent: ========== ERROR ADDING TECHNOLOGY ${index + 1} ==========`);
-          console.error(`CompanyHomeComponent: Error details:`, error);
+
           hasError = true;
-          
-          // Handle different error types
+
           if (error?.status === 500) {
             const errorMessage = error?.error?.message || 'Server error occurred. Please try again.';
             this.notify.error(`Failed to add technology "${tech.technologyName}": ${errorMessage}`);
@@ -533,46 +957,39 @@ export class CompanyHomeComponent implements OnInit {
             const errorMessage = error?.error?.message || 'Failed to add technology. Please try again.';
             this.notify.error(`Failed to add technology "${tech.technologyName}": ${errorMessage}`);
           }
-          
+
           return of(null);
         })
-      ).subscribe({
-        next: (response: TechnologyResponse | null) => {
-          completed++;
-          console.log(`CompanyHomeComponent: ========== TECHNOLOGY ${index + 1} ADDED SUCCESSFULLY ==========`);
-          console.log(`CompanyHomeComponent: Response:`, response);
-          
-          if (completed === validTechnologies.length) {
-            this.submittingSpecialization = false;
-            if (!hasError) {
-              this.notify.success('All technologies added successfully!');
-              // Reload the list to show updated data
-              this.loadSpecializations();
-              // Reset form to clear fields
-              if (this.specializationComponent) {
-                this.specializationComponent.resetForm();
-              }
-              // Don't close modal - let user see the updated list
-            } else {
-              this.notify.error('Some technologies failed to add. Please check the errors above.');
-            }
-          }
-        },
-        error: (error: unknown) => {
-          console.error(`CompanyHomeComponent: ========== SUBSCRIPTION ERROR FOR TECHNOLOGY ${index + 1} ==========`);
-          console.error(`CompanyHomeComponent: Error:`, error);
-          completed++;
-          hasError = true;
-          
-          if (completed === validTechnologies.length) {
-            this.submittingSpecialization = false;
-            this.notify.error('An error occurred while adding technologies.');
-          }
-        }
-      });
-      
-      console.log(`CompanyHomeComponent: Subscription created for technology ${index + 1}, subscription object:`, subscription);
-    });
+      )
+    .subscribe({
+  next: () => {
+    completed++;
+
+    if (completed === validTechnologies.length) {
+      this.submittingSpecialization = false;
+
+      if (!hasError) {
+        this.notify.success('All technologies added successfully!');
+        this.loadSpecializations();
+        this.specializationComponent?.resetForm();
+      } else {
+        this.notify.error('Some technologies failed to add. Please check the errors above.');
+      }
+    }
+  },
+  error: () => {
+    completed++;
+    hasError = true;
+
+    if (completed === validTechnologies.length) {
+      this.submittingSpecialization = false;
+      this.notify.error('An error occurred while adding technologies.');
+    }
+  }
+});
+
+  console.log(`CompanyHomeComponent: Subscription created for technology ${index + 1}`, subscription);
+});
   }
 
   handleDeleteSpecialization(technologyId: string): void {
@@ -652,6 +1069,36 @@ export class CompanyHomeComponent implements OnInit {
       }
     });
   }
+
+handleDeleteVacancy(vacancyId: string | undefined): void {
+  if (!vacancyId) {
+    this.notify.error('Invalid vacancy id.');
+    return;
+  }
+
+  const companyId = this.getCompanyId();
+  if (!companyId) {
+    this.notify.error('Company ID not found.');
+    return;
+  }
+
+  this.companyApi.deleteVacancy(companyId, vacancyId).pipe(
+    catchError((error) => {
+      console.error('Error deleting vacancy:', error);
+      this.notify.error('Failed to delete vacancy.');
+      return of(false);
+    })
+  ).subscribe({
+    next: (success: boolean) => {
+      if (success) {
+        this.notify.success('Vacancy deleted successfully!');
+        this.loadVacancies();
+      } else {
+        this.notify.error('Failed to delete vacancy.');
+      }
+    }
+  });
+}
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleVisionPerformanceSubmit(_value: unknown): void {
@@ -735,8 +1182,7 @@ export class CompanyHomeComponent implements OnInit {
   }
 
   handleCurrentVacancySubmit(value: CurrentVacancyFormValue): void {
-    console.log('CompanyHomeComponent: ========== CURRENT VACANCY FORM SUBMITTED ==========');
-    console.log('CompanyHomeComponent: Form value:', value);
+
     
     // Initialize submitting state
     this.submittingCurrentVacancy = true;
@@ -1042,12 +1488,14 @@ export class CompanyHomeComponent implements OnInit {
         console.log('CompanyHomeComponent: ========== VACANCY ADDED SUCCESSFULLY ==========');
         console.log('CompanyHomeComponent: Response:', response);
         this.submittingCurrentVacancy = false;
-        if (response) {
-          this.notify.success('Vacancy added successfully!');
-          // Reload vacancies after successful submission
-          this.loadVacancies();
-          this.modalService.closeModal();
-        } else {
+     if (response) {
+  this.notify.success('Vacancy added successfully!');
+  this.loadVacancies();
+    this.vacancyFormComponent?.resetForm();
+  this.showVacancyForm.set(false);
+}
+
+        else {
           // Response is null - error was already handled in catchError
         }
       },
@@ -1073,6 +1521,12 @@ export class CompanyHomeComponent implements OnInit {
     console.log('CompanyHomeComponent: Subscription created, subscription object:', subscription);
   }
 
+  openVacancyDetails(vacancy: VacancyResponse): void {
+  this.selectedVacancy.set(vacancy);
+  this.showVacancyForm.set(false); // ensure list view
+  this.modalService.openModal('company-current-vacancy');
+}
+
    handleClientFormSubmit(value: ClientFormValue): void {
     console.log('CompanyHomeComponent: Client form submitted', value);
     const companyId = this.getCompanyId();
@@ -1093,21 +1547,20 @@ export class CompanyHomeComponent implements OnInit {
     console.log('CompanyHomeComponent: Making API call to add client', { companyId, clientName: value.clientName, hasLogo: !!value.logo });
     this.submittingClientForm = true;
     
-    // Build request according to API spec: { clientName, photourl }
-    // Backend might be rejecting photourl if it's just a filename (not a URL)
-    // So we'll omit photourl entirely if it's not a valid URL
     const request: ClientRequest = {
       clientName: value.clientName.trim(),
+      photoUrl: value.logo?.name?.trim() || undefined,
     };
-    
-    // Only include photourl if it's a valid URL
-    // If logo is a File object, we can't send it as photourl (which expects a URL string)
-    // Backend might handle file upload separately or expect photourl to be a pre-uploaded URL
-    // For now, omit photourl if it's not a valid URL to avoid 500 errors
-    // TODO: If backend requires file upload, implement file upload first, then send the returned URL as photourl
+
+    const payload = {
+      request,
+      files: {
+        photo: value.logo,
+      },
+    };
 
     console.log('CompanyHomeComponent: Calling companyApi.addClient...', request);
-    const apiCall = this.companyApi.addClient(companyId, request);
+    const apiCall = this.companyApi.addClient(companyId, payload);
     console.log('CompanyHomeComponent: API call Observable created, setting up pipe and subscribe...');
     
     apiCall.pipe(
@@ -1163,105 +1616,337 @@ export class CompanyHomeComponent implements OnInit {
     });
   }
 
-  handlePreferredCampusFormSubmit(value: PreferredCampusFormValue): void {
-    console.log('CompanyHomeComponent: Preferred campus form submitted', value);
-    const companyId = this.getCompanyId();
-    if (!companyId) {
-      console.warn('CompanyHomeComponent: No company ID available, cannot submit preferred campus');
-      this.notify.error('Unable to submit. Company ID not found.');
-      this.submittingPreferredCampusForm = false;
+
+  onCreatePostSubmitted(payload: CreatePostSubmitPayload): void {
+    if (payload.postId) {
+      const postToEdit = this.editPostState.postToEdit();
+      const authorId = postToEdit?.authorId ?? postToEdit?.author?.authorId ?? this.companyId;
+      if (!authorId) {
+        this.notify.error('Cannot update: author not found.');
+        return;
+      }
+      this.isSubmittingPost.set(true);
+      this.modalService.closeModal();
+
+      const isAnnouncement = payload.postKind === 'ANNOUNCEMENT';
+      if (payload.mediaFile) {
+        const formData = new FormData();
+        formData.append('authorId', String(authorId));
+        formData.append('text', payload.text);
+        const isVideo = payload.mediaFile.type.startsWith('video/');
+        formData.append(isVideo ? 'videos' : 'images', payload.mediaFile, payload.mediaFile.name);
+
+        const updateWithFiles$ = isAnnouncement
+          ? this.commonApi.updateAnnouncementWithFiles(payload.postId, formData)
+          : this.commonApi.updatePostWithFiles(payload.postId, formData);
+        updateWithFiles$.pipe(
+          finalize(() => this.isSubmittingPost.set(false))
+        ).subscribe({
+          next: () => {
+            this.notify.success(isAnnouncement ? 'Announcement updated successfully' : 'Post updated successfully');
+            if (isAnnouncement) this.loadAnnouncements(); else this.loadFeed();
+            this.onCreatePostClosed();
+          },
+          error: (err) => {
+            this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to update announcement' : 'Failed to update post'));
+          },
+        });
+      } else {
+        const update$ = isAnnouncement
+          ? this.commonApi.updateAnnouncement(payload.postId, { authorId: String(authorId), text: payload.text })
+          : this.commonApi.updatePost(payload.postId, { authorId: String(authorId), text: payload.text });
+        update$.pipe(
+          finalize(() => this.isSubmittingPost.set(false))
+        ).subscribe({
+          next: () => {
+            this.notify.success(isAnnouncement ? 'Announcement updated successfully' : 'Post updated successfully');
+            if (isAnnouncement) this.loadAnnouncements(); else this.loadFeed();
+            this.onCreatePostClosed();
+          },
+          error: (err) => {
+            this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to update announcement' : 'Failed to update post'));
+          },
+        });
+      }
       return;
     }
 
-    if (!value.campusId) {
-      console.warn('CompanyHomeComponent: Campus ID is required');
-      this.notify.error('Please select a campus.');
-      this.submittingPreferredCampusForm = false;
+    const user = this.authState.user();
+    const authorId =
+      this.companyId ?? user?.profileServiceId ?? user?.companyId ?? user?.campusId ?? user?.studentId ?? user?.userId;
+    const authorDisplayName = this.postAuthorName() || user?.displayName || user?.email || 'Company';
+
+    if (payload.mediaFile && !authorId) {
+      this.notify.error('Author information is required to post. Please log in again.');
       return;
     }
 
-    console.log('CompanyHomeComponent: Making API call to add preferred campus', { companyId, campusId: value.campusId, campusName: value.campusName, hasPhoto: !!value.photo });
-    this.submittingPreferredCampusForm = true;
-    
-    // Build request according to API spec: { campusId, campusName, campusLogoUrl }
-    const request: PreferredCampusRequest = {
-      campusId: value.campusId,
-      campusName: value.campusName,
-      campusLogoUrl: value.photo ? value.photo.name : undefined, // Use filename as campusLogoUrl
+    this.isSubmittingPost.set(true);
+    this.modalService.closeModal();
+
+    const isAnnouncement = payload.postKind === 'ANNOUNCEMENT';
+    const request = {
+      text: payload.text,
+      postType: 'COMPANY' as const,
+      postKind: payload.postKind,
+      ...(authorId && { authorId: String(authorId) }),
+      ...(authorDisplayName && { authorDisplayName }),
     };
 
-    console.log('CompanyHomeComponent: Calling companyApi.addPreferredCampus...', request);
-    const apiCall = this.companyApi.addPreferredCampus(companyId, request);
-    console.log('CompanyHomeComponent: API call Observable created, setting up pipe and subscribe...');
-    
-    apiCall.pipe(
-      catchError((error) => {
-        console.error('CompanyHomeComponent: Error adding preferred campus:', error);
-        this.submittingPreferredCampusForm = false;
-        
-        // Check if it's a 502 error (backend service not configured)
-        if (error?.status === 502 || error?.error?.message?.includes('Upstream service URL not configured')) {
-          this.notify.error('Backend service not configured. Please contact administrator.');
-        } else {
-          this.notify.error('Failed to add preferred campus. Please try again.');
-        }
-        return of(null);
-      })
-    ).subscribe({
-      next: (response: PreferredCampusResponse | null) => {
-        console.log('CompanyHomeComponent: Subscription next() called', response);
-        this.submittingPreferredCampusForm = false;
-        if (response) {
-          this.notify.success('Preferred campus added successfully!');
-          // Reset form after successful submission
-          this.preferredCampusFormValue = {
-            photo: null,
-            campusName: '',
-            campusId: undefined,
-          };
-          this.loadPreferredCampuses(); // Reload the list
-          this.modalService.closeModal();
-        } else {
-          // Don't show error here if catchError already handled it
-        }
+    if (payload.mediaFile) {
+      const formData = new FormData();
+      formData.append('text', payload.text);
+      formData.append('postType', 'COMPANY');
+      formData.append('postKind', payload.postKind);
+      formData.append('authorId', String(authorId));
+      if (authorDisplayName) formData.append('authorDisplayName', authorDisplayName);
+      const isVideo = payload.mediaFile.type.startsWith('video/');
+      formData.append(isVideo ? 'videos' : 'images', payload.mediaFile, payload.mediaFile.name);
+
+      const api$ = isAnnouncement
+        ? this.commonApi.createAnnouncementWithFiles(formData)
+        : this.commonApi.createPostWithFiles(formData);
+
+      api$.pipe(finalize(() => this.isSubmittingPost.set(false))).subscribe({
+        next: () => {
+          this.notify.success(isAnnouncement ? 'Announcement submitted successfully' : 'Post submitted successfully');
+          if (isAnnouncement) this.loadAnnouncements(); else this.prependPostToFeed(payload, authorDisplayName);
+        },
+        error: (err) => {
+          this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to create announcement' : 'Failed to create post'));
+        },
+      });
+    } else {
+      const api$ = isAnnouncement ? this.commonApi.createAnnouncement(request) : this.commonApi.createPost(request);
+      api$.pipe(finalize(() => this.isSubmittingPost.set(false))).subscribe({
+        next: () => {
+          this.notify.success(isAnnouncement ? 'Announcement submitted successfully' : 'Post submitted successfully');
+          if (isAnnouncement) this.loadAnnouncements(); else this.prependPostToFeed(payload, authorDisplayName);
+        },
+        error: (err) => {
+          this.notify.error(err?.error?.message ?? err?.message ?? (isAnnouncement ? 'Failed to create announcement' : 'Failed to create post'));
+        },
+      });
+    }
+  }
+
+  openCreatePostModal(): void {
+    if (this.isSubmittingPost()) return;
+    this.editPostState.clearPostToEdit();
+    this.modalService.openModal('create-post');
+  }
+
+  openMediaViewer(url: string, type: 'image' | 'video'): void {
+    this.mediaViewerUrl.set(url);
+    this.mediaViewerType.set(type);
+  }
+
+  closeMediaViewer(): void {
+    this.mediaViewerUrl.set(null);
+    this.mediaViewerType.set(null);
+  }
+
+  onCreatePostClosed(): void {
+    this.editPostState.clearPostToEdit();
+    this.modalService.closeModal();
+  }
+
+  private prependPostToFeed(payload: CreatePostSubmitPayload, authorDisplayName: string): void {
+    const authorImgUrl = this.postAuthorImageUrl() ?? 'assets/images/login-news-image.png';
+    const mediaUrl = payload.mediaFile ? URL.createObjectURL(payload.mediaFile) : null;
+    const mediaType = payload.mediaFile?.type.startsWith('video/') ? 'video' : payload.mediaFile ? 'image' : null;
+    const newPost: FeedPost = {
+      postId: null,
+      author: authorDisplayName,
+      authorId: 'Just now',
+      authorImageUrl: authorImgUrl,
+      mediaUrl,
+      mediaType,
+      text: payload.text,
+      likedByMe: false,
+      likeCount: 0,
+    };
+    this.posts.update((list) => [newPost, ...list]);
+  }
+
+  onLikePost(post: FeedPost): void {
+    if (!post.postId) return;
+    const user = this.authState.user();
+    const userId = this.companyId ?? user?.companyId ?? user?.profileServiceId ?? user?.userId?.toString();
+    const userType = 'COMPANY';
+    if (!userId) return;
+    this.commonApi.likePost(post.postId, { userId: String(userId), userType }).subscribe({
+      next: () => {
+        this.posts.update((list) =>
+          list.map((p) =>
+            p.postId === post.postId
+              ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) }
+              : p
+          )
+        );
       },
-      error: (error: unknown) => {
-        console.error('CompanyHomeComponent: Error in add preferred campus subscription:', error);
-        this.submittingPreferredCampusForm = false;
-        
-        // Check if it's a 502 error (backend service not configured)
-        if (error && typeof error === 'object' && 'status' in error) {
-          const httpError = error as { status?: number; error?: { message?: string } };
-          if (httpError.status === 502 || httpError.error?.message?.includes('Upstream service URL not configured')) {
-            this.notify.error('Backend service not configured. Please contact administrator.');
-          } else {
-            this.notify.error('An error occurred while adding the preferred campus.');
-          }
-        } else {
-          this.notify.error('An error occurred while adding the preferred campus.');
-        }
-      }
     });
   }
+
+  onReportPost(post: FeedPost): void {
+    if (!post.postId) return;
+    this.reportPostId.set(post.postId);
+    this.reportReason.set('');
+  }
+
+  closeReportModal(): void {
+    if (this.isReporting()) return;
+    this.reportPostId.set(null);
+    this.reportReason.set('');
+  }
+
+  submitReport(): void {
+    const postId = this.reportPostId();
+    if (!postId) return;
+    const reason = this.reportReason().trim();
+    if (!reason) {
+      this.notify.error('Report reason is required.');
+      return;
+    }
+ if (reason.length > this.REPORT_MAX_LENGTH) {
+  this.notify.error(`Report reason must be at most ${this.REPORT_MAX_LENGTH} characters.`);
+  return;
+}
+    const user = this.authState.user();
+    const reporterId = this.companyId ?? user?.companyId ?? user?.profileServiceId ?? user?.userId?.toString();
+    if (!reporterId) return;
+    this.isReporting.set(true);
+    this.commonApi
+      .reportPost({
+        postId,
+        reporterId: String(reporterId),
+        reporterType: 'COMPANY',
+        reason,
+      })
+      .pipe(finalize(() => this.isReporting.set(false)))
+      .subscribe({
+        next: () => {
+          this.notify.success('Post reported successfully');
+          this.closeReportModal();
+        },
+        error: (err) => this.notify.error(err?.error?.message ?? err?.message ?? 'Failed to report post'),
+      });
+  }
+  
+
+  handlePreferredCampusFormSubmit(value: PreferredCampusFormValue): void {
+  // ✅ companyId is a GETTER, NOT a function
+  const companyId = this.companyId;
+
+  if (!companyId) {
+    console.error('Company ID not found');
+    this.notify.error('Company ID not found');
+    return;
+  }
+
+  // ✅ prevent double submit
+  if (this.submittingPreferredCampusForm) {
+    return;
+  }
+
+  this.submittingPreferredCampusForm = true;
+
+  const payload = {
+    request: {
+      campusId: value.campusId!,          // already validated in form
+      campusName: value.campusName,
+      campusLogoUrl: value.photo?.name,   // backend expects string
+    },
+    files: {
+      campusLogo: value.photo,
+    },
+  };
+
+  console.log('Submitting preferred campus payload:', payload);
+
+  this.companyApi.addPreferredCampus(companyId, payload).subscribe({
+    next: (res) => {
+      console.log('Preferred campus added successfully', res);
+
+      // ✅ show success message
+      this.notify.success('Preferred campus added successfully');
+
+      // ✅ reset form state
+      this.preferredCampusFormValue = {
+        photo: null,
+        campusName: '',
+        campusId: undefined,
+      };
+
+      // ✅ reload preferred campuses list
+      this.loadPreferredCampuses();
+
+      // ✅ close modal AFTER UX delay (important)
+      setTimeout(() => {
+        this.modalService.closeModal(); // NO ARG
+      }, 400);
+    },
+
+    error: (err) => {
+      console.error('Failed to add preferred campus', err);
+      this.notify.error('Failed to add preferred campus');
+      this.submittingPreferredCampusForm = false;
+    },
+
+    complete: () => {
+      this.submittingPreferredCampusForm = false;
+    },
+  });
 }
 
-interface PersonCard {
-  name: string;
-  subtitle: string;
-  imageUrl: string;
-}
 
-interface ImageTile {
-  id: string; // Unique identifier for tracking
-  imageUrl: string | null;
-  alt: string;
+
+
+
 }
 
 interface FeedPost {
+  postId: string | null;
   author: string;
   authorId: string;
-  imageUrl: string;
+  authorImageUrl: string;
+  mediaUrl: string | null;
+  mediaType: 'image' | 'video' | null;
   text: string;
+  likedByMe: boolean;
+  likeCount: number;
+  postKind?: 'FEED' | 'ANNOUNCEMENT';
+  createdAt?: string;
+}
+interface NewsItem {
+  id: string;
+  title: string;
+  description: string;
+  createDate: string;
+}
+
+
+function mapPostsToFeedPost(posts: Post[]): FeedPost[] {
+  return posts.map((p) => {
+    const firstImage = p.imageUrls?.[0];
+    const firstVideo = p.videoUrls?.[0];
+    const hasImage = !!firstImage;
+    const hasVideo = !!firstVideo;
+    return {
+      postId: p.postId ?? p.id ?? null,
+      author: p.author?.displayName ?? p.authorDisplayName ?? 'Unknown',
+      authorId: p.author?.authorId ?? p.authorId ?? '',
+      authorImageUrl:
+        p.authorImageUrl ?? p.author?.imageUrl ?? 'assets/images/login-news-image.png',
+      mediaUrl: hasImage ? firstImage! : hasVideo ? firstVideo! : null,
+      mediaType: hasImage ? 'image' : hasVideo ? 'video' : null,
+      text: p.text ?? '',
+      likedByMe: p.likedByMe ?? false,
+      likeCount: p.likeCount ?? 0,
+      postKind: p.postKind,
+      createdAt: p.createdAt,
+    };
+  });
 }
 
 function totalPages(totalItems: number, pageSize: number): number {

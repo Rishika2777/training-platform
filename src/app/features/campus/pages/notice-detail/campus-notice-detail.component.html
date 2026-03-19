@@ -1,0 +1,45 @@
+@if (notice) {
+
+<div class="notice-wrapper">
+
+  <!-- HEADER (only when edit/delete are shown) -->
+  @if (!readonlyMode) {
+  <div class="notice-header">
+    <div class="notice-header-left">
+      <button type="button" class="action-btn delete" (click)="onDeleteClick()">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <button type="button" class="action-btn edit" (click)="onEditClick()">
+        <i class="fa-solid fa-pen"></i>
+      </button>
+    </div>
+  </div>
+  }
+
+  <!-- CONTENT CARD -->
+  <div class="notice-card">
+
+    <div class="notice-meta">
+      <span class="notice-date">
+        {{ notice.createdAt | date:'dd MMM yyyy' }}
+      </span>
+
+      <span class="notice-type">
+        {{ notice.createdByType }}
+      </span>
+    </div>
+
+   <div class="notice-title">
+  {{ notice.title }}
+</div>
+
+<div class="notice-message">
+  {{ notice.message }}
+</div>
+
+
+  </div>
+
+</div>
+
+}

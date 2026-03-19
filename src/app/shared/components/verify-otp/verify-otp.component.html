@@ -1,0 +1,50 @@
+<div class="verify-otp-form">
+  <div class="form-content">
+    <p class="description">
+      Please enter the OTP sent to your email <strong>{{ email }}</strong>
+    </p>
+
+    <div class="resend-otp">
+      <button
+        type="button"
+        class="resend-link"
+        [disabled]="resending || submitting"
+        (click)="onResendOtp()"
+      >
+        @if (resending) {
+          Resending OTP...
+        } @else {
+          Resend OTP
+        }
+      </button>
+    </div>
+
+    <app-input
+      label="Enter OTP"
+      type="text"
+      placeholder="Enter 6-digit OTP"
+      [value]="otp"
+      [disabled]="submitting"
+      [required]="true"
+      [maxlength]="6"
+      (valueChange)="onOtpChange($event)"
+    />
+
+    <div class="form-actions">
+      <app-button
+        type="button"
+        variant="outline"
+        label="Cancel"
+        [disabled]="submitting"
+        (buttonClick)="cancel()"
+      />
+      <app-button
+        type="button"
+        variant="primary"
+        label="Verify"
+        [disabled]="submitting || !otp.trim()"
+        (buttonClick)="submit()"
+      />
+    </div>
+  </div>
+</div>

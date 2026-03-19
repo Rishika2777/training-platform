@@ -21,6 +21,21 @@
   text-align: center;
 }
 
+.current-photo-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.current-photo-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .app-form-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -70,6 +85,27 @@
   flex-direction: column;
 }
 
+.photo-preview {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.photo-preview-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.photo-preview-image {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+}
+
 .app-input-error {
   margin-top: var(--space-xs);
   color: var(--color-error);
@@ -77,9 +113,33 @@
   font-weight: 600;
 }
 
+/* Phone verify – blue theme */
+.phone-verified {
+  margin-top: 8px;
+  display: inline-block;
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 500;
+}
+.phone-verify-link {
+  margin-top: 8px;
+  display: inline-block;
+  font-size: 12px;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.phone-verify-link.phone-verify-disabled {
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 @media (max-width: 768px) {
   .app-form-container {
     padding: var(--space-md);
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .app-form-title {
@@ -91,6 +151,13 @@
     grid-template-columns: 1fr;
     gap: 16px 0;
     margin-bottom: 16px;
+    min-width: 0;
+  }
+
+  .app-form-row > *,
+  .app-form-field-wrapper {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .app-form-row-textarea {

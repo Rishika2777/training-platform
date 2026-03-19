@@ -1,9 +1,69 @@
 <section class="page">
   <h2>App Management</h2>
 
-  <app-card title="Legacy behavior">
-    <p>Placeholder for admin app management screen.</p>
-  </app-card>
+  <div class="dashboard-card">
+    <h3 class="dashboard-card-title">Dashboard charts</h3>
+    <div class="chart-controls">
+      <label for="dashboard-year">Year</label>
+      <select
+        id="dashboard-year"
+        [value]="selectedYear()"
+        (change)="onYearChange(+$any($event.target).value)"
+      >
+        @for (y of yearOptions(); track y) {
+          <option [value]="y">{{ y }}</option>
+        }
+      </select>
+    </div>
+
+    @if (error()) {
+      <p class="chart-error">{{ error() }}</p>
+    }
+    @if (loading() && !hasData()) {
+      <p class="chart-loading">Loading charts…</p>
+    } @else {
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3 class="chart-title">User engagement</h3>
+          <p class="chart-desc">Registrations per month (excludes ADMIN)</p>
+          <div class="chart-wrapper">
+            <canvas #canvasEngagement></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3 class="chart-title">Successful placements</h3>
+          <p class="chart-desc">Placed students per month</p>
+          <div class="chart-wrapper">
+            <canvas #canvasPlacements></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card chart-card-wide">
+          <div class="chart-card-header">
+            <h3 class="chart-title">Registered entities</h3>
+            <div class="chart-controls chart-controls-inline">
+              <label for="entities-year">Year</label>
+              <select
+                id="entities-year"
+                [value]="selectedYear()"
+                (change)="onYearChange(+$any($event.target).value)"
+              >
+                @for (y of yearOptions(); track y) {
+                  <option [value]="y">{{ y }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          <p class="chart-desc">Student, Company, Campus registrations per month</p>
+          <div class="chart-wrapper">
+            <canvas #canvasEntities></canvas>
+          </div>
+        </div>
+      </div>
+      @if (loading() && hasData()) {
+        <p class="chart-updating">Updating…</p>
+      }
+    }
+  </div>
 </section>
-
-

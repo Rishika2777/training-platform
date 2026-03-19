@@ -1,0 +1,237 @@
+:host ::ng-deep .modal.lg .panel {
+  width: min(750px, calc(100% - 40px));
+  max-width: 750px;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 70vh;
+  min-height: 320px;
+}
+
+:host ::ng-deep .modal.lg .panel.create-post-modal .header {
+  padding: 12px 20px !important;
+  min-height: 0;
+}
+
+:host ::ng-deep .modal.lg .panel .body {
+  padding: 16px 20px 20px 20px !important;
+}
+
+.create-post {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  margin: 0;
+}
+
+.create-post-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.post-user {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-name {
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: -4px;
+}
+
+.post-textarea {
+  width: 100%;
+  border: none;
+  resize: none;
+  font-size: 15px;
+  outline: none;
+  min-height: 100px;
+  max-height: 140px;
+}
+
+.post-char-count {
+  align-self: flex-end;
+  margin-top: -8px;
+  font-size: 12px;
+  color: #7a7a7a;
+}
+
+.post-media-preview {
+  position: relative;
+  width: fit-content;
+  max-width: 200px;
+  margin-top: 12px;
+}
+
+.post-media-preview .preview-media {
+  width: 160px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.post-media-preview video.preview-media {
+  background: #000;
+}
+
+.remove-media {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-secondary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.remove-media:hover {
+  background: var(--color-secondary-dark);
+}
+
+.post-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.post-options .add-media {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.post-options .add-media:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-secondary) 12%, white);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.post-options .add-media:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.post-options .add-media i {
+  color: var(--color-secondary);
+}
+
+.post-type input[type="radio"] {
+  accent-color: var(--color-secondary);
+  cursor: pointer;
+}
+
+.post-type {
+  display: flex;
+  gap: 16px;
+}
+
+.post-type label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.post-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+.post-footer .btn.cancel {
+  background: #fff;
+  color: var(--color-secondary);
+  border: 1px solid var(--color-secondary);
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.post-footer .btn.cancel:hover {
+  background: color-mix(in srgb, var(--color-secondary) 12%, white);
+}
+
+.post-footer .btn.post {
+  background: var(--color-secondary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 24px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.post-footer .btn.post:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.compression-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-top: 12px;
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.compression-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.compression-note {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.compression-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e0e0e0;
+  border-top-color: var(--color-secondary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

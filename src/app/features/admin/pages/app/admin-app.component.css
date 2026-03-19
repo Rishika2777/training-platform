@@ -3,4 +3,106 @@
   gap: 12px;
 }
 
+.dashboard-card {
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: var(--color-background, #fff);
+}
 
+.dashboard-card-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chart-controls label {
+  font-weight: 500;
+  color: var(--color-text-secondary, #555);
+}
+
+.chart-controls select {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #ddd);
+  font-size: 0.95rem;
+}
+
+.chart-error {
+  color: var(--color-error, #c00);
+  margin: 0.5rem 0;
+}
+
+.chart-loading {
+  color: var(--color-text-secondary, #666);
+  margin: 1rem 0;
+}
+
+.chart-updating {
+  color: var(--color-text-secondary, #888);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0 0;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.chart-controls-inline {
+  margin-bottom: 0;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: var(--color-background, #fff);
+}
+
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.chart-card-header .chart-title {
+  margin: 0;
+}
+
+.chart-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #666);
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 280px;
+  margin-top: 0.5rem;
+}
+
+.chart-card-wide .chart-wrapper {
+  height: 320px;
+}

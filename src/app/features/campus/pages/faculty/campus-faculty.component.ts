@@ -1,15 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
 import { CampusApiService } from '../../services/campus-api.service';
 import { debounceTime, distinctUntilChanged, Subject, switchMap, EMPTY } from 'rxjs';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { StorageService } from '../../../../core/storage/storage.service';
+
+
+
 
 export interface ProfessionalInfo {
   designation: string;
   department: string;
-  specialization: string;
+   specialization: string | null;
   yearsOfExperience: string;
   qualifications: string;
   certificates: File | null;
@@ -31,13 +36,46 @@ export interface FacultyFormValue {
   templateUrl: './campus-faculty.component.html',
   styleUrl: './campus-faculty.component.css',
 })
-export class CampusFacultyComponent {
+export class CampusFacultyComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly emailCheckSubject = new Subject<string>();
+
+private readonly storage = inject(StorageService);
+existingFacultyPhones: string[] = [];
+  phoneExists = false;
+checkingPhone = false;
+phoneErrorMessage = '';
+
+
+
+// DOB restrictions
+maxDobDate!: string;
+minDobDate!: string;
+
+
+private setDobLimits(): void {
+  const today = new Date();
+
+  // Faculty minimum age 21
+  const maxYear = today.getFullYear() - 21;
+
+  // Faculty max age 70
+  const minYear = today.getFullYear() - 70;
+
+  const maxDate = new Date(maxYear, today.getMonth(), today.getDate());
+  const minDate = new Date(minYear, 0, 1);
+
+  this.maxDobDate = maxDate.toISOString().split('T')[0];
+  this.minDobDate = minDate.toISOString().split('T')[0];
+}
 
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
+  @Input() showDepartment = true;
+  @Input() editMode = false;
+@Input() editData: FacultyFormValue | null = null;
+
   @Input() isEditMode = false; // When true, skip email validation
   emailExists = false;
   checkingEmail = false;
@@ -52,7 +90,7 @@ export class CampusFacultyComponent {
       {
         designation: '',
         department: '',
-        specialization: '',
+        specialization: null,
         yearsOfExperience: '',
         qualifications: '',
         certificates: null,
@@ -66,7 +104,7 @@ export class CampusFacultyComponent {
 
   // Designation items - Hardcoded enum values (API commented out)
   // Backend expects enum values: PRINCIPAL, PROFESSOR, ASSOCIATE_PROFESSOR, ASSISTANT_PROFESSOR, LECTURER, HEAD_OF_DEPARTMENT, DEAN, DIRECTOR
-  readonly designationItems = signal<readonly DropdownItem<string>[]>([
+  readonly designationItems: readonly DropdownItem<string>[] = [
     { label: 'Principal', value: 'PRINCIPAL' },
     { label: 'Professor', value: 'PROFESSOR' },
     { label: 'Associate Professor', value: 'ASSOCIATE_PROFESSOR' },
@@ -75,16 +113,11 @@ export class CampusFacultyComponent {
     { label: 'Head of Department', value: 'HEAD_OF_DEPARTMENT' },
     { label: 'Dean', value: 'DEAN' },
     { label: 'Director', value: 'DIRECTOR' },
-  ]);
-  loadingDesignations = signal(false);
-
-  // Department items (hardcoded - no API available)
-  readonly departmentItems: readonly DropdownItem<string>[] = [
-    { label: 'Computer Science', value: 'Computer Science' },
-    { label: 'Mathematics', value: 'Mathematics' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
   ];
+
+  // Department items - from @Input or loaded via API
+  departmentItems: { label: string; value: string }[] = [];
+
 
   readonly specializationItems: readonly DropdownItem<string>[] = [
     { label: 'Machine Learning', value: 'Machine Learning' },
@@ -93,9 +126,9 @@ export class CampusFacultyComponent {
     { label: 'Database Systems', value: 'Database Systems' },
     { label: 'Academic Management', value: 'Academic Management' },
     { label: 'Educational Leadership', value: 'Educational Leadership' },
-    { label: 'Computer Science', value: 'Computer Science' },
-    { label: 'Software Engineering', value: 'Software Engineering' },
-    { label: 'Artificial Intelligence', value: 'Artificial Intelligence' },
+    { label: 'Computer Science', value: 'ComputerScience' },
+    { label: 'Software Engineering', value: 'SoftwareEngineering' },
+    { label: 'Artificial Intelligence', value: 'ArtificialIntelligence' },
     { label: 'Cybersecurity', value: 'Cybersecurity' },
   ];
 
@@ -138,6 +171,8 @@ export class CampusFacultyComponent {
             }
           }
         },
+        
+
          
         error: () => {
           this.checkingEmail = false;
@@ -147,7 +182,76 @@ export class CampusFacultyComponent {
           this.emailErrorMessage = '';
         },
       });
+      //  this.loadDesignations();
+
+ 
+      
   }
+
+
+
+  ngOnInit(): void {
+    this.loadExistingFacultyPhones();
+    this.loadDepartments();
+    this.setDobLimits();
+  }
+
+  /** When value is department name (from edit) but items use ID, show name via displayText */
+  departmentDisplayText(index: number): string {
+    const dept = this.value.professionalInfo[index]?.department;
+    if (!dept) return '';
+    const found = this.departmentItems.find((i) => i.value === dept);
+    if (found) return found.label;
+    return dept;
+  }
+
+private loadExistingFacultyPhones(): void {
+  this.campusApi.getAllFaculties().subscribe({
+    next: (response) => {
+      const facultyList = response?.data ?? [];
+
+      this.existingFacultyPhones = facultyList
+        .map((f: unknown) => {
+          const obj = f as Record<string, unknown>;
+
+          const possiblePhone =
+            (obj['phoneNumber'] as string) ||
+            ((obj['basicInformation'] as Record<string, unknown>)?.['phoneNumber'] as string) ||
+            '';
+
+          return possiblePhone;
+        })
+        .map((p) => p.replace(/\D/g, '').slice(-10))
+        .filter((p) => p.length === 10);
+    },
+    error: () => {
+      this.existingFacultyPhones = [];
+    }
+  });
+}
+
+private loadDepartments(): void {
+  const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string;
+
+  if (!campusId) return;
+
+  this.campusApi.getAllDepartmentsByCampus(campusId).subscribe({
+    next: (res) => {
+      if (res?.success && res.data) {
+        this.departmentItems = res.data.map((dept: { id: string; departmentName: string }) => ({
+
+          label: dept.departmentName,
+          value: dept.id
+        }));
+      } else {
+        this.departmentItems = [];
+      }
+    },
+    error: () => {
+      this.departmentItems = [];
+    }
+  });
+}
 
 
   /**
@@ -203,6 +307,48 @@ export class CampusFacultyComponent {
     return emailRegex.test(email);
   }
 
+  private isValidPhone(phone: string): boolean {
+  return /^[6-9]\d{9}$/.test(phone);
+}
+
+
+  private getEmptyFormValue(): FacultyFormValue {
+  return {
+    fullName: '',
+    photo: null,
+    email: '',
+    dateOfBirth: '',
+    phoneNumber: '',
+    professionalInfo: [
+      {
+        designation: '',
+        department: '',
+        specialization: '',
+        yearsOfExperience: '',
+        qualifications: '',
+        certificates: null,
+      },
+    ],
+  };
+}
+
+resetForm(): void {
+  this.value = this.getEmptyFormValue();
+  this.valueChange.emit(this.value);
+
+  // reset email validation state
+  this.emailExists = false;
+  this.checkingEmail = false;
+  this.emailErrorMessage = '';
+
+  // reset photo file input
+  if (this.photoFileInput?.nativeElement) {
+    this.photoFileInput.nativeElement.value = '';
+  }
+}
+
+
+
   patch(patch: Partial<FacultyFormValue>): void {
     const next: FacultyFormValue = { ...this.value, ...patch };
     this.value = next;
@@ -212,6 +358,12 @@ export class CampusFacultyComponent {
     if (patch.email !== undefined && !this.isEditMode) {
       this.checkEmailExists(next.email);
     }
+
+if (patch.phoneNumber !== undefined && !this.isEditMode) {
+  this.checkPhoneExists(next.phoneNumber);
+}
+
+    
   }
 
   checkEmailExists(email: string): void {
@@ -223,6 +375,28 @@ export class CampusFacultyComponent {
       this.checkingEmail = false;
     }
   }
+
+checkPhoneExists(phone: string): void {
+  const digits = phone.replace(/\D/g, '');
+  const cleaned = digits.length > 10 ? digits.slice(-10) : digits;
+
+  if (!cleaned || cleaned.length !== 10) {
+    this.phoneExists = false;
+    this.phoneErrorMessage = '';
+    return;
+  }
+
+  const duplicate = this.existingFacultyPhones.includes(cleaned);
+
+  this.phoneExists = duplicate;
+
+  if (duplicate) {
+    this.phoneErrorMessage =
+      'This phone number is already registered with another faculty';
+  } else {
+    this.phoneErrorMessage = '';
+  }
+}
 
   triggerPhotoSelect(): void {
     this.photoFileInput?.nativeElement?.click();
@@ -282,24 +456,41 @@ export class CampusFacultyComponent {
     return this.value.professionalInfo.length > 1;
   }
 
-  submit(): void {
-    // Skip email validation if in edit mode
-    if (!this.isEditMode) {
-      // Prevent submission if email already exists
-      if (this.emailExists) {
-        return;
-      }
-      
-      // Prevent submission if email is being checked
-      if (this.checkingEmail) {
-        return;
-      }
-    }
-    
-    this.submitted.emit(this.value);
+submit(): void {
+
+ const cleanedInfo = this.value.professionalInfo.map((info: ProfessionalInfo) => {
+  const updated: Partial<ProfessionalInfo> = { ...info };
+
+ 
+
+  // remove department if not needed
+  if (!this.showDepartment) {
+    delete updated.department;
   }
 
+  return updated as ProfessionalInfo;
+});
+  this.value = {
+    ...this.value,
+    professionalInfo: cleanedInfo
+  };
+
+  if (!this.isEditMode) {
+    if (this.emailExists || this.checkingEmail || this.phoneExists || this.checkingPhone) {
+      return;
+    }
+  }
+
+  this.submitted.emit(this.value);
+  // Do not reset here: parent validates and may show error; form should keep values on validation failure.
+  // Parent will close modal on success; reset happens on cancel or when reopening modal.
+}
+
+
+
+
   cancel(): void {
+    this.resetForm();
     this.cancelled.emit();
   }
 

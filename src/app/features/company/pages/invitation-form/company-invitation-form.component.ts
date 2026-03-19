@@ -6,11 +6,13 @@ import { InputComponent } from '../../../../shared/components/input/input.compon
 import { TextareaComponent } from '../../../../shared/components/textarea/textarea.component';
 import { map } from 'rxjs/operators';
 import { CompanyApiService } from '../../services/company-api.service';
+import { isValidUrl } from '../../../../core/validators/url.validator';
 
 
 export interface InvitationFormValue {
   // Campus Details
   campusName: string;
+  department?: string;
   contactPersonName: string;
   contactPersonEmail: string;
   contactPersonPhone: string;
@@ -75,6 +77,7 @@ fetchCampuses = (term: string) => {
 
  @Input() value: InvitationFormValue = {
   campusName: '',
+  department: '',
   contactPersonName: '',
   contactPersonEmail: '',
   contactPersonPhone: '',
@@ -100,6 +103,19 @@ fetchCampuses = (term: string) => {
   @Output() submitted = new EventEmitter<InvitationFormValue>();
 
   submitAttempted = false;
+
+  // --------------- department dropdown ------
+  readonly departmentItems = [
+    { label: 'Computer Science', value: 'CSE' },
+    { label: 'Information Technology', value: 'IT' },
+    { label: 'Electronics & Communication', value: 'ECE' },
+    { label: 'Mechanical Engineering', value: 'ME' },
+    { label: 'Civil Engineering', value: 'CE' },
+    { label: 'MBA', value: 'MBA' },
+    { label: 'BBA', value: 'BBA' },
+    { label: 'Other', value: 'OTHER' },
+  ];
+  
 
   // Dropdown options
   readonly academicYearOptions: DropdownItem[] = [
@@ -165,6 +181,13 @@ onCampusPicked(id: string): void {
     return this.value.campusProspectus?.name ?? '';
   }
 
+  isCampusWebsiteUrlInvalid(): boolean {
+    if (!this.submitAttempted) return false;
+    const s = (this.value.campusWebsiteUrl ?? '').trim();
+    if (s.length === 0) return true;
+    return !isValidUrl(s);
+  }
+
   submit(): void {
     this.submitAttempted = true;
     if (this.isFormValid()) {
@@ -190,6 +213,7 @@ onCampusPicked(id: string): void {
     this.value.contactPersonPhone.trim().length > 0 &&
     this.value.contactPersonDesignation.trim().length > 0 &&
     this.value.campusWebsiteUrl.trim().length > 0 &&
+    !this.isCampusWebsiteUrlInvalid() &&
     this.value.campusAddress.trim().length > 0 &&
     this.value.academicYear.trim().length > 0 &&
     hasPrograms &&

@@ -6,15 +6,54 @@
 }
 
 .label {
-  color: var(--color-text-primary);
+  /* color: var(--color-text-primary); */
   font-weight: 400;
   font-size: 14px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
 }
 
 .asterisk {
   margin-left: 6px;
   color: var(--color-error);
+}
+
+.input-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  min-width: 0;
+}
+
+.input-wrapper.has-password-toggle .control {
+  padding-right: 45px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--color-secondary);
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.password-toggle:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.password-toggle:focus-visible {
+  outline: none;
 }
 
 .control {
@@ -24,14 +63,14 @@
   height: 40px;
   border-radius: 15px;
   padding: 0 45px 0 15px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-weight: 400;
 }
 
 .control[type="date"] {
   position: relative;
   padding-right: 45px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23F4A261' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235b7cba' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 18px 18px;
@@ -112,6 +151,8 @@
   text-overflow: ellipsis;
   padding-right: 10px;
   font-size: 14px;
+  min-width: 0;
+  flex: 1;
 }
 
 .file-placeholder.has-file {
@@ -140,12 +181,28 @@
 }
 
 @media (max-width: 768px) {
+  .input-wrapper {
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .control {
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: 56px;
     border-width: 3px;
     border-radius: 18px;
     padding: 0 16px;
+  }
+
+  .input-wrapper.has-password-toggle .control {
+    padding-right: 50px;
+  }
+
+  .password-toggle {
+    right: 16px;
+    font-size: 18px;
   }
 
   .control[type="date"] {
@@ -162,6 +219,8 @@
 
   .file-wrapper {
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: 56px;
     border-width: 3px;
     border-radius: 18px;

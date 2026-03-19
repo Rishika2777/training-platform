@@ -12,12 +12,21 @@
   gap: 28px;
 }
 
+.form-section + .form-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.error-container {
+  min-height: 18px;
+  font-size: 12px;
+  color: red;
+}
+
 .section-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--color-text-primary);
-  margin: 0;
-  margin-bottom: 8px;
+  margin: 0 0 12px 0;
   text-align: left;
 }
 
@@ -25,6 +34,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+  align-items: start;
 }
 
 .form-row {
@@ -102,7 +112,7 @@
 /* File upload wrapper */
 .file-input-wrapper {
   display: grid;
-  gap: 10px;
+  /* gap: 10px; */
 }
 
 .file-input-container {
@@ -117,10 +127,10 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border: 2px solid #f4a261;
+  border: 2px solid var(--color-primary);
   border-radius: var(--radius-md);
   background: var(--color-white);
-  color: #f4a261;
+  color: var(--color-primary);
   cursor: pointer;
   font-size: 18px;
   padding: 0;
@@ -129,7 +139,7 @@
 }
 
 .file-attach-btn:hover:not(:disabled) {
-  background: #f4a261;
+  background: var(--color-primary);
   color: var(--color-white);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
@@ -149,7 +159,6 @@
 
 .field-label {
   font-size: 14px;
-  font-weight: 700;
   color: var(--color-text-primary);
 }
 
@@ -185,7 +194,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #f4a261;
+  background: var(--color-primary);
   color: var(--color-white);
   display: grid;
   place-items: center;
@@ -194,7 +203,7 @@
 }
 
 .add-btn-with-text:hover:not(:disabled) i {
-  background: #e76f51;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -218,51 +227,50 @@
   overflow: hidden;
 }
 
-/* Orange borders for all inputs and dropdowns */
+/* Theme blue borders for inputs and dropdowns */
 :host ::ng-deep .form-row app-input .input-wrapper,
 :host ::ng-deep .form-row app-input .input-wrapper input {
-  border-color: #f4a261;
+  border-color: var(--color-primary);
 }
 
 :host ::ng-deep .form-row app-input .input-wrapper input:focus {
-  border-color: #f4a261;
-  outline-color: #f4a261;
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 
 :host ::ng-deep .form-row app-dropdown .select-wrapper,
 :host ::ng-deep .form-row app-dropdown .select-wrapper select {
-  border-color: #f4a261;
+  border-color: var(--color-primary);
 }
 
 :host ::ng-deep .form-row app-dropdown .select-wrapper select:focus {
-  border-color: #f4a261;
-  outline-color: #f4a261;
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 
-/* Cancel button - keep original color */
+/* Cancel button – theme outline */
 :host ::ng-deep .form-actions app-button:first-child button.primary {
-  background: #628a8e;
-  border-color: #628a8e;
-  color: var(--color-white);
+  background: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 :host ::ng-deep .form-actions app-button:first-child button.primary:hover:not(:disabled) {
-  background: #4a6d70;
-  border-color: #4a6d70;
+  background: color-mix(in srgb, var(--color-primary) 12%, white);
 }
 
-/* Submit button - same color as close button (#f4a261) */
+/* Submit button – theme primary */
 :host ::ng-deep .form-actions app-button[type="submit"] button.primary,
 :host ::ng-deep .form-actions app-button:last-child button.primary {
-  background: #f4a261;
-  border-color: #f4a261;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: var(--color-white);
 }
 
 :host ::ng-deep .form-actions app-button[type="submit"] button.primary:hover:not(:disabled),
 :host ::ng-deep .form-actions app-button:last-child button.primary:hover:not(:disabled) {
-  background: #e76f51;
-  border-color: #e76f51;
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
 }
 
 /* Ensure buttons stay within form-actions container */
@@ -278,14 +286,122 @@
 }
 
 @media (max-width: 1200px) {
+  .faculty-form {
+    gap: 32px;
+    padding: var(--space-md);
+  }
+
   .form-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .form-section {
+    gap: 24px;
   }
 }
 
 @media (max-width: 768px) {
+  .faculty-form {
+    gap: 24px;
+    padding: var(--space-sm);
+  }
+
+  .form-section {
+    gap: 20px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .form-row {
+    gap: 8px;
+  }
+
+  .professional-info-group {
+    padding: 12px 6px;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+  }
+
+  .file-input-container {
+    gap: 8px;
+  }
+
+  .file-attach-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+  }
+
+  :host ::ng-deep .form-actions app-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .faculty-form {
+    gap: 20px;
+    padding: 12px;
+  }
+
+  .form-section {
+    gap: 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .form-grid {
+    gap: 12px;
+  }
+
+  .form-row {
+    gap: 6px;
+  }
+
+  .professional-info-group {
+    padding: 10px 4px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+  }
+
+  .remove-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .file-attach-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .add-professional-info {
+    margin-top: 16px;
+    margin-bottom: 16px;
+  }
+
+  .form-actions {
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
   }
 }
 

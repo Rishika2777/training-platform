@@ -7,6 +7,7 @@ import {
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
@@ -29,7 +30,7 @@ function normalizeServiceBaseUrl(value: string | undefined): string | null {
   return withProto.endsWith('/') ? withProto.slice(0, -1) : withProto;
 }
 
-type UpstreamKind = 'STUDENT' | 'CAMPUS' | 'COMPANY' | 'AUTH' | 'ADMIN' | 'DEFAULT';
+type UpstreamKind = 'STUDENT' | 'CAMPUS' | 'COMPANY' | 'AUTH' | 'ADMIN' | 'COMMON' | 'DEFAULT';
 
 function resolveUpstreamBase(reqPath: string): string | null {
   // Prefer service-specific URLs; fall back to generic API base if provided.
@@ -44,43 +45,155 @@ function resolveUpstreamBase(reqPath: string): string | null {
   );
   const auth = normalizeServiceBaseUrl(process.env['AUTH_SERVICE_URL'] ?? process.env['SYNKUP_API_BASE_URL']);
   const admin = normalizeServiceBaseUrl(process.env['ADMIN_SERVICE_URL'] ?? process.env['SYNKUP_API_BASE_URL']);
+  const common = normalizeServiceBaseUrl(
+    process.env['COMMON_SERVICE_URL'] ?? process.env['SYNKUP_COMMON_API_BASE_URL'],
+  );
   const fallback = normalizeServiceBaseUrl(process.env['SYNKUP_API_BASE_URL']);
 
-  const kind: UpstreamKind =
-    reqPath.startsWith('/api/v1/student') ||
-    reqPath.startsWith('/api/v1/students') ||
-    reqPath.startsWith('/api/v1/batchmates') ||
-    reqPath.startsWith('/api/v1/placed-students')
-      ? 'STUDENT'
-      : reqPath.startsWith('/api/v1/campus') ||
-        reqPath.startsWith('/api/v1/faculty') ||
-        reqPath.startsWith('/api/v1/prospectus') ||
-        reqPath.startsWith('/api/v1/dashboard') ||
-        reqPath.startsWith('/api/v1/courses') ||
-        reqPath.startsWith('/api/v1/public/landing')
-        ? 'CAMPUS'
-        : reqPath.startsWith('/api/v1/company') ||
-          reqPath.startsWith('/api/v1/preferred-campus') ||
-          reqPath.startsWith('/api/v1/clients') ||
-          reqPath.startsWith('/api/v1/specializations') ||
-          reqPath.startsWith('/api/v1/company-landing') ||
-          reqPath.startsWith('/api/v1/vacancy') ||
-          reqPath.startsWith('/api/v1/vision') ||
-          reqPath.startsWith('/api/v1/benefits-offer')
-          ? 'COMPANY'
-          : reqPath.startsWith('/api/v1/admin')
-            ? 'ADMIN'
-            : reqPath.startsWith('/api/v1/auth') || reqPath.startsWith('/api/v1/users')
-              ? 'AUTH'
+  const STUDENT_PREFIXES = [
+    '/api/v1/student',
+    '/api/v1/students',
+    '/api/v1/batchmates',
+    '/api/v1/admin/students',
+    '/api/v1/placed-students',
+    '/api/v1/public-landing',
+    '/api/v1/files',
+    '/api/v1/follower',
+  ];
+  const CAMPUS_PREFIXES = [
+    '/api/v1/campus',
+    '/api/v1/faculty',
+    '/api/v1/prospectus',
+    '/api/v1/dashboard',
+    '/api/v1/courses',
+    '/api/v1/public/landing',
+      '/api/v1/departments', 
+    '/api/v1/guest/landing',
+     '/api/v1/notice-board',
+  ];
+  const COMPANY_PREFIXES = [
+    '/api/v1/company',
+    '/api/v1/preferred-campus',
+    '/api/v1/clients',
+    '/api/v1/specializations',
+    '/api/v1/company-landing',
+    '/api/v1/apply/vacancy',
+     '/api/v1/vacancy',
+    '/api/v1/vision',
+    '/api/v1/benefits-offer',
+  ];
+  const AUTH_PREFIXES = ['/api/v1/auth', '/api/v1/users', '/api/v1/contact-support'];
+  const COMMON_PREFIXES = ['/api/v1/common', '/api/v1/feed', '/api/v1/notifications'];
+
+  // /api/v1/recommendation is used by BOTH company (port 8083) and student (port 8082)
+  // Route by query param: target=company -> COMPANY, else -> STUDENT
+  if (reqPath.startsWith('/api/v1/recommendation')) {
+    const queryIndex = reqPath.indexOf('?');
+    const query = queryIndex >= 0 ? reqPath.slice(queryIndex) : '';
+    return query.includes('target=company') ? (company ?? fallback) : (student ?? fallback);
+  }
+
+  // Route /api/v1/public-landing/<id>/... by id prefix: com_ -> COMPANY, stu_ -> STUDENT
+  if (reqPath.startsWith('/api/v1/public-landing/')) {
+    const afterPrefix = reqPath.slice('/api/v1/public-landing/'.length);
+    const firstSegment = afterPrefix.split('/')[0] ?? '';
+    if (firstSegment.startsWith('com_')) {
+      return company ?? fallback;
+    }
+    if (firstSegment.startsWith('stu_')) {
+      return student ?? fallback;
+    }
+  }
+
+  const matchesPrefix = (prefixes: readonly string[]): boolean =>
+    prefixes.some((prefix: string) => reqPath.startsWith(prefix));
+
+  const kind: UpstreamKind = matchesPrefix(STUDENT_PREFIXES)
+    ? 'STUDENT'
+    : matchesPrefix(CAMPUS_PREFIXES)
+      ? 'CAMPUS'
+      : matchesPrefix(COMPANY_PREFIXES)
+        ? 'COMPANY'
+        : reqPath.startsWith('/api/v1/admin')
+          ? 'ADMIN'
+          : matchesPrefix(AUTH_PREFIXES)
+            ? 'AUTH'
+            : matchesPrefix(COMMON_PREFIXES)
+              ? 'COMMON'
               : 'DEFAULT';
 
   if (kind === 'STUDENT') return student ?? fallback;
   if (kind === 'CAMPUS') return campus ?? fallback;
   if (kind === 'COMPANY') return company ?? fallback;
-  if (kind === 'ADMIN') return admin ?? fallback;
+  if (kind === 'ADMIN') return admin ?? auth ?? fallback;
   if (kind === 'AUTH') return auth ?? fallback;
+  if (kind === 'COMMON') return common ?? fallback;
   return fallback;
 }
+
+const STUDENT_PREFIXES = [
+  '/api/v1/student',
+  '/api/v1/students',
+  '/api/v1/batchmates',
+  '/api/v1/admin/students',
+  '/api/v1/placed-students',
+  '/api/v1/public-landing',
+  '/api/v1/recommendation',
+  '/api/v1/files',
+] as const;
+const CAMPUS_PREFIXES = [
+  '/api/v1/campus',
+  '/api/v1/faculty',
+  '/api/v1/prospectus',
+  '/api/v1/dashboard',
+  '/api/v1/courses',
+    '/api/v1/departments',
+  '/api/v1/public/landing',
+] as const;
+const COMPANY_PREFIXES = [
+  '/api/v1/company',
+  '/api/v1/preferred-campus',
+  '/api/v1/clients',
+  '/api/v1/specializations',
+  '/api/v1/company-landing',
+  '/api/v1/apply/vacancy',
+       '/api/v1/vacancy',
+  '/api/v1/vision',
+  '/api/v1/benefits-offer',
+] as const;
+const AUTH_PREFIXES = ['/api/v1/auth', '/api/v1/users', '/api/v1/contact-support', '/api/v1/admin'] as const;
+const COMMON_PREFIXES = ['/api/v1/common', '/api/v1/feed'] as const;
+
+function getUpstreamKindForPath(reqPath: string): UpstreamKind {
+  if (reqPath.startsWith('/api/v1/recommendation')) {
+    return reqPath.includes('target=company') ? 'COMPANY' : 'STUDENT';
+  }
+  if (reqPath.startsWith('/api/v1/public-landing/')) {
+    const afterPrefix = reqPath.slice('/api/v1/public-landing/'.length);
+    const firstSegment = afterPrefix.split('/')[0] ?? '';
+    if (firstSegment.startsWith('com_')) return 'COMPANY';
+    if (firstSegment.startsWith('stu_')) return 'STUDENT';
+  }
+  const matchesPrefix = (prefixes: readonly string[]) =>
+    prefixes.some((prefix: string) => reqPath.startsWith(prefix));
+  if (matchesPrefix(STUDENT_PREFIXES)) return 'STUDENT';
+  if (matchesPrefix(CAMPUS_PREFIXES)) return 'CAMPUS';
+  if (matchesPrefix(COMPANY_PREFIXES)) return 'COMPANY';
+  if (reqPath.startsWith('/api/v1/admin')) return 'ADMIN';
+  if (matchesPrefix(AUTH_PREFIXES)) return 'AUTH';
+  if (matchesPrefix(COMMON_PREFIXES)) return 'COMMON';
+  return 'DEFAULT';
+}
+
+const UPSTREAM_ENV_VARS: Record<UpstreamKind, readonly string[]> = {
+  STUDENT: ['STUDENT_SERVICE_URL', 'SYNKUP_STUDENT_API_BASE_URL', 'SYNKUP_API_BASE_URL'],
+  CAMPUS: ['CAMPUS_SERVICE_URL', 'SYNKUP_CAMPUS_API_BASE_URL', 'SYNKUP_API_BASE_URL'],
+  COMPANY: ['COMPANY_SERVICE_URL', 'SYNKUP_COMPANY_API_BASE_URL', 'SYNKUP_API_BASE_URL'],
+  AUTH: ['AUTH_SERVICE_URL', 'SYNKUP_API_BASE_URL'],
+  ADMIN: ['ADMIN_SERVICE_URL', 'SYNKUP_API_BASE_URL'],
+  COMMON: ['COMMON_SERVICE_URL', 'SYNKUP_COMMON_API_BASE_URL', 'SYNKUP_API_BASE_URL'],
+  DEFAULT: ['SYNKUP_API_BASE_URL'],
+};
 
 function shouldHaveBody(method: string): boolean {
   const m = method.toUpperCase();
@@ -149,26 +262,82 @@ function parseDotEnv(contents: string): Record<string, string> {
   return result;
 }
 
-function loadDotEnvIfPresent(): void {
+/** Replace ${VAR} in value using process.env (for already-loaded and current batch). */
+function expandEnvValue(value: string, applied: Record<string, string>): string {
+  return value.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_, name) => {
+    if (process.env[name] !== undefined) return process.env[name] ?? '';
+    if (applied[name] !== undefined) return applied[name] ?? '';
+    return '';
+  });
+}
+
+function loadDotEnvFromPath(envPath: string): boolean {
   try {
-    const envPath = join(process.cwd(), '.env');
     const raw = readFileSync(envPath, 'utf8');
     const parsed = parseDotEnv(raw);
-    console.log('Loading .env file from:', envPath);
+    console.log('Loading .env from:', envPath);
+    const applied: Record<string, string> = {};
     for (const [k, v] of Object.entries(parsed)) {
       if (process.env[k] === undefined) {
-        process.env[k] = v;
-        console.log(`Loaded env: ${k} = ${v}`);
+        const value = expandEnvValue(v, applied);
+        process.env[k] = value;
+        applied[k] = value;
+        console.log('Loaded env:', k, '= ***');
       }
     }
-    console.log('CAMPUS_SERVICE_URL:', process.env['CAMPUS_SERVICE_URL']);
-  } catch (err) {
-    console.error('Failed to load .env file:', err);
+    return true;
+  } catch {
+    return false;
   }
 }
 
+function loadDotEnvIfPresent(): boolean {
+  const candidates = [
+    join(process.cwd(), '.env'),
+    join(import.meta.dirname, '.env'),
+    join(import.meta.dirname, '..', '.env'),
+    join(import.meta.dirname, '..', '..', '.env'),
+  ];
+  for (const envPath of candidates) {
+    if (loadDotEnvFromPath(envPath)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Load `.env` for local dev / deployments (no external deps).
-loadDotEnvIfPresent();
+// Note: .bashrc / .profile are NOT read by Node when started by npm/pm2/systemd. Use .env on the server.
+const envLoaded = loadDotEnvIfPresent();
+
+const UPSTREAM_ENV_KEYS = [
+  'SYNKUP_API_BASE_URL',
+  'COMMON_SERVICE_URL',
+  'SYNKUP_COMMON_API_BASE_URL',
+  'STUDENT_SERVICE_URL',
+  'CAMPUS_SERVICE_URL',
+  'COMPANY_SERVICE_URL',
+  'AUTH_SERVICE_URL',
+  'ADMIN_SERVICE_URL',
+] as const;
+
+function logUpstreamEnvAtStartup(): void {
+  const set = UPSTREAM_ENV_KEYS.filter((k) => process.env[k]);
+  const missing = UPSTREAM_ENV_KEYS.filter((k) => !process.env[k]);
+  if (set.length > 0) {
+    console.log('Upstream env set:', set.join(', '));
+  }
+  if (missing.length > 0) {
+    console.warn('Upstream env not set (API proxy may return 502):', missing.join(', '));
+    if (!envLoaded) {
+      console.warn(
+        'No .env file was loaded. On the server, put a .env file in the app directory (same folder as server or project root). .bashrc is not used by Node.',
+      );
+    }
+  }
+}
+
+logUpstreamEnvAtStartup();
 
 /**
  * Helper function to set CORS headers on the response.
@@ -213,15 +382,17 @@ app.use('/api/v1', async (req, res) => {
   const upstreamBase = resolveUpstreamBase(req.originalUrl);
   if (!upstreamBase) {
     setCorsHeaders(req, res);
-    console.error('❌ Upstream service URL not configured for:', req.originalUrl);
-    console.error('Available env vars:', {
-      CAMPUS_SERVICE_URL: process.env['CAMPUS_SERVICE_URL'],
-      SYNKUP_CAMPUS_API_BASE_URL: process.env['SYNKUP_CAMPUS_API_BASE_URL'],
-    });
+    const kind = getUpstreamKindForPath(req.originalUrl);
+    const envVars = UPSTREAM_ENV_VARS[kind];
+    const message =
+      envVars.length > 0
+        ? `Upstream service URL not configured for this request. Set ${envVars.join(' or ')} on the server environment.`
+        : 'Upstream service URL not configured. Set SYNKUP_API_BASE_URL on the server environment.';
+    console.error('❌ Upstream service URL not configured for:', req.originalUrl, '| kind:', kind);
+    console.error('Set one of:', envVars);
     res.status(502).json({
       success: false,
-      message:
-        'Upstream service URL not configured. Set CAMPUS_SERVICE_URL (and others) on the server environment.',
+      message,
     });
     return;
   }
@@ -263,8 +434,12 @@ app.use('/api/v1', async (req, res) => {
     res.status(response.status);
 
     // Forward response headers from upstream, but skip hop-by-hop headers and CORS headers
+    let contentType = '';
     response.headers.forEach((v, k) => {
       const lowerKey = k.toLowerCase();
+      if (lowerKey === 'content-type') {
+        contentType = (v ?? '').toLowerCase();
+      }
       // Skip hop-by-hop headers that shouldn't be forwarded
       if (
         lowerKey === 'transfer-encoding' ||
@@ -282,12 +457,19 @@ app.use('/api/v1', async (req, res) => {
       if (
         lowerKey.startsWith('access-control-') ||
         lowerKey === 'content-encoding' || // fetch may transparently decode; we serve raw bytes below
-        lowerKey === 'content-length' // we buffer and re-send; content-length may no longer match
+        lowerKey === 'content-length' // skip for streaming; buffer path may change length
       ) {
         return;
       }
       res.setHeader(k, v);
     });
+
+    // SSE: stream the body instead of buffering to avoid hanging on long-lived streams
+    if (contentType.includes('text/event-stream') && response.body != null) {
+      const nodeStream = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
+      nodeStream.pipe(res);
+      return;
+    }
 
     const responseBody = new Uint8Array(await response.arrayBuffer());
     res.end(responseBody);
@@ -343,6 +525,10 @@ app.get('/assets/env.js', (_req, res) => {
     COMPANY_SERVICE_URL: process.env['COMPANY_SERVICE_URL'],
     CAMPANY_SERVICE_URL: process.env['CAMPANY_SERVICE_URL'],
     ADMIN_SERVICE_URL: process.env['ADMIN_SERVICE_URL'],
+
+    // S3 upload from browser (read from .env; do not commit .env)
+    AWS_S3_ACCESS_KEY_ID: process.env['AWS_S3_ACCESS_KEY_ID'],
+    AWS_S3_SECRET_ACCESS_KEY: process.env['AWS_S3_SECRET_ACCESS_KEY'],
   };
 
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -368,12 +554,13 @@ app.use((req, res, next) => {
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
   const port = process.env['PORT'] || 5500;
-  app.listen(port, (error) => {
+  const host = process.env['HOST'] || '0.0.0.0';
+  app.listen(Number(port), host, (error) => {
     if (error) {
       throw error;
     }
 
-    console.log(`Node Express server listening on http://localhost:${port}`);
+    console.log(`Node Express server listening on http://${host}:${port}`);
   });
 }
 

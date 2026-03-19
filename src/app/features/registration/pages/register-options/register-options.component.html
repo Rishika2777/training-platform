@@ -1,44 +1,65 @@
 <div class="register-options-page">
-  <!-- Top Right Sign In Button -->
   <div class="top-right">
-      <app-button
-        class="signin-btn"
-        type="button"
-        variant="outline"
-        label="Sign In"
-        (buttonClick)="goToLogin()"
-      />
+    <button type="button" class="signin-btn" (click)="goToLogin()">Sign In</button>
   </div>
 
-  <div class="container">
-      <!-- Left Box -->
-      <div class="left-box">
-          <h2>Welcome To Your<br />Professional Community</h2>
-          <p>
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
-              Ipsum has been the industry's
-          </p>
+  <div class="cosmic-container">
+    <!-- Stars layer (subtle) -->
+    <div class="stars" aria-hidden="true"></div>
+
+    <!-- Horizon / aurora band -->
+    <div class="horizon-band" aria-hidden="true"></div>
+
+    <!-- Content: robot + heading + buttons -->
+    <div class="content-wrap">
+      <div class="heading-row">
+        <div class="robot-section" aria-hidden="true">
+          <div class="robot-wrap">
+            <svg class="robot-mascot" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+              <line x1="85" y1="40" x2="80" y2="10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="115" y1="40" x2="120" y2="10" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="80" cy="10" r="3" fill="#5B8DEE"/>
+              <circle cx="120" cy="10" r="3" fill="#5B8DEE"/>
+              <rect x="50" y="45" width="100" height="70" rx="12" fill="#fff" opacity="0.95"/>
+              <circle class="robot-eye" cx="85" cy="75" r="12" fill="#5B8DEE"/>
+              <circle class="robot-eye" cx="115" cy="75" r="12" fill="#5B8DEE"/>
+              <circle cx="85" cy="75" r="5" fill="#A2C2F7"/>
+              <circle cx="115" cy="75" r="5" fill="#A2C2F7"/>
+              <path d="M 75 95 Q 100 108 125 95" stroke="#5B8DEE" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <rect x="88" y="112" width="24" height="8" rx="2" fill="#5B8DEE" opacity="0.8"/>
+              <rect x="40" y="120" width="120" height="90" rx="8" fill="#fff" opacity="0.95"/>
+              <rect x="55" y="135" width="35" height="25" rx="4" fill="#5B8DEE" opacity="0.35"/>
+              <rect x="110" y="135" width="35" height="25" rx="4" fill="#5B8DEE" opacity="0.35"/>
+              <circle cx="65" cy="215" r="8" fill="#5B8DEE" opacity="0.6"/>
+              <circle cx="135" cy="215" r="8" fill="#5B8DEE" opacity="0.6"/>
+              <rect x="55" y="218" width="30" height="18" rx="4" fill="#fff"/>
+              <rect x="115" y="218" width="30" height="18" rx="4" fill="#fff"/>
+              <!-- Pointing arm -->
+              <path d="M 165 100 L 195 85 L 165 95 Z" fill="#fff" opacity="0.9"/>
+            </svg>
+          </div>
+        </div>
+        <h1 class="join-heading">How Would you Like to Join?</h1>
       </div>
 
-      <!-- Right Options -->
-      <div class="right-box">
-          @for (option of options; track option.userType) {
-            <app-button
-              class="option-btn"
-              type="button"
-              variant="outline"
-              label="Register as {{ option.label }}"
-              [disabled]="submitting"
-              (buttonClick)="select(option)"
-            />
-          }
+      <div class="buttons-stack">
+        @for (option of options; track option.userType) {
+          <button
+            type="button"
+            class="pill-btn"
+            [disabled]="submitting"
+            (click)="select(option)"
+          >
+            {{ option.displayLabel }}
+          </button>
+        }
       </div>
+    </div>
   </div>
 
-  <footer>© 2025 Synkup Solutions. All rights reserved.</footer>
+  <footer class="page-footer">© 2025 Synkup Solutions. All rights reserved.</footer>
 </div>
 
-<!-- OTP Verification Modal - commented out as OTP API is not completed -->
 <app-modal
   [visible]="showOtpModal"
   title="Verify OTP"

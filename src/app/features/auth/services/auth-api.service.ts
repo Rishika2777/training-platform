@@ -13,6 +13,7 @@ import {
   ResetPasswordWithEmailRequest,
   SelectUserTypeRequest,
   ProfileCompletionRequest,
+  ReportIssueRequest,
 } from '../../admin/models/admin-api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -81,6 +82,12 @@ export class AuthApiService {
 
   getCurrentUser(): Observable<unknown> {
     return this.api.get<ApiResponse<unknown>>(API_ENDPOINTS.AUTH.ME);
+  }
+
+  reportIssue(request: ReportIssueRequest): Observable<void> {
+    return this.api
+      .post<ApiResponse<void>, ReportIssueRequest>(API_ENDPOINTS.CONTACT.CONTACT_SUPPORT, request)
+      .pipe(map(() => void 0));
   }
 }
 

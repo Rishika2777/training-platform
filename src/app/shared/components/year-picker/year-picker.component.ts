@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges, signal, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, computed, ElementRef, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges, signal, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-year-picker',
@@ -8,7 +8,7 @@ import { Component, computed, ElementRef, EventEmitter, HostListener, Input, OnC
   templateUrl: './year-picker.component.html',
   styleUrl: './year-picker.component.css',
 })
-export class YearPickerComponent implements OnChanges {
+export class YearPickerComponent implements OnChanges, AfterViewChecked {
   @Input() value = ''; // YYYY-01-01 format
   @Input() label = '';
   @Input() required = false;
@@ -20,6 +20,8 @@ export class YearPickerComponent implements OnChanges {
   @Output() valueChange = new EventEmitter<string>();
 
   @ViewChild('pickerWrapper', { static: false }) pickerWrapper?: ElementRef<HTMLElement>;
+  @ViewChild('dropdownEl', { static: false }) dropdownEl?: ElementRef<HTMLElement>;
+  @ViewChild('triggerEl', { static: false }) triggerEl?: ElementRef<HTMLElement>;
 
   private static idCounter = 0;
   readonly pickerId = `year-picker-${YearPickerComponent.idCounter++}`;
@@ -70,7 +72,36 @@ export class YearPickerComponent implements OnChanges {
 
   togglePicker(): void {
     if (this.disabled) return;
-    this.isOpen.update(open => !open);
+    this.isOpen.update((open) => {
+      const next = !open;
+      if (next) setTimeout(() => this.positionDropdown(), 0);
+      return next;
+    });
+  }
+
+  /** Position dropdown when inside a modal (fixed positioning). */
+  private positionDropdown(): void {
+    const dropdown = this.dropdownEl?.nativeElement;
+    const trigger = this.triggerEl?.nativeElement;
+    if (!dropdown || !trigger || typeof window === 'undefined') return;
+    if (window.getComputedStyle(dropdown).position !== 'fixed') return;
+    const rect = trigger.getBoundingClientRect();
+    dropdown.style.top = `${rect.bottom + 8}px`;
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.width = `${rect.width}px`;
+    dropdown.style.minWidth = `${rect.width}px`;
+  }
+
+  /** Called when label is clicked or activated via keyboard; open picker and prevent default behavior. */
+  onLabelClick(event: Event): void {
+    event.preventDefault();
+    if (!this.disabled) this.togglePicker();
+  }
+
+  /** Called when trigger (input area or icon) is clicked; ensure picker toggles. */
+  onTriggerClick(event: MouseEvent): void {
+    event.stopPropagation();
+    this.togglePicker();
   }
 
   closePicker(): void {
@@ -123,6 +154,10 @@ export class YearPickerComponent implements OnChanges {
       const newDecade = Math.floor(this.selectedYear / 10) * 10;
       this.currentDecade.set(newDecade);
     }
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.isOpen() && this.dropdownEl?.nativeElement) this.positionDropdown();
   }
 
   @HostListener('document:click', ['$event'])

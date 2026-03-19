@@ -1,32 +1,33 @@
 <form class="specialization-form" (ngSubmit)="onFormSubmit($event)">
   <div class="form-header">
     <h2 class="form-title">We are specialized in</h2>
+     <button
+    type="button"
+    class="action-btn add-btn"
+    (click)="addTechnology()"
+    [disabled]="submitting"
+    title="Add Technology"
+  >
+    <i class="fa-solid fa-plus"></i>
+  </button>
   </div>
 
   <div class="technologies-list">
     @for (tech of value.technologies; track $index) {
       <div class="technology-card">
         <div class="technology-header">
-          <div class="technology-actions">
-        <button
-          type="button"
-          class="action-btn add-btn"
-          (click)="addTechnology()"
-          [disabled]="submitting"
-              title="Add Technology"
-        >
-          <i class="fa-solid fa-plus"></i>
-        </button>
-        <button
-          type="button"
-          class="action-btn remove-btn"
-          (click)="removeTechnology($index)"
-          [disabled]="submitting || value.technologies.length === 1"
-              title="Remove Technology"
-        >
-          <i class="fa-solid fa-minus"></i>
-        </button>
-          </div>
+        <div class="technology-actions">
+  <button
+    type="button"
+    class="action-btn remove-btn"
+    (click)="removeTechnology($index)"
+    [disabled]="submitting || value.technologies.length === 1"
+    title="Remove Technology"
+  >
+    <i class="fa-solid fa-minus"></i>
+  </button>
+</div>
+
         </div>
 
         <div class="technology-fields">
@@ -41,9 +42,15 @@
               (valueChange)="updateTechnologyName($index, $event)"
               placeholder="Enter technology name"
             />
-            @if (submitAttempted && !tech.technologyName.trim()) {
-              <span class="error-message">Technology name is required</span>
-            }
+          @if (submitAttempted && !tech.technologyName.trim()) {
+  <span class="error-message">Technology name is required</span>
+}
+
+@if (submitAttempted && tech.technologyName.trim() && !/^[A-Za-z\s]+$/.test(tech.technologyName)) {
+  <span class="error-message">
+    Technology name must contain only alphabets and spaces
+  </span>
+}
           </div>
 
           <div class="form-row">
@@ -57,9 +64,15 @@
               (valueChange)="updateTechnologyDescription($index, $event)"
               placeholder="Enter description"
             />
-            @if (submitAttempted && !tech.description.trim()) {
-              <span class="error-message">Description is required</span>
-            }
+@if (submitAttempted && !tech.description.trim()) {
+  <span class="error-message">Description is required</span>
+}
+
+@if (submitAttempted && tech.description.trim() && !/^[A-Za-z\s]+$/.test(tech.description)) {
+  <span class="error-message">
+    Description must contain only alphabets and spaces
+  </span>
+}
           </div>
 
           <div class="form-row">

@@ -6,16 +6,27 @@
         Company's Vision
         <span class="asterisk" aria-hidden="true">*</span>
       </label>
-      <textarea
-        id="company-vision"
-        class="vision-textarea"
-        [class.invalid]="visionInvalid"
-        [value]="value.vision"
-        [disabled]="loading"
-        placeholder="Enter your company's vision..."
-        (input)="updateVision($any($event.target).value)"
-        required
-      ></textarea>
+  <textarea
+  id="company-vision"
+  class="vision-textarea"
+  [class.invalid]="visionInvalid"
+  [value]="value.vision"
+  [disabled]="loading"
+  placeholder="Enter your company's vision..."
+  (input)="updateVision($any($event.target).value)"
+  required
+  maxlength="500"
+></textarea>
+
+@if (visionInvalid) {
+  <div class="error-text">
+    Company vision must be at least 20 characters.
+  </div>
+}
+
+
+
+
     </div>
 
     <!-- Metrics Section -->

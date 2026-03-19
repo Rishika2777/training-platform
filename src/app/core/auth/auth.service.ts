@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 import { API_ENDPOINTS, EnumLoginStatus, LOGIN_STATUS, STORAGE_KEYS, UserRole, UserType } from '../config/app.constants';
 import { ApiService } from '../api/api.service';
+import { ApiResponseEnvelope, unwrapApiResponse } from '../api/api-response.utils';
 import { AuthStateService } from './auth-state.service';
 import { UserData } from '../models/user.model';
 import { StorageService } from '../storage/storage.service';
@@ -13,11 +14,12 @@ export interface LoginRequest {
 
 export interface RegisterRequest {
   email: string;
-  password: string;
+  password?: string;
   confirmPassword?: string;
   phoneNumber?: string;
   userType?: UserType;
   name?: string; // optional if backend supports it
+  emailVerified?: boolean;
 }
 
 export interface RegisterOptions {
@@ -26,8 +28,18 @@ export interface RegisterOptions {
 
 export interface RegistrationDraft {
   email: string;
-  password: string;
-  confirmPassword: string;
+  password?: string;
+  confirmPassword?: string;
+  emailVerified?: boolean;
+  /** Firebase ID token from Google Sign-In; when set, use POST /auth/google after user type selection. */
+  idToken?: string;
+  /** Firebase additionalUserInfo.isNewUser — true when user signed in for the first time. */
+  isNewUser?: boolean;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
+  userType: UserType;
 }
 
 export interface ResendOtpRequest {
@@ -39,10 +51,8 @@ export interface VerifyOtpRequest {
   otp: string;
 }
 
-interface ApiResponse<T> {
-  success?: boolean;
-  message?: string;
-  data?: T;
+export interface VerifyPhoneRequest {
+  phoneNumber: string;
 }
 
 interface AuthPayload {
@@ -63,6 +73,7 @@ interface AuthPayload {
   studentId?: string;
   campusId?: string;
   companyId?: string;
+  departmentId?: string;
   redirectTo?: string;
 }
 
@@ -80,6 +91,7 @@ interface AuthPayloadUser {
   studentId?: string;
   campusId?: string;
   companyId?: string;
+  departmentId?: string;
   redirectTo?: string;
 }
 
@@ -103,12 +115,13 @@ function isUserRole(value: string): value is UserRole {
     value === 'CAMPUS_ADMIN' ||
     value === 'STUDENT' ||
     value === 'COMPANY_ADMIN' ||
-    value === 'USER'
+    value === 'USER'||
+    value === 'DEPARTMENT'
   );
 }
 
 function isUserType(value: string): value is UserType {
-  return value === 'CAMPUS' || value === 'COMPANY' || value === 'STUDENT';
+  return value === 'CAMPUS' || value === 'COMPANY' || value === 'STUDENT' || value === 'DEPARTMENT';
 }
 
 function defaultRoleForUserType(userType: UserType): UserRole {
@@ -117,6 +130,9 @@ function defaultRoleForUserType(userType: UserType): UserRole {
   }
   if (userType === 'COMPANY') {
     return 'COMPANY_ADMIN';
+  }
+  if (userType === 'DEPARTMENT') {
+    return 'DEPARTMENT';
   }
   return 'STUDENT';
 }
@@ -128,13 +144,6 @@ function normalizeRoles(userType?: string, backendRoles?: readonly string[]): Us
   }
   const merged = uniqueStrings([...base, ...(backendRoles ?? [])]);
   return merged.filter((r): r is UserRole => isUserRole(r));
-}
-
-function unwrapResponse<T>(raw: T | ApiResponse<T>): T {
-  const maybeWrapped = raw as ApiResponse<T>;
-  return maybeWrapped && typeof maybeWrapped === 'object' && 'data' in maybeWrapped && maybeWrapped.data
-    ? maybeWrapped.data
-    : (raw as T);
 }
 
 function mergeUserPayload(payload: AuthPayload): AuthPayload {
@@ -161,6 +170,7 @@ function mergeUserPayload(payload: AuthPayload): AuthPayload {
     studentId: payload.studentId ?? u.studentId,
     campusId: payload.campusId ?? u.campusId,
     companyId: payload.companyId ?? u.companyId,
+    departmentId: payload.departmentId ?? u.departmentId,
     redirectTo: payload.redirectTo ?? u.redirectTo,
   };
 }
@@ -191,6 +201,7 @@ function buildUserData(payload: AuthPayload): UserData | null {
     studentId: p.studentId,
     campusId: p.campusId,
     companyId: p.companyId,
+    departmentId: p.departmentId,
     redirectTo: p.redirectTo,
   };
 }
@@ -224,6 +235,29 @@ export class AuthService {
     );
   }
 
+  /**
+   * Authenticate or register with Google using Firebase ID token.
+   * Call after user selects userType (e.g. on register-options page).
+   */
+  googleLogin(request: GoogleLoginRequest): Observable<unknown> {
+    return this.api.post<unknown, GoogleLoginRequest>(API_ENDPOINTS.AUTH.GOOGLE, request).pipe(
+      tap({
+        next: (response) => {
+          this.persistAuthFromResponse(response, { persistTokens: true });
+        },
+      }),
+      map((response) => response),
+    );
+  }
+
+  /**
+   * Verify phone number with backend after Firebase OTP verification.
+   * Called after frontend has verified OTP via Firebase. Updates isPhoneVerified in database.
+   */
+  verifyPhone(request: VerifyPhoneRequest): Observable<unknown> {
+    return this.api.post<unknown, VerifyPhoneRequest>(API_ENDPOINTS.AUTH.VERIFY_PHONE, request);
+  }
+
   extractEmailVerified(response: unknown): boolean | undefined {
     const payload = this.extractAuthPayload(response);
     return payload?.emailVerified;
@@ -251,7 +285,7 @@ export class AuthService {
 
   resendOtp(email: string): Observable<void> {
     return this.api
-      .post<ApiResponse<void>, ResendOtpRequest>(API_ENDPOINTS.AUTH.RESEND_OTP, { email })
+      .post<ApiResponseEnvelope<void>, ResendOtpRequest>(API_ENDPOINTS.AUTH.RESEND_OTP, { email })
       .pipe(map(() => void 0));
   }
 
@@ -267,7 +301,10 @@ export class AuthService {
   me(): Observable<UserData | null> {
     return this.api.get<unknown>(API_ENDPOINTS.AUTH.ME).pipe(
       map((raw) => {
-        const payload = unwrapResponse<AuthPayload>(raw as AuthPayload | ApiResponse<AuthPayload>);
+        const payload = unwrapApiResponse<AuthPayload>(raw);
+        if (!payload) {
+          return null;
+        }
         return buildUserData(payload);
       }),
       tap((user) => {
@@ -303,6 +340,21 @@ export class AuthService {
       resetToken,
       newPassword,
     });
+  }
+
+  /**
+   * Reset password from forget-password flow using userId from the reset link.
+   * POST /auth/reset-password/{userId}
+   */
+  resetPasswordByUserId(
+    userId: string,
+    body: { password: string; confirmPassword: string }
+  ): Observable<unknown> {
+    return this.api.post<unknown, { password: string; confirmPassword: string }>(
+      API_ENDPOINTS.AUTH.RESET_PASSWORD_BY_USER_ID,
+      body,
+      { userId }
+    );
   }
 
   logout(): Observable<unknown> {
@@ -360,9 +412,9 @@ export class AuthService {
     if (user) {
       this.authState.setUser(user);
       
-      // Store campusId in storage if available (for campus users)
+      // Store campusId in storage if available (for campus and department users)
       // Use campusId if available, otherwise fall back to profileServiceId
-      if (user.userType === 'CAMPUS') {
+      if (user.userType === 'CAMPUS' || user.userType === 'DEPARTMENT') {
         const campusId = user.campusId || user.profileServiceId;
         if (campusId) {
           this.storage.set(STORAGE_KEYS.CAMPUS_ID, campusId);
@@ -377,19 +429,30 @@ export class AuthService {
           this.storage.set(STORAGE_KEYS.COMPANY_ID, companyId);
         }
       }
+
+      // Store studentId in storage if available (for student users)
+      if (user.userType === 'STUDENT') {
+        const studentId = user.studentId || user.profileServiceId;
+        if (studentId) {
+          this.storage.set(STORAGE_KEYS.STUDENT_ID, String(studentId));
+        }
+      }
+
+      // Store departmentId in storage if available (for department users)
+      if (user.userType === 'DEPARTMENT' && user.departmentId) {
+        this.storage.set(STORAGE_KEYS.DEPARTMENT_ID, user.departmentId);
+      }
     }
   }
 
   private extractAuthPayload(response: unknown): AuthPayload | null {
-    // Handle ApiResponse<AuthResponse> structure: { success, message, data: { accessToken, ... } }
+    // Handle ApiResponse<AuthResponse> structure: { success, message, data: { ... } }
     if (!response || typeof response !== 'object') {
       return null;
     }
-
-    const apiResponse = response as ApiResponse<AuthPayload>;
-    // ApiResponse wrapper
-    if ('data' in apiResponse && apiResponse.data) {
-      return apiResponse.data as AuthPayload;
+    const payload = unwrapApiResponse<AuthPayload>(response);
+    if (payload) {
+      return payload;
     }
 
     // Direct payload (backward compatibility)

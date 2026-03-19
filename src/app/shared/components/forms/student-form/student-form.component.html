@@ -8,14 +8,19 @@
   }
 
   <form class="app-form" (submit)="$event.preventDefault(); submit()" novalidate [class.review-mode]="isReviewMode" [class.edit-mode]="isEditModeDisplay">
+    @if ((isReviewMode || isEditModeDisplay) && value.photoUrl) {
+      <div class="current-photo-header">
+        <span class="current-photo-label">Current Photo</span>
+        <img [src]="value.photoUrl" alt="Profile photo" class="photo-preview-image" />
+      </div>
+    }
     @if (currentStep === 0 || isReviewMode || isEditModeDisplay) {
-      <div class="app-form-step">
+        <div class="app-form-step">
         <div class="app-form-row">
           <app-input
             label="First Name"
             [required]="true"
-            [invalid]="isRequiredInvalidText(value.firstName)"
-            type="text"
+[invalid]="submitAttempted && isNameInvalid(value.firstName)"            type="text"
             [value]="value.firstName"
             (valueChange)="patch({ firstName: $event })"
             [disabled]="isFieldsDisabled"
@@ -23,9 +28,9 @@
 
           <app-input
             label="Last Name"
-            [required]="true"
-            [invalid]="isRequiredInvalidText(value.lastName)"
-            type="text"
+            [required]="false"
+ [invalid]="submitAttempted && isNameInvalid(value.lastName, false)"
+         type="text"
             [value]="value.lastName"
             (valueChange)="patch({ lastName: $event })"
             [disabled]="isFieldsDisabled"
@@ -35,33 +40,31 @@
             <app-input
               label="Upload Photo"
               [required]="true"
-              [invalid]="isRequiredInvalidFilesWithUrl(value.photoFiles, value.photoUrl)"
+              [invalid]="isRequiredInvalidFilesWithUrl(value.photoFiles, value.photoUrl) || !!photoDimensionError"
               type="file"
               accept="image/*"
               [existingFileName]="value.photoUrl"
-              (filesSelected)="patch({ photoFiles: $event })"
+              (filesSelected)="onPhotoFilesSelected($event)"
               [disabled]="isFieldsDisabled"
             />
-            @if (value.photoUrl) {
-              <div class="photo-preview">
-                <span class="photo-preview-label">Current Photo:</span>
-                <img [src]="value.photoUrl" alt="Profile photo" class="photo-preview-image" />
-              </div>
+            @if (photoDimensionError) {
+              <div class="app-input-error">{{ photoDimensionError }}</div>
             }
           </div>
         </div>
 
         <div class="app-form-row">
           <div class="app-form-field-wrapper">
-            <app-input
-              label="Date of Birth"
-              [required]="true"
-              [invalid]="isDobInvalid()"
-              type="date"
-              [value]="value.dateOfBirth"
-              (valueChange)="patch({ dateOfBirth: $event })"
-              [disabled]="isFieldsDisabled"
-            />
+          <app-input
+  label="Date of Birth"
+  [required]="true"
+  [invalid]="isDobInvalid()"
+  type="date"
+  [max]="todayDate"
+  [value]="value.dateOfBirth"
+  (valueChange)="patch({ dateOfBirth: $event })"
+  [disabled]="isFieldsDisabled"
+/>
             @if (submitAttempted && isDobTooYoung()) {
               <div class="app-input-error">Date of birth must be at least 15 years ago.</div>
             }
@@ -79,17 +82,39 @@
           />
 
           <div class="app-form-field-wrapper">
-            <app-input
-              label="Mobile No."
-              [required]="true"
-              [invalid]="isMobileInvalid()"
-              type="tel"
-              [value]="value.mobile"
-              (valueChange)="patch({ mobile: $event })"
-              [disabled]="isFieldsDisabled"
-            />
+          <app-input
+  label="Mobile No."
+  [required]="true"
+  [invalid]="isMobileInvalid()"
+  type="tel"
+  inputmode="numeric"
+[maxlength]="10"
+  [value]="value.mobile"
+  (valueChange)="patch({ mobile: $event })"
+  [disabled]="isFieldsDisabled"
+/>
             @if (submitAttempted && isMobileNotTenDigits()) {
               <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
+            }
+            @if (isEditMode && value.mobile && value.mobile.trim().length > 0) {
+              @if (verifiedPhoneNumber && value.mobile.replace(/\D/g, '') === verifiedPhoneNumber.replace(/\D/g, '')) {
+                <span class="phone-verified">✓ Verified</span>
+              } @else {
+                <span
+                  tabindex="0"
+                  role="button"
+                  class="phone-verify-link"
+                  [class.phone-verify-disabled]="isFieldsDisabled"
+                  [style.cursor]="isFieldsDisabled ? 'not-allowed' : 'pointer'"
+                  [style.text-decoration]="isFieldsDisabled ? 'none' : 'underline'"
+                  [attr.aria-disabled]="isFieldsDisabled"
+                  (click)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.mobile, fieldType: 'mobile' })"
+                  (keyup.enter)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.mobile, fieldType: 'mobile' })"
+                  (keyup.space)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.mobile, fieldType: 'mobile' })"
+                >
+                  Verify
+                </span>
+              }
             }
           </div>
         </div>
@@ -117,6 +142,7 @@
               [disabled]="isFieldsDisabled"
               [maxlength]="500"
               [showCharCount]="true"
+              [showCharCount]="true"
             />
           </div>
         </div>
@@ -132,6 +158,7 @@
             (valueChange)="patch({ profileSummary: $event })"
             [disabled]="isFieldsDisabled"
             [maxlength]="2000"
+            [showCharCount]="true"
             [showCharCount]="true"
             />
           </div>
@@ -171,6 +198,18 @@
                 [minSearchLength]="0"
                 placeholder="Type to search campuses..."
               />
+              @if (edu.campusId && !isOtherInstitutionSelected($index)) {
+                <app-dropdown
+                  label="Department"
+                  [required]="false"
+                  [items]="getDepartmentItemsForIndex($index)"
+                  [value]="edu.departmentId ?? null"
+                  (valueChange)="patchEducationAt($index, { departmentId: $event })"
+                  [disabled]="isFieldsDisabled"
+                  [autocomplete]="true"
+                  placeholder="Type to search departments..."
+                />
+              }
               <app-dropdown
                 label="Degree"
                 [required]="true"
@@ -219,13 +258,20 @@
                 [min]="yearOfPassingMin"
                 [max]="yearOfPassingMax"
               />
-              <app-input
-                label="Percentage/Grade/CGPA"
-                type="text"
-                [value]="edu.percentageOrCgpa"
-                (valueChange)="patchEducationAt($index, { percentageOrCgpa: $event })"
-                [disabled]="isFieldsDisabled"
-              />
+              <div class="app-form-field-wrapper">
+                <app-input
+                  label="Percentage/Grade/CGPA"
+                  type="text"
+                  [value]="edu.percentageOrCgpa"
+                  (valueChange)="patchEducationAt($index, { percentageOrCgpa: $event })"
+                  [disabled]="isFieldsDisabled"
+                  [required]="true"
+                  [invalid]="isPercentageOrCgpaInvalid($index)"
+                />
+                @if (isPercentageOrCgpaInvalid($index)) {
+                  <div class="app-input-error">Enter a number 0–100 (e.g. 85.5) or a letter grade A–F.</div>
+                }
+              </div>
             </div>
 
             <div class="app-form-row app-form-row-certificates">
@@ -284,15 +330,21 @@
                 [disabled]="submitting"
                 [autocomplete]="true"
               />
-              <app-input
-                label="Proficiency (out of 10)"
-                type="number"
-                [value]="newTechnicalSkill.proficiency"
-                (valueChange)="setNewTechnicalSkillProficiency($event)"
-                [disabled]="submitting"
-                [min]="'1'"
-                [max]="'10'"
-              />
+              <div class="app-form-col-proficiency">
+                <app-input
+                  label="Proficiency (out of 10)"
+                  type="number"
+                  [value]="newTechnicalSkill.proficiency"
+                  (valueChange)="setNewTechnicalSkillProficiency($event)"
+                  [disabled]="submitting"
+                  [invalid]="isNewTechnicalSkillProficiencyInvalid"
+                  [min]="'1'"
+                  [max]="'10'"
+                />
+                @if (isNewTechnicalSkillProficiencyInvalid) {
+                  <small class="app-input-error">Must be between 1 and 10.</small>
+                }
+              </div>
               <div class="app-form-action-col mini-btns">
                 <app-button class="mini-btn" type="button" variant="outline" label="Add" [disabled]="submitting" (buttonClick)="addTechnicalSkill()" />
               </div>
@@ -404,15 +456,16 @@
           </div>
 
           <div class="app-form-row">
-            <app-input
-              label="Expected Salary"
-              [required]="true"
-              [invalid]="isRequiredInvalidText(value.workPreferences.expectedSalary)"
-              type="text"
-              [value]="value.workPreferences.expectedSalary"
-              (valueChange)="setWorkPreferenceField('expectedSalary', $event)"
-              [disabled]="isFieldsDisabled"
-            />
+         <app-input
+  label="Expected Salary"
+  [required]="true"
+  [invalid]="isExpectedSalaryInvalid()"
+  type="number"
+  min="1"
+  [value]="value.workPreferences.expectedSalary"
+  (valueChange)="setWorkPreferenceField('expectedSalary', $event)"
+  [disabled]="isFieldsDisabled"
+/>
 
             <div class="app-form-col-full">
               <span class="app-inline-label">Employment Type</span>
@@ -483,15 +536,20 @@
                 type="date"
                 [value]="exp.endDate"
                 (valueChange)="patchWorkExperienceAt($index, { endDate: $event })"
-                [disabled]="submitting || isReviewMode || exp.currentlyWorkingHere"
+                [disabled]="isFieldsDisabled || exp.currentlyWorkingHere"
               />
+              @if (workDateErrors[$index]) {
+  <div class="app-input-error">
+    {{ workDateErrors[$index] }}
+  </div>
+}
               <div class="app-form-col-full">
                 <label class="app-checkbox app-checkbox-inline">
                   <input
                     type="checkbox"
                     [checked]="exp.currentlyWorkingHere"
                     (change)="patchWorkExperienceAt($index, { currentlyWorkingHere: !exp.currentlyWorkingHere })"
-                    [disabled]="isFieldsDisabled"
+                    [disabled]="isFieldsDisabled || hasWorkExperienceEndDate(exp)"
                   />
                   <span>I am currently working here</span>
                 </label>
@@ -551,6 +609,8 @@
                     [value]="proj.description"
                     (valueChange)="patchProjectAt(projIndex, { description: $event })"
                     [disabled]="isFieldsDisabled"
+                    [maxlength]="projectDescriptionMaxLength"
+                    [showCharCount]="true"
                   />
                 </div>
               </div>
@@ -565,6 +625,9 @@
                     [disabled]="submitting"
                     placeholder="Select Technology"
                     [autocomplete]="true"
+                    [clearAfterSelect]="true"
+                    [required]="projectHasContent(proj)"
+                    [invalid]="isProjectTechnologiesInvalid(projIndex)"
                   />
                 </div>
               }
@@ -596,7 +659,7 @@
                 type="button" 
                 variant="outline" 
                 label="Add Project" 
-                [disabled]="submitting" 
+                [disabled]="submitting || hasAnyProjectDescriptionOverLimit()" 
                 (buttonClick)="addProject()" 
               />
             </div>
@@ -645,16 +708,21 @@
         }
 
         <div class="app-form-row">
-          <app-input
-            label="Portfolio URL"
-            [required]="true"
-            [invalid]="isRequiredInvalidText(value.additional.portfolioUrl)"
-            type="url"
-            placeholder="https://example.com"
-            [value]="value.additional.portfolioUrl"
-            (valueChange)="setAdditionalField('portfolioUrl', $event)"
-            [disabled]="isFieldsDisabled"
-          />
+          <div class="app-form-field-wrapper">
+            <app-input
+              label="Portfolio URL"
+              [required]="false"
+              [invalid]="isPortfolioUrlInvalid()"
+              type="text"
+              placeholder="https://example.com"
+              [value]="value.additional.portfolioUrl"
+              (valueChange)="setAdditionalField('portfolioUrl', $event)"
+              [disabled]="isFieldsDisabled"
+            />
+            @if (isPortfolioUrlInvalid()) {
+              <div class="app-input-error">Please enter a valid URL.</div>
+            }
+          </div>
           <app-input
             label="Other Websites"
             type="text"
@@ -791,7 +859,7 @@
             type="button"
             variant="primary"
             label="Save and Next"
-            [disabled]="submitting"
+            [disabled]="submitting || !isCurrentStepValid()"
             (buttonClick)="nextStep()"
           />
         } @else {

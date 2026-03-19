@@ -35,24 +35,24 @@
 /* Orange borders for inputs and dropdowns */
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper,
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input {
-  border-color: #f4a261;
+  border-color: var(--color-primary);
   width: 100%;
 }
 
 :host ::ng-deep .form-row app-input-with-file app-input .input-wrapper input:focus {
-  border-color: #f4a261;
-  outline-color: #f4a261;
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 
 :host ::ng-deep .form-row app-dropdown .select-wrapper,
 :host ::ng-deep .form-row app-dropdown .select-wrapper select {
-  border-color: #f4a261;
+  border-color: var(--color-primary);
   width: 100%;
 }
 
 :host ::ng-deep .form-row app-dropdown .select-wrapper select:focus {
-  border-color: #f4a261;
-  outline-color: #f4a261;
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 
 /* Ensure labels are properly aligned */
@@ -146,13 +146,17 @@
 
 /* Orange paperclip icon - only for Campus input field */
 :host ::ng-deep .form-row app-input-with-file .paperclip-icon {
-  color: #f4a261;
+  color: var(--color-primary);
   opacity: 1;
 }
 
 :host ::ng-deep .form-row app-input-with-file .paperclip-icon:hover:not(:disabled) {
   opacity: 0.8;
 }
+.full-width {
+  grid-column: 1 / -1;
+}
+
 
 /* Teal-green submit button */
 :host ::ng-deep .form-actions app-button button.primary {
@@ -426,39 +430,131 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .prospectus-container {
+    max-width: 600px;
+    padding: 0 12px;
+  }
+}
+
 @media (max-width: 768px) {
   .prospectus-container {
     max-width: 100%;
-    padding: 0 4px;
+    padding: 0 12px;
     gap: 24px;
   }
 
   .prospectus-form {
     gap: 24px;
+    padding: 6px 0;
   }
 
   .form-row {
     gap: 10px;
   }
 
+  .list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .list-title {
+    font-size: 16px;
+  }
+
+  .refresh-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
   .prospectus-item {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
+    padding: 14px;
+  }
+
+  .prospectus-info {
+    width: 100%;
   }
 
   .prospectus-actions {
     width: 100%;
     justify-content: stretch;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .action-btn {
-    flex: 1;
+    width: 100%;
     justify-content: center;
+    padding: 10px 16px;
   }
 
   .prospectus-meta {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .prospectus-name {
+    font-size: 13px;
+  }
+
+  .meta-item {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .prospectus-container {
+    padding: 0 8px;
+    gap: 20px;
+    min-height: 300px;
+  }
+
+  .prospectus-form {
+    gap: 20px;
+    padding: 4px 0;
+  }
+
+  .form-row {
+    gap: 8px;
+  }
+
+  .list-title {
+    font-size: 15px;
+  }
+
+  .refresh-btn {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  .prospectus-item {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .prospectus-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .prospectus-icon i {
+    font-size: 18px;
+  }
+
+  .prospectus-name {
+    font-size: 12px;
+  }
+
+  .meta-item {
+    font-size: 10px;
+  }
+
+  .action-btn {
+    padding: 8px 14px;
+    font-size: 12px;
   }
 }

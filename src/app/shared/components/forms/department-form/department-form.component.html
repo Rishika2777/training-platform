@@ -1,0 +1,124 @@
+<form class="department-form" (ngSubmit)="onSubmit()">
+
+  @if (value.photoUrl) {
+    <div class="current-photo-header">
+      <span class="current-photo-label">Current Photo</span>
+      <img [src]="value.photoUrl" alt="Department photo" class="photo-preview-image" />
+    </div>
+  }
+
+  <div class="form-section">
+    <h3 class="section-title">Department Information</h3>
+
+    <div class="form-grid">
+
+      <!-- Department Name -->
+      <div class="form-row">
+      <app-input
+  label="Department Name"
+  [value]="value.departmentName"
+  [disabled]="submitting"
+  (valueChange)="patch({ departmentName: $event })">
+</app-input>
+
+      </div>
+
+      <!-- Email (immutable) -->
+      <div class="form-row">
+        <app-input
+          label="Email"
+          type="email"
+          [value]="value.email"
+          [disabled]="true"
+          (valueChange)="patch({ email: $event })">
+        </app-input>
+      </div>
+
+      <!-- Phone -->
+      <div class="form-row">
+        <app-input
+          label="Phone"
+          [value]="value.phone"
+          [disabled]="submitting"
+          (valueChange)="patch({ phone: $event })">
+        </app-input>
+        @if (isEditMode && value.phone && value.phone.trim().length > 0) {
+          @if (verifiedPhoneNumber && value.phone.replace(/\D/g, '') === verifiedPhoneNumber.replace(/\D/g, '')) {
+            <span style="margin-top: 8px; display: inline-block; color: #28a745; font-size: 12px; font-weight: 500;">
+              ✓ Verified
+            </span>
+          } @else {
+            <span
+              tabindex="0"
+              role="button"
+              style="margin-top: 8px; display: inline-block; font-size: 12px;"
+              [style.color]="submitting ? '#999' : '#007bff'"
+              [style.cursor]="submitting ? 'not-allowed' : 'pointer'"
+              [style.text-decoration]="submitting ? 'none' : 'underline'"
+              [attr.aria-disabled]="submitting"
+              (click)="!submitting && verifyPhone.emit({ phoneNumber: value.phone, fieldType: 'phone' })"
+              (keyup.enter)="!submitting && verifyPhone.emit({ phoneNumber: value.phone, fieldType: 'phone' })"
+              (keyup.space)="!submitting && verifyPhone.emit({ phoneNumber: value.phone, fieldType: 'phone' })"
+            >
+              Verify
+            </span>
+          }
+        }
+      </div>
+
+      <!-- Upload Photo -->
+      <div class="form-row">
+        <div class="file-input-wrapper">
+
+          <label for="photoUpload" class="field-label">
+            Upload Photo
+          </label>
+
+          <div class="file-input-container">
+            <app-input
+              label=""
+              type="file"
+              accept="image/*"
+              [existingFileName]="value.photoUrl"
+              (filesSelected)="onPhotoSelected($event)"
+              [disabled]="submitting">
+            </app-input>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="form-row full-width">
+        <app-textarea
+          label="About the Department"
+          [value]="value.about"
+          [disabled]="submitting"
+          [rows]="4"
+          (valueChange)="patch({ about: $event })">
+        </app-textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="form-actions">
+
+    <app-button
+      label="Cancel"
+      type="button"
+      variant="outline"
+      (buttonClick)="onCancel()">
+    </app-button>
+
+    <app-button
+      [label]="isEditMode ? 'Update Department' : 'Add Department'"
+      type="submit"
+      variant="primary"
+      [disabled]="submitting">
+    </app-button>
+
+  </div>
+
+</form>

@@ -8,6 +8,11 @@ export interface NotificationItem {
   timeLabel: string;
   profileImageUrl: string;
   section: 'new' | 'today';
+  /** Actor (e.g. "Aayushi") – link to their public profile */
+  actorPublicPageUrl?: string;
+  /** Target (e.g. "Mansi", "VIT", "XYZ Company") – link to their public profile */
+  targetDisplayName?: string;
+  targetPublicPageUrl?: string;
 }
 
 @Component({
@@ -20,24 +25,18 @@ export interface NotificationItem {
 export class NotificationsDropdownComponent {
   @Input() isOpen = false;
   @Input() items: readonly NotificationItem[] = [];
+  @Input() loading = false;
+  @Input() hasMorePages = false;
 
   @Output() closed = new EventEmitter<void>();
-  @Output() seePrevious = new EventEmitter<void>();
-
-  get newNotifications(): readonly NotificationItem[] {
-    return this.items.filter((item) => item.section === 'new');
-  }
-
-  get todayNotifications(): readonly NotificationItem[] {
-    return this.items.filter((item) => item.section === 'today');
-  }
+  @Output() loadMore = new EventEmitter<void>();
 
   close(): void {
     this.closed.emit();
   }
 
-  onSeePrevious(): void {
-    this.seePrevious.emit();
+  onLoadMore(): void {
+    this.loadMore.emit();
   }
 
   @HostListener('click', ['$event'])

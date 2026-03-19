@@ -1,8 +1,26 @@
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.modal-root.modal-stacked {
+  z-index: 1100;
+}
+
+.modal-root.modal-stacked .backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.modal-root.modal-stacked .panel {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: 0;
   border: 0;
   padding: 0;
 }
@@ -12,10 +30,9 @@
   inset: 0;
   display: grid;
   place-items: center;
-  z-index: 1001;
+  z-index: 1;
   padding: 16px;
 }
-
 .panel {
   width:800px;
   /* width: min(720px, 100%); */
@@ -53,13 +70,49 @@
 }
 
 .modal.sm .panel {
-  width: min(420px, 100%);
+  width: min(420px, calc(100vw - 32px));
 }
 .modal.md .panel {
   width: min(720px, 100%);
 }
 .modal.lg .panel {
   width: min(980px, 100%);
+}
+
+/* My Post Feed modal: body is flex column so list scrolls, tabs/footer stay visible */
+.modal .panel.my-post-feed-modal .body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+@media (max-width: 600px) {
+  .modal {
+    padding: 12px;
+    place-items: center;
+  }
+
+  .modal.lg .panel {
+    width: 100%;
+    max-width: calc(100vw - 24px);
+  }
+
+  .modal.md .panel {
+    width: 100%;
+    max-width: calc(100vw - 24px);
+  }
+
+  .panel .body {
+    padding: 16px;
+    overflow-x: clip;
+    min-width: 0;
+  }
+
+  .panel .body > * {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 .header {
@@ -127,7 +180,7 @@
 /* Allow dropdowns to escape the body overflow by using fixed positioning */
 .body ::ng-deep .dropdown-menu {
   position: fixed !important;
-  z-index: 1002 !important;
+  z-index: 10050 !important;
 }
 
 /* Allow year-picker dropdown to escape the body overflow by using fixed positioning */

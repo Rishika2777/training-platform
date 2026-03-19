@@ -13,6 +13,7 @@ import { StorageService } from '../../../../core/storage/storage.service';
 import { LOGIN_STATUS, STORAGE_KEYS } from '../../../../core/config/app.constants';
 import { CampusRegistrationResponse } from '../../../campus/services/campus-api.service';
 import { RegistrationPageLayoutComponent } from '../../../../layout/registration-page-layout/registration-page-layout.component';
+import { RegistrationStateService } from '../../services/registration-state.service';
 
 @Component({
   selector: 'app-register-campus',
@@ -29,12 +30,13 @@ export class RegisterCampusComponent {
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly registrationState = inject(RegistrationStateService);
 
   submitting = false;
   searchValue = '';
 
   private readonly initialAdminEmail =
-    this.auth.getCurrentUser()?.email ?? this.auth.getRegistrationData()?.email ?? '';
+    this.auth.getCurrentUser()?.email ?? this.registrationState.getDraft()?.email ?? '';
 
   readonly adminEmailLocked = this.initialAdminEmail.trim().length > 0;
 
@@ -76,6 +78,7 @@ export class RegisterCampusComponent {
     }
 
     this.submitting = true;
+    const photo = value.campusLogoFiles?.length ? value.campusLogoFiles[0] : null;
     this.campusApi
       .registerCampus(
         {
@@ -92,6 +95,7 @@ export class RegisterCampusComponent {
           campusAddress: value.address,
         },
         { userId: user.userId, userType: user.userType },
+        photo,
       )
       .subscribe({
         next: (response: CampusRegistrationResponse | null) => {
@@ -112,7 +116,7 @@ export class RegisterCampusComponent {
           // Backend may return "PENDING" or "PENDING_APPROVAL". Treat both as pending approval.
           if (approvalStatus === 'PENDING' || approvalStatus === LOGIN_STATUS.PENDING_APPROVAL) {
             this.notify.success(
-              'You have successfully submitted the form, please wait until admin review and approve you form',
+              'You have successfully submitted the form, please wait until admin review and approves your form',
             );
             void this.router.navigateByUrl('/login');
             return;
@@ -120,7 +124,7 @@ export class RegisterCampusComponent {
 
           // If backend says pending registration, fallback to this registration page.
           if (approvalStatus === LOGIN_STATUS.PENDING_REGISTRATION) {
-            void this.router.navigateByUrl('/register-campus');
+            void this.router.navigateByUrl('/register/campus');
             return;
           }
 
@@ -144,7 +148,7 @@ export class RegisterCampusComponent {
     if (this.submitting) {
       return;
     }
-    void this.router.navigateByUrl('/register-options');
+    void this.router.navigateByUrl('/register/options');
   }
 }
 

@@ -1,220 +1,287 @@
+/* Same auth theme as Login: blue gradient, navy button, white text, underline inputs – full width */
 .register-page {
   width: 100%;
+  min-width: 100vw;
   min-height: 100vh;
-  background: var(--color-primary);
+  background: var(--auth-gradient);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
-.header-bar {
+.header-btn {
+  flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-end;
   padding: 20px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
+.login-btn ::ng-deep .btn {
+  background: transparent !important;
+  color: var(--auth-text) !important;
+  border: 2px solid var(--auth-text) !important;
+  border-radius: 9999px;
+  padding: 10px 24px;
+  font-weight: 600;
 }
-
-.brand-mark {
-  width: 70px;
-  height: 50px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: #1b1f3a;
-  color: var(--color-secondary);
-  font-weight: 800;
-  letter-spacing: 0.5px;
-}
-
-:host ::ng-deep app-button.login-btn .btn {
-  padding: 10px 25px;
-  border-radius: 20px;
-  background: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
+.login-btn ::ng-deep .btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15) !important;
 }
 
 .container {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
-  padding: var(--page-padding-y) var(--page-padding-x);
-  gap: 24px;
+  gap: 48px;
+  padding: 24px 40px;
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
-.left-box h2 {
-  font-size: 2rem;
+.form-section {
+  flex: 0 1 400px;
+  min-width: 0;
+  order: 0;
 }
 
-.left-box p {
-  font-size: 1.2rem;
-  width: 80%;
+.auth-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--auth-text);
   text-align: center;
-  margin: auto;
-}
-
-.left-box {
-  width: 40%;
-  background: rgba(255, 255, 255, 0.25);
-  padding: 40px;
-  border-radius: 25px;
-  color: #fff;
-  text-align: center;
-}
-
-.right-box {
-  width: 40%;
-  background: rgba(255, 255, 255, 0.25);
-  padding: 40px;
-  border-radius: 25px;
-  color: #fff;
-  text-align: center;
-}
-
-:host ::ng-deep .right-box app-input .control {
-  width: 100%;
-  max-width: 420px;
-  padding: 12px;
-  border-radius: 20px;
-  border: none;
-}
-
-:host ::ng-deep app-button.signin-btn .btn {
-  width: 100%;
-  max-width: 220px;
-  margin: auto;
-  text-align: center;
-  padding: 10px 25px;
-  border-radius: 20px;
-  border: 2px solid var(--color-secondary);
-  background: white;
-  color: var(--color-secondary);
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.links {
-  margin-top: 10px;
-  color: #fff;
-}
-
-.links span {
-  color: var(--color-secondary);
-  cursor: pointer;
-}
-
-footer {
-  background: var(--color-footer);
-  text-align: center;
-  padding: 20px;
-  color: #fff;
-}
-
-.subtitle {
-  margin: 10px 0 18px 0;
+  margin: 0 0 28px 0;
+  letter-spacing: 0.02em;
 }
 
 .register-form {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.auth-input-wrap {
+  position: relative;
+  width: 100%;
+  border-bottom: 2px solid var(--auth-input-underline);
+  padding-bottom: 4px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 10px 36px 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--auth-text);
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+.auth-input::placeholder {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.auth-input-icon {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--auth-text);
+  opacity: 0.9;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .field-help {
   display: grid;
   gap: 4px;
-  max-width: 420px;
-  margin: 0 auto;
+  margin: -4px 0 0 0;
   text-align: left;
 }
-
-.hint {
+.field-help .hint {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
 }
-
-.error {
+.field-help .error {
   font-size: 12px;
-  color: #ffd1d1;
+  color: #ffcdd2;
   font-weight: 600;
 }
 
-@media (max-width: 900px) {
+.auth-btn {
+  width: 100%;
+  padding: 14px 24px;
+  background: var(--auth-btn-bg);
+  color: var(--auth-text);
+  border: none;
+  border-radius: 9999px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.auth-btn:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 8px 0;
+  color: var(--auth-text);
+  opacity: 0.9;
+  font-size: 14px;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+.divider span {
+  padding: 0 12px;
+}
+
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--auth-text);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+.google-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  flex-shrink: 0;
+}
+
+.auth-footer-text {
+  text-align: center;
+  color: var(--auth-text);
+  font-size: 14px;
+  margin: 12px 0 0 0;
+  opacity: 0.95;
+}
+
+.auth-link {
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.auth-page-footer {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 20px;
+  color: var(--auth-text);
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Robot section – right side, mirrored */
+.robot-section--right {
+  order: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.robot-wrap {
+  animation: robot-float 3s ease-in-out infinite;
+}
+
+.robot-mascot {
+  width: 200px;
+  height: auto;
+  max-height: 280px;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.15));
+}
+
+.robot-mascot--mirror {
+  transform: scaleX(-1);
+}
+
+.robot-eye {
+  animation: robot-blink 4s ease-in-out infinite;
+}
+
+@keyframes robot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes robot-blink {
+  0%, 45%, 55%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (max-width: 768px) {
   .container {
     flex-direction: column;
-    justify-content: center;
-    padding: 18px;
-    gap: 16px;
+    padding: 16px;
+    gap: 24px;
   }
 
-  .left-box,
-  .right-box {
+  .form-section {
+    order: 0;
     width: 100%;
-    max-width: 520px;
-    padding: 26px 20px;
-    border-radius: 18px;
   }
 
-  .left-box h2 {
-    font-size: 22px;
+  .robot-section--right {
+    order: 1;
   }
 
-  .left-box p {
-    width: 100%;
-    font-size: 14px;
-    margin-top: 10px;
+  .robot-mascot {
+    width: 140px;
   }
 
-  .right-box h3 {
-    font-size: 20px;
-    margin-bottom: 14px;
+  .auth-title {
+    font-size: 24px;
+    margin-bottom: 20px;
   }
 
-  :host ::ng-deep .right-box app-input .control {
+  .register-form {
     max-width: 100%;
-    border-radius: 16px;
-  }
-
-  :host ::ng-deep app-button.signin-btn .btn {
-    max-width: 100%;
-  }
-
-  .header-bar {
-    padding: 14px 14px 0 14px;
-  }
-
-  :host ::ng-deep app-button.login-btn .btn {
-    padding: 8px 18px;
-    font-size: 14px;
-    border-radius: 20px;
-  }
-
-  footer {
-    padding: 14px;
-    font-size: 12px;
   }
 }
 
 @media (max-width: 480px) {
-  .left-box {
+  .robot-section--right {
     display: none;
-  }
-
-  .container {
-    padding: 14px;
-  }
-
-  .right-box {
-    padding: 22px 16px;
   }
 }

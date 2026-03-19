@@ -1,165 +1,221 @@
+/* Full viewport (100% width), cosmic / space theme – same to same as second design */
 .register-options-page {
   width: 100%;
+  min-width: 100vw;
   min-height: 100vh;
-  min-height: 100svh;
-  background: var(--color-primary);
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #0a0e27 0%, #0d1535 35%, #0f1940 50%, #0a0e27 100%);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   overflow-x: hidden;
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .top-right {
-  /* width: 100%; */
-  display: flex;
-  justify-content: flex-end;
-  padding: 20px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  padding: 24px 32px;
 }
 
-:host ::ng-deep app-button.signin-btn .btn {
-  width: 150px;
-  padding: 10px 25px;
-  border-radius: 20px;
-  border: 2px solid var(--color-secondary);
-  background: white;
-  color: var(--color-secondary);
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.container {
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: var(--page-padding-y) var(--page-padding-x);
-  gap: 24px;
-  width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
-.left-box {
-  width: 40%;
-  background: rgba(255, 255, 255, 0.25);
-  padding: 40px;
-  border-radius: 25px;
+.signin-btn {
+  padding: 10px 28px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: transparent;
   color: #fff;
-  text-align: center;
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.signin-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.9);
 }
 
-.right-box {
-  width: 33%;
+/* Cosmic container – full width */
+.cosmic-container {
+  flex: 1;
+  width: 100%;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 25px;
+  justify-content: center;
+  min-height: 0;
+  padding: 80px 24px 60px;
+  box-sizing: border-box;
 }
 
-:host ::ng-deep app-button.option-btn .btn {
+/* Subtle stars */
+.stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(2px 2px at 40% 70%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(2px 2px at 80% 10%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 200%;
+  pointer-events: none;
+}
+
+/* Glowing blue horizon / aurora band */
+.horizon-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 120px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(91, 141, 238, 0.15) 20%,
+    rgba(91, 141, 238, 0.45) 50%,
+    rgba(91, 141, 238, 0.15) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Content */
+.content-wrap {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+
+.join-heading {
+  font-family: var(--font-brand);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 500;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+/* Robot on horizon (left of heading) */
+.robot-section {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  animation: robot-float 4s ease-in-out infinite;
+}
+
+.robot-wrap {
+  display: flex;
+  align-items: flex-end;
+}
+
+.robot-mascot {
+  width: 120px;
+  height: auto;
+  max-height: 160px;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.4));
+}
+
+.robot-eye {
+  animation: robot-blink 5s ease-in-out infinite;
+}
+
+@keyframes robot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes robot-blink {
+  0%, 88%, 92%, 100% { opacity: 1; }
+  90% { opacity: 0.25; }
+}
+
+/* Pill buttons stack */
+.buttons-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
   width: 100%;
   max-width: 420px;
-  padding: 25px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-  border: none;
-  border-radius: 25px;
-  font-size: 24px;
+}
+
+.pill-btn {
+  width: 100%;
+  padding: 18px 32px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(10, 14, 39, 0.75);
+  color: #ffffff;
+  font-family: var(--font-brand);
+  font-size: 18px;
+  font-weight: 500;
   cursor: pointer;
-  text-align: center;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  box-sizing: border-box;
+  backdrop-filter: blur(8px);
+}
+.pill-btn:hover:not(:disabled) {
+  background: rgba(20, 28, 60, 0.9);
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 20px rgba(91, 124, 186, 0.35);
+  transform: translateY(-2px);
+}
+.pill-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-footer {
-  background: var(--color-footer);
+.page-footer {
+  flex-shrink: 0;
   text-align: center;
-  padding: 20px;
-  color: white;
+  padding: 20px 24px;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 14px;
+  font-family: var(--font-primary);
 }
 
-/* ==========================================
- Responsive (Mobile / Tablet)
- ========================================== */
-@media (max-width: 900px) {
-  .container {
-      flex-direction: column;
-      justify-content: center;
-      padding: var(--page-padding-y) var(--page-padding-x);
-      gap: 16px;
+@media (max-width: 600px) {
+  .heading-row {
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 36px;
   }
 
-  .left-box,
-  .right-box {
-      width: 100%;
-      max-width: 520px;
+  .robot-mascot {
+    width: 100px;
   }
 
-  .left-box {
-      padding: 26px 20px;
-      border-radius: 18px;
+  .join-heading {
+    font-size: 1.5rem;
   }
 
-  .right-box {
-      gap: 16px;
-      align-items: stretch;
-  }
-
-  :host ::ng-deep app-button.option-btn .btn {
-      max-width: 100%;
-      padding: 18px 16px;
-      border-radius: 18px;
-      font-size: 18px;
-  }
-
-  .top-right {
-      padding: 14px 14px 0 14px;
-  }
-
-  :host ::ng-deep app-button.signin-btn .btn {
-      width: auto;
-      padding: 8px 18px;
-      font-size: 14px;
-  }
-
-  footer {
-      padding: 14px;
-      font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .top-right {
-    padding: 12px 12px 0 12px;
-  }
-
-  .container {
-    padding: 18px 14px;
-    gap: 14px;
-  }
-
-  .left-box {
-    padding: 22px 16px;
-  }
-
-  .left-box h2 {
-    font-size: 20px;
-    line-height: 1.25;
-    margin: 0 0 10px 0;
-  }
-
-  .left-box p {
-    font-size: 13px;
-    line-height: 1.4;
-    margin: 0;
-  }
-
-  .right-box {
-    gap: 12px;
-  }
-
-  :host ::ng-deep app-button.option-btn .btn {
-    padding: 14px 14px;
+  .pill-btn {
+    padding: 16px 24px;
     font-size: 16px;
-    border-radius: 16px;
+  }
+
+  .cosmic-container {
+    padding: 70px 16px 40px;
   }
 }

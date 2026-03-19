@@ -4,8 +4,13 @@
 }
 
 .form-header {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+}
+.form-header .add-btn {
+  margin-bottom: 0;       
 }
 
 .form-title {
@@ -30,9 +35,9 @@
 }
 
 .technology-header {
-  display: flex;
+   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -134,8 +139,8 @@
   cursor: pointer;
   font-size: 16px;
   transition: opacity 0.2s ease;
-  margin-bottom: 26px;
 }
+
 
 .action-btn:hover:not(:disabled) {
   opacity: 0.8;

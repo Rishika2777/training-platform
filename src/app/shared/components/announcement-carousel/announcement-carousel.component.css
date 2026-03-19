@@ -1,0 +1,135 @@
+/* Fixed height for consistent layout across all features */
+.announcement-carousel {
+  background: color-mix(in srgb, var(--color-primary) 88%, black);
+  color: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 0;
+  align-items: stretch;
+  justify-items: stretch;
+  height: 340px;
+  min-height: 340px;
+  max-height: 340px;
+  position: relative;
+  overflow: hidden;
+}
+
+.announcement-main {
+  grid-row: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.announcement-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.announcement-arrow:hover {
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.announcement-arrow-left {
+  left: 12px;
+}
+
+.announcement-arrow-right {
+  right: 12px;
+}
+
+.announcement-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.announcement-image {
+  cursor: pointer;
+}
+
+.announcement-video {
+  background: #000;
+}
+
+/* Extra horizontal padding so text doesn’t sit under the arrow buttons */
+.announcement-main .announcement-content {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md) 56px;
+  overflow: auto;
+  background: color-mix(in srgb, var(--color-primary) 88%, black);
+}
+
+.announcement-content {
+  padding: var(--space-md) 56px;
+  min-height: 0;
+  overflow: auto;
+  background: color-mix(in srgb, var(--color-primary) 88%, black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.announcement-text {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.announcement-dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-primary) 92%, black);
+  z-index: 2;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dot:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dot.active {
+  background: var(--color-secondary);
+}
+

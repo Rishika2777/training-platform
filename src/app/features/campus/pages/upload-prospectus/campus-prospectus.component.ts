@@ -7,6 +7,7 @@ import { CampusApiService, ProspectusData, AddCourseResponseData, Campus } from 
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
 
 export interface ProspectusUploadFormValue {
@@ -14,6 +15,7 @@ export interface ProspectusUploadFormValue {
   campusFile: File | null;
   course: string;
   courseFile: File | null;
+  department?: string;
 }
 
 @Component({
@@ -41,11 +43,21 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     campusFile: null,
     course: '',
     courseFile: null,
+    department: '', 
   };
+  @Input() showDepartment = true;
+
 
   @Output() valueChange = new EventEmitter<ProspectusUploadFormValue>();
   @Output() submitted = new EventEmitter<ProspectusUploadFormValue>();
   @Output() uploadSuccess = new EventEmitter<void>();
+  @Output() deleteRequested = new EventEmitter<{ id: string; name: string; departmentId?: string }>();
+
+
+  // ---------------- department section ---------
+ departmentItems: { label: string; value: string }[] = [];
+loadingDepartments = signal(false);
+
 
   // Prospectus management state
   readonly prospectusList = signal<readonly ProspectusData[]>([]);
@@ -79,6 +91,7 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       campusFile: null,
       course: '',
       courseFile: null,
+      department: '',
     };
     
     // STEP 3: Clear prospectus list and file name map to ensure fresh state
@@ -211,6 +224,8 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     // Load campuses (for getting campus names) and courses from API
     this.loadCampuses();
     this.loadCourses();
+    this.loadDepartments();
+
     
     // Load all prospectuses by campus on initialization (without requiring course selection)
     // This ensures the list is shown by default when modal opens
@@ -234,6 +249,37 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       console.log('CampusProspectusComponent: Registered courseAdded event listener');
     }
   }
+
+  // --------------- department -----------
+
+  private loadDepartments(): void {
+  const campusId = this.getCampusIdFromStorage();
+
+  if (!campusId) return;
+
+  this.loadingDepartments.set(true);
+
+  this.campusApi.getAllDepartmentsByCampus(campusId).subscribe({
+    next: (res) => {
+      this.loadingDepartments.set(false);
+
+      if (res?.success && res.data) {
+        this.departmentItems = res.data.map((dept: { id: string; departmentName: string }) => ({
+
+          label: dept.departmentName,
+          value: dept.id
+        }));
+      } else {
+        this.departmentItems = [];
+      }
+    },
+    error: () => {
+      this.loadingDepartments.set(false);
+      this.departmentItems = [];
+    }
+  });
+}
+
 
   ngOnDestroy(): void {
     // Remove event listener when component is destroyed (only in browser)
@@ -308,7 +354,7 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
         this.courseItems.set([]);
         this.loadedCourses.set([]);
         this.loadingCourses.set(false);
-        this.notify.error('Failed to load courses. Please refresh the page or contact support.');
+        // Do not show toast on public campus profile (no campus context, API may fail)
       },
     });
   }
@@ -394,49 +440,45 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  loadProspectusListIfNeeded(): void {
-    console.log('CampusProspectusComponent: loadProspectusListIfNeeded called');
-    console.log('CampusProspectusComponent: actualCampusId:', this.actualCampusId);
-    console.log('CampusProspectusComponent: value.campus:', this.value.campus);
-    console.log('CampusProspectusComponent: value.course:', this.value.course);
-    
-    // Get campus ID from stored value (prioritize actualCampusId over form value)
-    // Only use form value if it's a valid ID (not a file name)
-    let campusValue = this.actualCampusId.trim();
-    if (!campusValue || !this.isValidId(campusValue)) {
-      const formCampus = this.value.campus.trim();
-      if (formCampus && this.isValidId(formCampus)) {
-        campusValue = formCampus;
-        this.actualCampusId = campusValue; // Store it for future use
-      }
-    }
-    
-    const courseValue = this.value.course.trim();
-    
-    // Prioritize loading by course if we have both campus ID and course name (more specific)
-    if (courseValue && courseValue.length > 0 && campusValue && this.isValidId(campusValue)) {
-      console.log('CampusProspectusComponent: Loading prospectus by course (more specific):', courseValue, 'campusId:', campusValue);
-      this.getProspectusByCourse(courseValue, campusValue);
-      return;
-    }
-    
-    // If we have a valid campus ID but no course, load by campus
-    if (campusValue && this.isValidId(campusValue)) {
-      console.log('CampusProspectusComponent: Loading prospectus by campus:', campusValue);
-      this.getProspectusByCampus(campusValue);
-      return;
-    }
-    
-    // If we only have a course name, try to load by course (will check for campus ID)
-    if (courseValue && courseValue.length > 0) {
-      console.log('CampusProspectusComponent: Loading prospectus by course:', courseValue);
-      // getProspectusByCourse will check for campus ID and show error if missing
-      this.getProspectusByCourse(courseValue);
-      return;
-    }
-    
-    console.log('CampusProspectusComponent: No valid campus ID or course name, skipping prospectus load');
+ loadProspectusListIfNeeded(): void {
+  console.log('CampusProspectusComponent: loadProspectusListIfNeeded called');
+
+  // ALWAYS resolve campusId from auth/storage first
+  let campusValue = this.getCampusIdFromStorage();
+
+  // fallback to actualCampusId if available
+  if (!campusValue || !this.isValidId(campusValue)) {
+    campusValue = this.actualCampusId.trim();
   }
+
+  // if still missing → stop
+  if (!campusValue || !this.isValidId(campusValue)) {
+    console.warn('CampusProspectusComponent: valid campusId not found, skipping API call');
+    return;
+  }
+
+  // lock campusId internally
+  this.actualCampusId = campusValue;
+
+  const courseValue = this.value.course.trim();
+
+  console.log('Resolved campusId:', campusValue);
+  console.log('Selected course:', courseValue);
+  console.log('Selected department:', this.value.department);
+
+  // 🔥 If course selected → load by course
+  if (courseValue.length > 0) {
+    this.getProspectusByCourse(
+      courseValue,
+      campusValue
+    );
+    return;
+  }
+
+  //  Otherwise load by campus only
+  this.getProspectusByCampus(campusValue);
+}
+
 
   patch(patch: Partial<ProspectusUploadFormValue>): void {
     const next: ProspectusUploadFormValue = { ...this.value, ...patch };
@@ -487,47 +529,36 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
     
     // If course changed, trigger API call
     // Note: course is stored as courseName (string), not numeric ID
-    if (patch.course !== undefined) {
-      const courseValue = patch.course.trim();
-      if (courseValue.length > 0) {
-        // Find the selected course object and extract campusId
-        const courses = this.loadedCourses();
-        const selectedCourse = courses.find(
-          course => course.courseName && course.courseName.trim().toLowerCase() === courseValue.toLowerCase()
-        );
-        
-        // If course found and has campusId, store it and update display
-        if (selectedCourse && selectedCourse.campusId) {
-          const campusId = selectedCourse.campusId.trim();
-          if (this.isValidId(campusId)) {
-            console.log('CampusProspectusComponent: Extracted campusId from selected course:', campusId);
-            this.actualCampusId = campusId;
-            
-            // Find campus name to display instead of ID
-            const campus = this.loadedCampuses().find(c => 
-              (c.id && c.id.trim() === campusId) || 
-              (c.campusId && c.campusId.trim() === campusId)
-            );
-            const campusDisplayValue = campus?.campusName?.trim() || campusId;
-            
-            // Update the form value with campus name (for display) but keep ID internally
-            if (!this.value.campus.trim() || !this.isValidId(this.value.campus.trim()) || this.value.campus.trim() !== campusDisplayValue) {
-              // Directly update the value to avoid recursion - use campus name for display
-              const updatedValue = { ...this.value, campus: campusDisplayValue };
-              this.value = updatedValue;
-              this.valueChange.emit(updatedValue);
-            }
-          }
-        }
-        
-        // Use setTimeout to avoid calling API during patch
-        setTimeout(() => {
-          this.loadProspectusListIfNeeded();
-        }, 100);
-      }
+  if (patch.course !== undefined) {
+  const courseValue = patch.course.trim();
+
+  if (courseValue.length > 0) {
+
+    // Find selected course only for validation/logging
+    const courses = this.loadedCourses();
+    const selectedCourse = courses.find(
+      course =>
+        course.courseName &&
+        course.courseName.trim().toLowerCase() === courseValue.toLowerCase()
+    );
+
+    // ❗ IMPORTANT FIX:
+    // DO NOT override campusId from course selection
+    // Campus must always come from auth/storage
+    if (selectedCourse) {
+      console.log(
+        'CampusProspectusComponent: course selected → campusId will remain from auth/storage'
+      );
     }
-    
-    this.valueChange.emit(next);
+
+    // Only trigger list reload based on selected course
+    setTimeout(() => {
+      this.loadProspectusListIfNeeded();
+    }, 100);
+  }
+}
+
+this.valueChange.emit(this.value);
   }
 
   onCampusFileSelected(file: File | null): void {
@@ -560,12 +591,6 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
 
   onCourseFileSelected(file: File | null): void {
     this.patch({ courseFile: file });
-  }
-
-  onFormSubmit(event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.submit();
   }
 
   submit(): void {
@@ -624,6 +649,7 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       campusFile: this.value.campusFile,
       course: courseName,
       courseFile: this.value.courseFile,
+        department: this.value.department || undefined  
     };
     
     // Emit submitted event to parent - parent will handle API call
@@ -649,8 +675,9 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
         console.log('CampusProspectusComponent: getProspectusByCampus response:', response);
         
         // Swagger response: { success: boolean, message: string | null, data: ProspectusData[], error: string | null }
-        if (response && Array.isArray(response.data)) {
-          console.log('CampusProspectusComponent: Setting prospectus list with', response.data.length, 'items');
+        const items = unwrapApiResponse<ProspectusData[]>(response);
+        if (Array.isArray(items)) {
+          console.log('CampusProspectusComponent: Setting prospectus list with', items.length, 'items');
           
           // Store previous list to detect new prospectuses
           const previousList = this.prospectusList();
@@ -660,7 +687,7 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
           const storedFileName = this._lastUploadedFileName;
           if (storedFileName) {
             // Find the newest prospectus that wasn't in the previous list
-            const newProspectuses = response.data.filter(p => p.id && !previousIds.has(p.id));
+            const newProspectuses = items.filter(p => p.id && !previousIds.has(p.id));
             if (newProspectuses.length > 0) {
               // Sort by createdAt (newest first) and take the first one
               const newestProspectus = newProspectuses
@@ -679,7 +706,7 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
             }
           }
           
-          this.prospectusList.set(response.data);
+          this.prospectusList.set(items);
         } else {
           console.log('CampusProspectusComponent: Response data is not an array, setting empty list');
           this.prospectusList.set([]);
@@ -710,92 +737,134 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
    * @param courseName - Course name to filter by
    * @param providedCampusId - Optional campus ID (if provided, use this instead of form value)
    */
-  getProspectusByCourse(courseName: string, providedCampusId?: string): void {
-    if (!courseName.trim()) {
-      this.notify.error('Course name is required');
-      return;
-    }
+ getProspectusByCourse(courseName: string, providedCampusId?: string): void {
+  if (!courseName.trim()) {
+    this.notify.error('Course name is required');
+    return;
+  }
 
-    // Use provided campus ID if available, otherwise get from stored value or form value
-    let campusId: string;
-    if (providedCampusId && this.isValidId(providedCampusId)) {
-      campusId = providedCampusId.trim();
-      // Also store it for future use
-      this.actualCampusId = campusId;
-    } else {
-      campusId = this.actualCampusId.trim() || this.value.campus.trim();
-    }
-    
-    if (!campusId || !this.isValidId(campusId)) {
-      this.notify.error('Campus ID is required');
-      return;
-    }
+  // Use provided campus ID if available, otherwise get from stored value or form value
+  let campusId: string;
+  if (providedCampusId && this.isValidId(providedCampusId)) {
+    campusId = providedCampusId.trim();
+    this.actualCampusId = campusId;
+  } else {
+    campusId = this.actualCampusId.trim() || this.value.campus.trim();
+  }
 
-    const trimmedCourseName = courseName.trim();
-    console.log('CampusProspectusComponent: getProspectusByCourse called with campusId:', campusId, 'courseName:', trimmedCourseName);
+  if (!campusId || !this.isValidId(campusId)) {
+    this.notify.error('Campus ID is required');
+    return;
+  }
 
-    this.loadingProspectus.set(true);
-    this.campusApi.getProspectusByCourse(campusId, trimmedCourseName).subscribe({
+  const trimmedCourseName = courseName.trim();
+
+  console.log(
+    'CampusProspectusComponent: getProspectusByCourse called',
+    {
+      campusId,
+      courseName: trimmedCourseName,
+      departmentId: this.value.department
+    }
+  );
+
+  this.loadingProspectus.set(true);
+
+  // 🔥 MAIN CHANGE — departmentId pass ho raha
+  this.campusApi
+    .getProspectusByCourse(
+      campusId,
+      trimmedCourseName,
+      this.value.department
+    )
+    .subscribe({
       next: (response) => {
         this.loadingProspectus.set(false);
-        console.log('CampusProspectusComponent: getProspectusByCourse response:', response);
-        
-        // Swagger response: { success: boolean, message: string | null, data: ProspectusData[], error: string | null }
-        if (response && Array.isArray(response.data)) {
-          console.log('CampusProspectusComponent: Setting prospectus list with', response.data.length, 'items');
-          
-          // Store previous list to detect new prospectuses
+
+        console.log(
+          'CampusProspectusComponent: getProspectusByCourse response:',
+          response
+        );
+
+        const items = unwrapApiResponse<ProspectusData[]>(response);
+
+        if (Array.isArray(items)) {
+          console.log(
+            'CampusProspectusComponent: Setting prospectus list with',
+            items.length,
+            'items'
+          );
+
           const previousList = this.prospectusList();
-          const previousIds = new Set(previousList.map(p => p.id).filter(Boolean));
-          
-          // Map stored file name to newly uploaded prospectus
+          const previousIds = new Set(
+            previousList.map((p) => p.id).filter(Boolean)
+          );
+
           const storedFileName = this._lastUploadedFileName;
+
           if (storedFileName) {
-            // Find the newest prospectus that wasn't in the previous list
-            const newProspectuses = response.data.filter(p => p.id && !previousIds.has(p.id));
+            const newProspectuses = items.filter(
+              (p) => p.id && !previousIds.has(p.id)
+            );
+
             if (newProspectuses.length > 0) {
-              // Sort by createdAt (newest first) and take the first one
-              const newestProspectus = newProspectuses
-                .sort((a, b) => {
-                  const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                  const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                  return dateB - dateA;
-                })[0];
-              
+              const newestProspectus = newProspectuses.sort((a, b) => {
+                const dateA = a.createdAt
+                  ? new Date(a.createdAt).getTime()
+                  : 0;
+                const dateB = b.createdAt
+                  ? new Date(b.createdAt).getTime()
+                  : 0;
+                return dateB - dateA;
+              })[0];
+
               if (newestProspectus.id) {
-                this.prospectusFileNameMap.set(newestProspectus.id, storedFileName);
-                console.log('CampusProspectusComponent: Mapped file name', storedFileName, 'to prospectus ID', newestProspectus.id);
-                // Clear the stored file name after mapping
+                this.prospectusFileNameMap.set(
+                  newestProspectus.id,
+                  storedFileName
+                );
                 this._lastUploadedFileName = null;
               }
             }
           }
-          
-          this.prospectusList.set(response.data);
+
+          this.prospectusList.set(items);
         } else {
-          console.log('CampusProspectusComponent: Response data is not an array, setting empty list');
           this.prospectusList.set([]);
         }
+
         try {
           this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      },
+        } 
+catch (e) {
+  console.debug('detectChanges skipped', e);
+}      },
+
       error: (err) => {
-        const errorMessage = err?.error?.message || err?.message || 'Failed to fetch prospectus list';
-        console.error('CampusProspectusComponent: getProspectusByCourse error:', err);
         this.loadingProspectus.set(false);
+
+        const errorMessage =
+          err?.error?.message ||
+          err?.message ||
+          'Failed to fetch prospectus list';
+
+        console.error(
+          'CampusProspectusComponent: getProspectusByCourse error:',
+          err
+        );
+
         this.prospectusList.set([]);
         this.notify.error(errorMessage);
+
         try {
           this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      },
+        } 
+        catch (e) {
+  console.debug('detectChanges skipped', e);
+}      },
     });
-  }
+}
+
 
   /**
    * Get prospectus by ID
@@ -897,9 +966,10 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
       next: (response) => {
         console.log('CampusProspectusComponent: Download response:', response);
         
-        if (response?.success && response.data?.fileUrls && response.data.fileUrls.length > 0) {
+        const downloadData = unwrapApiResponse<{ fileUrls?: string[] }>(response);
+        if (downloadData?.fileUrls && downloadData.fileUrls.length > 0) {
           // Backend returns fileUrls array - download all files
-          const fileUrls = response.data.fileUrls;
+          const fileUrls = downloadData.fileUrls;
           // Generate dynamic filename: {courseName}-prospectus.{extension}
           const cleanCourseName = courseName.replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
           const defaultFileName = fileName || `${cleanCourseName}-prospectus.pdf`;
@@ -968,41 +1038,21 @@ export class CampusProspectusComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   /**
-   * Delete prospectus by ID
+   * Emit delete request to parent (parent shows confirmation modal)
    */
-  deleteProspectus(prospectusId: string): void {
-    if (!prospectusId.trim()) {
+  onDeleteClick(prospectus: ProspectusData): void {
+    const id = prospectus.id?.trim();
+    if (!id) {
       this.notify.error('Prospectus ID is required');
       return;
     }
-
-    // Confirm before deleting
-    if (!confirm('Are you sure you want to delete this prospectus?')) {
-      return;
-    }
-
-    this.campusApi.deleteProspectus(prospectusId.trim()).subscribe({
-      next: (response) => {
-        this.notify.success(response?.message || 'Prospectus deleted successfully');
-        // Refresh prospectus list from server
-        this.loadProspectusListIfNeeded();
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      },
-      error: (err) => {
-        const errorMessage = err?.error?.message || err?.message || 'Failed to delete prospectus';
-        this.notify.error(errorMessage);
-        try {
-          this.cdr.detectChanges();
-        } catch {
-          // Ignore
-        }
-      },
+    this.deleteRequested.emit({
+      id,
+      name: this.getFileName(prospectus),
+      departmentId: this.value.department || undefined,
     });
   }
+
 
   private convertFileToBase64(file: File | null): Promise<string> {
     return new Promise((resolve, reject) => {

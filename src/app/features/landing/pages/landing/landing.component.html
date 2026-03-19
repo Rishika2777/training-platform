@@ -1,25 +1,56 @@
 <div class="login-home">
   <div class="hero-section">
-      <div class="top-right-buttons">
-          <button class="btn-register" type="button" (click)="goToRegister()">Register</button>
-          <button class="btn-login" type="button" (click)="goToLogin()">Sign In</button>
-      </div>
+ 
+        <div class="top-right-buttons">
+            <button class="btn-register" type="button" (click)="goToRegister()">Register</button>
+            <button class="btn-login" type="button" (click)="goToLogin()">Sign In</button>
+        </div>
 
       <div class="hero-content">
           <h1>Welcome To Your Professional Community</h1>
-          <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry.</p>
-          <div class="search-box">
-              <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M10 2a8 8 0 105.293 14.293l4.707 4.707a1 1 0 001.414-1.414l-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"
-                />
-              </svg>
-              <input type="text" placeholder="Search CAMPUS, Students and Companies" />
+          <p>We focus on academic excellence, industry collaboration, and holistic development to prepare students for successful careers and meaningful contributions to society.</p>
+          <div class="search-wrapper" #searchContainer>
+              <div class="search-box">
+                  <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      d="M10 2a8 8 0 105.293 14.293l4.707 4.707a1 1 0 001.414-1.414l-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search Campus, Students and Companies"
+                    [value]="searchQuery"
+                    (input)="onSearchInput($any($event.target).value)"
+                  />
+              </div>
+              @if (searchLoading) {
+                <div class="search-dropdown search-dropdown-loading">Searching...</div>
+              }
+              @if (searchDropdownVisible && searchResults.length > 0 && !searchLoading) {
+                <div class="search-dropdown">
+                  @for (item of searchResults; track item.id) {
+                    <button
+                      type="button"
+                      class="search-dropdown-item"
+                      (click)="selectSearchResult(item)"
+                    >
+                      <app-avatar
+                        [imageUrl]="item.imageUrl"
+                        [name]="item.name"
+                        size="small"
+                        [alt]="item.name"
+                      />
+                      <span class="search-dropdown-item-name">{{ item.name }}</span>
+                      <span class="search-dropdown-item-type">{{ item.type }}</span>
+                    </button>
+                  }
+                </div>
+              }
           </div>
       </div>
   </div>
 
-  <app-landing-feature-row
+  <!-- <app-landing-feature-row
       title="Campus Registered"
       [image]="campusImage()"
       [cardTitle]="campusCardTitle()"
@@ -41,35 +72,45 @@
 
   <app-landing-feature-row
       title="Institutions Registered"
-      image="assets/images/landing-card-institution.png"
-      cardTitle="Institution Name"
-      description="Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since"
+      [image]="institutionImage()"
+      [cardTitle]="institutionCardTitle()"
+      [description]="institutionDescription()"
       direction="normal"
+      (previous)="previousInstitution()"
+      (next)="nextInstitution()"
   />
 
   <div class="reviews-section">
       <h2>Latest News / Reviews</h2>
 
-      <div class="review-row">
+      @if (newsLoading) {
+        <div class="review-row">
           <div class="review-card">
-              <img src="assets/images/login-news-image.png" alt="News" />
-              <h4>Title</h4>
-              <p>Lorem Ipsum dummy text...</p>
+            <img src="assets/images/login-news-image.png" alt="News" />
+            <h4>Loading...</h4>
+            <p>Loading news...</p>
           </div>
-
+        </div>
+      } @else if (newsError) {
+        <div class="review-row">
           <div class="review-card">
-              <img src="assets/images/login-news-image.png" alt="News" />
-              <h4>Title</h4>
-              <p>Lorem Ipsum dummy text...</p>
+            <img src="assets/images/login-news-image.png" alt="News" />
+            <h4>News unavailable</h4>
+            <p>{{ newsError }}</p>
           </div>
-
-          <div class="review-card">
-              <img src="assets/images/login-news-image.png" alt="News" />
-              <h4>Title</h4>
-              <p>Lorem Ipsum dummy text...</p>
-          </div>
-      </div>
-  </div>
+        </div>
+      } @else {
+        <div class="review-row">
+          @for (item of latestNews; track item.id || item.title || $index) {
+            <div class="review-card">
+              <img [src]="newsImage(item)" alt="News" />
+              <h4>{{ newsCardTitle(item) }}</h4>
+              <p>{{ newsDescription(item) }}</p>
+            </div>
+          }
+        </div>
+      }
+  </div> -->
 
   <div class="about-section">
       <h2>About Synkup</h2>

@@ -1,20 +1,36 @@
 <div class="admin-company-page">
-  <div class="announcement">
-    <div class="announcement-date">{{ announcementDate }}</div>
-    <div class="announcement-title">Synkup Announcement</div>
-    <div class="announcement-dots" aria-hidden="true">
-      <span class="dot active"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-    </div>
-  </div>
-
   <section class="registered-section">
     <div class="section-header">
       <h2 class="section-title">Registered Companies</h2>
-      <button type="button" class="add-btn" (click)="onAdd()" title="Add Company">
-        <i class="fa-solid fa-plus"></i>
-      </button>
+      <div class="header-actions">
+        <button type="button" class="template-btn" (click)="downloadTemplate()" title="Download Template">
+          <i class="fa-solid fa-download"></i>
+          <span>Download Template</span>
+        </button>
+        <button type="button" class="template-btn" (click)="triggerFileUpload()" title="Upload Template">
+          <i class="fa-solid fa-upload"></i>
+          <span>Upload Template</span>
+        </button>
+        <input
+          type="file"
+          #fileInput
+          accept=".xlsx,.xls"
+          (change)="onFileSelected($event)"
+          style="display: none"
+        />
+        <button type="button" class="add-btn" (click)="onAdd()" title="Add Company">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <app-dropdown
+        placeholder="All"
+        [items]="approvalFilterItems"
+        [value]="selectedApprovalFilter"
+        (valueChange)="onApprovalFilterChange($event)"
+        [autocomplete]="false"
+      />
     </div>
     @if (isLoading) {
       <div class="loading-state">Loading companies...</div>
@@ -34,11 +50,13 @@
     }
 
     @if (!isLoading && companies.length > 0) {
-      <app-pagination
-        [currentPage]="currentPage"
-        [totalPages]="totalPages"
-        (pageChange)="onPageChange($event)"
-      ></app-pagination>
+      <div class="list-pagination-wrapper">
+        <app-pagination
+          [currentPage]="currentPage"
+          [totalPages]="totalPages"
+          (pageChange)="onPageChange($event)"
+        ></app-pagination>
+      </div>
     }
   </section>
 

@@ -102,14 +102,5 @@
   outline-color: #f4a261;
 }
 
-/* Custom styling for submit button - teal-green color */
-:host ::ng-deep .form-actions app-button button.primary {
-  background: #628a8e;
-  border-color: #628a8e;
-}
-
-:host ::ng-deep .form-actions app-button button.primary:hover:not(:disabled) {
-  background: #4a6d70;
-  border-color: #4a6d70;
-}
+/* Submit button uses global primary (#FF6200) via app-button */
 

@@ -75,6 +75,8 @@ export class CampusVisitCampusComponent {
     attachments: [],
   };
 
+  todayDate: string = new Date().toISOString().split('T')[0];
+
   /**
    * Reset the form to default values
    */
@@ -88,6 +90,24 @@ export class CampusVisitCampusComponent {
   }
 
   patch(patch: Partial<VisitCampusFormValue>): void {
+
+    // restrict phone input to digits only & max 10
+if (patch.contactPersonPhoneNo !== undefined) {
+  patch.contactPersonPhoneNo = patch.contactPersonPhoneNo
+    .replace(/\D/g, '')
+    .slice(0, 10);
+}
+
+      // block special chars in contact name
+  if (patch.contactPersonName !== undefined) {
+    patch.contactPersonName = patch.contactPersonName.replace(/[^A-Za-z\s]/g, '');
+  }
+
+  // block special chars in company name
+  if (patch.companyName !== undefined) {
+    patch.companyName = patch.companyName.replace(/[^A-Za-z\s&.]/g, '');
+  }
+
     const next: VisitCampusFormValue = { ...this.value, ...patch };
     this.value = next;
     this.valueChange.emit(next);
@@ -96,55 +116,67 @@ export class CampusVisitCampusComponent {
   /**
    * Handle time input change - format to HH:MM and ensure 12-hour format
    */
-  onTimeInputChange(inputValue: string): void {
-    // Remove any non-digit and colon characters
-    let cleaned = inputValue.replace(/[^\d:]/g, '');
-    
-    // If user is typing, format it as they type
-    if (cleaned.length > 0) {
-      // Remove extra colons
-      const parts = cleaned.split(':');
-      let hours = parts[0] || '';
-      let minutes = parts[1] || '';
-      
-      // Limit hours to 2 digits (max 12 for 12-hour format)
-      if (hours.length > 2) {
-        hours = hours.substring(0, 2);
-      }
-      
-      // Limit minutes to 2 digits
-      if (minutes.length > 2) {
-        minutes = minutes.substring(0, 2);
-      }
-      
-      // Ensure hours is valid (1-12 for 12-hour format)
-      const hoursNum = parseInt(hours, 10);
-      if (hours && !isNaN(hoursNum)) {
-        if (hoursNum > 12) {
-          hours = '12';
-        } else if (hoursNum < 1 && hours.length === 2) {
-          hours = '01';
-        }
-      }
-      
-      // Ensure minutes is valid (0-59)
-      const minutesNum = parseInt(minutes, 10);
-      if (minutes && !isNaN(minutesNum)) {
-        if (minutesNum > 59) {
-          minutes = '59';
-        }
-      }
-      
-      // Format as HH:MM
-      if (hours && minutes) {
-        cleaned = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
-      } else if (hours) {
-        cleaned = hours;
-      }
-    }
-    
-    this.patch({ timeOfVisit: cleaned });
+onTimeInputChange(inputValue: string): void {
+
+  if (!inputValue) {
+    this.patch({ timeOfVisit: '' });
+    return;
   }
+
+  // allow digits + colon only
+ const  value = inputValue.replace(/[^\d:]/g, '');
+
+  const parts = value.split(':');
+
+  let hours = parts[0] || '';
+  let minutes = parts[1] || '';
+
+  // limit digits
+  hours = hours.slice(0, 2);
+  minutes = minutes.slice(0, 2);
+
+  // validate hours (1–12)
+  if (hours) {
+    let h = Number(hours);
+    if (h < 1) h = 1;
+    if (h > 12) h = 12;
+    hours = String(h);
+  }
+
+  // validate minutes (0–59)
+  if (minutes) {
+    let m = Number(minutes);
+    if (m > 59) m = 59;
+    minutes = String(m);
+  }
+
+  // IMPORTANT: pad only AFTER user finishes typing
+  if (hours.length === 1 && minutes.length === 2) {
+    hours = hours.padStart(2, '0');
+  }
+
+  if (minutes.length === 1 && inputValue.endsWith(':')) {
+    minutes = minutes.padStart(2, '0');
+  }
+
+  const formatted =
+    hours && minutes ? `${hours}:${minutes}` :
+    hours ? hours :
+    '';
+
+  this.patch({ timeOfVisit: formatted });
+}
+
+  // Block paste of special characters in phone field
+onPhonePaste(event: ClipboardEvent): void {
+  const pastedText = event.clipboardData?.getData('text') || '';
+
+  if (/[^0-9]/.test(pastedText)) {
+    event.preventDefault();
+    alert('Only digits allowed in phone number');
+  }
+}
+
 
   patchRecruitmentType(type: 'internship' | 'fullTime' | 'both', checked: boolean): void {
     const recruitmentType = { ...this.value.recruitmentType };
@@ -211,7 +243,39 @@ export class CampusVisitCampusComponent {
     this.submit();
   }
 
+  
   submit(): void {
+
+    const phoneError = this.isValidIndianPhone(this.value.contactPersonPhoneNo);
+
+if (phoneError) {
+  alert(phoneError);
+  return;
+}
+
+
+
+
+    //  Contact person name special characters block
+if (!this.isValidPersonName(this.value.contactPersonName)) {
+  alert('Contact person name should contain only alphabets');
+  return;
+}
+
+//  Company name special characters block
+if (!this.isValidCompanyName(this.value.companyName)) {
+  alert('Company name should not contain special characters');
+  return;
+}
+
+// Package validation
+const pkg = Number(this.value.package);
+
+if (!this.value.package || isNaN(pkg) || pkg <= 0) {
+  alert('Package must be a positive number');
+  return;
+}
+
     // Convert 12-hour format with AM/PM to 24-hour format for API
     const time24Hour = this.convertTo24Hour(this.value.timeOfVisit, this.value.timeOfVisitAmPm);
     const valueToSubmit = {
@@ -220,6 +284,7 @@ export class CampusVisitCampusComponent {
     };
     this.submitted.emit(valueToSubmit);
   }
+
 
   /**
    * Convert 12-hour time format (HH:MM AM/PM) to 24-hour format (HH:MM)
@@ -240,6 +305,8 @@ export class CampusVisitCampusComponent {
 
     return `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
+
+
 
   /**
    * Convert 24-hour format to 12-hour format for display
@@ -272,6 +339,47 @@ export class CampusVisitCampusComponent {
       amPm,
     };
   }
+
+
+  // ================= PHONE VALIDATION =================
+
+private isValidIndianPhone(phone: string): string | null {
+
+  const cleaned = phone.trim();
+
+  if (!/^\d+$/.test(cleaned)) {
+    return 'Phone number must contain digits only';
+  }
+
+  if (cleaned.length !== 10) {
+    return 'Phone number must be exactly 10 digits';
+  }
+
+  if (!/^[6-9]/.test(cleaned)) {
+    return 'Phone number must start with 6, 7, 8, or 9';
+  }
+
+  if (/^(\d)\1{9}$/.test(cleaned)) {
+    return 'Invalid phone number pattern';
+  }
+
+  if (cleaned === '1234567890' || cleaned === '9876543210') {
+    return 'Invalid phone number pattern';
+  }
+
+  return null;
+}
+  // ================= NAME VALIDATIONS =================
+
+// Only alphabets and spaces allowed
+private isValidPersonName(name: string): boolean {
+  return /^[A-Za-z\s]+$/.test(name);
+}
+
+// Alphabets + spaces + & + . allowed for company
+private isValidCompanyName(name: string): boolean {
+  return /^[A-Za-z\s&.]+$/.test(name);
+}
 
   private isFormValid(): boolean {
     return (

@@ -1,3 +1,6 @@
+@if (isPublicProfile()) {
+  <app-header [standalone]="true" />
+}
 <section class="student-profile-page">
   <!-- Loading State -->
   @if (loading()) {
@@ -16,6 +19,23 @@
 
   <!-- Profile Content -->
   @if (profileData() && !loading() && !error()) {
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-background" [style.background-image]="'url(assets/images/login-hero-image.png)'"></div>
+      <div class="hero-banner">
+        <div class="hero-content">
+          <h1 class="hero-title">
+            One Platform with<br />Endless Opportunities
+          </h1>
+          <div class="hero-buttons">
+            <button type="button" class="hero-cta-btn" (click)="onGetStartedForFree()">
+              Get Started for Free <span class="btn-arrows">&#62;&#62;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Profile Header Section -->
     <div class="profile-header">
       <div class="profile-header-content">
@@ -33,8 +53,29 @@
             }
             <div class="profile-badge">
               <i class="fa-solid fa-thumbs-up"></i>
-              <span>25</span>
+              <span>{{ getPromotionCount() }}</span>
             </div>
+          </div>
+          <div class="profile-follow">
+            <div class="profile-follow-stats">
+              <span class="stat-item-inline">
+                <span class="stat-number">{{ getPromotionCount() }}</span>
+                <span class="stat-label-inline">Promotions</span>
+              </span>
+              <span class="stat-item-inline">
+                <span class="stat-number">{{ followerCount() }}</span>
+                <span class="stat-label-inline">Followers</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              class="follow-btn"
+              (click)="followStudent()"
+              [disabled]="followSubmitting() || isFollowing()"
+            >
+              {{ isFollowing() ? 'Followed' : 'Follow' }}
+              <i class="fa-solid fa-angles-right" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
         <div class="profile-right">
@@ -48,20 +89,21 @@
               <span class="detail-label">Campus Name</span>
             </div>
             <div class="detail-value campus-name">{{ getInstitutionName() || 'N/A' }}</div>
+            <!-- Batch commented out for now
             <div class="detail-item">
               <span class="detail-label">Batch</span>
             </div>
             <div class="detail-value">{{ getStringValue('batch', 'N/A') }}</div>
+            -->
           </div>
-          <div class="download-resume-container">
-            <app-button 
-              label="Download Resume" 
-              variant="primary" 
-              (buttonClick)="downloadResume()"
-              [disabled]="!getResumeUrl() || getResumeUrl() === '#'"
-            />
-            <i class="fa-solid fa-download download-icon"></i>
-          </div>
+          <button
+            type="button"
+            class="download-resume-btn"
+            (click)="downloadResume()"
+          >
+            Download Resume
+            <i class="fa-solid fa-download download-resume-btn-icon" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -83,7 +125,15 @@
         } @else if (batchmates().length > 0) {
           <div class="batchmates-grid">
             @for (batchmate of batchmates(); track batchmate.name; let i = $index) {
-              <div class="batchmate-card">
+              <div
+                class="batchmate-card"
+                role="button"
+                tabindex="0"
+                style="cursor: pointer;"
+                (click)="openBatchmateProfile(batchmate)"
+                (keydown.enter)="openBatchmateProfile(batchmate)"
+                (keydown.space)="openBatchmateProfile(batchmate)"
+              >
                 <div class="batchmate-avatar-container">
                   @if (hasValidImage(batchmate.imageUrl)) {
                     <img [src]="batchmate.imageUrl" [alt]="batchmate.name" class="batchmate-avatar" (error)="onImageError($event)" />
@@ -100,78 +150,61 @@
               </div>
             }
           </div>
-          <div class="pagination">
-            <button class="pagination-btn" type="button" (click)="previousBatchmatesPage()">
-              <i class="fa-solid fa-chevron-left"></i>
-            </button>
-            <div class="pagination-numbers">
-              @for (page of [1,2,3,4,5,6]; track page) {
-                <button 
-                  class="pagination-number" 
-                  [class.active]="currentBatchmatesPage === page"
-                  (click)="goToBatchmatesPage(page)"
-                  type="button"
-                >
-                  {{ page }}
-                </button>
-              }
-            </div>
-            <button class="pagination-btn" type="button" (click)="nextBatchmatesPage()">
-              <i class="fa-solid fa-chevron-right"></i>
-            </button>
-          </div>
         } @else {
           <p class="empty-state">No batchmates found.</p>
         }
       </div>
     </div>
 
-    <!-- Overview Section -->
-    <app-card [title]="'Overview'">
+    <!-- Overview Section - Knowledge Base Bar Graph -->
+    <div class="overview-card">
+      <h2 class="section-title">Overview</h2>
       <div class="overview-section">
-        <div class="overview-left">
-          <h3 class="overview-title">Course Insights</h3>
-          <div class="chart-container">
-            <div class="donut-chart">
-              <div class="donut-chart-center">
-                <span class="chart-value">{{ getTotalCourses() }}</span>
-              </div>
-            </div>
-            <div class="chart-legend">
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #9C27B0;"></span>
-                <span>Completed</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #03A9F4;"></span>
-                <span>On going</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background: #F44336;"></span>
-                <span>Enrolled</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="overview-right">
+        <div class="overview-full">
           <h3 class="overview-title">Knowledge Base</h3>
-          <div class="bar-chart-container">
-            <div class="bar-chart">
-              @for (skill of getTechnicalSkills(); track skill; let i = $index) {
-                <div class="bar-item">
-                  <div class="bar" [style.height.%]="getSkillBarHeight(skill, i)" [style.background]="getBarColor(i)"></div>
-                  <span class="bar-label">{{ skill }}</span>
+          @if (loadingKnowledgeBase()) {
+            <div class="bar-chart-loading">Loading knowledge base...</div>
+          } @else if (getKnowledgeBaseLabels().length > 0) {
+            <div class="bar-chart-container">
+              <div class="chart-with-axes">
+                <div class="y-axis">
+                  @for (tick of [10, 8, 6, 4, 2, 0]; track tick) {
+                    <span class="y-tick">{{ tick }}</span>
+                  }
                 </div>
-              }
+                <div class="chart-area">
+                  <div class="bar-chart">
+                    @for (label of getKnowledgeBaseLabels(); track label; let i = $index) {
+                      <div class="bar-item">
+                        <div class="bar-wrapper">
+                          <span class="bar-value">{{ getKnowledgeBaseValues()[i] ?? 0 }}</span>
+                          <div
+                            class="bar"
+                            [style.height.%]="getKnowledgeBaseBarHeight(getKnowledgeBaseValues()[i] ?? 0)"
+                            [style.background]="getBarColor(i)"
+                          ></div>
+                        </div>
+                        <span class="bar-label">{{ label }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="axis-labels">
+                <span class="y-axis-label">Proficiency (0-10)</span>
+                <span class="x-axis-label">Technology</span>
+              </div>
             </div>
-          </div>
+          } @else {
+            <div class="bar-chart-empty">No knowledge base data available</div>
+          }
         </div>
       </div>
-    </app-card>
+    </div>
 
     <!-- My Projects Section -->
     <div class="projects-wrapper">
-      <h2 class="section-title">My Projects</h2>
+      <h2 class="section-title section-title-centered">My Projects</h2>
       <div class="projects-section">
         @if (getProjects().length > 0) {
           @for (project of getProjects(); track project.projectId || project.projectName; let i = $index) {
@@ -206,7 +239,7 @@
 
     <!-- Alumni Community Section -->
     <div class="alumni-section">
-      <h2 class="section-title">Alumni Community</h2>
+      <h2 class="section-title section-title-centered">Alumni Community</h2>
       <div class="alumni-carousel">
         <button class="carousel-nav carousel-nav-left" type="button" (click)="previousAlumni()">
           <i class="fa-solid fa-chevron-left"></i>
@@ -214,7 +247,7 @@
         @if (loadingAlumni()) {
           <p>Loading alumni...</p>
         } @else if (alumni().length > 0) {
-          <div class="alumni-list">
+          <div class="alumni-list" #alumniList>
             @for (alumnus of alumni(); track alumnus.name) {
               <div class="alumni-card">
                 <div class="alumni-avatar-container">
@@ -252,10 +285,17 @@
           <i class="fa-solid fa-chevron-left"></i>
         </button>
         <div class="testimonial-content">
-          <p class="testimonial-text">"A dedicated and proactive student who consistently strives for excellence in academics and extracurricular activities."</p>
-          <div class="testimonial-author">
-            <span class="testimonial-author-name">-Shreya Rao</span>
-          </div>
+          @if (getCurrentTestimonial(); as t) {
+            <p class="testimonial-text">"{{ t.content || 'No testimonial text.' }}"</p>
+            <div class="testimonial-author">
+              <span class="testimonial-author-name">{{ t.author ? '-' + t.author : '' }}</span>
+            </div>
+          } @else {
+            <p class="testimonial-text">"A dedicated and proactive student who consistently strives for excellence in academics and extracurricular activities."</p>
+            <div class="testimonial-author">
+              <span class="testimonial-author-name">-Shreya Rao</span>
+            </div>
+          }
         </div>
         <button class="carousel-nav carousel-nav-right" type="button" (click)="nextTestimonial()">
           <i class="fa-solid fa-chevron-right"></i>
@@ -263,15 +303,42 @@
       </div>
     </div>
 
-    <!-- Get In Touch Section -->
+    <!-- Get In Touch Section (Figma layout) -->
     <div class="contact-section">
       <div class="contact-header">
         <h2 class="contact-title">Get In Touch</h2>
-        <p class="contact-subtitle">Hidden Contacts: Safeguard Your Circle.</p>
+        <!-- <div class="contact-info">
+          <span class="contact-item">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            <span>{{ getContactEmail() }}</span>
+          </span>
+          <span class="contact-item">
+            <i class="fa-solid fa-phone" aria-hidden="true"></i>
+            <span>{{ getContactPhone() }}</span>
+          </span>
+          <span class="contact-item">
+            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+            <span>{{ getContactAddressDisplay() }}</span>
+          </span>
+        </div> -->
       </div>
       <p class="contact-intro">
         Your input is valuable in recognizing accomplishments and guiding improvement. Let us know your insights on this student's progress, abilities, and highlights using the form below!
       </p>
+      @if (!canSubmitFeedback()) {
+        <p class="feedback-login-hint">
+          You have to first login to submit recommendation or feedback.
+        </p>
+      }
+      @if (feedbackSubmitError()) {
+        <p class="feedback-error">{{ feedbackSubmitError() }}</p>
+      }
+      @if (feedbackSubmitSuccess()) {
+        <p class="feedback-success">Thank you! Your feedback has been submitted.</p>
+      }
+      @if (recommendationSubmitSuccess()) {
+        <p class="feedback-success">Thank you! Your recommendation has been submitted.</p>
+      }
       <div class="feedback-form">
         <div class="feedback-left">
           <p class="feedback-question">Would you recommend promoting this student based on their performance and potential?</p>
@@ -280,7 +347,8 @@
               type="button" 
               class="recommend-btn"
               [class.active]="feedbackRecommendation === 'yes'"
-              (click)="feedbackRecommendation = 'yes'"
+              (click)="onRecommendationClick('yes')"
+              [disabled]="!canSubmitFeedback() || recommendationSubmitting()"
             >
               <i class="fa-solid fa-thumbs-up"></i>
               <span>Yes</span>
@@ -289,7 +357,8 @@
               type="button" 
               class="recommend-btn"
               [class.active]="feedbackRecommendation === 'no'"
-              (click)="feedbackRecommendation = 'no'"
+              (click)="onRecommendationClick('no')"
+              [disabled]="!canSubmitFeedback() || recommendationSubmitting()"
             >
               <i class="fa-solid fa-thumbs-down"></i>
               <span>No</span>
@@ -304,23 +373,27 @@
             (valueChange)="feedbackName = $event"
             placeholder="Enter your name"
           />
+          <div class="feedback-comment-label">Speak your mind about <span class="student-name-accent">{{ getFullName() }}</span>!</div>
           <app-textarea
-            [label]="'Speak your mind about ' + getFullName() + '!'"
+            [label]="''"
             [value]="feedbackComment"
             (valueChange)="feedbackComment = $event"
             placeholder="Write your feedback here..."
             [rows]="5"
+            [maxlength]="1000"
+            [showCharCount]="true"
           />
+          <div class="feedback-submit feedback-submit-centered">
+            <button
+              type="button"
+              class="send-btn"
+              (click)="submitFeedback()"
+              [disabled]="!canSubmitFeedback() || feedbackSubmitting() || !feedbackName.trim() || !feedbackComment.trim()"
+            >
+              send
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="feedback-submit">
-        <app-button 
-          label="send" 
-          variant="primary" 
-          type="submit"
-          (buttonClick)="submitFeedback()"
-          [disabled]="!feedbackName.trim() || !feedbackComment.trim() || !feedbackRecommendation"
-        />
       </div>
     </div>
   }

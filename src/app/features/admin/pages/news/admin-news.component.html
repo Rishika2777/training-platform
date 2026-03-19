@@ -1,0 +1,157 @@
+<div class="admin-news-page">
+  <section class="news-section">
+    <div class="section-header">
+      <h2 class="section-title">News</h2>
+      <button type="button" class="add-btn" (click)="onAddNews()" [title]="editingNewsId ? 'Edit News' : 'Add News'"
+>
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+  </section>
+
+@if (newsList.length > 0) {
+  <div class="news-list">
+  @for (news of newsList; track news.id) {
+
+    <div class="news-card">
+
+      <div class="news-left">
+        <h3 class="news-title">{{ news.title }}</h3>
+
+        <p class="news-description">
+          {{ news.description }}
+        </p>
+
+        <div class="news-meta">
+          <span class="news-date">
+            {{ news.createDate | date:'mediumDate' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="news-actions">
+        <button class="view-btn" (click)="viewNews(news.id)">
+          <i class="fa-solid fa-eye"></i> View
+        </button>
+
+        <button class="delete-btn" (click)="onDeleteNews(news.id)">
+          <i class="fa-solid fa-trash"></i> Delete
+        </button>
+      </div>
+
+    </div>
+
+  }
+</div>
+
+}
+
+@if (!newsList.length && !loadingNews) {
+  <div class="empty-state">
+    No news available
+  </div>
+}
+
+
+  <!-- Delete News Confirmation Modal -->
+  <app-modal
+    [visible]="showDeleteNewsModal"
+    title="Delete News"
+    size="sm"
+    (closed)="closeDeleteNewsModal()"
+  >
+    <div class="delete-modal-content">
+      <p>Are you sure you want to delete this news?</p>
+      <div class="delete-modal-actions">
+        <app-button
+          label="Cancel"
+          variant="outline"
+          (buttonClick)="closeDeleteNewsModal()"
+        ></app-button>
+        <app-button
+          label="Delete"
+          variant="primary"
+          (buttonClick)="confirmDeleteNews()"
+        ></app-button>
+      </div>
+    </div>
+  </app-modal>
+
+  <!-- Add News Modal -->
+  <app-modal
+    [visible]="isAddNewsModalOpen()"
+    title="Add News"
+    size="md"
+    (closed)="onCancel()"
+  >
+    <div class="add-news-form">
+
+      <input
+  type="text"
+    maxlength="35"
+  class="news-title-input"
+  placeholder="Enter news title"
+  [(ngModel)]="newsTitle"
+  (input)="validateTitle()"
+  (blur)="validateTitle()"
+  [disabled]="submitting"
+/>
+
+@if (titleError) {
+  <div class="field-error">
+    {{ titleError }}
+  </div>
+}
+
+
+<textarea
+  class="news-textarea"
+    maxlength="300"
+  placeholder="Write your news here..."
+  rows="10"
+  [(ngModel)]="newsText"
+  (input)="validateText()"
+  (blur)="validateText()"
+  [disabled]="submitting"
+></textarea>
+
+@if (textError) {
+<div class="field-error">
+  {{ textError }}
+</div>
+}
+
+
+
+      <div class="form-footer">
+        <button
+          type="button"
+          class="btn cancel-btn"
+          (click)="onCancel()"
+          [disabled]="submitting"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn post-btn"
+          (click)="onPostNews()"
+[disabled]="
+  submitting ||
+  !newsTitle.trim() ||
+  !newsText.trim() ||
+  titleError ||
+  textError
+"
+        >
+          @if (submitting) {
+            <span>Posting...</span>
+          } @else {
+            <span>Post</span>
+          }
+        </button>
+      </div>
+    </div>
+  </app-modal>
+</div>
+

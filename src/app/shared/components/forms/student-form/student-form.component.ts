@@ -8,171 +8,27 @@ import { StepIndicatorComponent } from '../../step-indicator/step-indicator.comp
 import { TextareaComponent } from '../../textarea/textarea.component';
 import { YearPickerComponent } from '../../year-picker/year-picker.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { isValidUrl, isOptionalUrlInvalid } from '../../../../core/validators/url.validator';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import type { CampusResponse } from '../../../../features/student/models/student.models';
-import { CampusApiService, type CampusAutocompleteResponse } from '../../../../features/campus/services/campus-api.service';
+import { CampusApiService, type CampusAutocompleteResponse, type DepartmentDropdownItem } from '../../../../features/campus/services/campus-api.service';
+import type {
+  Gender,
+  StudentAdditionalInfo,
+  StudentEducationItem,
+  StudentFormValue,
+  StudentProjectItem,
+  StudentTechnicalSkillItem,
+  StudentWorkExperienceItem,
+  StudentWorkPreferences,
+} from './student-form.models';
+import {
+  createEmptyEducationItem,
+  createEmptyProjectItem,
+  createEmptyStudentFormValue,
+  createEmptyWorkExperienceItem,
+} from './student-form.utils';
 
-type YesNo = 'yes' | 'no';
-type Gender = 'male' | 'female' | 'other';
-
-export interface StudentEducationItem {
-  qualification: string;
-  institution: string;
-  campusId?: string; // Campus ID when institution is selected from campuses
-  campusAddress?: string; // Campus address when institution is selected from campuses
-  degree: string;
-  specialization: string;
-  id?: string;
-  yearOfPassing: string;
-  percentageOrCgpa: string;
-  certificateFiles: FileList | null;
-  certificateFileNames: readonly string[];
-}
-
-export interface StudentTechnicalSkillItem {
-  skill: string;
-  proficiency: string; // keep as string; backend parsing can be done later
-}
-
-export interface StudentWorkExperienceItem {
-  companyName: string;
-  role: string;
-  startDate: string;
-  endDate: string;
-  currentlyWorkingHere: boolean;
-}
-
-export interface StudentProjectItem {
-  projectName: string;
-  description: string;
-  technologiesUsed: readonly string[];
-}
-
-export interface StudentWorkPreferences {
-  jobRolesInterested: string;
-  preferredLocation: string;
-  availabilityToStart: string;
-  expectedSalary: string;
-  employmentType: {
-    internship: boolean;
-    fullTime: boolean;
-    both: boolean;
-  };
-}
-
-export interface StudentAdditionalInfo {
-  govtIdProofFiles: FileList | null;
-  govtIdProofUrl?: string; // URL of existing govt ID proof from API
-  resumeFiles: FileList | null;
-  resumeUrl?: string; // URL of existing resume from API
-  certificateFiles: FileList | null;
-  certificateFileNames: readonly string[];
-  portfolioUrl: string;
-  otherWebsites: string;
-  offersInHand: YesNo | null;
-  heardAboutPortal: string;
-  jobAlertsVia: string;
-  agreeToTerms: boolean;
-}
-
-export interface StudentFormValue {
-  // Existing minimal fields used by current API call:
-  fullName: string;
-  email: string;
-
-  // Multi-step fields:
-  firstName: string;
-  lastName: string;
-  photoFiles: FileList | null;
-  photoUrl?: string; // URL of existing photo from API
-  dateOfBirth: string;
-  gender: Gender | null;
-  mobile: string;
-  address: string;
-  profileSummary: string;
-
-  education: StudentEducationItem[];
-  technicalSkills: StudentTechnicalSkillItem[];
-  softSkills: readonly string[];
-  languagesKnown: readonly string[];
-  workPreferences: StudentWorkPreferences;
-  workExperience: StudentWorkExperienceItem[];
-  projects: StudentProjectItem[];
-  additional: StudentAdditionalInfo;
-}
-
-export function createEmptyStudentFormValue(seed?: Partial<StudentFormValue>): StudentFormValue {
-  const base: StudentFormValue = {
-    fullName: '',
-    email: '',
-
-    firstName: '',
-    lastName: '',
-    photoFiles: null,
-    photoUrl: undefined,
-    dateOfBirth: '',
-    gender: null,
-    mobile: '',
-    address: '',
-    profileSummary: '',
-
-    education: [createEmptyEducationItem()],
-    technicalSkills: [],
-    softSkills: [],
-    languagesKnown: [],
-    workPreferences: createEmptyWorkPreferences(),
-    workExperience: [createEmptyWorkExperienceItem()],
-    projects: [createEmptyProjectItem()],
-    additional: createEmptyAdditionalInfo(),
-  };
-
-  return { ...base, ...seed };
-}
-
-function createEmptyEducationItem(): StudentEducationItem {
-  return {
-    qualification: '',
-    institution: '',
-    degree: '',
-    specialization: '',
-    yearOfPassing: '',
-    percentageOrCgpa: '',
-    certificateFiles: null,
-    certificateFileNames: [],
-  };
-}
-
-function createEmptyWorkPreferences(): StudentWorkPreferences {
-  return {
-    jobRolesInterested: '',
-    preferredLocation: '',
-    availabilityToStart: '',
-    expectedSalary: '',
-    employmentType: { internship: false, fullTime: false, both: false },
-  };
-}
-
-function createEmptyWorkExperienceItem(): StudentWorkExperienceItem {
-  return { companyName: '', role: '', startDate: '', endDate: '', currentlyWorkingHere: false };
-}
-
-function createEmptyProjectItem(): StudentProjectItem {
-  return { projectName: '', description: '', technologiesUsed: [] };
-}
-
-function createEmptyAdditionalInfo(): StudentAdditionalInfo {
-  return {
-    govtIdProofFiles: null,
-    resumeFiles: null,
-    certificateFiles: null,
-    certificateFileNames: [],
-    portfolioUrl: '',
-    otherWebsites: '',
-    offersInHand: null,
-    heardAboutPortal: '',
-    jobAlertsVia: '',
-    agreeToTerms: false,
-  };
-}
 
 @Component({
   selector: 'app-student-form',
@@ -197,21 +53,40 @@ export class StudentFormComponent implements OnInit, OnChanges {
   @Input() approveDisabled = false;
   @Input() isEditMode = false;
   @Input() campuses: CampusResponse[] = []; // Campuses for institution dropdown
+  @Input() verifiedPhoneNumber: string | null = null; // Phone number that has been verified
 
   @Output() valueChange = new EventEmitter<StudentFormValue>();
   @Output() submitted = new EventEmitter<StudentFormValue>();
   @Output() cancelled = new EventEmitter<void>();
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
+  @Output() verifyPhone = new EventEmitter<{ phoneNumber: string; fieldType: 'mobile' | 'adminPhone' | 'phone' }>();
 
   readonly steps = ['Personal Info', 'Education', 'Skills & Experience', 'Additional'] as const;
-  
+
+  readonly projectDescriptionMaxLength = 500;
+
+  todayDate: string = new Date().toISOString().split('T')[0];
+
+  /** Percentage/Grade/CGPA: 0–100 with up to 2 decimals, or single letter grade A–F. */
+  readonly percentageOrCgpaPattern = /^(?:100(?:\.0{1,2})?|[0-9]{1,2}(?:\.[0-9]{1,2})?|10(?:\.0{1,2})?|[0-9](?:\.[0-9]{1,2})?|[A-Fa-f])$/;
+
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly campusApiService = inject(CampusApiService);
   currentStep = 0;
   submitAttempted = false;
   private stepNavLocked = false;
+private readonly namePattern = /^[A-Za-z][A-Za-z\s]{1,}$/;
+
+  /** Min resolution for profile photo (frontend validation). */
+  private static readonly MIN_PHOTO_WIDTH = 300;
+  private static readonly MIN_PHOTO_HEIGHT = 300;
+
+  /** Set when selected photo fails dimension check (e.g. &lt; 300x300). */
+  photoDimensionError: string | null = null;
   // Cache to store campusId -> {campusName, campusAddress} mapping from API responses
   private campusCache = new Map<string, { campusName: string; campusAddress?: string }>();
+  /** Cache: campusId -> department dropdown items (loaded once when campus selected) */
+  private departmentCache = new Map<string, DropdownItem<string>[]>();
   // Store pre-loaded campuses for instant dropdown display
   private readonly initialCampuses = signal<CampusAutocompleteResponse[]>([]);
 
@@ -228,6 +103,22 @@ export class StudentFormComponent implements OnInit, OnChanges {
     return this.isEditMode && this.mode !== 'review';
   }
 
+isNameInvalid(name: string, isRequired = true): boolean {
+  if (!this.submitAttempted) return false;
+
+  const value = (name || '').trim();
+
+  // optional field → empty allowed
+  if (!isRequired && value.length === 0) return false;
+
+  // required field → empty not allowed
+  if (isRequired && value.length === 0) return true;
+
+  // if user typed → must be minimum 2 letters
+  if (value.length < 2) return true;
+
+  return !this.namePattern.test(value);
+}
   get isFieldsDisabled(): boolean {
     return this.submitting || (this.isReviewMode && !this.isEditMode);
   }
@@ -260,6 +151,9 @@ export class StudentFormComponent implements OnInit, OnChanges {
           campusName: edu.institution,
           campusAddress: edu.campusAddress,
         });
+        if (!this.departmentCache.has(edu.campusId)) {
+          this.loadDepartmentsForCampus(edu.campusId);
+        }
       }
     });
   }
@@ -271,37 +165,21 @@ export class StudentFormComponent implements OnInit, OnChanges {
   private loadInitialCampuses(): void {
     this.campusApiService.getCampusBySearch('', 0, 20).subscribe({
       next: (response) => {        
-        if (response) {
-          let content: CampusAutocompleteResponse[] | undefined;
-          
-          // Check if content is in response.data.content
-          if (response.data?.content && Array.isArray(response.data.content)) {
-            content = response.data.content;
-          }
-          // Check if content is directly in response.data (array)
-          else if (response.data && Array.isArray(response.data)) {
-            content = response.data as CampusAutocompleteResponse[];
-          }
-          // Check if content is at root level
-          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
-            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
-          }
-          
-          if (content && content.length > 0) {
-            this.initialCampuses.set(content);
-            // Pre-populate the cache with initial campuses
-            content.forEach((campus) => {
-              const campusId = campus.campusId || campus.id;
-              if (campusId && campus.campusName) {
-                this.campusCache.set(campusId, {
-                  campusName: campus.campusName,
-                  campusAddress: campus.campusAddress,
-                });
-              }
-            });
-          } else {
-            console.warn('StudentFormComponent: No campus content in initial response');
-          }
+        const content = this.extractCampusContent(response);
+        if (content.length > 0) {
+          this.initialCampuses.set(content);
+          // Pre-populate the cache with initial campuses
+          content.forEach((campus) => {
+            const campusId = campus.campusId || campus.id;
+            if (campusId && campus.campusName) {
+              this.campusCache.set(campusId, {
+                campusName: campus.campusName,
+                campusAddress: campus.campusAddress,
+              });
+            }
+          });
+        } else {
+          console.warn('StudentFormComponent: No campus content in initial response');
         }
       },
       error: (error) => {
@@ -331,13 +209,14 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Instagram', value: 'Instagram' },
     { label: 'Friend', value: 'Friend' },
     { label: 'College', value: 'College' },
-    { label: 'Other', value: 'Other' },
   ];
 
+  /** Matches backend enum JobAlertPreference: NONE, EMAIL, SMS, BOTH */
   readonly jobAlertsViaItems: readonly DropdownItem<string>[] = [
-    { label: 'Email', value: 'Email' },
+    { label: 'None', value: 'NONE' },
+    { label: 'Email', value: 'EMAIL' },
     { label: 'SMS', value: 'SMS' },
-    { label: 'Email & SMS', value: 'Email & SMS' },
+    { label: 'Email & SMS', value: 'BOTH' },
   ];
 
   // Education dropdown items
@@ -348,7 +227,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Bachelor\'s Degree', value: 'Bachelor\'s Degree' },
     { label: 'Master\'s Degree', value: 'Master\'s Degree' },
     { label: 'PhD', value: 'PhD' },
-    { label: 'Other', value: 'Other' },
   ];
 
   // Use campuses if available, otherwise fallback to hardcoded list
@@ -384,54 +262,36 @@ export class StudentFormComponent implements OnInit, OnChanges {
       map((response) => {        
         const items: DropdownItem<string>[] = [];
         
-        if (response) {
-          // Try different response structures
-          let content: CampusAutocompleteResponse[] | undefined;
-          
-          // Check if content is in response.data.content
-          if (response.data?.content && Array.isArray(response.data.content)) {
-            content = response.data.content;
-          }
-          // Check if content is directly in response.data (array)
-          else if (response.data && Array.isArray(response.data)) {
-            content = response.data as CampusAutocompleteResponse[];
-          }
-          // Check if content is at root level
-          else if ('content' in response && Array.isArray((response as Record<string, unknown>)['content'])) {
-            content = (response as Record<string, unknown>)['content'] as CampusAutocompleteResponse[];
-          }
-          
-          if (content && content.length > 0) {
-            const campusItems = content
-              .filter((campus) => {
-                // Support both 'id' and 'campusId' properties
-                const campusId = campus.campusId || campus.id;
-                const hasId = !!campusId;
-                const hasName = !!campus.campusName;
-                return hasId && hasName;
-              })
-              .map((campus) => {
-                // Use 'id' if 'campusId' is not available (API returns 'id')
-                const campusId = campus.campusId || campus.id || '';
-                const campusName = campus.campusName || '';
-                const campusAddress = campus.campusAddress || '';
-                
-                // Cache the mapping for later use (store both name and address)
-                if (campusId && campusName) {
-                  this.campusCache.set(campusId, {
-                    campusName,
-                    campusAddress: campusAddress || undefined,
-                  });
-                }
-                
-                const item = {
-                  label: campusName,
-                  value: campusId,
-                };
-                return item;
-              });
-            items.push(...campusItems);
-          }
+        const content = this.extractCampusContent(response);
+        if (content.length > 0) {
+          const campusItems = content
+            .filter((campus) => {
+              // Support both 'id' and 'campusId' properties
+              const campusId = campus.campusId || campus.id;
+              const hasId = !!campusId;
+              const hasName = !!campus.campusName;
+              return hasId && hasName;
+            })
+            .map((campus) => {
+              // Use 'id' if 'campusId' is not available (API returns 'id')
+              const campusId = campus.campusId || campus.id || '';
+              const campusName = campus.campusName || '';
+              const campusAddress = campus.campusAddress || '';
+              
+              // Cache the mapping for later use (store both name and address)
+              if (campusId && campusName) {
+                this.campusCache.set(campusId, {
+                  campusName,
+                  campusAddress: campusAddress || undefined,
+                });
+              }
+              
+              return {
+                label: campusName,
+                value: campusId,
+              };
+            });
+          items.push(...campusItems);
         }
         
         // Merge with existing campuses from the form (avoid duplicates)
@@ -452,6 +312,11 @@ export class StudentFormComponent implements OnInit, OnChanges {
     );
   };
 
+  private extractCampusContent(response: unknown): CampusAutocompleteResponse[] {
+    const content = unwrapApiResponse<CampusAutocompleteResponse[]>(response);
+    return Array.isArray(content) ? content : [];
+  }
+
   readonly degreeItems: readonly DropdownItem<string>[] = [
     { label: 'B.Tech', value: 'B.Tech' },
     { label: 'B.E.', value: 'B.E.' },
@@ -463,7 +328,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'M.Sc', value: 'M.Sc' },
     { label: 'MBA', value: 'MBA' },
     { label: 'MCA', value: 'MCA' },
-    { label: 'Other', value: 'Other' },
   ];
 
   readonly specializationItems: readonly DropdownItem<string>[] = [
@@ -481,7 +345,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Biotechnology', value: 'Biotechnology' },
     { label: 'Data Science', value: 'Data Science' },
     { label: 'Business Administration', value: 'Business Administration' },
-    { label: 'Other', value: 'Other' },
   ];
 
   readonly yearOfPassingItems: readonly DropdownItem<string>[] = (() => {
@@ -505,7 +368,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Node.js', value: 'Node.js' },
     { label: 'SQL', value: 'SQL' },
     { label: 'MongoDB', value: 'MongoDB' },
-    { label: 'Other', value: 'Other' },
   ];
 
   readonly softSkillItems: readonly DropdownItem<string>[] = [
@@ -517,7 +379,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Adaptability', value: 'Adaptability' },
     { label: 'Critical Thinking', value: 'Critical Thinking' },
     { label: 'Creativity', value: 'Creativity' },
-    { label: 'Other', value: 'Other' },
   ];
 
   readonly languageItems: readonly DropdownItem<string>[] = [
@@ -528,7 +389,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'German', value: 'German' },
     { label: 'Mandarin', value: 'Mandarin' },
     { label: 'Japanese', value: 'Japanese' },
-    { label: 'Other', value: 'Other' },
   ];
 
   // Work preferences dropdown items
@@ -540,7 +400,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Data Scientist', value: 'Data Scientist' },
     { label: 'DevOps Engineer', value: 'DevOps Engineer' },
     { label: 'Product Manager', value: 'Product Manager' },
-    { label: 'Other', value: 'Other' },
   ];
 
   readonly preferredLocationItems: readonly DropdownItem<string>[] = [
@@ -552,7 +411,6 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Pune', value: 'Pune' },
     { label: 'Kolkata', value: 'Kolkata' },
     { label: 'Remote', value: 'Remote' },
-    { label: 'Other', value: 'Other' },
   ];
 
   // Work experience dropdown items
@@ -562,22 +420,22 @@ export class StudentFormComponent implements OnInit, OnChanges {
     { label: 'Software Engineer', value: 'Software Engineer' },
     { label: 'Junior Developer', value: 'Junior Developer' },
     { label: 'Intern', value: 'Intern' },
-    { label: 'Other', value: 'Other' },
   ];
 
   // Project technologies dropdown items
+  /** Matches backend enum Technology */
   readonly projectTechnologyItems: readonly DropdownItem<string>[] = [
+    { label: 'HTML', value: 'HTML' },
+    { label: 'CSS', value: 'CSS' },
+    { label: 'JavaScript', value: 'JAVASCRIPT' },
     { label: 'React', value: 'REACT' },
-    { label: 'Angular', value: 'ANGULAR' },
-    { label: 'Vue.js', value: 'VUEJS' },
-    { label: 'Node.js', value: 'NODEJS' },
-    { label: 'Python', value: 'PYTHON' },
+    { label: 'Node', value: 'NODE' },
+    { label: 'MongoDB', value: 'MONGODB' },
     { label: 'Java', value: 'JAVA' },
     { label: 'Spring Boot', value: 'SPRINGBOOT' },
-    { label: 'Django', value: 'DJANGO' },
-    { label: 'MongoDB', value: 'MONGODB' },
-    { label: 'PostgreSQL', value: 'POSTGRESQL' },
-    { label: 'Other', value: 'Other' },
+    { label: 'Python', value: 'PYTHON' },
+    { label: 'jQuery', value: 'JQUERY' },
+    { label: 'Bootstrap', value: 'BOOTSTRAP' },
   ];
 
   // Draft inputs for tag-like lists
@@ -595,6 +453,15 @@ export class StudentFormComponent implements OnInit, OnChanges {
     this.newTechnicalSkill = { ...this.newTechnicalSkill, proficiency: value };
   }
 
+  /** True if new technical skill proficiency is out of range (must be 1–10 or empty). */
+  get isNewTechnicalSkillProficiencyInvalid(): boolean {
+    const p = this.newTechnicalSkill.proficiency.trim();
+    if (!p) return false;
+    const num = Number(p);
+    if (!Number.isFinite(num)) return false;
+    return num < 1 || num > 10;
+  }
+
   setWorkPreferenceField<K extends keyof Omit<StudentWorkPreferences, 'employmentType'>>(
     field: K,
     value: StudentWorkPreferences[K],
@@ -607,18 +474,20 @@ export class StudentFormComponent implements OnInit, OnChanges {
     });
   }
 
-  toggleEmploymentType(key: keyof StudentWorkPreferences['employmentType']): void {
-    const current = this.value.workPreferences.employmentType[key];
-    this.patch({
-      workPreferences: {
-        ...this.value.workPreferences,
-        employmentType: {
-          ...this.value.workPreferences.employmentType,
-          [key]: !current,
-        },
+ toggleEmploymentType(key: keyof StudentWorkPreferences['employmentType']): void {
+  this.patch({
+    workPreferences: {
+      ...this.value.workPreferences,
+      employmentType: {
+        internship: false,
+        fullTime: false,
+        both: false,
+        [key]: true,
       },
-    });
-  }
+    },
+  });
+}
+
 
   setAdditionalField<
     K extends keyof Omit<StudentAdditionalInfo, 'certificateFiles' | 'certificateFileNames'>
@@ -631,20 +500,102 @@ export class StudentFormComponent implements OnInit, OnChanges {
     });
   }
 
-  patch(patch: Partial<StudentFormValue>): void {
-    if (this.isReviewMode && !this.isEditMode) {
+  /**
+   * Validates selected photo file: must be image and at least 300x300.
+   * Sets photoDimensionError and patches photoFiles; Save and Next is disabled when invalid.
+   */
+  onPhotoFilesSelected(files: FileList): void {
+    this.photoDimensionError = null;
+    if (!files || files.length === 0) {
+      this.patch({ photoFiles: files ?? null });
+      this.cdr.markForCheck();
       return;
     }
-    const next: StudentFormValue = { ...this.value, ...patch };
-
-    // Keep derived fields in sync.
-    if (patch.firstName !== undefined || patch.lastName !== undefined) {
-      next.fullName = buildFullName(next.firstName, next.lastName);
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      this.photoDimensionError = 'Please upload an image file (e.g. JPG, PNG).';
+      this.patch({ photoFiles: files });
+      this.cdr.markForCheck();
+      return;
     }
+    this.patch({ photoFiles: files });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+  img.onload = (): void => {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  URL.revokeObjectURL(url);
 
-    this.value = next;
-    this.valueChange.emit(next);
+  // Minimum resolution check
+  if (w < StudentFormComponent.MIN_PHOTO_WIDTH || h < StudentFormComponent.MIN_PHOTO_HEIGHT) {
+    this.photoDimensionError =
+      `Image dimensions too small. Minimum resolution is ${StudentFormComponent.MIN_PHOTO_WIDTH}x${StudentFormComponent.MIN_PHOTO_HEIGHT} pixels.`;
+    this.cdr.markForCheck();
+    return;
   }
+
+  // Aspect ratio check (must be square)
+  const ratio = w / h;
+  if (ratio < 0.9 || ratio > 1.1) {
+    this.photoDimensionError = 'Image must be square (1:1 aspect ratio).';
+    this.cdr.markForCheck();
+    return;
+  }
+
+  this.photoDimensionError = null;
+  this.cdr.markForCheck();
+};
+    img.onerror = (): void => {
+      URL.revokeObjectURL(url);
+      this.photoDimensionError = 'Failed to load image. Please choose a valid image file.';
+      this.cdr.markForCheck();
+    };
+    img.src = url;
+  }
+
+  isPhotoDimensionValid(): boolean {
+    return !this.photoDimensionError;
+  }
+
+ patch(patch: Partial<StudentFormValue>): void {
+  if (this.isReviewMode && !this.isEditMode) {
+    return;
+  }
+
+  const next: StudentFormValue = { ...this.value, ...patch };
+
+  // MOBILE HARD CONTROL
+  if (patch.mobile !== undefined) {
+    let mobile = String(patch.mobile);
+
+    mobile = mobile.replace(/\D/g, '');
+    mobile = mobile.slice(0, 10);
+
+    next.mobile = mobile;
+  }
+
+ if (patch.firstName !== undefined) {
+  let first = patch.firstName.replace(/[^A-Za-z\s]/g, '');
+
+  // split by space and take only first word
+  first = first.trim().split(' ')[0];
+
+  next.firstName = first;
+}
+
+  //  LAST NAME HARD VALIDATION
+  if (patch.lastName !== undefined) {
+    next.lastName = patch.lastName.replace(/[^A-Za-z]/g, '');
+  }
+
+  // Keep derived fields in sync.
+  if (patch.firstName !== undefined || patch.lastName !== undefined) {
+    next.fullName = buildFullName(next.firstName, next.lastName);
+  }
+
+  this.value = next;
+  this.valueChange.emit(next);
+}
 
   setStep(step: number): void {
     if (this.submitting) {
@@ -696,10 +647,10 @@ export class StudentFormComponent implements OnInit, OnChanges {
       
       // Check if "Other" was selected
       if (value === 'OTHER') {
-        // Clear campusId and campusAddress when "Other" is selected
         patch.campusId = undefined;
         patch.campusAddress = undefined;
-        patch.institution = 'OTHER'; // Keep as "OTHER" to indicate custom input needed
+        patch.departmentId = undefined;
+        patch.institution = 'OTHER';
       } else {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
         const isMongoObjectId = /^[0-9a-f]{24}$/i.test(value); // MongoDB ObjectId: 24 hex characters
@@ -707,8 +658,8 @@ export class StudentFormComponent implements OnInit, OnChanges {
         const isCampusId = isUUID || isMongoObjectId || isCampusPrefix || value.length > 20;
         
         if (isCampusId) {
-          // Value is a campusId from API - store it as campusId and get the campus name and address from cache
           patch.campusId = value;
+          patch.departmentId = undefined; // Clear department when institution changes
           
           // Look up campus name and address from cache (populated when fetching campuses)
           const cachedCampus = this.campusCache.get(value);
@@ -754,7 +705,37 @@ export class StudentFormComponent implements OnInit, OnChanges {
     }
     const next = this.value.education.map((item, i) => (i === index ? { ...item, ...patch } : item));
     this.patch({ education: next });
+
+    const newCampusId = patch.campusId ?? next[index]?.campusId;
+    if (newCampusId && !this.departmentCache.has(newCampusId)) {
+      this.loadDepartmentsForCampus(newCampusId);
+    }
   }
+
+  private loadDepartmentsForCampus(campusId: string): void {
+    this.campusApiService.getAllDepartmentsByCampus(campusId).subscribe({
+      next: (res) => {
+        const data = res?.data ?? unwrapApiResponse<DepartmentDropdownItem[]>(res);
+        const items = Array.isArray(data)
+          ? data.map((d: DepartmentDropdownItem) => ({ value: d.departmentId, label: d.departmentName }))
+          : [];
+        this.departmentCache.set(campusId, items);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.departmentCache.set(campusId, []);
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  getDepartmentItemsForIndex(index: number): DropdownItem<string>[] {
+    const edu = this.value.education[index];
+    const campusId = edu?.campusId;
+    if (!campusId) return [];
+    return this.departmentCache.get(campusId) ?? [];
+  }
+  
 
   // Check if "Other" is selected for a specific education item
   isOtherInstitutionSelected(index: number): boolean {
@@ -777,6 +758,7 @@ export class StudentFormComponent implements OnInit, OnChanges {
           institution: trimmedName || 'OTHER',
           campusId: undefined,
           campusAddress: undefined,
+          departmentId: undefined,
         };
       }
       return item;
@@ -843,15 +825,81 @@ export class StudentFormComponent implements OnInit, OnChanges {
     this.patch({ workExperience: this.value.workExperience.filter((_, i) => i !== index) });
   }
 
-  patchWorkExperienceAt(index: number, patch: Partial<StudentWorkExperienceItem>): void {
-    const next = this.value.workExperience.map((item, i) =>
-      i === index ? { ...item, ...patch } : item,
-    );
-    this.patch({ workExperience: next });
+ patchWorkExperienceAt(index: number, patch: Partial<StudentWorkExperienceItem>): void {
+  const item = this.value.workExperience[index];
+  if (!item) return;
+
+  let resolved = { ...item, ...patch };
+
+  if (patch.endDate !== undefined && (patch.endDate?.trim() ?? '').length > 0) {
+    resolved = { ...resolved, currentlyWorkingHere: false };
+  }
+
+  if (patch.currentlyWorkingHere === true) {
+    resolved = { ...resolved, endDate: '' };
+  }
+
+  const next = this.value.workExperience.map((it, i) =>
+    i === index ? resolved : it
+  );
+
+  this.patch({ workExperience: next });
+
+  // ADD THIS LINE
+  this.validateWorkExperienceDates(index);
+}
+  hasWorkExperienceEndDate(exp: StudentWorkExperienceItem): boolean {
+    return (exp.endDate?.trim() ?? '').length > 0;
   }
 
   addProject(): void {
+    if (this.hasAnyProjectDescriptionOverLimit()) {
+      return;
+    }
     this.patch({ projects: [...this.value.projects, createEmptyProjectItem()] });
+  }
+
+  hasAnyProjectDescriptionOverLimit(): boolean {
+    return this.value.projects.some(
+      (p) => (p.description?.length ?? 0) > this.projectDescriptionMaxLength
+    );
+  }
+
+  /** True if project has projectName or description filled (trimmed non-empty). */
+  projectHasContent(proj: StudentProjectItem): boolean {
+    return (
+      (proj.projectName?.trim().length ?? 0) > 0 ||
+      (proj.description?.trim().length ?? 0) > 0
+    );
+  }
+
+  /** True if any project has name/description filled but no technologies selected. */
+  hasProjectWithContentButNoTechnologies(): boolean {
+    return this.value.projects.some(
+      (p) =>
+        this.projectHasContent(p) &&
+        (!p.technologiesUsed || p.technologiesUsed.length === 0)
+    );
+  }
+
+  /** Step 2 is invalid if any project has content but no technologies. */
+  isProjectsValid(): boolean {
+    return !this.hasProjectWithContentButNoTechnologies();
+  }
+
+  /** Show Technologies as invalid when this project has content but no technologies (after submit attempt). */
+  isProjectTechnologiesInvalid(projectIndex: number): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    const proj = this.value.projects[projectIndex];
+    if (!proj) {
+      return false;
+    }
+    return (
+      this.projectHasContent(proj) &&
+      (!proj.technologiesUsed || proj.technologiesUsed.length === 0)
+    );
   }
 
   removeProjectAt(index: number): void {
@@ -895,16 +943,16 @@ export class StudentFormComponent implements OnInit, OnChanges {
     const tech = selectedTech.trim();
     // Check if technology already exists
     if (project.technologiesUsed.includes(tech)) {
-      // Reset dropdown even if already exists
+      // Reset dropdown even if already exists (clear input so it doesn't keep showing selection)
       this.projectTechnologyValues[projectIndex] = null;
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
       return;
     }
     const nextTechs = uniqueStrings([...(project.technologiesUsed ?? []), tech]);
     this.patchProjectAt(projectIndex, { technologiesUsed: nextTechs });
-    // Reset dropdown after adding
+    // Reset dropdown after adding so the input clears and doesn't keep showing the selected value
     this.projectTechnologyValues[projectIndex] = null;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
   }
 
   removeProjectTechnologyAt(projectIndex: number, techIndex: number): void {
@@ -943,6 +991,19 @@ export class StudentFormComponent implements OnInit, OnChanges {
     return this.submitAttempted && (!files || files.length === 0) && (!existingUrl || existingUrl.trim() === '');
   }
 
+isPortfolioUrlInvalid(): boolean {
+  if (!this.submitAttempted) return false;
+
+  const s = (this.value.additional.portfolioUrl ?? '').trim();
+
+  // optional field → empty is allowed
+  if (s.length === 0) return false;
+
+  // if provided → must be valid URL
+  return !isValidUrl(s);
+}
+
+
   isOffersInHandInvalid(): boolean {
     return this.submitAttempted && this.value.additional.offersInHand === null;
   }
@@ -951,7 +1012,7 @@ export class StudentFormComponent implements OnInit, OnChanges {
     index: number,
     field: keyof Pick<
       StudentEducationItem,
-      'qualification' | 'institution' | 'degree' | 'specialization' | 'yearOfPassing'
+      'qualification' | 'institution' | 'degree' | 'specialization' | 'yearOfPassing' | 'percentageOrCgpa'
     >,
   ): boolean {
     const item = this.value.education[index];
@@ -959,7 +1020,26 @@ export class StudentFormComponent implements OnInit, OnChanges {
       return false;
     }
     const val = String(item[field] ?? '').trim();
+    if (field === 'percentageOrCgpa') {
+      return this.isPercentageOrCgpaInvalid(index);
+    }
     return this.submitAttempted && val.length === 0;
+  }
+
+  /** Invalid when empty or when value does not match Percentage/Grade/CGPA pattern. */
+  isPercentageOrCgpaInvalid(index: number): boolean {
+    if (!this.submitAttempted) {
+      return false;
+    }
+    const item = this.value.education[index];
+    if (!item) {
+      return false;
+    }
+    const val = String(item.percentageOrCgpa ?? '').trim();
+    if (val.length === 0) {
+      return true;
+    }
+    return !this.percentageOrCgpaPattern.test(val);
   }
 
   isWorkExperienceFieldInvalid(
@@ -977,6 +1057,30 @@ export class StudentFormComponent implements OnInit, OnChanges {
     return this.submitAttempted && val.length === 0;
   }
 
+  private validateWorkExperienceDates(index: number): void {
+  const exp = this.value.workExperience[index];
+  if (!exp) return;
+
+  const start = parseDateInput(exp.startDate);
+  const end = parseDateInput(exp.endDate);
+  const today = startOfDay(new Date());
+
+  // Clear previous error
+  delete this.workDateErrors[index];
+
+  if (start && start > today) {
+    this.workDateErrors[index] = 'Start date cannot be in the future.';
+    return;
+  }
+
+  if (start && end && start > end) {
+    this.workDateErrors[index] = 'Start date cannot be after End date.';
+    return;
+  }
+}
+
+workDateErrors: Record<number, string> = {};
+
   submit(): void {
     if (this.isReviewMode && !this.isEditMode) {
       return;
@@ -992,29 +1096,37 @@ export class StudentFormComponent implements OnInit, OnChanges {
     this.reviewAction.emit(status);
   }
 
-  private isCurrentStepValid(): boolean {
+  isCurrentStepValid(): boolean {
     switch (this.currentStep) {
       case 0: {
-        const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
-        return (
-          this.value.firstName.trim().length > 0 &&
-          this.value.lastName.trim().length > 0 &&
-          this.value.dateOfBirth.trim().length > 0 &&
-          isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
-          !!this.value.gender &&
-          this.value.mobile.trim().length > 0 &&
-          mobileDigits.length === 10 &&
-          this.value.email.trim().length > 0 &&
-          this.value.address.trim().length > 0 &&
-          this.value.profileSummary.trim().length > 0 &&
-          !!this.value.photoFiles &&
-          this.value.photoFiles.length > 0
-        );
+       const mobile = (this.value.mobile || '').trim();
+
+return (
+!this.isNameInvalid(this.value.firstName, true) &&
+!this.isNameInvalid(this.value.lastName, false) &&
+  this.value.dateOfBirth.trim().length > 0 &&
+  isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
+  !!this.value.gender &&
+  mobile.length > 0 &&
+  !this.isMobileInvalid() &&
+  this.value.email.trim().length > 0 &&
+  this.value.address.trim().length > 0 &&
+  this.value.profileSummary.trim().length > 0 &&
+  !!this.value.photoFiles &&
+  this.value.photoFiles.length > 0 &&
+  this.isPhotoDimensionValid()
+);
+
       }
       case 1:
         return this.isEducationValid();
-      case 2:
-        return this.isWorkPreferencesValid();
+    case 2:
+  return (
+    this.isWorkPreferencesValid() &&
+    !this.hasAnyProjectDescriptionOverLimit() &&
+    this.isProjectsValid() &&
+    Object.keys(this.workDateErrors).length === 0
+  );
       case 3:
         return this.isAdditionalValid();
       default:
@@ -1024,50 +1136,89 @@ export class StudentFormComponent implements OnInit, OnChanges {
 
   private isFormValid(): boolean {
     // Basic required checks; we can tighten once backend contract is confirmed.
-    const mobileDigits = this.value.mobile.trim().replace(/\D/g, '');
     const isEditModeValidation = this.isReviewMode && this.isEditMode;
     // Check if photo is valid: either new files uploaded OR existing photoUrl present OR in edit mode
     const hasValidPhoto = isEditModeValidation || 
                          (!!this.value.photoFiles && this.value.photoFiles.length > 0) || 
                          (this.isEditModeDisplay && !!this.value.photoUrl && this.value.photoUrl.trim().length > 0);
-    return (
-      this.value.firstName.trim().length > 0 &&
-      this.value.lastName.trim().length > 0 &&
-      this.value.dateOfBirth.trim().length > 0 &&
-      isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
-      !!this.value.gender &&
-      this.value.mobile.trim().length > 0 &&
-      mobileDigits.length === 10 &&
-      this.value.email.trim().length > 0 &&
-      this.value.address.trim().length > 0 &&
-      this.value.profileSummary.trim().length > 0 &&
-      hasValidPhoto &&
-      this.isEducationValid() &&
-      this.isWorkPreferencesValid() &&
-      this.isAdditionalValid()
-    );
+  return (
+  !this.isNameInvalid(this.value.firstName, true) &&
+  !this.isNameInvalid(this.value.lastName, false) &&
+  this.value.dateOfBirth.trim().length > 0 &&
+  isAtLeastAgeYears(this.value.dateOfBirth, 15) &&
+  !!this.value.gender &&
+  this.value.mobile.trim().length > 0 &&
+  !this.isMobileInvalid() &&
+  this.value.email.trim().length > 0 &&
+  this.value.address.trim().length > 0 &&
+  this.value.profileSummary.trim().length > 0 &&
+  hasValidPhoto &&
+  this.isEducationValid() &&
+  this.isWorkPreferencesValid() &&
+  this.isProjectsValid() &&
+  this.isAdditionalValid() &&
+  !this.isExpectedSalaryInvalid() &&
+  Object.keys(this.workDateErrors).length === 0
+);
   }
 
   isDobTooYoung(): boolean {
     return this.value.dateOfBirth.trim().length > 0 && !isAtLeastAgeYears(this.value.dateOfBirth, 15);
   }
 
-  isDobInvalid(): boolean {
-    return this.submitAttempted && (this.value.dateOfBirth.trim().length === 0 || this.isDobTooYoung());
-  }
+ isDobInvalid(): boolean {
+  if (!this.submitAttempted) return false;
 
-  isMobileInvalid(): boolean {
-    if (!this.submitAttempted) {
-      return false;
-    }
-    const mobile = this.value.mobile.trim();
-    if (mobile.length === 0) {
-      return true;
-    }
-    // Check if mobile is exactly 10 digits
-    const digitsOnly = mobile.replace(/\D/g, '');
-    return digitsOnly.length !== 10;
-  }
+  const dobStr = this.value.dateOfBirth.trim();
+  if (!dobStr) return true;
+
+  const dob = parseDateInput(dobStr);
+  if (!dob) return true;
+
+  const today = startOfDay(new Date());
+
+  if (dob > today) return true;
+
+  if (!isAtLeastAgeYears(dobStr, 15)) return true;
+
+  return false;
+}
+
+  isExpectedSalaryInvalid(): boolean {
+  if (!this.submitAttempted) return false;
+
+  const salaryStr = (this.value.workPreferences.expectedSalary || '').trim();
+  const salary = Number(salaryStr);
+
+  if (!salaryStr) return true;          // empty
+  if (!Number.isFinite(salary)) return true; // not number
+  if (salary <= 0) return true;         // negative or zero
+
+  return false;
+}
+
+
+isMobileInvalid(): boolean {
+  if (!this.submitAttempted) return false;
+
+  const mobile = (this.value.mobile || '').trim();
+
+  // must be digits only
+  if (!/^\d+$/.test(mobile)) return true;
+
+  // must be exactly 10 digits
+  if (mobile.length !== 10) return true;
+
+  // must start with 6–9
+  if (!/^[6-9]/.test(mobile)) return true;
+
+  // block fake patterns
+  if (/^(\d)\1{9}$/.test(mobile)) return true; // 0000000000, 9999999999 etc
+
+  if (mobile === '1234567890') return true;
+
+  return false;
+}
 
   isMobileNotTenDigits(): boolean {
     const mobile = this.value.mobile.trim();
@@ -1083,39 +1234,56 @@ export class StudentFormComponent implements OnInit, OnChanges {
       return false;
     }
     return this.value.education.every((e) => {
+      const pct = e.percentageOrCgpa.trim();
+      const pctValid = pct.length > 0 && this.percentageOrCgpaPattern.test(pct);
       return (
         e.qualification.trim().length > 0 &&
         e.institution.trim().length > 0 &&
         e.degree.trim().length > 0 &&
         e.specialization.trim().length > 0 &&
-        e.yearOfPassing.trim().length > 0
+        e.yearOfPassing.trim().length > 0 &&
+        pctValid
       );
     });
   }
 
-  private isWorkPreferencesValid(): boolean {
-    const isEditModeValidation = this.isReviewMode && this.isEditMode;
-    return (
-      (isEditModeValidation || this.value.workPreferences.jobRolesInterested.trim().length > 0) &&
-      (isEditModeValidation || this.value.workPreferences.preferredLocation.trim().length > 0) &&
-      (isEditModeValidation || this.value.workPreferences.availabilityToStart.trim().length > 0) &&
-      (isEditModeValidation || this.value.workPreferences.expectedSalary.trim().length > 0)
-    );
-  }
+private isWorkPreferencesValid(): boolean {
+  const wp = this.value.workPreferences;
+  const isEditModeValidation = this.isReviewMode && this.isEditMode;
+
+  const oneSelected =
+    wp.employmentType.internship ||
+    wp.employmentType.fullTime ||
+    wp.employmentType.both;
+
+  return (
+    (isEditModeValidation || wp.jobRolesInterested.trim().length > 0) &&
+    (isEditModeValidation || wp.preferredLocation.trim().length > 0) &&
+    (isEditModeValidation || wp.availabilityToStart.trim().length > 0) &&
+(isEditModeValidation || !this.isExpectedSalaryInvalid()) &&
+    oneSelected
+  );
+}
 
   private isAdditionalValid(): boolean {
     const isEditModeValidation = this.isReviewMode && this.isEditMode;
     // Check if files are valid: either new files uploaded OR existing URLs present OR in edit mode
-    const hasValidGovtIdProof = isEditModeValidation || 
+    const hasValidGovtIdProof = isEditModeValidation ||
                                 (!!this.value.additional.govtIdProofFiles && this.value.additional.govtIdProofFiles.length > 0) ||
                                 (this.isEditModeDisplay && !!this.value.additional.govtIdProofUrl && this.value.additional.govtIdProofUrl.trim().length > 0);
-    const hasValidResume = isEditModeValidation || 
+    const hasValidResume = isEditModeValidation ||
                           (!!this.value.additional.resumeFiles && this.value.additional.resumeFiles.length > 0) ||
                           (this.isEditModeDisplay && !!this.value.additional.resumeUrl && this.value.additional.resumeUrl.trim().length > 0);
+const portfolioValid = !this.isPortfolioUrlInvalid();
+    const optionalUrlValid =
+      !isOptionalUrlInvalid(this.value.photoUrl) &&
+      !isOptionalUrlInvalid(this.value.additional.govtIdProofUrl) &&
+      !isOptionalUrlInvalid(this.value.additional.resumeUrl);
     return (
       hasValidGovtIdProof &&
       hasValidResume &&
-      (isEditModeValidation || this.value.additional.portfolioUrl.trim().length > 0) &&
+      portfolioValid &&
+      optionalUrlValid &&
       (isEditModeValidation || this.value.additional.offersInHand !== null) &&
       (isEditModeValidation || this.value.additional.heardAboutPortal.trim().length > 0) &&
       (isEditModeValidation || this.value.additional.jobAlertsVia.trim().length > 0) &&
@@ -1124,9 +1292,12 @@ export class StudentFormComponent implements OnInit, OnChanges {
   }
 }
 
+
 function buildFullName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(' ').trim();
 }
+
+
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));

@@ -1,7 +1,4 @@
-import {
-  StudentFormValue,
-  StudentWorkPreferences,
-} from '../../../shared/components/forms/student-form/student-form.component';
+import type { StudentFormValue, StudentWorkPreferences } from '../../../shared/components/forms/student-form/student-form.models';
 
 export interface CampusResponse {
   campusId?: string;
@@ -43,12 +40,15 @@ export interface StudentEducationDetails {
   institutionName: string[];
   campusId?: string[];
   campusAddress?: string[];
+  departmentId?: string[];
   other?: boolean;
   degrees: string[];
   specializations: string[];
-  yearOfPassing?: string;
+  /** One year per education item (same order as qualifications/specializations). */
+  yearOfPassing?: string | string[];
   certificates?: string[];
-  cgpa?: string;
+  /** One value per education item (same order as qualifications/specializations). */
+  cgpa?: string | string[];
 }
 
 export interface StudentSkills {
@@ -86,7 +86,7 @@ export interface StudentAdditionalInfo {
   resumeUrl?: string;
   otherWebsites?: string[];
   offersInHand?: boolean;
-  jobAlertPreference?: 'NONE' | 'EMAIL' | 'SMS' | 'EMAIL_SMS';
+  jobAlertPreference?: 'NONE' | 'EMAIL' | 'SMS' | 'BOTH';
   howDidYouHear?: string;
   termsAndCondition: boolean;
 }
@@ -152,6 +152,7 @@ export interface StudentProfileResponse {
   description?: string;
   technologiesUsed?: string[];
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  email?: string;
 }
 
 export interface ProjectResponse {
@@ -215,12 +216,73 @@ export interface StudentPublicProfileResponse {
   projects?: ProjectResponse[];
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
   [key: string]: unknown;
+  institutionName?: string[];
 }
 
 export interface ApiResponseStudentPublicProfileResponse {
   success?: boolean;
   message?: string;
   data?: StudentPublicProfileResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface TestimonialResponse {
+  content?: string;
+  author?: string;
+  [key: string]: unknown;
+}
+
+export interface ApiResponseTestimonialResponse {
+  success?: boolean;
+  message?: string;
+  data?: { content?: TestimonialResponse[]; totalElements?: number; totalPages?: number };
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface PromotionCountResponse {
+  promotionCount?: number;
+  [key: string]: unknown;
+}
+
+export interface ApiResponsePromotionCountResponse {
+  success?: boolean;
+  message?: string;
+  data?: PromotionCountResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface FollowerCountResponse {
+  studentId?: string;
+  publicStudentId?: string;
+  followerCount?: number;
+}
+
+export interface ApiResponseFollowerCountResponse {
+  success?: boolean;
+  message?: string;
+  data?: FollowerCountResponse;
+  error?: string;
+  statusCode?: number;
+  timestamp?: string;
+}
+
+export interface KnowledgeBaseResponse {
+  studentId?: string;
+  publicStudentId?: string;
+  xaxisLabels?: string[];
+  yaxisValues?: number[];
+}
+
+export interface ApiResponseKnowledgeBaseResponse {
+  success?: boolean;
+  message?: string;
+  data?: KnowledgeBaseResponse;
   error?: string;
   statusCode?: number;
   timestamp?: string;
@@ -379,6 +441,56 @@ export interface ApiResponseCareerCheckInResponse {
   timestamp?: string;
 }
 
+export interface StudentFeedbackRequest {
+  reviewerName: string;
+  feedbackText: string;
+}
+
+export interface StudentFeedbackResponse {
+  feedbackId?: string;
+  studentId?: string;
+  reviewerName?: string;
+  feedbackText?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ApiResponseFeedbackResponse {
+  success?: boolean;
+  message?: string;
+  data?: StudentFeedbackResponse;
+  error?: string;
+  statusCode?: number;
+}
+
+export interface StudentRecommendationRequest {
+  wouldRecommend: boolean;
+}
+
+export interface StudentRecommendationResponse {
+  recommendationId?: string;
+  studentId?: string;
+  reviewerId?: string;
+  wouldRecommend?: boolean;
+  createdAt?: string | null;
+}
+
+export interface ApiResponseRecommendationResponse {
+  success?: boolean;
+  message?: string;
+  data?: StudentRecommendationResponse;
+  error?: string;
+  statusCode?: number;
+}
+
+export interface ApiResponseString {
+  success?: boolean;
+  message?: string;
+  data?: string;
+  error?: string;
+  statusCode?: number;
+}
+
 function mapGenderToApi(gender: string | null): 'MALE' | 'FEMALE' | 'OTHER' {
   if (gender === 'male') return 'MALE';
   if (gender === 'female') return 'FEMALE';
@@ -399,10 +511,12 @@ function mapEmploymentType(workPreferences: StudentWorkPreferences): ('INTERNSHI
   return types.length > 0 ? types : ['INTERNSHIP'];
 }
 
-function mapJobAlertPreference(jobAlertsVia: string): 'NONE' | 'EMAIL' | 'SMS' | 'EMAIL_SMS' {
-  if (jobAlertsVia === 'Email') return 'EMAIL';
-  if (jobAlertsVia === 'SMS') return 'SMS';
-  if (jobAlertsVia === 'Email & SMS') return 'EMAIL_SMS';
+/** Maps form value to backend enum JobAlertPreference (NONE, EMAIL, SMS, BOTH). */
+function mapJobAlertPreference(jobAlertsVia: string): 'NONE' | 'EMAIL' | 'SMS' | 'BOTH' {
+  const v = (jobAlertsVia || '').trim().toUpperCase();
+  if (v === 'EMAIL') return 'EMAIL';
+  if (v === 'SMS') return 'SMS';
+  if (v === 'BOTH') return 'BOTH';
   return 'NONE';
 }
 
@@ -434,11 +548,6 @@ function extractYearFromDate(value: string | null | undefined): string {
   return trimmed;
 }
 
-function getYearForSorting(value: string | null | undefined): number {
-  const yearStr = extractYearFromDate(value);
-  return parseInt(yearStr || '0', 10);
-}
-
 export function mapStudentFormValueToRegisterRequest(
   formValue: StudentFormValue,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -463,14 +572,6 @@ export function mapStudentFormValueToRegisterRequest(
     about: toTrimmedString(formValue.profileSummary),
   };
 
-  // Find the most recent education (by yearOfPassing) or use the first one
-  const sortedEducation = [...education].sort((a, b) => {
-    const yearA = getYearForSorting(a.yearOfPassing);
-    const yearB = getYearForSorting(b.yearOfPassing);
-    return yearB - yearA; // Descending order (most recent first)
-  });
-  const mostRecentEducation = sortedEducation.length > 0 ? sortedEducation[0] : null;
-
   // Check if any education item has a custom institution (no campusId or institution is "OTHER")
   const hasOtherInstitution = education.some((e) => {
     // If institution is "OTHER" or if there's no campusId but institution exists, it's a custom institution
@@ -480,16 +581,17 @@ export function mapStudentFormValueToRegisterRequest(
   const educationDetails: StudentEducationDetails = {
     qualifications: toTrimmedStringArray(education.map((e) => e.qualification).filter(Boolean)),
     institutionName: toTrimmedStringArray(education.map((e) => e.institution).filter(Boolean)),
-    campusId: toTrimmedStringArray(education.map((e) => e.campusId || '').filter(Boolean)), // Map campusId from education items, filter out empty/undefined
-    campusAddress: toTrimmedStringArray(education.map((e) => e.campusAddress || '').filter(Boolean)), // Map campusAddress from education items, filter out empty/undefined
-    other: hasOtherInstitution, // Set to true if any institution is custom (no campusId)
+    campusId: toTrimmedStringArray(education.map((e) => e.campusId || '').filter(Boolean)),
+    campusAddress: toTrimmedStringArray(education.map((e) => e.campusAddress || '').filter(Boolean)),
+    departmentId: toTrimmedStringArray(education.map((e) => e.departmentId || '').filter(Boolean)),
+    other: hasOtherInstitution,
     degrees: toTrimmedStringArray(education.map((e) => e.degree).filter(Boolean)),
     specializations: toTrimmedStringArray(education.map((e) => e.specialization).filter(Boolean)),
-    yearOfPassing: extractYearFromDate(mostRecentEducation?.yearOfPassing),
+    yearOfPassing: education.map((e) => extractYearFromDate(e.yearOfPassing)),
     certificates: toTrimmedStringArray(
       education.flatMap((e) => Array.from(e.certificateFileNames || [])).filter(Boolean),
     ),
-    cgpa: toTrimmedString(mostRecentEducation?.percentageOrCgpa),
+    cgpa: education.map((e) => toTrimmedString(e.percentageOrCgpa)),
   };
 
   const latestWorkExp = workExperience.length > 0 ? workExperience[0] : null;

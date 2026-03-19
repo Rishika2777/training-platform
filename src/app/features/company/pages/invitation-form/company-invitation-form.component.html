@@ -50,6 +50,18 @@
       </div>
     </div>
 
+    <div class="form-row">
+      <app-dropdown
+        label="Department"
+        placeholder="Select Department"
+        [items]="departmentItems"
+        [value]="value.department || ''"
+        (valueChange)="patch({ department: $event })"
+        [autocomplete]="false"
+      />
+    </div>
+    
+
     <div class="form-row form-row-three-col">
       <div class="form-field">
         <app-input
@@ -79,9 +91,12 @@
           [required]="true"
           [value]="value.campusWebsiteUrl"
           [disabled]="submitting"
-          [invalid]="submitAttempted && !value.campusWebsiteUrl.trim()"
+          [invalid]="isCampusWebsiteUrlInvalid()"
           (valueChange)="patch({ campusWebsiteUrl: $event })"
         />
+        @if (isCampusWebsiteUrlInvalid()) {
+          <span class="error-message">Please enter a valid URL.</span>
+        }
       </div>
     </div>
 
@@ -94,6 +109,8 @@
           [disabled]="submitting"
           [invalid]="submitAttempted && !value.campusAddress.trim()"
           (valueChange)="patch({ campusAddress: $event })"
+          [maxlength]="500"
+          [showCharCount]="true"
         />
       </div>
 
@@ -192,6 +209,8 @@
           label="Facilities Available"
           [value]="value.facilitiesAvailable"
           (valueChange)="patch({ facilitiesAvailable: $event })"
+          [maxlength]="1000"
+          [showCharCount]="true"
         />
       </div>
     </div>

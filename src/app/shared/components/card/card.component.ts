@@ -22,9 +22,18 @@ export interface CardData {
 })
 export class CardComponent {
   @Input() type: CardType = 'student';
-  @Input() data: CardData | null = null;
+  @Input() set data(value: CardData | null) {
+    this._data = value;
+    this.imageError = false;
+  }
+  get data(): CardData | null {
+    return this._data;
+  }
   @Output() viewClick = new EventEmitter<CardData>();
   @Output() deleteClick = new EventEmitter<CardData>();
+
+  private _data: CardData | null = null;
+  private imageError = false;
 
   get displayName(): string {
     return this.data?.name ?? 'Unknown';
@@ -71,6 +80,18 @@ export class CardComponent {
     const seed = (this.displayName ?? '').trim() || 'unknown';
     const hue = hashToHue(seed);
     return `hsl(${hue} 55% 32%)`;
+  }
+
+  get imageUrl(): string {
+    return (this.data?.imageUrl ?? '').trim();
+  }
+
+  get hasImage(): boolean {
+    return this.imageUrl.length > 0 && !this.imageError;
+  }
+
+  onImageError(): void {
+    this.imageError = true;
   }
 
   onView(): void {

@@ -26,6 +26,7 @@ export function createAuthInitializer(
     const isProtectedRoute = 
       currentUrl.startsWith('/student') ||
       currentUrl.startsWith('/campus') ||
+      currentUrl.startsWith('/department') ||
       currentUrl.startsWith('/company') ||
       currentUrl.startsWith('/admin');
     

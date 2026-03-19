@@ -33,7 +33,13 @@ export interface UserData {
   studentId?: string;
   campusId?: string;
   companyId?: string;
+  departmentId?: string;
   redirectTo?: string;
+
+  /** Display name from profile (company/campus name, or user name). */
+  displayName?: string;
+  /** Profile/avatar image URL. */
+  imageUrl?: string;
 }
 
 export interface AuthTokens {

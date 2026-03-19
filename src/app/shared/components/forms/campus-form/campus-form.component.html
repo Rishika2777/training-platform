@@ -11,6 +11,13 @@
       aria-hidden="true"
       style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;"
     ></button>
+    @if (value.campusLogoUrl) {
+      <div class="current-photo-header">
+        <span class="current-photo-label">Current Photo</span>
+        <img [src]="value.campusLogoUrl" alt="Campus logo" class="photo-preview-image" />
+      </div>
+    }
+
     <div class="app-form-row">
       <app-input
         label="Campus Name"
@@ -27,20 +34,35 @@
         [required]="isFileRequired"
         [invalid]="isInvalid('campusLogoFiles')"
         type="file"
-        [existingFileName]="undefined"
+        [existingFileName]="getExistingImageFileName()"
         (filesSelected)="patch({ campusLogoFiles: $event })"
         [disabled]="isFieldsDisabled"
       />
 
-      <app-input
-        label="Campus Rank"
-        [required]="true"
-        [invalid]="isInvalid('rank')"
-        type="number"
-        [value]="value.rank"
-        (valueChange)="patch({ rank: $event })"
-        [disabled]="isFieldsDisabled"
-      />
+   <app-input
+  label="Campus Rank"
+  [required]="true"
+  [invalid]="isInvalid('rank') || isRankInvalid()"
+  type="number"
+  min="1"
+  step="1"
+  [value]="value.rank"
+  (keydown)="
+    $event.key === '-' ||
+    $event.key === '+' ||
+    $event.key === 'e'
+      ? $event.preventDefault()
+      : null
+  "
+  (valueChange)="patch({ rank: $event })"
+  [disabled]="isFieldsDisabled"
+/>
+
+  @if (submitAttempted && isRankInvalid()) {
+    <div class="app-input-error">
+      Campus rank must be a positive number greater than 0.
+    </div>
+  }
     </div>
 
     <div class="app-form-row">
@@ -77,6 +99,26 @@
         @if (submitAttempted && isAdminPhoneNotTenDigits()) {
           <div class="app-input-error">Mobile number must be exactly 10 digits.</div>
         }
+        @if (isEditMode && value.adminPhone && value.adminPhone.trim().length > 0) {
+          @if (verifiedPhoneNumber && value.adminPhone.replace(/\D/g, '') === verifiedPhoneNumber.replace(/\D/g, '')) {
+            <span class="phone-verified">✓ Verified</span>
+          } @else {
+            <span
+              tabindex="0"
+              role="button"
+              class="phone-verify-link"
+              [class.phone-verify-disabled]="isFieldsDisabled"
+              [style.cursor]="isFieldsDisabled ? 'not-allowed' : 'pointer'"
+              [style.text-decoration]="isFieldsDisabled ? 'none' : 'underline'"
+              [attr.aria-disabled]="isFieldsDisabled"
+              (click)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+              (keyup.enter)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+              (keyup.space)="!isFieldsDisabled && verifyPhone.emit({ phoneNumber: value.adminPhone, fieldType: 'adminPhone' })"
+            >
+              Verify
+            </span>
+          }
+        }
       </div>
     </div>
 
@@ -101,16 +143,21 @@
         [disabled]="isFieldsDisabled"
       />
 
-      <app-input
-        label="Campus Website URL"
-        [required]="true"
-        [invalid]="isInvalid('website')"
-        type="url"
-        placeholder="https://example.com"
-        [value]="value.website"
-        (valueChange)="patch({ website: $event })"
-        [disabled]="isFieldsDisabled"
-      />
+      <div class="app-form-field-wrapper">
+        <app-input
+          label="Campus Website URL"
+          [required]="true"
+          [invalid]="isInvalid('website')"
+          type="text"
+          placeholder="https://example.com"
+          [value]="value.website"
+          (valueChange)="patch({ website: $event })"
+          [disabled]="isFieldsDisabled"
+        />
+        @if (isInvalid('website')) {
+          <div class="app-input-error">Please enter a valid URL.</div>
+        }
+      </div>
     </div>
 
     <div class="app-form-row app-form-row-textarea">

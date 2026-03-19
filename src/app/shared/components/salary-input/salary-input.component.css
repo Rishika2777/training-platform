@@ -1,0 +1,79 @@
+.salary-input-field {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.salary-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: baseline;
+}
+
+.asterisk {
+  margin-left: 4px;
+  color: var(--color-error);
+}
+
+.salary-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  width: fit-content;
+}
+
+.salary-amount-input {
+  flex: 0 1 120px;
+  min-width: 80px;
+  height: 40px;
+  padding: 0 16px;
+  border: 2px solid var(--color-secondary);
+  border-radius: 15px;
+  font-size: 14px;
+  font-family: var(--font-primary);
+}
+
+.salary-amount-input:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-secondary) 30%, transparent);
+}
+
+.salary-amount-input.invalid {
+  border-color: var(--color-error);
+}
+
+.salary-amount-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.salary-unit-select {
+  width: 150px;
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 36px 0 15px;
+  border: 2px solid var(--color-secondary);
+  border-radius: 15px;
+  font-size: 14px;
+  font-family: var(--font-primary);
+  font-weight: 400;
+  background: var(--color-white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F4A261' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  appearance: none;
+  cursor: pointer;
+}
+
+.salary-unit-select:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+}
+
+.salary-unit-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

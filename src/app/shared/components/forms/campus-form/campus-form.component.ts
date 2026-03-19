@@ -5,6 +5,7 @@ import { ButtonComponent } from '../../button/button.component';
 import { InputComponent } from '../../input/input.component';
 import { TextareaComponent } from '../../textarea/textarea.component';
 import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { isValidUrl } from '../../../../core/validators/url.validator';
 
 export interface CampusFormValue {
   campusName: string;
@@ -40,6 +41,7 @@ export class CampusFormComponent implements OnChanges {
   @Input() adminEmailLocked = false;
   @Input() approveDisabled = false;
   @Input() isEditMode = false;
+  @Input() verifiedPhoneNumber: string | null = null; // Phone number that has been verified
 
   @Input() value: CampusFormValue = {
     campusName: '',
@@ -63,6 +65,7 @@ export class CampusFormComponent implements OnChanges {
   @Output() submitted = new EventEmitter<CampusFormValue>();
   @Output() cancelled = new EventEmitter<void>();
   @Output() reviewAction = new EventEmitter<EnumLoginStatus>();
+  @Output() verifyPhone = new EventEmitter<{ phoneNumber: string; fieldType: 'mobile' | 'adminPhone' | 'phone' }>();
 
   submitAttempted = false;
 
@@ -148,6 +151,21 @@ export class CampusFormComponent implements OnChanges {
   }
 
   patch(patch: Partial<CampusFormValue>): void {
+    // sanitize campus rank
+if (patch.rank !== undefined) {
+  // allow digits only
+  const cleaned = patch.rank.replace(/\D/g, '');
+
+  if (!cleaned) {
+    patch.rank = '';
+  } else {
+    const num = Number(cleaned);
+
+    // block 0 & negative
+    patch.rank = num < 1 ? '1' : cleaned;
+  }
+}
+
     if (this.isReviewMode && !this.isEditMode) {
       return;
     }
@@ -155,6 +173,14 @@ export class CampusFormComponent implements OnChanges {
     this.value = next;
     this.valueChange.emit(next);
   }
+
+  isRankInvalid(): boolean {
+  if (!this.submitAttempted) return false;
+
+  const rank = Number(this.value.rank);
+
+  return !Number.isInteger(rank) || rank < 1;
+}
 
   isInvalid(
     field:
@@ -186,8 +212,17 @@ export class CampusFormComponent implements OnChanges {
       // Otherwise, file is required
       return !this.value.campusLogoFiles || this.value.campusLogoFiles.length === 0;
     }
+    if (field === 'rank') {
+  return this.isRankInvalid();
+}
     if (field === 'adminPhone') {
       return this.isAdminPhoneInvalid();
+    }
+    if (field === 'website') {
+      const raw = this.value.website ?? '';
+      const trimmed = raw.trim();
+      if (trimmed.length === 0) return true;
+      return !isValidUrl(trimmed);
     }
     const raw = this.value[field];
     return typeof raw !== 'string' || raw.trim().length === 0;
@@ -244,6 +279,11 @@ export class CampusFormComponent implements OnChanges {
     if (this.isReviewMode && !this.isEditMode) {
       return;
     }
+    const rank = Number(this.value.rank);
+
+if (!Number.isInteger(rank) || rank < 1) {
+  return;
+}
     this.submitAttempted = true;
     if (!this.isFormValid()) {
       return;

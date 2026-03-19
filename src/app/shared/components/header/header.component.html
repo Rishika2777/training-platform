@@ -12,45 +12,82 @@
         </button>
       }
 
-      <div class="brand" [routerLink]="['/']">
-        <div class="brand-mark">Synkup</div>
+      <div
+        class="brand"
+        role="link"
+        tabindex="0"
+        (click)="onBrandClick()"
+        (keydown.enter)="onBrandClick()"
+        (keydown.space)="$event.preventDefault(); onBrandClick()"
+      >
+        <img class="brand-mark" src="assets/synkup.png" alt="Synkup" />
       </div>
     </div>
   }
 
-  @if (!isStudentProfile()) {
-  <div class="header-center">
-    <h1 class="page-title">{{ pageTitle() }}</h1>
-  </div>
-  }
-
-  @if (!isSimpleHeader() && !isCampusAbout() && !isStudentProfile()) {
+  @if (!isSimpleHeader() && !isCampusAbout() && !isDepartmentAbout() && !isCompanyAbout() && !isStudentProfile() && !isPublicStudentProfile() && !isPublicCompanyProfile() && !isPublicCampusProfile()) {
     <div class="header-right">
-      <div class="search">
-        <input
-          class="search-input"
-          type="text"
-          placeholder="Search for anything"
-          [value]="searchValue()"
-          (input)="onSearchInput($event)"
-        />
-        <button class="search-btn" type="button" (click)="submitSearch()">
-          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        </button>
+      <!-- Desktop: search bar -->
+      <div class="search-wrapper search-wrapper-desktop" #headerSearchContainer>
+        <div class="search">
+          <input
+            class="search-input"
+            type="text"
+            placeholder="Search people etc..."
+            [value]="searchValue()"
+            (input)="onSearchInput($event)"
+          />
+        </div>
+        @if (searchLoading()) {
+          <div class="search-dropdown search-dropdown-loading">Searching...</div>
+        }
+        @if (searchDropdownVisible() && searchResults().length > 0 && !searchLoading()) {
+          <div class="search-dropdown">
+            @for (item of searchResults(); track item.id) {
+              <button
+                type="button"
+                class="search-dropdown-item"
+                (click)="selectSearchResult(item)"
+              >
+                <app-avatar
+                  [imageUrl]="item.imageUrl"
+                  [name]="item.name"
+                  size="small"
+                  [alt]="item.name"
+                />
+                <span class="search-dropdown-item-name">{{ item.name }}</span>
+                <span class="search-dropdown-item-type">{{ item.type }}</span>
+              </button>
+            }
+          </div>
+        }
       </div>
 
-      <button class="icon" type="button" title="Home" (click)="goHome()">
-        <i class="fa-solid fa-house" aria-hidden="true"></i>
+      <!-- Mobile: search icon -->
+      <button
+        class="icon search-icon-mobile"
+        type="button"
+        title="Search"
+        aria-label="Search"
+        (click)="toggleMobileSearch()"
+      >
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
       </button>
+
       <div class="notifications-wrapper">
         <button class="icon" type="button" title="Notifications" (click)="toggleNotifications($event)">
           <i class="fa-regular fa-bell" aria-hidden="true"></i>
+          @if (hasUnreadNotifications() && notificationUnreadCount() > 0) {
+            <span class="notification-badge" aria-label="{{ notificationUnreadCount() }} unread">{{ notificationUnreadCount() > 99 ? '99+' : notificationUnreadCount() }}</span>
+          }
         </button>
         <app-notifications-dropdown
           [isOpen]="notificationsOpen()"
-          [items]="notifications"
+          [items]="notifications()"
+          [loading]="notificationsLoading()"
+          [hasMorePages]="notificationsHasMorePages()"
           (closed)="closeNotifications()"
-          (seePrevious)="onSeePreviousNotifications()"
+          (loadMore)="onLoadMoreNotifications()"
         />
       </div>
       <div class="settings-wrapper">
@@ -65,13 +102,74 @@
       </div>
 
       @if (isAuthenticated()) {
-        <button class="icon" type="button" title="Logout" (click)="logout()">
+        <button class="icon" type="button" title="Logout" (click)="openLogoutConfirm()">
           <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
         </button>
       }
     </div>
   }
 </header>
+
+<!-- Mobile search overlay: slides down from header -->
+@if (!isSimpleHeader() && !isCampusAbout() && !isDepartmentAbout() && !isCompanyAbout() && !isStudentProfile() && !isPublicStudentProfile() && !isPublicCompanyProfile() && !isPublicCampusProfile()) {
+  <div
+    class="mobile-search-overlay"
+    [class.open]="mobileSearchOpen()"
+    #mobileSearchContainer
+  >
+    <button
+      type="button"
+      class="mobile-search-backdrop"
+      aria-label="Close search"
+      (click)="closeMobileSearch()"
+      (keydown.enter)="closeMobileSearch()"
+      (keydown.space)="$event.preventDefault(); closeMobileSearch()"
+    ></button>
+    <div class="mobile-search-panel">
+      <div class="mobile-search-header">
+        <input
+          class="mobile-search-input"
+          type="text"
+          placeholder="Search people etc..."
+          [value]="searchValue()"
+          (input)="onSearchInput($event)"
+          #mobileSearchInput
+        />
+        <button
+          class="mobile-search-close"
+          type="button"
+          aria-label="Close search"
+          (click)="closeMobileSearch()"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      @if (searchLoading()) {
+        <div class="mobile-search-loading">Searching...</div>
+      }
+      @if (searchDropdownVisible() && searchResults().length > 0 && !searchLoading()) {
+        <div class="mobile-search-results">
+          @for (item of searchResults(); track item.id) {
+            <button
+              type="button"
+              class="mobile-search-result-item"
+              (click)="selectSearchResult(item)"
+            >
+              <app-avatar
+                [imageUrl]="item.imageUrl"
+                [name]="item.name"
+                size="small"
+                [alt]="item.name"
+              />
+              <span class="mobile-search-result-name">{{ item.name }}</span>
+              <span class="mobile-search-result-type">{{ item.type }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
 
 <!-- Edit Profile Modal -->
 @if (selectedOption() === 'edit-profile') {
@@ -97,8 +195,40 @@
   </app-modal>
 }
 
+<!-- My Post Modal -->
+@if (selectedOption() === 'my-post') {
+  <app-modal
+    [visible]="true"
+    title="My Post Feed"
+    size="lg"
+    modalClass="my-post-feed-modal"
+    (closed)="closeOptionModal()"
+  >
+    <app-my-post-feed
+      (closed)="closeOptionModal()"
+      (editPostRequested)="onEditPostRequested()"
+    />
+  </app-modal>
+}
+
+<!-- ---------------- MY notice board -------------- -->
+ @if (selectedOption() === 'my-notice') {
+  <app-modal
+    [visible]="true"
+    title="My Notice Board"
+    size="lg"
+    (closed)="closeOptionModal()"
+  >
+    <div class="my-post-feed">
+      <!-- Notice board content will come here later -->
+    </div>
+
+  </app-modal>
+}
+
+
 <!-- Delete Account Modal -->
-@if (selectedOption() === 'delete-account') {
+@if (selectedOption() === 'delete-account' && !isDepartmentUser()) {
   <app-modal
     [visible]="true"
     title="Delete Account"
@@ -166,6 +296,28 @@
     (closed)="closeFormModal()"
   >
     <app-help-desk-form (closed)="closeFormModal()" />
+  </app-modal>
+}
+
+@if (logoutConfirmOpen()) {
+  <app-modal
+    [visible]="true"
+    size="sm"
+    title=""
+    [hideCloseButton]="true"
+    modalClass="logout-modal-panel"
+    (closed)="closeLogoutConfirm()"
+  >
+    <div class="logout-modal">
+      <div class="logout-icon" aria-hidden="true">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="logout-title">Are you sure you want to logout?</div>
+      <div class="logout-actions">
+        <button class="logout-btn logout-btn-cancel" type="button" (click)="closeLogoutConfirm()">Cancel</button>
+        <button class="logout-btn logout-btn-confirm" type="button" (click)="confirmLogout()">Logout</button>
+      </div>
+    </div>
   </app-modal>
 }
 

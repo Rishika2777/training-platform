@@ -1,0 +1,35 @@
+<div class="salary-input-field">
+  @if (label) {
+    <label class="salary-label" for="salary-amount">
+      {{ label }}
+      @if (required) {
+        <span class="asterisk" aria-hidden="true">*</span>
+      }
+    </label>
+  }
+
+  <div class="salary-input-row">
+    <input
+      id="salary-amount"
+      class="salary-amount-input"
+      type="number"
+      step="any"
+      min="0"
+      [placeholder]="placeholder"
+      [disabled]="disabled"
+      [class.invalid]="invalid"
+      [ngModel]="amount"
+      (ngModelChange)="onAmountChange($event)"
+    />
+    <select
+      class="salary-unit-select"
+      [disabled]="disabled"
+      [ngModel]="unit"
+      (ngModelChange)="onUnitChange($event)"
+    >
+      @for (opt of unitOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+</div>

@@ -1,23 +1,191 @@
 <div class="company-home">
-  <div class="announcement">
-    <div class="announcement-date">{{ announcementDate }}</div>
-    <div class="announcement-title">Synkup Announcement</div>
-    <div class="announcement-dots" aria-hidden="true">
-      <span class="dot active"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-    </div>
+  <div class="top-section">
+    <app-announcement-carousel
+      [items]="announcementCarouselItems()"
+      [loading]="false"
+      [defaultDate]="'January 7th, 2025'"
+      (mediaClick)="openMediaViewer($event.url, $event.type)"
+    ></app-announcement-carousel>
+
+    <!-- -----------------------news --------------- -->
+<section class="notice">
+
+  <div class="notice-card">
+
+    <div class="notice-head">Latest News</div>
+
+    @if (loadingNews()) {
+      <div class="notice-text">Loading news...</div>
+    } 
+    @else if (newsList().length === 0) {
+      <div class="notice-text">No news available</div>
+    } 
+    @else {
+
+      <app-carousel
+        type="pagination"
+        [scrollable]="true"
+        [currentPage]="newsPage + 1"
+        [totalPages]="newsTotalPages()"
+        (pageChange)="onNewsPageChange($event)"
+      >
+
+        <div class="news-carousel">
+
+          @for (news of newsPageItems(); track news.id) {
+
+            <div class="news-item">
+
+              <div class="news-title">
+                {{ news.title }}
+              </div>
+
+              <div class="news-desc">
+                {{
+                  news.description.length > 120
+                    ? (news.description | slice:0:120) + ' ...'
+                    : news.description
+                }}
+              </div>
+
+              @if (news.description.length > 120) {
+                <span
+                  class="news-read-more"
+                  role="button"
+                  tabindex="0"
+                  (click)="openNewsDetail(news)"
+                  (keyup.enter)="openNewsDetail(news)"
+                  (keyup.space)="openNewsDetail(news)"
+                >
+                  Read more
+                </span>
+              }
+
+              <div class="news-date">
+                {{ news.createDate | date:'mediumDate' }}
+              </div>
+
+            </div>
+
+          }
+
+        </div>
+
+      </app-carousel>
+
+    }
+
   </div>
 
+</section>
+
+
+  </div>
+
+ 
+  
+
   <div class="grid">
+    <ng-template #companySidePanels>
+      <section class="panel companies">
+        <div class="panel-head">
+          <div class="panel-title">Clients of our company</div>
+          <button
+            class="panel-icon"
+            type="button"
+            title="Add Client"
+            (click)="modalService.openModal('company-client-form')"
+          >
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+        @if (loadingClients()) {
+          <div class="loading-text">Loading clients...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="clientsCarouselPage"
+            [totalPages]="clientsCarouselTotalPages"
+            (pageChange)="clientsCarouselPage = $event"
+          >
+            <div class="company-grid">
+              @for (c of clientsCarouselPageItems(); track c.id) {
+                <div
+                  class="company-tile horizontal-tile"
+                  role="button"
+                  tabindex="0"
+                  (click)="openClientCompany(c)"
+                  (keydown.enter)="openClientCompany(c)"
+                >
+                  <div class="tile-image-wrapper">
+                    @if (c.imageUrl) {
+                      <img class="tile-image" [src]="c.imageUrl" [alt]="c.alt" (error)="handleImageError($event)" />
+                      <div class="tile-placeholder" style="display: none;">{{ c.alt }}</div>
+                    } @else {
+                      <div class="tile-placeholder">{{ c.alt }}</div>
+                    }
+                  </div>
+                  <div class="tile-name-side">{{ c.alt }}</div>
+                </div>
+              }
+            </div>
+          </app-carousel>
+        }
+      </section>
+      <section class="panel preferred">
+        <div class="panel-head">
+          <div class="panel-title">Preferred Campus</div>
+          <button
+            class="panel-icon"
+            type="button"
+            title="Add Preferred Campus"
+            (click)="modalService.openModal('company-preferred-campus-form')"
+          >
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+        @if (loadingPreferredCampuses()) {
+          <div class="loading-text">Loading preferred campuses...</div>
+        } @else {
+          <app-carousel
+            type="pagination"
+            [currentPage]="preferredCampusesCarouselPage"
+            [totalPages]="preferredCampusesTotalPages"
+            (pageChange)="preferredCampusesCarouselPage = $event"
+          >
+            <div class="company-grid">
+              @for (t of preferredCampusesPageItems(); track t.id) {
+                <div
+                  class="company-tile horizontal-tile"
+                  role="button"
+                  tabindex="0"
+                  (click)="openPreferredCampus(t)"
+                  (keydown.enter)="openPreferredCampus(t)"
+                >
+                  <div class="tile-image-wrapper">
+                    @if (t.imageUrl) {
+                      <img class="tile-image" [src]="t.imageUrl" [alt]="t.alt" (error)="handleImageError($event)" />
+                      <div class="tile-placeholder" style="display: none;">{{ t.alt }}</div>
+                    } @else {
+                      <div class="tile-placeholder">{{ t.alt }}</div>
+                    }
+                  </div>
+                  <div class="tile-name-side">{{ t.alt }}</div>
+                </div>
+              }
+            </div>
+          </app-carousel>
+        }
+      </section>
+    </ng-template>
     <div class="main">
       
       <section class="panel">
         <div class="panel-head">
           <div class="panel-title">Key people</div>
-          <button class="panel-icon" type="button" title="Filter">
+          <!-- <button class="panel-icon" type="button" title="Filter">
             <i class="fa-solid fa-filter" aria-hidden="true"></i>
-          </button>
+          </button> -->
         </div>
 
         @if (loadingKeyPeople()) {
@@ -42,196 +210,111 @@
         }
       </section>
 
-      <div class="composer">
-        <input class="composer-input" type="text" placeholder="what’s on your mind?" />
-        <div class="composer-actions" aria-hidden="true">
-          <i class="fa-solid fa-image"></i>
-          <i class="fa-solid fa-user"></i>
-          <button class="composer-send" type="button">
-            <i class="fa-solid fa-paper-plane"></i>
-          </button>
-        </div>
+      <button
+        class="composer-button"
+        type="button"
+        [disabled]="isSubmittingPost()"
+        [attr.aria-disabled]="isSubmittingPost()"
+        (click)="openCreatePostModal()"
+      >
+        <img
+          class="composer-avatar"
+          [src]="postAuthorImageUrl() ?? 'assets/images/login-news-image.png'"
+          alt=""
+          aria-hidden="true"
+        />
+        <span class="composer-text">{{ isSubmittingPost() ? 'Posting...' : "What's on your mind?" }}</span>
+      </button>
+
+      <div class="side side-mobile">
+        <ng-container *ngTemplateOutlet="companySidePanels"></ng-container>
       </div>
 
       <div class="feed">
-        @for (post of posts; track post.imageUrl) {
+        @for (post of feedPosts(); track post.postId ?? $index) {
           <article class="post">
             <div class="post-head">
-              <img class="post-avatar" [src]="post.imageUrl" [alt]="post.author" />
+              <img class="post-avatar" [src]="post.authorImageUrl" [alt]="post.author" />
               <div class="post-meta">
                 <div class="post-author">{{ post.author }}</div>
-                <div class="post-id">{{ post.authorId }}</div>
+                @if (post.createdAt) {
+                  <div class="post-date">{{ post.createdAt | relativeTime }}</div>
+                }
               </div>
             </div>
 
             <div class="post-body">
-              <img class="post-image" [src]="post.imageUrl" alt="" aria-hidden="true" />
-              <p class="post-text">{{ post.text }}</p>
+              @let postKey = post.postId ?? 'idx-' + $index;
+              @let isExpanded = expandedPostIds().has(postKey);
+              @let isLong = post.text.length > postTextTruncateLength;
+              <p class="post-text">
+                @if (isLong && !isExpanded) {
+                  {{ post.text.slice(0, postTextTruncateLength) }}<span class="post-text-ellipsis">...</span>
+                } @else {
+                  {{ post.text }}
+                }
+              </p>
+              @if (isLong) {
+                <button type="button" class="post-text-toggle" (click)="togglePostExpand(postKey)">
+                  {{ isExpanded ? 'See less' : 'See more' }}
+                </button>
+              }
+              @if (post.mediaType === 'video' && post.mediaUrl) {
+                <div class="post-media-wrapper">
+                  <video class="post-media post-video" [src]="post.mediaUrl" controls playsinline></video>
+                  <button class="post-media-expand" type="button" aria-label="View full size" (click)="openMediaViewer(post.mediaUrl!, 'video')">
+                    <i class="fa-solid fa-expand"></i>
+                  </button>
+                </div>
+              } @else if (post.mediaType === 'image' && post.mediaUrl) {
+                <img
+                  class="post-media post-image post-media-clickable"
+                  [src]="post.mediaUrl"
+                  alt=""
+                  aria-hidden="true"
+                  (click)="openMediaViewer(post.mediaUrl!, 'image')"
+                />
+              }
             </div>
 
             <div class="post-actions" aria-hidden="true">
-              <button class="post-action" type="button"><i class="fa-regular fa-thumbs-up"></i></button>
-              <button class="post-action" type="button"><i class="fa-regular fa-message"></i></button>
-              <button class="post-action warn" type="button"><i class="fa-solid fa-circle-exclamation"></i></button>
+              <button
+                class="post-action post-action-like"
+                [class.liked]="post.likedByMe"
+                type="button"
+                [disabled]="!post.postId"
+                (click)="onLikePost(post)"
+                [attr.aria-pressed]="post.likedByMe"
+              >
+                <i [class.fa-solid]="post.likedByMe" [class.fa-regular]="!post.likedByMe" class="fa-thumbs-up"></i>
+                @if (post.likeCount > 0) {
+                  <span class="post-action-count">{{ post.likeCount }}</span>
+                }
+              </button>
+              <button class="post-action warn" type="button" [disabled]="!post.postId" (click)="onReportPost(post)">
+                <i class="fa-solid fa-circle-exclamation"></i>
+              </button>
             </div>
           </article>
         }
+        @if (hasMoreFeed() && (loadingFeed() || loadingMoreFeed())) {
+          <div class="feed-loading-more" aria-live="polite">
+            Loading more...
+          </div>
+        }
+        <div #feedSentinel class="feed-sentinel" aria-hidden="true"></div>
       </div>
     </div>
 
-    <aside class="side">
-      <section class="panel companies">
-        <div class="panel-head">
-          <div class="panel-title">Clients of our company</div>
-          <button
-            class="panel-icon"
-            type="button"
-            title="Add Client"
-            (click)="modalService.openModal('company-client-form')"
-          >
-            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          </button>
-        </div>
-
-        @if (loadingClients()) {
-          <div class="loading-text">Loading clients...</div>
-        } @else {
-          <app-carousel
-            type="pagination"
-            [currentPage]="clientsCarouselPage"
-            [totalPages]="clientsCarouselTotalPages"
-            (pageChange)="clientsCarouselPage = $event"
-          >
-            <div class="company-grid">
-              @for (c of clientsCarouselPageItems(); track c.id) {
-            <div class="company-tile">
-              @if (c.imageUrl) {
-                    <img 
-                      class="tile-image" 
-                      [src]="c.imageUrl" 
-                      [alt]="c.alt" 
-                      (error)="handleImageError($event)" 
-                    />
-                    <div class="tile-placeholder" style="display: none;">{{ c.alt }}</div>
-                  } @else {
-                    <div class="tile-placeholder">{{ c.alt }}</div>
-              }
-            </div>
-          }
-        </div>
-          </app-carousel>
-        }
-      </section>
-
-      <section class="notice">
-        <div class="notice-title">News and Updates</div>
-        <div class="notice-card">
-          <div class="notice-head">Upcoming Events</div>
-          <div class="notice-text">
-            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
-            <br />
-            Sorem ipsum dolor sit amet, consectetur adipiscing elit.
-          </div>
-          <div class="notice-more">See more</div>
-        </div>
-      </section>
-
-      <section class="panel preferred">
-        <div class="panel-head">
-          <div class="panel-title">Preferred Campus</div>
-          <button
-            class="panel-icon"
-            type="button"
-            title="Add Preferred Campus"
-            (click)="modalService.openModal('company-preferred-campus-form')"
-          >
-            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          </button>
-        </div>
-
-        @if (loadingPreferredCampuses()) {
-          <div class="loading-text">Loading preferred campuses...</div>
-        } @else {
-          <app-carousel
-            type="pagination"
-            [currentPage]="preferredCampusesCarouselPage"
-            [totalPages]="preferredCampusesTotalPages"
-            (pageChange)="preferredCampusesCarouselPage = $event"
-          >
-            <div class="company-grid">
-              @for (t of preferredCampusesPageItems(); track t.id) {
-            <div class="company-tile">
-              @if (t.imageUrl) {
-                    <img 
-                      class="tile-image" 
-                      [src]="t.imageUrl" 
-                      [alt]="t.alt" 
-                      (error)="handleImageError($event)" 
-                    />
-                    <div class="tile-placeholder" style="display: none;">{{ t.alt }}</div>
-                  } @else {
-                    <div class="tile-placeholder">{{ t.alt }}</div>
-              }
-            </div>
-          }
-        </div>
-          </app-carousel>
-        }
-      </section>
-
-      <section class="panel specializations">
-        <div class="panel-head">
-          <div class="panel-title">Specializations</div>
-          <button
-            class="panel-icon"
-            type="button"
-            title="Add Technology"
-            (click)="modalService.openModal('company-specialization')"
-          >
-            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          </button>
-        </div>
-
-        @if (loadingSpecializations()) {
-          <div class="loading-text">Loading specializations...</div>
-        } @else {
-          @if (specializations().length === 0) {
-            <div class="empty-state">No specializations available</div>
-          } @else {
-            <app-carousel
-              type="pagination"
-              [currentPage]="specializationsCarouselPage"
-              [totalPages]="specializationsTotalPages"
-              (pageChange)="specializationsCarouselPage = $event"
-            >
-              <div class="company-grid">
-                @for (tech of specializationsCarouselPageItems(); track tech.id) {
-                  <div class="company-tile">
-                    @if (tech.imageUrl) {
-                      <img 
-                        class="tile-image" 
-                        [src]="tech.imageUrl" 
-                        [alt]="tech.alt" 
-                        (error)="handleImageError($event)" 
-                      />
-                      <div class="tile-placeholder" style="display: none;">{{ tech.alt }}</div>
-                    } @else {
-                      <div class="tile-placeholder">{{ tech.alt }}</div>
-                    }
-                  </div>
-                }
-              </div>
-            </app-carousel>
-          }
-        }
-      </section>
+    <aside class="side side-desktop">
+      <ng-container *ngTemplateOutlet="companySidePanels"></ng-container>
     </aside>
   </div>
 
   <!-- Specialization Modal -->
   <app-modal
     [visible]="isSpecializationModalOpen()"
-    title="list-specialization"
+    title="Add a Technology and View Specializations"
     size="md"
     (closed)="closeModal()"
   >
@@ -246,7 +329,7 @@
   <!-- Vision & Performance Modal -->
   <app-modal
     [visible]="isVisionPerformanceModalOpen()"
-    title="vision & performance"
+    title="Vision & Performance"
     size="md"
     (closed)="closeModal()"
   >
@@ -268,17 +351,128 @@
   </app-modal>
 
   <!-- Current Vacancy Modal -->
-  <app-modal
-    [visible]="isCurrentVacancyModalOpen()"
-    title="Available opportunity"
-    size="lg"
-    (closed)="closeModal()"
-  >
+<app-modal
+  [visible]="isCurrentVacancyModalOpen()"
+  title="Available Opportunities"
+  size="lg"
+  (closed)="closeModal()"
+>
+  <!-- ================= LIST VIEW ================= -->
+  @if (!showVacancyForm() && !selectedVacancy()) {
+    <div class="vacancy-header">
+      <h3>Available Opportunities</h3>
+      <button class="add-btn" (click)="showVacancyForm.set(true)">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+
+    <div class="vacancy-list">
+      @for (v of vacancies(); track v.vacancyId) {
+        <div
+          class="vacancy-card"
+          role="button"
+          tabindex="0"
+          (click)="openVacancyDetails(v)"
+          (keydown.enter)="openVacancyDetails(v)"
+          (keydown.space)="openVacancyDetails(v)"
+        >
+          <div class="card-row">
+            <div class="title">{{ v.jobTitle }}</div>
+
+            <!-- IMPORTANT: stopPropagation so delete doesn't open modal -->
+            <button
+              class="delete-btn"
+              (click)="$event.stopPropagation(); handleDeleteVacancy(v.vacancyId)"
+            >
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+
+          <div class="meta">
+            {{ v.jobLocation }} | {{ v.department }}
+          </div>
+
+          <div class="sub">
+            {{ v.jobType }} :
+            {{ v.numberOfOpenings || v.numberofopenings }} Openings
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ================= DETAIL VIEW (SAME AS ABOUT PAGE) ================= -->
+  @else if (selectedVacancy()) {
+    <div class="job-details">
+      <h3 class="job-title">{{ selectedVacancy()!.jobTitle }}</h3>
+
+      <p class="job-sub">
+        {{ selectedVacancy()!.jobLocation }} |
+        {{ selectedVacancy()!.department }}
+      </p>
+
+      <div class="job-row">
+        <span>Job Type</span>
+        <span>{{ selectedVacancy()!.jobType }}</span>
+      </div>
+
+      <div class="job-row">
+        <span>No. of Openings</span>
+        <span>{{ selectedVacancy()!.numberOfOpenings }}</span>
+      </div>
+
+      <div class="job-block">
+        <h4>Job Description</h4>
+        <p>{{ selectedVacancy()!.jobDescription }}</p>
+      </div>
+
+      <div class="job-block">
+        <h4>Required Qualifications</h4>
+        <ul>
+          @for (q of selectedVacancy()!.requiredQualifications; track $index) {
+            <li>{{ q }}</li>
+          }
+        </ul>
+      </div>
+
+      <div class="job-block">
+        <h4>Streams Eligible</h4>
+        <ul>
+          @for (s of selectedVacancy()!.streamsEligible; track $index) {
+            <li>{{ s }}</li>
+          }
+        </ul>
+      </div>
+
+      <div class="job-block">
+        <h4>Selection Process</h4>
+        <div class="checks">
+          @for (p of selectedVacancy()!.selectionProcess; track $index) {
+            <label>
+              <input type="checkbox" checked disabled />
+              {{ p }}
+            </label>
+          }
+        </div>
+      </div>
+
+      <div class="job-block">
+        <h4>Interview Mode</h4>
+        <p>{{ selectedVacancy()!.interviewMode }}</p>
+      </div>
+    </div>
+  }
+
+  <!-- ================= FORM VIEW ================= -->
+  @else {
     <app-company-current-vacancy
       [submitting]="submittingCurrentVacancy"
       (submitted)="handleCurrentVacancySubmit($event)"
     />
-  </app-modal>
+  }
+</app-modal>
+
+
 
   <!-- Client Form Modal -->
   <app-modal
@@ -315,5 +509,89 @@
     />
     }
   </app-modal>
+
+  <!-- Create Post Modal (reusable component) -->
+  <app-create-post
+    [visible]="isCreatePostModalOpen()"
+    [authorName]="editPostState.postToEdit()?.author?.displayName ?? editPostState.postToEdit()?.authorDisplayName ?? postAuthorName()"
+    [authorImageUrl]="editPostState.postToEdit()?.author?.imageUrl ?? editPostState.postToEdit()?.authorImageUrl ?? postAuthorImageUrl()"
+    [authorFallbackImage]="'assets/images/login-news-image.png'"
+    [postType]="editPostState.postToEdit()?.postType ?? 'COMPANY'"
+    [initialPost]="editPostState.postToEdit()"
+    [isSubmitting]="isSubmittingPost()"
+    (submitted)="onCreatePostSubmitted($event)"
+    (closed)="onCreatePostClosed()"
+  />
+
+  <!-- Media viewer lightbox (LinkedIn-style) -->
+  <app-media-viewer
+    [visible]="!!mediaViewerUrl()"
+    [mediaUrl]="mediaViewerUrl()"
+    [mediaType]="mediaViewerType()"
+    (closed)="closeMediaViewer()"
+  />
+
+  <app-modal
+    [visible]="isReportModalOpen()"
+    title="Report Post"
+    size="sm"
+    (closed)="closeReportModal()"
+  >
+    <div class="report-modal-content">
+      <label for="company-report-reason" class="report-label">Reason</label>
+<textarea
+  id="company-report-reason"
+  class="report-textarea"
+  rows="4"
+  [attr.maxlength]="REPORT_MAX_LENGTH"
+  placeholder="Tell us why this post should be reviewed"
+  [ngModel]="reportReason()"
+  (ngModelChange)="reportReason.set($event)"
+></textarea>
+
+<div class="report-counter">
+  {{ reportReason().length }}/{{ REPORT_MAX_LENGTH }}
+</div>
+      <div class="report-actions">
+        <button class="report-btn cancel" type="button" [disabled]="isReporting()" (click)="closeReportModal()">Cancel</button>
+        <button class="report-btn submit" type="button" [disabled]="isReporting()" (click)="submitReport()">
+          {{ isReporting() ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
+    </div>
+  </app-modal>
+
+
+  <!-- NEWS DETAIL MODAL (CAMPUS PATTERN) -->
+
+<app-modal
+  [visible]="isNewsDetailModalOpen()"
+  title="News Detail"
+  size="sm"
+  (closed)="closeNewsDetail()"
+>
+  @if (newsModalData()) {
+
+    <div class="notice-card">
+
+      <div class="notice-meta">
+        <span class="notice-date">
+          {{ newsModalData()!.createDate | date:'dd MMM yyyy' }}
+        </span>
+      </div>
+
+      <div class="notice-title">
+        {{ newsModalData()!.title }}
+      </div>
+
+      <div class="notice-message">
+        {{ newsModalData()!.description }}
+      </div>
+
+    </div>
+
+  }
+</app-modal>
+
 </div>
 

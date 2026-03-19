@@ -3,8 +3,11 @@ import { ChangeDetectorRef, Component, ElementRef, EventEmitter, inject, Input, 
 import { Observable, map, catchError, of } from 'rxjs';
 import { DropdownComponent, ApiFetchFunction, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
-import { CampusApiService, StudentByCampusItem } from '../../services/campus-api.service';
+import { CampusApiService, StudentByCampusItem, type CompanySearchItem } from '../../services/campus-api.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
 
 export interface PlacedStudentsFormValue {
   studentName: string;
@@ -14,6 +17,7 @@ export interface PlacedStudentsFormValue {
   placementCompany: string;
   designation: string;
   sector: string;
+  department?: string;
 }
 
 @Component({
@@ -27,6 +31,7 @@ export class CampusPlacedStudentsComponent implements OnInit {
   private readonly campusApi = inject(CampusApiService);
   private readonly notify = inject(NotificationService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly storage = inject(StorageService);
 
   @ViewChild('studentPhotoFileInput') studentPhotoFileInput!: ElementRef<HTMLInputElement>;
 
@@ -39,6 +44,7 @@ export class CampusPlacedStudentsComponent implements OnInit {
     placementCompany: '',
     designation: '',
     sector: '',
+    department: '',
   };
 
   @Output() valueChange = new EventEmitter<PlacedStudentsFormValue>();
@@ -64,6 +70,11 @@ export class CampusPlacedStudentsComponent implements OnInit {
   readonly sectorItems = signal<readonly { label: string; value: string }[]>([]);
   loadingSectors = signal(false);
 
+ 
+  departmentItems: { label: string; value: string }[] = [];
+
+  @Input() showDepartment = true;
+
   // Student name items - loaded via API autocomplete
   // Using API fetch function for real-time search from registered students
   loadingStudentNames = signal(false);
@@ -86,6 +97,36 @@ export class CampusPlacedStudentsComponent implements OnInit {
     this.loadBatches();
     this.loadDesignations();
     this.loadSectors();
+    if (this.showDepartment) {
+      this.loadDepartments();
+    }
+  }
+
+  private loadDepartments(): void {
+    const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string;
+    if (!campusId) {
+      this.departmentItems = [];
+      return;
+    }
+
+    this.campusApi.getAllDepartmentsByCampus(campusId).subscribe({
+      next: (res) => {
+        if (res?.success && Array.isArray(res.data)) {
+          this.departmentItems = res.data
+            .map((dept: { id: string; departmentName: string }) => ({
+              label: dept.departmentName,
+              value: dept.id,
+            }))
+            .filter((d) => d.value && d.label);
+        } else {
+          this.departmentItems = [];
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.departmentItems = [];
+      },
+    });
   }
 
   /**
@@ -103,10 +144,11 @@ export class CampusPlacedStudentsComponent implements OnInit {
     
     return this.campusApi.getStudentsByCampusId(searchTerm).pipe(
       map((response) => {
-        if (response?.success && response.data?.content) {
+        const items = unwrapApiResponse<StudentByCampusItem[]>(response);
+        if (Array.isArray(items)) {
           // Convert student objects to dropdown items
           // Combine firstName and lastName for display
-          const dropdownItems: DropdownItem[] = response.data.content
+          const dropdownItems: DropdownItem[] = items
             .filter(student => {
               // Filter out students without a name
               const firstName = student.firstName?.trim() || '';
@@ -240,7 +282,7 @@ export class CampusPlacedStudentsComponent implements OnInit {
       error: () => {
         this.courseItems.set([]);
         this.loadingCourses.set(false);
-        this.notify.error('Failed to load courses. Please refresh the page or contact support.');
+        // Do not show toast on public campus profile (no campus context, API may fail)
       },
     });
   }
@@ -257,14 +299,20 @@ export class CampusPlacedStudentsComponent implements OnInit {
       next: (batches) => {
         // Convert string array to dropdown items format: { label: string, value: string }
         // API returns: ["2023", "2024", ...]
-        const batchDropdownItems = Array.isArray(batches)
-          ? batches
-              .filter(batch => batch && typeof batch === 'string' && batch.trim() !== '' && batch !== 'string')
-              .map(batch => ({
-                label: batch.trim(),
-                value: batch.trim(), // Use the same value as label (e.g., "2023", "2024")
-              }))
-          : [];
+    const currentYear = new Date().getFullYear();
+
+const batchDropdownItems = Array.isArray(batches)
+  ? batches
+      .filter(batch => {
+        if (!batch || typeof batch !== 'string') return false;
+        const year = parseInt(batch.trim(), 10);
+        return !isNaN(year) && year <= currentYear; // 🚫 block future years
+      })
+      .map(batch => ({
+        label: batch.trim(),
+        value: batch.trim(),
+      }))
+  : [];
         
         this.batchItems.set(batchDropdownItems);
         this.loadingBatches.set(false);
@@ -376,9 +424,10 @@ export class CampusPlacedStudentsComponent implements OnInit {
     
     return this.campusApi.getCompanyBySearch(searchTerm).pipe(
       map((response) => {
-        if (response?.success && response.data && Array.isArray(response.data)) {
+        const items = unwrapApiResponse<CompanySearchItem[]>(response);
+        if (Array.isArray(items)) {
           // Convert company objects to dropdown items
-          const dropdownItems: DropdownItem[] = response.data
+          const dropdownItems: DropdownItem[] = items
             .filter(company => {
               // Filter out companies without a name
               return company.companyName && company.companyName.trim().length > 0;
@@ -432,7 +481,7 @@ export class CampusPlacedStudentsComponent implements OnInit {
       // Delay to ensure studentId map is populated from autocomplete fetch, then fetch batch from API
       // Increased delay to 300ms to ensure autocomplete fetch completes
       setTimeout(() => {
-        console.log('🔄 Triggering batch fetch for student:', newStudentName);
+        console.log(' Triggering batch fetch for student:', newStudentName);
         this.fetchBatchInfoForStudent(newStudentName);
       }, 300);
     }
@@ -444,12 +493,12 @@ export class CampusPlacedStudentsComponent implements OnInit {
    */
   private fetchBatchInfoForStudent(studentName: string): void {
     if (!studentName || studentName.trim().length === 0) {
-      console.warn('⚠️ Empty student name provided');
+      console.warn(' Empty student name provided');
       return;
     }
     
     const trimmedName = studentName.trim();
-    console.log('🔍 Fetching batch info for student:', trimmedName);
+    console.log(' Fetching batch info for student:', trimmedName);
     
     // Get studentId from map (should be populated from autocomplete)
     let studentId = this.studentNameToIdMap.get(trimmedName.toLowerCase()) || 
@@ -467,18 +516,19 @@ export class CampusPlacedStudentsComponent implements OnInit {
     
     // If studentId found in map, directly call batch-info API
     if (studentId) {
-      console.log('✅ Found student ID in map, calling batch-info API:', studentId);
+      console.log(' Found student ID in map, calling batch-info API:', studentId);
       this.fetchBatchInfoWithId(studentId);
       return;
     }
     
     // If studentId not in map, fetch student data first to get studentId
-    console.log('⚠️ Student ID not found in map, fetching student data to get studentId...');
+    console.log('Student ID not found in map, fetching student data to get studentId...');
     this.campusApi.getStudentsByCampusId(trimmedName).subscribe({
       next: (response) => {
-        console.log('📥 Student search response:', response);
-        if (response?.success && response.data?.content) {
-          const student = response.data.content.find(s => {
+        console.log(' Student search response:', response);
+        const items = unwrapApiResponse<StudentByCampusItem[]>(response);
+        if (Array.isArray(items)) {
+          const student = items.find(s => {
             const firstName = s.firstName?.trim() || '';
             const lastName = s.lastName?.trim() || '';
             const fullName = `${firstName} ${lastName}`.trim();
@@ -494,20 +544,20 @@ export class CampusPlacedStudentsComponent implements OnInit {
               this.studentNameToIdMap.set(trimmedName, foundStudentId);
               
               // Now call the batch-info API with the studentId
-              console.log('✅ Found studentId, calling batch-info API:', foundStudentId);
+              console.log(' Found studentId, calling batch-info API:', foundStudentId);
               this.fetchBatchInfoWithId(foundStudentId);
             } else {
-              console.error('❌ Student found but no studentId available');
+              console.error(' Student found but no studentId available');
             }
           } else {
-            console.error('❌ Student not found in API response for name:', trimmedName);
+            console.error(' Student not found in API response for name:', trimmedName);
           }
         } else {
-          console.error('❌ Invalid API response structure');
+          console.error(' Invalid API response structure');
         }
       },
       error: (error) => {
-        console.error('❌ Error fetching student data:', error);
+        console.error(' Error fetching student data:', error);
       }
     });
   }
@@ -519,16 +569,16 @@ export class CampusPlacedStudentsComponent implements OnInit {
    */
   private fetchBatchInfoWithId(studentId: string): void {
     if (!studentId || studentId.trim().length === 0) {
-      console.error('❌ Invalid studentId provided:', studentId);
+      console.error(' Invalid studentId provided:', studentId);
       return;
     }
     
     const trimmedStudentId = studentId.trim();
-    console.log('📡 ========================================');
-    console.log('📡 CALLING BATCH-INFO API');
-    console.log('📡 Student ID:', trimmedStudentId);
-    console.log('📡 Endpoint: GET /student/{studentId}/campus/{campusId}/batch-info');
-    console.log('📡 ========================================');
+    console.log(' ========================================');
+    console.log(' CALLING BATCH-INFO API');
+    console.log(' Student ID:', trimmedStudentId);
+    console.log(' Endpoint: GET /student/{studentId}/campus/{campusId}/batch-info');
+    console.log(' ========================================');
     
     this.loadingBatchInfo.set(true);
     
@@ -536,14 +586,15 @@ export class CampusPlacedStudentsComponent implements OnInit {
     this.campusApi.getStudentCampusBatchInfo(trimmedStudentId).subscribe({
       next: (response) => {
         this.loadingBatchInfo.set(false);
-        console.log('📥 ========================================');
-        console.log('📥 BATCH-INFO API RESPONSE RECEIVED');
-        console.log('📥 Full response:', JSON.stringify(response, null, 2));
-        console.log('📥 ========================================');
+        console.log(' ========================================');
+        console.log(' BATCH-INFO API RESPONSE RECEIVED');
+        console.log(' Full response:', JSON.stringify(response, null, 2));
+        console.log(' ========================================');
         
-        if (response?.success && response.data?.batch) {
-          const batch = response.data.batch.trim();
-          console.log('✅ Auto-populating batch field with:', batch);
+        const batchInfo = unwrapApiResponse<{ batch?: string }>(response);
+        if (batchInfo?.batch) {
+          const batch = batchInfo.batch.trim();
+          console.log(' Auto-populating batch field with:', batch);
           
           // Ensure the batch value exists in batchItems dropdown
           // If not, add it to the items list so dropdown can display it
@@ -570,8 +621,8 @@ export class CampusPlacedStudentsComponent implements OnInit {
           // Force change detection to ensure dropdown updates
           this.cdr.detectChanges();
         } else {
-          console.warn('⚠️ Batch info response missing batch data');
-          console.warn('⚠️ Response structure:', {
+          console.warn(' Batch info response missing batch data');
+          console.warn(' Response structure:', {
             hasResponse: !!response,
             hasSuccess: !!response?.success,
             hasData: !!response?.data,
@@ -582,14 +633,14 @@ export class CampusPlacedStudentsComponent implements OnInit {
       },
       error: (error) => {
         this.loadingBatchInfo.set(false);
-        console.error('❌ ========================================');
-        console.error('❌ ERROR FETCHING BATCH INFO');
-        console.error('❌ Error object:', error);
-        console.error('❌ Error message:', error?.message);
-        console.error('❌ Error status:', error?.status);
-        console.error('❌ Error URL:', error?.url);
-        console.error('❌ Full error:', JSON.stringify(error, null, 2));
-        console.error('❌ ========================================');
+        console.error(' ========================================');
+        console.error(' ERROR FETCHING BATCH INFO');
+        console.error(' Error object:', error);
+        console.error(' Error message:', error?.message);
+        console.error(' Error status:', error?.status);
+        console.error(' Error URL:', error?.url);
+        console.error(' Full error:', JSON.stringify(error, null, 2));
+        console.error(' ========================================');
       }
     });
   }
@@ -619,9 +670,26 @@ export class CampusPlacedStudentsComponent implements OnInit {
     this.submit();
   }
 
-  submit(): void {
-    this.submitted.emit(this.value);
+ submit(): void {
+  const studentName = this.value.studentName.trim();
+
+  // Check if student exists in map (means selected from API)
+  const studentId =
+    this.studentNameToIdMap.get(studentName.toLowerCase()) ||
+    this.studentNameToIdMap.get(studentName);
+
+  if (!studentId) {
+    this.notify.error('Please select a registered student from the list.');
+    return;
   }
+
+  if (!this.isFormValid()) {
+    this.notify.error('Please fill all required fields.');
+    return;
+  }
+
+  this.submitted.emit(this.value);
+}
 
   /**
    * Reset form to initial empty state
@@ -636,6 +704,7 @@ export class CampusPlacedStudentsComponent implements OnInit {
       placementCompany: '',
       designation: '',
       sector: '',
+      department: '',
     };
     
     this.value = emptyValue;

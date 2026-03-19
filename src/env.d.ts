@@ -15,6 +15,10 @@ type PublicRuntimeEnv = Partial<{
   COMPANY_SERVICE_URL: string;
   CAMPANY_SERVICE_URL: string;
   ADMIN_SERVICE_URL: string;
+
+  // S3 client-side upload (set in .env, injected by server via /assets/env.js)
+  AWS_S3_ACCESS_KEY_ID: string;
+  AWS_S3_SECRET_ACCESS_KEY: string;
 }>;
 
 declare global {

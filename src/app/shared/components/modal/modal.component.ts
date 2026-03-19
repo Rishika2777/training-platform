@@ -16,6 +16,9 @@ export class ModalComponent {
   @Input() size: ModalSize = 'md';
   @Input() modalClass: string | null = null;
   @Input() titleAlign: 'left' | 'center' = 'center';
+  @Input() hideCloseButton = false;
+  /** When true, modal stacks above other modals (higher z-index, darker backdrop) */
+  @Input() stacked = false;
 
   @Output() closed = new EventEmitter<void>();
 

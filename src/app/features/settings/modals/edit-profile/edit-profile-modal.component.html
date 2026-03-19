@@ -21,8 +21,10 @@
     [emailLocked]="true"
     [isEditMode]="isEditMode() || !isAdmin"
     [campuses]="campuses"
+    [verifiedPhoneNumber]="verifiedPhoneNumber()"
     (submitted)="handleFormSubmit($event)"
     (cancelled)="handleCancel()"
+    (verifyPhone)="openPhoneVerification($event.phoneNumber, $event.fieldType)"
   ></app-student-form>
 } @else if (userType === 'COMPANY') {
   <app-company-form
@@ -32,8 +34,10 @@
     [submitting]="viewSubmitting()"
     [adminEmailLocked]="true"
     [isEditMode]="isEditMode()"
+    [verifiedPhoneNumber]="verifiedPhoneNumber()"
     (submitted)="handleFormSubmit($event)"
     (cancelled)="handleCancel()"
+    (verifyPhone)="openPhoneVerification($event.phoneNumber, $event.fieldType)"
   />
 } @else if (userType === 'CAMPUS') {
   <app-campus-form
@@ -43,8 +47,74 @@
     [submitting]="viewSubmitting()"
     [adminEmailLocked]="true"
     [isEditMode]="isEditMode()"
+    [verifiedPhoneNumber]="verifiedPhoneNumber()"
     (submitted)="handleFormSubmit($event)"
     (cancelled)="handleCancel()"
+    (verifyPhone)="openPhoneVerification($event.phoneNumber, $event.fieldType)"
   />
 }
+@else if (userType === 'DEPARTMENT') {
 
+  <app-department-form
+    [value]="departmentViewValue"
+    [submitting]="viewSubmitting()"
+    [isEditMode]="isEditMode()"
+    [verifiedPhoneNumber]="verifiedPhoneNumber()"
+    (submitted)="handleDepartmentFormSubmit($event)"
+    (cancelled)="handleCancel()"
+    (verifyPhone)="openPhoneVerification($event.phoneNumber, $event.fieldType)"
+  />
+
+}
+
+<!-- Phone Verification Modal -->
+<app-modal
+  [visible]="showPhoneVerificationModal"
+  title="Verify Phone Number"
+  size="md"
+  (closed)="handlePhoneVerificationCancel()"
+>
+  <div class="phone-verification-form" style="padding: 20px;">
+    <p style="margin-bottom: 20px; color: #333;">
+      Please enter the 6-digit OTP sent to <strong>{{ phoneVerificationState.phoneNumber }}</strong>
+    </p>
+
+    <!-- reCAPTCHA container (invisible) - Must exist before RecaptchaVerifier initialization -->
+    <div id="phone-recaptcha-container" style="display: none;"></div>
+
+    <app-input
+      label="Enter OTP"
+      type="text"
+      placeholder="Enter 6-digit OTP"
+      [value]="phoneVerificationState.otp"
+      [disabled]="phoneVerificationState.verifyingOtp || phoneVerificationState.sendingOtp"
+      [required]="true"
+      [maxlength]="6"
+      (valueChange)="phoneVerificationState.otp = $event"
+    />
+
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+      <app-button
+        type="button"
+        variant="outline"
+        label="Cancel"
+        [disabled]="phoneVerificationState.verifyingOtp || phoneVerificationState.sendingOtp"
+        (buttonClick)="handlePhoneVerificationCancel()"
+      />
+      <app-button
+        type="button"
+        variant="outline"
+        [label]="phoneVerificationState.sendingOtp ? 'Sending...' : 'Resend OTP'"
+        [disabled]="phoneVerificationState.sendingOtp || phoneVerificationState.verifyingOtp"
+        (buttonClick)="resendPhoneOtp()"
+      />
+      <app-button
+        type="button"
+        variant="primary"
+        [label]="phoneVerificationState.verifyingOtp ? 'Verifying...' : 'Verify'"
+        [disabled]="phoneVerificationState.verifyingOtp || phoneVerificationState.sendingOtp || phoneVerificationState.otp.trim().length !== 6"
+        (buttonClick)="verifyPhoneOtp()"
+      />
+    </div>
+  </div>
+</app-modal>

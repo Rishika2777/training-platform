@@ -12,8 +12,12 @@ import { AdminLayoutComponent } from './layout/admin-layout/admin-layout.compone
 import { adminRoutes } from './features/admin/admin.routes';
 
 import { campusRoutes } from './features/campus/campus.routes';
+import { departmentRoutes } from './features/campus/department.routes';
 
 import { studentRoutes } from './features/student/student.routes';
+import { StudentProfileComponent } from './features/student/pages/profile/student-profile.component';
+import { CompanyAboutComponent } from './features/company/pages/about/company-about.component';
+import { CampusAboutComponent } from './features/campus/pages/about/campus-about.component';
 
 import { companyRoutes } from './features/company/company.routes';
 
@@ -27,6 +31,10 @@ export const routes: Routes = [
   ...authRoutes,
   ...registrationRoutes,
 
+  { path: 'profile/student/:publicStudentId', component: StudentProfileComponent },
+  { path: 'profile/company/:publicCompanyId', component: CompanyAboutComponent },
+  { path: 'profile/campus/:publicCampusId', component: CampusAboutComponent },
+
   // Admin area (ADMIN/SUPER_ADMIN)
   {
     path: 'admin',
@@ -36,13 +44,22 @@ export const routes: Routes = [
     children: adminRoutes,
   },
 
-  // Campus
+  // Campus (CAMPUS_ADMIN only)
   {
     path: 'campus',
     component: DashboardLayoutComponent,
     canMatch: [authGuard, roleGuard],
     data: { requiredRoles: ['CAMPUS_ADMIN'] satisfies UserRole[] } satisfies RouteData,
     children: campusRoutes,
+  },
+
+  // Department (DEPARTMENT user type - same content as campus, different URL)
+  {
+    path: 'department',
+    component: DashboardLayoutComponent,
+    canMatch: [authGuard, roleGuard],
+    data: { requiredRoles: ['DEPARTMENT'] satisfies UserRole[] } satisfies RouteData,
+    children: departmentRoutes,
   },
 
   // Student

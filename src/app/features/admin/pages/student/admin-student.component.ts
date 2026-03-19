@@ -1,20 +1,29 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef, NgZone } from '@angular/core';
+import { Router } from '@angular/router';
 import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { AdminApiService } from '../../services/admin-api.service';
-import { StudentApiService } from '../../../student/services/student-api.service';
+import { AdminApprovalService } from '../../services/admin-approval.service';
+import {
+  BulkUploadResponse,
+  StudentApiService,
+  StudentRegisterFiles,
+  StudentRegisterPayload,
+  StudentUpdateFiles,
+  StudentUpdatePayload,
+} from '../../../student/services/student-api.service';
 import { StudentProfileResponse, CampusResponse, mapStudentFormValueToRegisterRequest } from '../../../student/models/student.models';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { APPROVAL_FILTER_ITEMS, EnumLoginStatus } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
-import {
-  createEmptyStudentFormValue,
-  StudentFormComponent,
-  StudentFormValue,
-} from '../../../../shared/components/forms/student-form/student-form.component';
+import { StudentFormComponent } from '../../../../shared/components/forms/student-form/student-form.component';
+import type { StudentFormValue } from '../../../../shared/components/forms/student-form/student-form.models';
+import { createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.utils';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { finalize } from 'rxjs';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-admin-student',
@@ -26,17 +35,24 @@ import {
     ModalComponent,
     ButtonComponent,
     StudentFormComponent,
+    DropdownComponent,
   ],
   templateUrl: './admin-student.component.html',
   styleUrl: './admin-student.component.css',
 })
 export class AdminStudentComponent implements OnInit {
-  private readonly adminApi = inject(AdminApiService);
+  @ViewChild('fileInput', { static: false }) fileInput!: ElementRef<HTMLInputElement>;
+
+  private readonly adminApproval = inject(AdminApprovalService);
   private readonly studentApi = inject(StudentApiService);
   private readonly auth = inject(AuthService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly ngZone = inject(NgZone);
   private readonly notify = inject(NotificationService);
+  private readonly router = inject(Router);
   readonly announcementDate = 'January 7th, 2025';
+
+  uploadingTemplate = false;
 
   students: CardData[] = [];
   displayedStudents: CardData[] = [];
@@ -61,6 +77,9 @@ export class AdminStudentComponent implements OnInit {
   readonly itemsPerPage = 9;
   totalPages = 1;
 
+  selectedApprovalFilter = '';
+  readonly approvalFilterItems = APPROVAL_FILTER_ITEMS;
+
   showCreateModal = false;
   createSubmitting = false;
   createFormValue: StudentFormValue = createEmptyStudentFormValue();
@@ -69,6 +88,12 @@ export class AdminStudentComponent implements OnInit {
   ngOnInit(): void {
     this.loadStudents();
     this.loadCampuses();
+  }
+
+  onApprovalFilterChange(value: string): void {
+    this.selectedApprovalFilter = value ?? '';
+    this.cdr.detectChanges();
+    this.loadStudents();
   }
 
   private loadCampuses(): void {
@@ -86,20 +111,37 @@ export class AdminStudentComponent implements OnInit {
     this.isLoading = true;
     this.students = [];
     this.displayedStudents = [];
-    
-    this.studentApi.getAllStudents('ADMIN').subscribe({
+    this.cdr.detectChanges();
+
+    const approvalStatus = this.selectedApprovalFilter || undefined;
+    this.studentApi.getAllStudents('ADMIN', approvalStatus as 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | undefined).pipe(
+      finalize(() => {
+        this.ngZone.run(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        });
+      })
+    ).subscribe({
       next: (response) => {
-        try {
-          const studentProfiles = response.data ?? [];
-          if (studentProfiles && Array.isArray(studentProfiles) && studentProfiles.length > 0) {
-            this.students = studentProfiles.map((student: StudentProfileResponse) => {
+        this.ngZone.run(() => {
+          try {
+            const raw = response?.data;
+            const studentProfiles: StudentProfileResponse[] = Array.isArray(raw)
+              ? (raw as StudentProfileResponse[])
+              : (raw && typeof raw === 'object' && 'content' in raw ? ((raw as { content?: StudentProfileResponse[] }).content ?? []) : []);
+            if (studentProfiles.length > 0) {
+            this.students = studentProfiles.map((student) => {
               const fullName = `${student.firstName} ${student.lastName}`.trim() || 'Student Name';
+              const imageUrl = cleanUiText(
+                readFirstNonEmptyString(student, ['profilePhotoUrl', 'photoUrl', 'imageUrl']),
+              );
               const cardData: CardData = {
                 id: student.studentId ?? student.userId ?? `student-${Math.random().toString(36).substr(2, 9)}`,
                 name: fullName,
                 secondaryInfo: buildStudentSecondaryInfo(student.campusName),
                 badge: toApprovalStatusLabel(student.approvalStatus),
-                email: '', // StudentProfileResponse doesn't have email field
+                email: student.email ?? '', // StudentProfileResponse doesn't have email field
+                imageUrl: imageUrl || undefined,
                 userId: student.userId,
               };
               return cardData;
@@ -117,15 +159,14 @@ export class AdminStudentComponent implements OnInit {
           this.displayedStudents = [];
           this.totalPages = 1;
         }
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        });
       },
       error: () => {
-        this.students = [];
-        this.displayedStudents = [];
-        this.totalPages = 1;
-        this.isLoading = false;
-        this.cdr.detectChanges();
+        this.ngZone.run(() => {
+          this.students = [];
+          this.displayedStudents = [];
+          this.totalPages = 1;
+        });
       },
     });
   }
@@ -248,13 +289,14 @@ export class AdminStudentComponent implements OnInit {
     }
 
     const updateRequest = this.mapFormValueToUpdateRequest(value);
+    const updatePayload = this.buildUpdatePayload(value, updateRequest);
     this.viewSubmitting = true;
 
     // Use userId from the root data object (data.userId) for the query parameter
     // Use studentId from the root data object (data.studentId) for the path parameter
 
     this.studentApi
-      .updateStudentFullProfile(this.selectedStudentId, 'userId', updateRequest)
+      .updateStudentFullProfile(this.selectedStudentId, 'userId', updatePayload)
       .subscribe({
         next: () => {
           // Show success notification
@@ -312,9 +354,10 @@ export class AdminStudentComponent implements OnInit {
       // Education details
       qualifications: educationDetails.qualifications,
       institutionName: educationDetails.institutionName,
-      campusId: educationDetails.campusId || [], // Include campusId array from form
-      campusAddress: educationDetails.campusAddress || [], // Include campusAddress array from form
-      other: educationDetails.other ?? false, // Include other flag from form
+      campusId: educationDetails.campusId || [],
+      campusAddress: educationDetails.campusAddress || [],
+      departmentId: educationDetails.departmentId || [],
+      other: educationDetails.other ?? false,
       degrees: educationDetails.degrees,
       specializations: educationDetails.specializations,
       yearOfPassing: educationDetails.yearOfPassing || '',
@@ -349,6 +392,25 @@ export class AdminStudentComponent implements OnInit {
       jobAlertPreference: additionalInfo.jobAlertPreference || 'NONE',
       howDidYouHear: additionalInfo.howDidYouHear || '',
       termsAndCondition: additionalInfo.termsAndCondition || false,
+    };
+  }
+
+  private buildUpdatePayload(
+    value: StudentFormValue,
+    request: Record<string, unknown>,
+  ): StudentUpdatePayload {
+    return {
+      request,
+      files: this.buildUpdateFiles(value),
+    };
+  }
+
+  private buildUpdateFiles(value: StudentFormValue): StudentUpdateFiles {
+    return {
+      profilePhoto: value.photoFiles?.item(0) ?? null,
+      resume: value.additional.resumeFiles?.item(0) ?? null,
+      govtIdProof: value.additional.govtIdProofFiles?.item(0) ?? null,
+      portfolio: null,
     };
   }
 
@@ -435,7 +497,7 @@ export class AdminStudentComponent implements OnInit {
 
   onApprove(student: CardData): void {
     if (student.id) {
-      this.adminApi
+      this.adminApproval
         .approveStudent(student.id, { status: 'APPROVED', comment: 'Approved by admin' })
         .subscribe({
           next: () => {
@@ -447,7 +509,7 @@ export class AdminStudentComponent implements OnInit {
 
   onReject(student: CardData): void {
     if (student.id && confirm('Are you sure you want to reject this student?')) {
-      this.adminApi
+      this.adminApproval
         .approveStudent(student.id, { status: 'REJECTED', comment: 'Rejected by admin' })
         .subscribe({
           next: () => {
@@ -474,7 +536,10 @@ export class AdminStudentComponent implements OnInit {
     }
 
     const currentUser = this.auth.getCurrentUser();
-    if (!currentUser?.userId) {
+    const isAdminRoute = this.router.url.includes('/admin/student');
+
+    // On admin route, we only need userId. Otherwise, we need both userId and userType
+    if (!currentUser?.userId || (!isAdminRoute && !currentUser.userType)) {
       this.notify.error('Missing auth context. Please sign in and try again.');
       return;
     }
@@ -482,8 +547,15 @@ export class AdminStudentComponent implements OnInit {
     this.createSubmitting = true;
 
     const registerRequest = mapStudentFormValueToRegisterRequest(value, String(currentUser.userId));
+    const registerPayload = this.buildRegisterPayload(value, registerRequest);
 
-    this.studentApi.registerStudent(registerRequest).subscribe({
+    // Prepare options - include userType as 'ADMIN' if on admin route, otherwise use current user's type
+    const options = {
+      userId: currentUser.userId,
+      ...(isAdminRoute ? { userType: 'ADMIN' as const } : currentUser.userType ? { userType: currentUser.userType } : {}),
+    };
+
+    this.studentApi.registerStudent(registerPayload, options).subscribe({
       next: (response) => {
         this.createSubmitting = false;
         const data = response.data ?? null;
@@ -521,9 +593,175 @@ export class AdminStudentComponent implements OnInit {
     this.closeCreateModal();
   }
 
+  private buildRegisterPayload(
+    value: StudentFormValue,
+    request: ReturnType<typeof mapStudentFormValueToRegisterRequest>,
+  ): StudentRegisterPayload {
+    return {
+      request,
+      files: this.buildRegisterFiles(value),
+    };
+  }
+
+  private buildRegisterFiles(value: StudentFormValue): StudentRegisterFiles {
+    return {
+      profilePhoto: value.photoFiles?.item(0) ?? null,
+      resume: value.additional.resumeFiles?.item(0) ?? null,
+      govtIdProof: value.additional.govtIdProofFiles?.item(0) ?? null,
+      portfolio: null,
+    };
+  }
+
   get isSelectedStudentApproved(): boolean {
     const status = toApprovalStatusLabel(this.selectedStudentApprovalStatus);
     return status === 'APPROVED' || status === 'REJECTED';
+  }
+
+  downloadTemplate(): void {
+    const headers = [
+      'firstName',
+      'lastName',
+      'email',
+      'dateOfBirth',
+      'gender',
+      'phoneNumber',
+      'profilePhotoUrl',
+      'address',
+      'about',
+      'qualifications',
+      'institution',
+      'degrees',
+      'specialization',
+      'yearOfPassing',
+      'cgpa',
+      'technicalSkills',
+      'softSkills',
+      'languagesKnown',
+      'resumeUrl',
+      'govtIdProofUrl',
+      'offersInHand',
+      'jobAlertPreference',
+      'howDidYouHear',
+      'termsAndCondition',
+    ];
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+
+    // Set column widths for better readability
+    const columnWidths = [
+      { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 10 }, { wch: 14 },
+      { wch: 20 }, { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 20 }, { wch: 15 },
+      { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+      { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Registration');
+
+    // Generate Excel file buffer
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+
+    // Create blob and download
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'student_registration_template.xlsx');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.notify.success('Template downloaded successfully');
+  }
+
+  triggerFileUpload(): void {
+    if (this.fileInput) {
+      this.fileInput.nativeElement.click();
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      this.notify.error('Please select an Excel file (.xlsx or .xls)');
+      return;
+    }
+
+    this.uploadBulkStudents(file);
+  }
+
+  private uploadBulkStudents(file: File): void {
+    if (this.uploadingTemplate) {
+      return;
+    }
+
+    this.uploadingTemplate = true;
+
+    this.studentApi.bulkUploadStudents(file).subscribe({
+      next: (response: BulkUploadResponse | null) => {
+        this.uploadingTemplate = false;
+
+        if (response) {
+          const totalRows = response.totalRows || 0;
+          const successfulRows = response.successfulRows || 0;
+          const failedRows = response.failedRows || 0;
+
+          if (failedRows === 0) {
+            this.notify.success(`Bulk upload completed successfully! ${successfulRows} student(s) uploaded.`);
+          } else {
+            this.notify.warn(
+              `Bulk upload completed with some errors. ${successfulRows} successful, ${failedRows} failed out of ${totalRows} total rows.`
+            );
+          }
+
+          this.loadStudents();
+        } else {
+          this.notify.error('Bulk upload completed but received invalid response.');
+        }
+
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.uploadingTemplate = false;
+        let errorMessage = 'Failed to upload file. Please try again.';
+
+        if (error && typeof error === 'object') {
+          if ('error' in error && error.error) {
+            const errorObj = error.error as { message?: string; error?: string };
+            errorMessage = errorObj.message || errorObj.error || errorMessage;
+          } else if ('message' in error) {
+            errorMessage = String(error.message);
+          }
+        }
+
+        this.notify.error(errorMessage);
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   private extractValidationErrorMessage(error: unknown): string {
@@ -721,11 +959,13 @@ function mapBooleanToYesNo(value: boolean | null): 'yes' | 'no' | null {
   return null;
 }
 
+/** Maps API JobAlertPreference enum (NONE, EMAIL, SMS, BOTH; legacy EMAIL_SMS → BOTH) to form value. */
 function mapJobAlertPreferenceFromApi(apiValue: string): string {
-  if (apiValue === 'EMAIL') return 'Email';
-  if (apiValue === 'SMS') return 'SMS';
-  if (apiValue === 'EMAIL_SMS') return 'Email & SMS';
-  return '';
+  const v = (apiValue || '').trim().toUpperCase();
+  if (v === 'EMAIL') return 'EMAIL';
+  if (v === 'SMS') return 'SMS';
+  if (v === 'BOTH' || v === 'EMAIL_SMS') return 'BOTH';
+  return 'NONE';
 }
 
 function convertYearToDate(value: string): string {
@@ -752,12 +992,32 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
 
   const qualifications = readStringArray(education, 'qualifications');
   const institutions = readStringArray(education, 'institutionName');
-  const campusIds = readStringArray(education, 'campusId'); // Read campusId array from API
-  const campusAddresses = readStringArray(education, 'campusAddress'); // Read campusAddress array from API
+  const campusIds = readStringArray(education, 'campusId');
+  const campusAddresses = readStringArray(education, 'campusAddress');
+  const departmentIds = readStringArray(education, 'departmentId');
   const degrees = readStringArray(education, 'degrees');
   const specializations = readStringArray(education, 'specializations');
-  const yearOfPassing = readString(education, 'yearOfPassing');
-  const cgpa = readString(education, 'cgpa');
+  // Prefer new array keys yearOfPassingList / cgpalist; fallback to yearOfPassing / cgpa
+  const yearOfPassings: string[] = readStringArray(education, 'yearOfPassingList').length > 0
+    ? readStringArray(education, 'yearOfPassingList')
+    : (() => {
+        const raw = education?.['yearOfPassing'];
+        return Array.isArray(raw)
+          ? (raw as string[]).filter((v): v is string => typeof v === 'string')
+          : typeof raw === 'string' && raw.trim().length > 0
+            ? [raw]
+            : [];
+      })();
+  const cgpas: string[] = readStringArray(education, 'cgpalist').length > 0
+    ? readStringArray(education, 'cgpalist')
+    : (() => {
+        const raw = education?.['cgpa'];
+        return Array.isArray(raw)
+          ? (raw as string[]).filter((v): v is string => typeof v === 'string')
+          : typeof raw === 'string'
+            ? [raw]
+            : [];
+      })();
   const certificates = readStringArray(education, 'certificates');
   const other = readBoolean(education, 'other') ?? false; // Read "other" flag
 
@@ -773,13 +1033,14 @@ function mapEducationDetailsToForm(education: Record<string, unknown> | null): S
     
     out.push({
       qualification: qualifications[i] ?? '',
-      institution: isCustomInstitution ? institutionName : institutionName, // Keep the institution name as-is
-      campusId: isCustomInstitution ? undefined : campusId, // Clear campusId for custom institutions
-      campusAddress: isCustomInstitution ? undefined : campusAddresses[i], // Clear campusAddress for custom institutions
+      institution: institutionName,
+      campusId: isCustomInstitution ? undefined : campusId,
+      campusAddress: isCustomInstitution ? undefined : campusAddresses[i],
+      departmentId: isCustomInstitution ? undefined : departmentIds[i],
       degree: degrees[i] ?? '',
       specialization: specializations[i] ?? '',
-      yearOfPassing: convertYearToDate(yearOfPassing),
-      percentageOrCgpa: cgpa,
+      yearOfPassing: convertYearToDate(yearOfPassings[i] ?? yearOfPassings[0]),
+      percentageOrCgpa: cgpas[i] ?? cgpas[0] ?? '',
       certificateFiles: null,
       certificateFileNames: i === 0 ? certificates : [],
     });
@@ -821,4 +1082,18 @@ function cleanUiText(value: string | null | undefined): string {
   if (!cleaned) return '';
   if (cleaned.toLowerCase() === 'string') return '';
   return cleaned;
+}
+
+function readFirstNonEmptyString(obj: unknown, keys: readonly string[]): string {
+  if (!obj || typeof obj !== 'object') {
+    return '';
+  }
+  const rec = obj as Record<string, unknown>;
+  for (const key of keys) {
+    const val = rec[key];
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val;
+    }
+  }
+  return '';
 }

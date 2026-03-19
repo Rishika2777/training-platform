@@ -1,25 +1,28 @@
 @if (data) {
   <div class="admin-card" [class.student-card]="type === 'student'" [class.company-card]="type === 'company'" [class.campus-card]="type === 'campus'">
     <div class="card-image-container">
-      <div class="card-avatar" [style.background]="avatarBackground" [style.color]="avatarTextColor">
-        {{ initials }}
-      </div>
+      @if (hasImage) {
+        <img class="card-avatar-image" [src]="imageUrl" [alt]="displayName" (error)="onImageError()" />
+      } @else {
+        <div class="card-avatar" [style.background]="avatarBackground" [style.color]="avatarTextColor">
+          {{ initials }}
+        </div>
+      }
+      @if (badgeLabel) {
+        <span [class]="badgeClass" class="card-badge-below-avatar">{{ badgeLabel }}</span>
+      }
     </div>
     <div class="card-content">
-      <div class="card-name-row">
-        <div class="card-name">{{ displayName }}</div>
-        @if (badgeLabel) {
-          <span [class]="badgeClass">{{ badgeLabel }}</span>
+      <div class="card-info">
+        <div class="card-name-row">
+          <div class="card-name" [title]="displayName">{{ displayName }}</div>
+        </div>
+        @if (displaySecondaryInfo) {
+          <div class="card-secondary">{{ displaySecondaryInfo }}</div>
         }
       </div>
-      @if (displaySecondaryInfo) {
-        <div class="card-secondary">{{ displaySecondaryInfo }}</div>
-      }
-      @if (displayEmail) {
-        <div class="card-email">{{ displayEmail }}</div>
-      }
       <div class="card-actions">
-        <button type="button" class="view-btn" (click)="onView()">view</button>
+        <button type="button" class="view-btn" (click)="onView()">View</button>
         <button type="button" class="delete-btn" (click)="onDelete()">Delete</button>
       </div>
     </div>

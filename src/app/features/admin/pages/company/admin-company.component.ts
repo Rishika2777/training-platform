@@ -1,12 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { Router } from '@angular/router';
 import { PaginationComponent } from '../../../../shared/components/pagination/pagination.component';
 import { CardComponent, CardData } from '../../../../shared/components/card/card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
-import { AdminApiService } from '../../services/admin-api.service';
 import {
+  BulkUploadResponse,
   CompanyApiService,
+  CompanyRegisterFiles,
+  CompanyRegisterPayload,
   CompanyRegisterRequest,
   CompanyRegistrationResponse,
 } from '../../../company/services/company-api.service';
@@ -14,24 +17,30 @@ import {
   CompanyFormComponent,
   CompanyFormValue,
 } from '../../../../shared/components/forms/company-form/company-form.component';
-import { EnumLoginStatus } from '../../../../core/config/app.constants';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { APPROVAL_FILTER_ITEMS, EnumLoginStatus } from '../../../../core/config/app.constants';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { AuthService } from '../../../../core/auth/auth.service';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-admin-company',
   standalone: true,
-  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CompanyFormComponent],
+  imports: [CommonModule, CardComponent, PaginationComponent, ModalComponent, ButtonComponent, CompanyFormComponent, DropdownComponent],
   templateUrl: './admin-company.component.html',
   styleUrl: './admin-company.component.css',
 })
 export class AdminCompanyComponent implements OnInit {
-  private readonly adminApi = inject(AdminApiService);
+  @ViewChild('fileInput', { static: false }) fileInput!: ElementRef<HTMLInputElement>;
+
   private readonly companyApi = inject(CompanyApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly notify = inject(NotificationService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   readonly announcementDate = 'January 7th, 2025';
+
+  uploadingTemplate = false;
 
   companies: CardData[] = [];
   displayedCompanies: CardData[] = [];
@@ -55,6 +64,9 @@ export class AdminCompanyComponent implements OnInit {
   readonly itemsPerPage = 9;
   totalPages = 1;
 
+  selectedApprovalFilter = '';
+  readonly approvalFilterItems = APPROVAL_FILTER_ITEMS;
+
   showCreateModal = false;
   createSubmitting = false;
   createFormValue: CompanyFormValue = CompanyFormComponent.createEmptyValue();
@@ -63,21 +75,33 @@ export class AdminCompanyComponent implements OnInit {
     this.loadCompanies();
   }
 
+  onApprovalFilterChange(value: string): void {
+    this.selectedApprovalFilter = value ?? '';
+    this.cdr.detectChanges();
+    this.loadCompanies();
+  }
+
   private loadCompanies(): void {
     this.isLoading = true;
     this.companies = [];
     this.displayedCompanies = [];
     
-    this.companyApi.getAllCompanies('ADMIN').subscribe({
+    const approvalStatus = this.selectedApprovalFilter || undefined;
+    this.companyApi.getAllCompanies('ADMIN', approvalStatus as 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | undefined).subscribe({
       next: (companies: readonly CompanyRegistrationResponse[]) => {
         try {
-          if (companies && Array.isArray(companies) && companies.length > 0) {
-            this.companies = companies.map((company) => {
+          const list = companies && Array.isArray(companies) ? [...companies] : [];
+          if (list.length > 0) {
+            this.companies = list.map((company) => {
+              const imageUrl = cleanUiText(
+                readFirstNonEmptyString(company, ['companyLogoUrl', 'logoUrl', 'imageUrl']),
+              );
               const cardData: CardData = {
                 id: company.companyId ?? `company-${Math.random().toString(36).substr(2, 9)}`,
                 name: cleanUiText(company.companyName) || cleanUiText(company.email?.split('@')[0]) || 'Company Name',
                 badge: toApprovalStatusLabel(company.approvalStatus),
                 email: cleanUiText(company.email) || cleanUiText(company.adminEmail),
+                imageUrl: imageUrl || undefined,
                 // We don't get a "userId" here for admin user deletion; keep undefined.
                 userId: undefined,
               };
@@ -188,10 +212,10 @@ export class AdminCompanyComponent implements OnInit {
     }
 
     const userIdForUpdate = this.selectedCompanyUserId ?? this.selectedCompanyId;
-    const updateRequest = this.mapFormValueToUpdateRequest(value);
+    const updatePayload = this.buildRegisterPayload(value);
     this.viewSubmitting = true;
 
-    this.companyApi.updateCompany(this.selectedCompanyId, userIdForUpdate, updateRequest).subscribe({
+    this.companyApi.updateCompany(this.selectedCompanyId, userIdForUpdate, updatePayload).subscribe({
       next: () => {
         // Show success notification
         this.notify.success('Company profile updated successfully');
@@ -208,24 +232,7 @@ export class AdminCompanyComponent implements OnInit {
   }
 
   private mapFormValueToUpdateRequest(value: CompanyFormValue): CompanyRegisterRequest {
-    return {
-      companyName: value.companyName || '',
-      companyLogoUrl: value.companyPhoto ? value.companyPhoto.name : undefined,
-      adminName: value.adminName || '',
-      adminDesignation: value.adminDesignation || '',
-      adminEmail: value.adminEmail || '',
-      adminPhone: value.adminPhone || '',
-      websiteUrl: value.companyWebsiteUrl || '',
-      otherWebsiteUrl: value.otherWebsiteUrl || '',
-      registerNumber: value.registerNumber || '',
-      keyPeople: value.keyPeople.map((p) => ({
-        name: p.name || '',
-        designation: p.designation || '',
-        photoUrl: p.photo ? p.photo.name : undefined,
-      })),
-      aboutCompany: value.aboutCompany || '',
-      companyAddress: value.companyAddress || '',
-    };
+    return this.buildRegisterRequest(value);
   }
 
   handleReviewAction(status: EnumLoginStatus): void {
@@ -256,11 +263,18 @@ export class AdminCompanyComponent implements OnInit {
 
     // Show loading state and make API call
     this.viewSubmitting = true;
+
     this.companyApi
       .updateCompanyApprovalStatus(this.selectedCompanyId, 'ADMIN', { approvalStatus: statusToUpdate })
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.viewSubmitting = false;
+      
+          if (res?.publicCompanyId) {
+            console.log('Public Company ID:', res.publicCompanyId);
+            // localStorage.setItem('public_company_id', res.publicCompanyId);
+          }
+      
           this.closeViewModal();
           this.loadCompanies();
           this.cdr.detectChanges();
@@ -270,6 +284,7 @@ export class AdminCompanyComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
+      
   }
 
   closeReviewModal(): void {
@@ -308,13 +323,25 @@ export class AdminCompanyComponent implements OnInit {
     this.selectedCompany = null;
   }
 
+  //pulbic id approve
   onApprove(company: CardData): void {
     if (company.id) {
       this.companyApi
         .updateCompanyApprovalStatus(company.id, 'ADMIN', { approvalStatus: 'APPROVED' })
-        .subscribe({ next: () => this.loadCompanies() });
+        .subscribe({
+          next: (res) => {
+            if (res?.publicCompanyId) {
+              console.log('Public Company ID:', res.publicCompanyId);
+              // optional:
+              // localStorage.setItem('public_company_id', res.publicCompanyId);
+            }
+  
+            this.loadCompanies();
+          },
+        });
     }
   }
+  
 
   onReject(company: CardData): void {
     if (company.id && confirm('Are you sure you want to reject this company?')) {
@@ -377,37 +404,26 @@ export class AdminCompanyComponent implements OnInit {
     }
 
     const currentUser = this.auth.getCurrentUser();
-    if (!currentUser?.userId || !currentUser.userType) {
+    const isAdminRoute = this.router.url.includes('/admin/company');
+    
+    // On admin route, we only need userId. Otherwise, we need both userId and userType
+    if (!currentUser?.userId || (!isAdminRoute && !currentUser.userType)) {
       this.notify.error('Missing auth context. Please sign in and try again.');
       return;
     }
 
     this.createSubmitting = true;
 
-    const registerRequest: CompanyRegisterRequest = {
-      companyName: value.companyName || '',
-      companyLogoUrl: value.companyPhoto ? value.companyPhoto.name : undefined,
-      adminName: value.adminName || '',
-      adminDesignation: value.adminDesignation || '',
-      adminEmail: value.adminEmail.toLowerCase() || '',
-      adminPhone: value.adminPhone || '',
-      websiteUrl: value.companyWebsiteUrl || '',
-      otherWebsiteUrl: value.otherWebsiteUrl || '',
-      registerNumber: value.registerNumber || '',
-      keyPeople: value.keyPeople.map((p) => ({
-        name: p.name || '',
-        designation: p.designation || '',
-        photoUrl: p.photo ? p.photo.name : undefined,
-      })),
-      aboutCompany: value.aboutCompany || '',
-      companyAddress: value.companyAddress || '',
+    const registerPayload = this.buildRegisterPayload(value);
+
+    // Prepare options - include userType as 'ADMIN' if on admin route, otherwise use current user's type
+    const options = {
+      userId: currentUser.userId,
+      ...(isAdminRoute ? { userType: 'ADMIN' as const } : currentUser.userType ? { userType: currentUser.userType } : {}),
     };
 
     this.companyApi
-      .registerCompany(registerRequest, {
-        userId: currentUser.userId,
-        userType: currentUser.userType,
-      })
+      .registerCompany(registerPayload, options)
       .subscribe({
         next: (response: CompanyRegistrationResponse | null) => {
           this.createSubmitting = false;
@@ -440,6 +456,53 @@ export class AdminCompanyComponent implements OnInit {
       });
   }
 
+  private buildRegisterPayload(value: CompanyFormValue): CompanyRegisterPayload {
+    return {
+      request: this.buildRegisterRequest(value),
+      files: this.buildRegisterFiles(value),
+    };
+  }
+
+  private buildRegisterRequest(value: CompanyFormValue): CompanyRegisterRequest {
+    return {
+      companyName: value.companyName || '',
+      companyLogoUrl: this.resolvePhotoValue(value.companyPhoto, value.companyPhotoUrl),
+      adminName: value.adminName || '',
+      adminDesignation: value.adminDesignation || '',
+      adminEmail: value.adminEmail.toLowerCase() || '',
+      adminPhone: value.adminPhone || '',
+      websiteUrl: value.companyWebsiteUrl || '',
+      otherWebsiteUrl: value.otherWebsiteUrl || '',
+      registerNumber: value.registerNumber || '',
+      keyPeople: value.keyPeople.map((p) => ({
+        name: p.name || '',
+        designation: p.designation || '',
+        photoUrl: this.resolvePhotoValue(p.photo, p.photoUrl),
+      })),
+      aboutCompany: value.aboutCompany || '',
+      companyAddress: value.companyAddress || '',
+    };
+  }
+
+  private buildRegisterFiles(value: CompanyFormValue): CompanyRegisterFiles {
+    const keyPersonPhotos = value.keyPeople.map((person) => person.photo);
+    return {
+      companyLogo: value.companyPhoto,
+      keyPerson1Photo: keyPersonPhotos[0] ?? null,
+      keyPerson2Photo: keyPersonPhotos[1] ?? null,
+      keyPerson3Photo: keyPersonPhotos[2] ?? null,
+    };
+  }
+
+  private resolvePhotoValue(file: File | null, existingUrl?: string): string | undefined {
+    const fileName = file?.name?.trim();
+    if (fileName) {
+      return fileName;
+    }
+    const cleaned = cleanUiText(existingUrl);
+    return cleaned || undefined;
+  }
+
   handleCreateCancel(): void {
     this.closeCreateModal();
   }
@@ -447,6 +510,167 @@ export class AdminCompanyComponent implements OnInit {
   get isSelectedCompanyApproved(): boolean {
     const status = toApprovalStatusLabel(this.selectedCompanyApprovalStatus);
     return status === 'APPROVED' || status === 'REJECTED';
+  }
+
+  downloadTemplate(): void {
+    const headers = [
+      'Company Name',
+      'Admin Name',
+      'Admin Designation',
+      'Admin Email',
+      'Admin Phone',
+      'Company Address',
+      'Company Logo URL',
+      'Website URL',
+      'Other Website URL',
+      'Register Number',
+      'About Company',
+      'Key Person 1 Name',
+      'Key Person 1 Designation',
+      'Key Person 1 Photo URL',
+      'Key Person 2 Name',
+      'Key Person 2 Designation',
+      'Key Person 2 Photo URL',
+      'Key Person 3 Name',
+      'Key Person 3 Designation',
+      'Key Person 3 Photo URL',
+    ];
+
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+
+    // Set column widths for better readability
+    const columnWidths = [
+      { wch: 25 }, // Company Name
+      { wch: 20 }, // Admin Name
+      { wch: 20 }, // Admin Designation
+      { wch: 25 }, // Admin Email
+      { wch: 15 }, // Admin Phone
+      { wch: 30 }, // Company Address
+      { wch: 30 }, // Company Logo URL
+      { wch: 30 }, // Website URL
+      { wch: 30 }, // Other Website URL
+      { wch: 18 }, // Register Number
+      { wch: 40 }, // About Company
+      { wch: 20 }, // Key Person 1 Name
+      { wch: 20 }, // Key Person 1 Designation
+      { wch: 30 }, // Key Person 1 Photo URL
+      { wch: 20 }, // Key Person 2 Name
+      { wch: 20 }, // Key Person 2 Designation
+      { wch: 30 }, // Key Person 2 Photo URL
+      { wch: 20 }, // Key Person 3 Name
+      { wch: 20 }, // Key Person 3 Designation
+      { wch: 30 }, // Key Person 3 Photo URL
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Company Registration');
+
+    // Generate Excel file buffer
+    const excelBuffer = XLSX.write(workbook, { 
+      bookType: 'xlsx', 
+      type: 'array' 
+    });
+
+    // Create blob and download
+    const blob = new Blob([excelBuffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'company_registration_template.xlsx');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    this.notify.success('Template downloaded successfully');
+  }
+
+  triggerFileUpload(): void {
+    if (this.fileInput) {
+      this.fileInput.nativeElement.click();
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    // Validate file extension (.xlsx or .xls)
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      this.notify.error('Please select an Excel file (.xlsx or .xls)');
+      return;
+    }
+
+    this.uploadBulkCompanies(file);
+  }
+
+  private uploadBulkCompanies(file: File): void {
+    if (this.uploadingTemplate) {
+      return;
+    }
+
+    this.uploadingTemplate = true;
+
+    this.companyApi.bulkUploadCompanies(file).subscribe({
+      next: (response: BulkUploadResponse | null) => {
+        this.uploadingTemplate = false;
+        
+        if (response) {
+          const totalRows = response.totalRows || 0;
+          const successfulRows = response.successfulRows || 0;
+          const failedRows = response.failedRows || 0;
+          
+          if (failedRows === 0) {
+            this.notify.success(`Bulk upload completed successfully! ${successfulRows} company(ies) uploaded.`);
+          } else {
+            this.notify.warn(
+              `Bulk upload completed with some errors. ${successfulRows} successful, ${failedRows} failed out of ${totalRows} total rows.`
+            );
+          }
+          
+          // Reload companies list to show newly uploaded companies
+          this.loadCompanies();
+        } else {
+          this.notify.error('Bulk upload completed but received invalid response.');
+        }
+        
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.uploadingTemplate = false;
+        let errorMessage = 'Failed to upload file. Please try again.';
+        
+        if (error && typeof error === 'object') {
+          if ('error' in error && error.error) {
+            const errorObj = error.error as { message?: string; error?: string };
+            errorMessage = errorObj.message || errorObj.error || errorMessage;
+          } else if ('message' in error) {
+            errorMessage = String(error.message);
+          }
+        }
+        
+        this.notify.error(errorMessage);
+        if (this.fileInput) {
+          this.fileInput.nativeElement.value = '';
+        }
+        this.cdr.detectChanges();
+      },
+    });
   }
 }
 

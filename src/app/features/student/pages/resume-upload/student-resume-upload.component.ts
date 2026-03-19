@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild, inject } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
+import { NotificationService } from '../../../../core/notifications/notification.service';
 
 export interface ResumeUploadFormValue {
   resumeFile: File | null;
@@ -14,6 +15,7 @@ export interface ResumeUploadFormValue {
   styleUrl: './student-resume-upload.component.css',
 })
 export class StudentResumeUploadComponent {
+  private readonly notify = inject(NotificationService);
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
@@ -82,12 +84,37 @@ export class StudentResumeUploadComponent {
     }
   }
 
+  downloadTemplate(): void {
+    const link = document.createElement('a');
+    link.href = 'assets/Resume_Template.docx';
+    link.download = 'Resume_Template.docx';
+    link.rel = 'noopener';
+    link.click();
+    this.notify.success('Downloading template...');
+  }
+
   get fileName(): string {
     return this.value.resumeFile?.name ?? '';
   }
 
   get hasFile(): boolean {
     return this.value.resumeFile !== null;
+  }
+
+  /** Returns the Font Awesome icon class for the uploaded file type (PDF, DOC/DOCX, or generic). */
+  get fileIconClass(): string {
+    const name = this.value.resumeFile?.name?.toLowerCase() ?? '';
+    if (name.endsWith('.pdf')) return 'fa-solid fa-file-pdf';
+    if (name.endsWith('.doc') || name.endsWith('.docx')) return 'fa-solid fa-file-word';
+    return 'fa-solid fa-file-lines';
+  }
+
+  /** Returns a modifier class for file-type-specific icon color (pdf=red, word=blue, default=gray). */
+  get fileIconColorClass(): string {
+    const name = this.value.resumeFile?.name?.toLowerCase() ?? '';
+    if (name.endsWith('.pdf')) return 'file-icon--pdf';
+    if (name.endsWith('.doc') || name.endsWith('.docx')) return 'file-icon--word';
+    return 'file-icon--default';
   }
 }
 

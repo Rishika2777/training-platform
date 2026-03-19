@@ -21,6 +21,9 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  padding: 0 70px;
+  min-height: 320px;
 }
 
 /* Keep arrows left/right fixed while swapping text/image for reverse */
@@ -67,10 +70,13 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   color: #333;
   flex-shrink: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .arrow:hover {
-  transform: scale(1.1);
+  transform: translateY(-50%) scale(1.1);
 }
 
 .arrow-icon {
@@ -79,13 +85,26 @@
   transform: translateY(-1px);
 }
 
+.left-arrow {
+  left: 0;
+}
+
+.right-arrow {
+  right: 0;
+}
+
 /* Text Section */
 .text-section {
   color: #fff;
   padding: 0 40px;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .text-section h3 {
+  text-align: center;
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 15px;
@@ -94,6 +113,7 @@
 
 .text-section p {
   font-size: 16px;
+  text-align: center;
   line-height: 1.6;
   color: #f0f0f0;
   margin: 0;
@@ -105,13 +125,16 @@
   justify-content: center;
   align-items: center;
   flex: 0 0 auto;
+  width: 420px;
+  height: 240px;
 }
 
 .image-section img {
-  max-width: 400px;
-  height: auto;
+  width: 100%;
+  height: 100%;
   border-radius: 0;
   transition: transform 0.3s ease;
+  object-fit: cover;
 }
 
 .image-section img:hover {
@@ -149,6 +172,24 @@
 
   .arrow {
     display: none;
+  }
+
+  .feature-content {
+    min-height: auto;
+    padding: 0;
+  }
+
+  .text-section {
+    min-height: auto;
+  }
+
+  .image-section {
+    width: 100%;
+    height: auto;
+  }
+
+  .image-section img {
+    height: auto;
   }
 }
 

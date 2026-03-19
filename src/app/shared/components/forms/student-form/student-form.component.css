@@ -8,8 +8,8 @@
 }
 
 .app-form.review-mode {
-  max-height: 70vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
   padding-right: var(--space-sm);
 }
 
@@ -19,6 +19,21 @@
   color: var(--color-text-primary);
   margin-bottom: var(--space-lg);
   text-align: center;
+}
+
+.current-photo-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.current-photo-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .app-form-step {
@@ -110,7 +125,7 @@
 .project-remove-btn {
   background: none;
   border: none;
-  color: #e74c3c;
+  color: var(--color-error);
   cursor: pointer;
   padding: 6px 12px;
   border-radius: 6px;
@@ -122,8 +137,8 @@
 }
 
 .project-remove-btn:hover:not(:disabled) {
-  background-color: rgba(231, 76, 60, 0.1);
-  color: #c0392b;
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+  color: var(--color-error);
 }
 
 .project-remove-btn:disabled {
@@ -151,13 +166,27 @@
 .app-form-row-skill-add-two {
   grid-template-columns: 1fr 1fr auto;
   gap: 22px 12px;
-  align-items: end;
+  align-items: start;
 }
 
 .app-form-row-skill-add-two > * {
   display: flex;
   flex-direction: column;
-  align-self: end;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+/* Align Add button with input controls (label + gap ≈ 28px in input/dropdown) */
+.app-form-row-skill-add-two .app-form-action-col {
+  padding-top: 28px;
+}
+
+.app-form-col-proficiency {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: flex-start;
+  min-width: 0;
 }
 
 .mini-btns {
@@ -212,6 +241,27 @@
 .required {
   color: var(--color-error);
   margin-left: 6px;
+}
+
+/* Phone verify – blue theme */
+.phone-verified {
+  margin-top: 8px;
+  display: inline-block;
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 500;
+}
+.phone-verify-link {
+  margin-top: 8px;
+  display: inline-block;
+  font-size: 12px;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.phone-verify-link.phone-verify-disabled {
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .app-checkbox-group,
@@ -272,10 +322,8 @@
 }
 
 .photo-preview-image {
-  max-width: 200px;
-  max-height: 200px;
-  width: auto;
-  height: auto;
+  width: 140px;
+  height: 140px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   object-fit: cover;
@@ -344,6 +392,9 @@
 @media (max-width: 768px) {
   .app-form-container {
     padding: var(--space-md);
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .app-form-title {
@@ -355,6 +406,13 @@
     grid-template-columns: 1fr;
     gap: 16px 0;
     margin-bottom: 16px;
+    min-width: 0;
+  }
+
+  .app-form-row > *,
+  .app-form-field-wrapper {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .app-form-row-textarea {

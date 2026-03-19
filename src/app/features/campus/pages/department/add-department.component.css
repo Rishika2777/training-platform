@@ -1,0 +1,195 @@
+.department-form {
+  display: grid;
+  gap: 40px;
+  padding: var(--space-lg);
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.form-section {
+  display: grid;
+  gap: 28px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.form-row {
+  display: grid;
+  gap: 10px;
+}
+
+.form-row:has(app-textarea) {
+  grid-column: 1 / -1;
+}
+
+.file-input-wrapper {
+  display: grid;
+  gap: 10px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.file-input-container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-sm);
+  align-items: end;
+}
+
+.file-attach-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.file-attach-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-white);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.file-attach-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.file-attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+}
+
+:host ::ng-deep .form-row app-input .field,
+:host ::ng-deep .form-row app-textarea .field {
+  max-width: 100%;
+}
+
+:host ::ng-deep .form-row app-input .control,
+:host ::ng-deep .form-row app-textarea .control {
+  max-width: 100%;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 1200px) {
+  .department-form {
+    gap: 32px;
+    padding: var(--space-md);
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .department-form {
+    gap: 24px;
+    padding: var(--space-sm);
+  }
+
+  .form-section {
+    gap: 20px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .form-row {
+    gap: 8px;
+  }
+
+  .file-input-container {
+    gap: 8px;
+  }
+
+  .file-attach-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  :host ::ng-deep .form-actions app-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .department-form {
+    gap: 20px;
+    padding: 12px;
+  }
+
+  .form-section {
+    gap: 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+  }
+
+  .form-grid {
+    gap: 12px;
+  }
+
+  .form-row {
+    gap: 6px;
+  }
+
+  .file-attach-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .form-actions {
+    gap: 10px;
+  }
+}
+

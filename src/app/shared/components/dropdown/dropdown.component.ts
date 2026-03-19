@@ -40,7 +40,10 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   @Input() debounceTime = 300; // Debounce time in ms for API calls
   @Input() minSearchLength = 0; // Minimum characters before API call (0 = call immediately)
   @Input() allowCustom = false; // Allow free text input (custom values not in the list)
-@Output() searchChange = new EventEmitter<string>();
+  /** When true, clear the input after each selection (e.g. for multi-select / tag-style usage). */
+  @Input() clearAfterSelect = false;
+
+  @Output() searchChange = new EventEmitter<string>();
 
   @Output() valueChange = new EventEmitter<TValue>();
 
@@ -54,6 +57,7 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+private scrollListener?: (e: Event) => void;
 
   private searchSubject = new Subject<string>();
   private searchSubscription = this.searchSubject
@@ -134,32 +138,43 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Handle value or displayText changes from parent
-    if (changes['value'] || changes['displayText']) {
-      this.updateSelectedItem();
-    }
-    
-    // Handle items changes
-    if (changes['items'] && !this.apiFetchFn) {
-      // Always update filtered items when items change, regardless of dropdown state
-      if (this.items.length > 0) {
-        // If we have a search term, filter the items; otherwise show all
-        if (this.autocomplete && this.searchTerm && this.searchTerm.trim() !== '') {
-          this.filteredItems = this.filterStaticItems(this.searchTerm);
-        } else {
-          this.filteredItems = [...this.items];
-        }
-      } else {
-        this.filteredItems = [];
-      }
-      
+  // Handle value or displayText changes from parent
+  if (changes['value'] || changes['displayText']) {
+    const v = changes['value']?.currentValue;
+
+    // When parent resets with '' / null / undefined, force clear
+    if (v === '' || v === null || v === undefined) {
+      this.selectedItem = null;
+      this.searchTerm = '';
+      this.isDropdownOpen = false;
+    } else {
       this.updateSelectedItem();
     }
   }
+  
+  // Handle items changes
+  if (changes['items'] && !this.apiFetchFn) {
+    // Always update filtered items when items change, regardless of dropdown state
+    if (this.items.length > 0) {
+      // If we have a search term, filter the items; otherwise show all
+      if (this.autocomplete && this.searchTerm && this.searchTerm.trim() !== '') {
+        this.filteredItems = this.filterStaticItems(this.searchTerm);
+      } else {
+        this.filteredItems = [...this.items];
+      }
+    } else {
+      this.filteredItems = [];
+    }
+    
+    this.updateSelectedItem();
+  }
+}
+
 
   ngOnDestroy(): void {
     this.searchSubscription.unsubscribe();
     this.searchSubject.complete();
+    this.removeScrollListener();
   }
 
   ngAfterViewChecked(): void {
@@ -191,6 +206,29 @@ export class DropdownComponent<TValue extends string = string> implements OnInit
       menu.style.right = 'auto';
     }
   }
+
+  private addScrollListener(): void {
+    if (!this.isBrowser) return;
+
+    this.scrollListener = (e: Event) => {
+      if (!this.isDropdownOpen) return;
+      const target = e.target as Node;
+      if (this.dropdownMenu?.nativeElement?.contains(target)) {
+        return;
+      }
+      this.isDropdownOpen = false;
+      this.cdr.detectChanges();
+    };
+
+    window.addEventListener('scroll', this.scrollListener, true);
+  }
+
+private removeScrollListener(): void {
+  if (!this.isBrowser || !this.scrollListener) return;
+
+  window.removeEventListener('scroll', this.scrollListener, true);
+  this.scrollListener = undefined;
+}
 
   updateSelectedItem(): void {
     if (this.value) {
@@ -261,6 +299,7 @@ this.searchChange.emit(newSearchTerm);
     
     if (this.autocomplete) {
       this.isDropdownOpen = true;
+      this.addScrollListener();
       setTimeout(() => this.positionDropdownMenu(), 0);
       // For static items mode, always show all items when dropdown opens
       if (!this.apiFetchFn) {
@@ -342,6 +381,7 @@ this.searchChange.emit(newSearchTerm);
             if (document.activeElement !== this.inputElement?.nativeElement) {
               this.handleCustomValue();
               this.isDropdownOpen = false;
+              this.removeScrollListener();
             }
           }
         }, 100);
@@ -350,54 +390,63 @@ this.searchChange.emit(newSearchTerm);
         return;
       }
       
-      // If allowCustom is enabled and user typed a value that's not in the list, emit it
       this.handleCustomValue();
-      
+      this.resetInvalidTypedInput();
       this.isDropdownOpen = false;
     }, 200);
   }
 
   onEnterKey(event: Event): void {
     const keyboardEvent = event as KeyboardEvent;
-    // If Enter is pressed and we have a search term, handle it
-    if (this.searchTerm && this.searchTerm.trim().length > 0) {
-      // If there's exactly one filtered item, select it
-      if (this.filteredItems.length === 1) {
-        keyboardEvent.preventDefault();
-        this.selectItem(this.filteredItems[0]);
-        return;
-      }
-      
-      // If allowCustom is enabled and no item is selected, emit the custom value
-      if (this.allowCustom && !this.selectedItem) {
-        keyboardEvent.preventDefault();
-        this.handleCustomValue();
-      }
+    if (!this.searchTerm || this.searchTerm.trim().length === 0) return;
+    if (this.filteredItems.length === 1) {
+      keyboardEvent.preventDefault();
+      this.selectItem(this.filteredItems[0]);
+      return;
+    }
+    if (this.allowCustom && !this.selectedItem) {
+      keyboardEvent.preventDefault();
+      this.handleCustomValue();
+      return;
+    }
+    if (!this.allowCustom && !this.selectedItem) {
+      keyboardEvent.preventDefault();
+      this.resetInvalidTypedInput();
     }
   }
 
   private handleCustomValue(): void {
-    // If allowCustom is enabled and user typed a value that's not in the list, emit it
     if (this.allowCustom && this.autocomplete && this.searchTerm && this.searchTerm.trim().length > 0) {
       const trimmedSearchTerm = this.searchTerm.trim();
-      // Check if the typed value matches any item
-      const matchesItem = this.items.some(item => 
-        item.value.toLowerCase() === trimmedSearchTerm.toLowerCase() ||
-        item.label.toLowerCase() === trimmedSearchTerm.toLowerCase()
-      );
-      
-      // Also check filtered items
-      const matchesFilteredItem = this.filteredItems.some(item => 
-        item.value.toLowerCase() === trimmedSearchTerm.toLowerCase() ||
-        item.label.toLowerCase() === trimmedSearchTerm.toLowerCase()
-      );
-      
-      // If it doesn't match any item and we have a valid search term, emit it as a custom value
-      if (!matchesItem && !matchesFilteredItem && !this.selectedItem) {
+      const matchesItem = this.isTypedValueInList(trimmedSearchTerm);
+      if (!matchesItem && !this.selectedItem) {
         this.value = trimmedSearchTerm as TValue;
         this.valueChange.emit(trimmedSearchTerm as TValue);
       }
     }
+  }
+
+  /** Returns true if the typed text matches an item in items or filteredItems. */
+  private isTypedValueInList(typed: string): boolean {
+    const lower = typed.toLowerCase();
+    const inItems = this.items.some(
+      (item) => item.value.toLowerCase() === lower || item.label.toLowerCase() === lower
+    );
+    if (inItems) return true;
+    return this.filteredItems.some(
+      (item) => item.value.toLowerCase() === lower || item.label.toLowerCase() === lower
+    );
+  }
+
+  /** When allowCustom is false: clear typed text that was not selected from the list. */
+  private resetInvalidTypedInput(): void {
+    if (this.allowCustom || !this.autocomplete) return;
+    const trimmed = this.searchTerm.trim();
+    if (trimmed === '') return;
+    const validSelection = this.selectedItem && (this.selectedItem.label === this.searchTerm || this.selectedItem.label.trim() === trimmed);
+    if (validSelection) return;
+    this.searchTerm = this.selectedItem ? this.selectedItem.label : '';
+    this.cdr.detectChanges();
   }
 
   selectItem(item: DropdownItem<TValue>): void {
@@ -405,11 +454,23 @@ this.searchChange.emit(newSearchTerm);
     this.searchTerm = item.label;
     this.value = item.value;
     this.isDropdownOpen = false;
+    this.removeScrollListener();
     this.valueChange.emit(item.value);
-    
-    // Update filtered items to include selected item if not already present
-    if (this.autocomplete && !this.filteredItems.find((i) => i.value === item.value)) {
-      this.filteredItems = [item, ...this.filteredItems];
+
+    // When clearAfterSelect is true (e.g. Technologies Used multi-select), clear input after selection
+    if (this.clearAfterSelect) {
+      this.selectedItem = null;
+      this.searchTerm = '';
+      this.value = null;
+      if (this.isBrowser && this.inputElement?.nativeElement) {
+        this.inputElement.nativeElement.value = '';
+      }
+      this.cdr.detectChanges();
+    } else {
+      // Update filtered items to include selected item if not already present
+      if (this.autocomplete && !this.filteredItems.find((i) => i.value === item.value)) {
+        this.filteredItems = [item, ...this.filteredItems];
+      }
     }
   }
 
@@ -418,6 +479,7 @@ this.searchChange.emit(newSearchTerm);
     this.searchTerm = '';
     this.value = null;
     this.isDropdownOpen = false;
+    this.removeScrollListener();
     this.valueChange.emit(null as unknown as TValue);
     // Don't clear filteredItems in API mode - keep them so they can be shown again on focus
     // Only clear for static items mode if needed
@@ -425,6 +487,13 @@ this.searchChange.emit(newSearchTerm);
       this.filteredItems = [...this.items];
     }
     // For API mode, keep filteredItems so they're available when user focuses again
+  }
+
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    if (this.isDropdownOpen && this.dropdownMenu?.nativeElement && this.inputElement?.nativeElement) {
+      requestAnimationFrame(() => this.positionDropdownMenu());
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -437,6 +506,7 @@ this.searchChange.emit(newSearchTerm);
       !this.dropdownMenu.nativeElement.contains(target)
     ) {
       this.isDropdownOpen = false;
+      this.removeScrollListener();
     }
   }
 

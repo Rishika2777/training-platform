@@ -1,19 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { StudentFormComponent } from '../../../../shared/components/forms/student-form/student-form.component';
+import type { StudentFormValue } from '../../../../shared/components/forms/student-form/student-form.models';
+import { createEmptyStudentFormValue } from '../../../../shared/components/forms/student-form/student-form.utils';
 import {
-  createEmptyStudentFormValue,
-  StudentFormComponent,
-  StudentFormValue,
-} from '../../../../shared/components/forms/student-form/student-form.component';
-import { StudentApiService } from '../../../student/services/student-api.service';
+  StudentApiService,
+  StudentRegisterFiles,
+  StudentRegisterPayload,
+} from '../../../student/services/student-api.service';
 import { mapStudentFormValueToRegisterRequest, CampusResponse } from '../../../student/models/student.models';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { NotificationService } from '../../../../core/notifications/notification.service';
 import { StorageService } from '../../../../core/storage/storage.service';
 import { AuthStateService } from '../../../../core/auth/auth-state.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 import { RegistrationPageLayoutComponent } from '../../../../layout/registration-page-layout/registration-page-layout.component';
 import { LOGIN_STATUS } from '../../../../core/config/app.constants';
+import { RegistrationStateService } from '../../services/registration-state.service';
 
 @Component({
   selector: 'app-register-student',
@@ -30,11 +34,12 @@ export class RegisterStudentComponent implements OnInit {
   private readonly notify = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly registrationState = inject(RegistrationStateService);
 
   submitting = false;
 
   private readonly initialEmail =
-    this.auth.getCurrentUser()?.email ?? this.auth.getRegistrationData()?.email ?? '';
+    this.auth.getCurrentUser()?.email ?? this.registrationState.getDraft()?.email ?? '';
 
   readonly emailLocked = this.initialEmail.trim().length > 0;
 
@@ -53,8 +58,9 @@ export class RegisterStudentComponent implements OnInit {
     this.studentApi.getRegisteredCampuses().subscribe({
       next: (response) => {
         console.log('Campuses API response:', response);
-        if (response.data && Array.isArray(response.data)) {
-          this.campuses = response.data;
+        const items = unwrapApiResponse<CampusResponse[]>(response);
+        if (Array.isArray(items)) {
+          this.campuses = items;
           console.log(`Loaded ${this.campuses.length} campuses`);
           this.cdr.detectChanges();
         } else {
@@ -82,8 +88,9 @@ export class RegisterStudentComponent implements OnInit {
 
     this.submitting = true;
     const registerRequest = mapStudentFormValueToRegisterRequest(value, String(user.userId));
+    const registerPayload = this.buildRegisterPayload(value, registerRequest);
     this.studentApi
-      .registerStudent(registerRequest)
+      .registerStudent(registerPayload)
       .subscribe({
         next: (response) => {
           this.submitting = false;
@@ -125,7 +132,7 @@ export class RegisterStudentComponent implements OnInit {
     if (this.submitting) {
       return;
     }
-    void this.router.navigateByUrl('/register-options');
+    void this.router.navigateByUrl('/register/options');
   }
 
   private extractValidationErrorMessage(error: unknown): string {
@@ -172,6 +179,25 @@ export class RegisterStudentComponent implements OnInit {
     }
     
     return 'Failed to register student profile. Please try again.';
+  }
+
+  private buildRegisterPayload(
+    value: StudentFormValue,
+    request: ReturnType<typeof mapStudentFormValueToRegisterRequest>,
+  ): StudentRegisterPayload {
+    return {
+      request,
+      files: this.buildRegisterFiles(value),
+    };
+  }
+
+  private buildRegisterFiles(value: StudentFormValue): StudentRegisterFiles {
+    return {
+      profilePhoto: value.photoFiles?.item(0) ?? null,
+      resume: value.additional.resumeFiles?.item(0) ?? null,
+      govtIdProof: value.additional.govtIdProofFiles?.item(0) ?? null,
+      portfolio: null,
+    };
   }
 }
 

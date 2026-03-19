@@ -1,35 +1,53 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, inject } from '@angular/core';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
+import { DropdownComponent } from '../../../../shared/components/dropdown/dropdown.component';
+import { CampusApiService } from '../../services/campus-api.service';
+import { StorageService } from '../../../../core/storage/storage.service';
+import { STORAGE_KEYS } from '../../../../core/config/app.constants';
+
 
 export interface CourseFormValue {
   courseName: string;
   duration: string;
   totalSeats: string;
   description: string;
+  department?: string;
 }
 
 @Component({
   selector: 'app-campus-course-form',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, InputComponent],
+  imports: [CommonModule, ButtonComponent, InputComponent, DropdownComponent],
   templateUrl: './course-form.component.html',
   styleUrl: './course-form.component.css',
 })
-export class CampusCourseFormComponent {
+export class CampusCourseFormComponent implements OnInit {
   @Input() submitting = false;
   @Input() value: CourseFormValue = {
     courseName: '',
     duration: '',
     totalSeats: '',
     description: '',
+    department: '',
   };
+  @Input() showDepartment = true;
+
 
   @Output() valueChange = new EventEmitter<CourseFormValue>();
   @Output() submitted = new EventEmitter<CourseFormValue>();
 
   submitAttempted = false;
+  isDurationFocused = false;
+
+  // ------------- department dropdown section -------------
+ private readonly campusApi = inject(CampusApiService);
+private readonly storage = inject(StorageService);
+
+departmentItems: { label: string; value: string }[] = [];
+loadingDepartments = false;
+
 
   /**
    * Reset form to initial empty state
@@ -41,11 +59,13 @@ export class CampusCourseFormComponent {
       duration: '',
       totalSeats: '',
       description: '',
+      department: '',
     };
     this.submitAttempted = false;
     this.valueChange.emit(this.value);
   }
 
+  
   patch(patch: Partial<CourseFormValue>): void {
     console.log('CampusCourseFormComponent: patch() called with:', patch);
     const next: CourseFormValue = { ...this.value, ...patch };
@@ -78,8 +98,8 @@ export class CampusCourseFormComponent {
     // - \- (hyphen, escaped)
     // - & (ampersand)
     // Test the trimmed value to ensure it contains only allowed characters
-    const allowedPattern = /^[A-Za-z0-9\s.\-&]+$/;
-    const isValid = allowedPattern.test(trimmedValue);
+const allowedPattern = new RegExp('^[A-Za-z0-9\\s._()&-]+$');
+const isValid = allowedPattern.test(trimmedValue);
     return isValid;
   }
 
@@ -112,6 +132,38 @@ export class CampusCourseFormComponent {
       !this.isInvalid('description')
     );
   }
+
+  ngOnInit(): void {
+  this.loadDepartments();
+}
+
+private loadDepartments(): void {
+  const campusId = this.storage.get(STORAGE_KEYS.CAMPUS_ID) as string;
+
+  if (!campusId) return;
+
+  this.loadingDepartments = true;
+
+  this.campusApi.getAllDepartmentsByCampus(campusId).subscribe({
+    next: (res) => {
+      this.loadingDepartments = false;
+
+      if (res?.success && res.data) {
+        this.departmentItems = res.data.map((dept: { id: string; departmentName: string }) => ({
+
+          label: dept.departmentName,
+          value: dept.id
+        }));
+      } else {
+        this.departmentItems = [];
+      }
+    },
+    error: () => {
+      this.loadingDepartments = false;
+      this.departmentItems = [];
+    }
+  });
+}
 
   onFormSubmit(event: Event): void {
     console.log('CampusCourseFormComponent: ========== onFormSubmit CALLED ==========');

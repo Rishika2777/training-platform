@@ -1,4 +1,5 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { STORAGE_KEYS } from '../config/app.constants';
 import { StorageService } from '../storage/storage.service';
 import { UserData } from '../models/user.model';
@@ -6,10 +7,35 @@ import { UserData } from '../models/user.model';
 @Injectable({ providedIn: 'root' })
 export class AuthStateService {
   private readonly storage = inject(StorageService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   private readonly tokenSignal = signal<string | null>(this.initToken());
   private readonly refreshTokenSignal = signal<string | null>(this.initRefreshToken());
   private readonly userSignal = signal<UserData | null>(this.initUser());
+
+  constructor() {
+    if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
+      window.addEventListener('storage', this.onStorageEvent.bind(this));
+    }
+  }
+
+  /**
+   * When another tab logs out (or clears storage), sync our in-memory state so this tab reflects logged-out.
+   */
+  private onStorageEvent(event: StorageEvent): void {
+    const authKey =
+      event.key === STORAGE_KEYS.AUTH_TOKEN ||
+      event.key === STORAGE_KEYS.REFRESH_TOKEN ||
+      event.key === STORAGE_KEYS.USER_DATA;
+    if (event.key === null || authKey) {
+      const token = this.storage.get(STORAGE_KEYS.AUTH_TOKEN);
+      const refreshToken = this.storage.get(STORAGE_KEYS.REFRESH_TOKEN);
+      const user = this.storage.get(STORAGE_KEYS.USER_DATA);
+      this.tokenSignal.set(token ?? null);
+      this.refreshTokenSignal.set(refreshToken ?? null);
+      this.userSignal.set(user ?? null);
+    }
+  }
 
   private initToken(): string | null {
     const token = this.storage.get(STORAGE_KEYS.AUTH_TOKEN);
@@ -129,6 +155,7 @@ export class AuthStateService {
     this.storage.remove(STORAGE_KEYS.MENU_CONFIG);
     this.storage.remove(STORAGE_KEYS.COMPANY_ID);
     this.storage.remove(STORAGE_KEYS.CAMPUS_ID);
+    this.storage.remove(STORAGE_KEYS.DEPARTMENT_ID);
     this.storage.remove(STORAGE_KEYS.STUDENT_ID);
     
     // Clear custom localStorage items that are stored directly

@@ -37,24 +37,42 @@
       />
     </div>
   } @else {
+    <div class="input-wrapper" [class.has-password-toggle]="type === 'password'">
       <input
-      #inputElement
-      class="control"
-      [class.invalid]="invalid"
-      [id]="controlId"
-      [disabled]="disabled"
-      [readonly]="readonly"
-      [type]="type"
-      [attr.required]="required ? '' : null"
-      [attr.aria-required]="required"
-      [attr.maxlength]="maxlength"
-      [attr.min]="min"
-      [attr.max]="max"
-      [placeholder]="placeholder"
-      [ngModel]="value"
-      (ngModelChange)="onInput($event)"
-      (click)="onDateInputClick($event, inputElement)"
-    />
+        #inputElement
+        class="control"
+        [class.invalid]="invalid"
+        [id]="controlId"
+        [disabled]="disabled"
+        [readonly]="readonly"
+        [type]="effectiveType"
+        [attr.required]="required ? '' : null"
+        [attr.aria-required]="required"
+        [attr.maxlength]="maxlength"
+        [attr.min]="min"
+        [attr.max]="max"
+        [placeholder]="placeholder"
+        [ngModel]="value"
+        (ngModelChange)="onInput($event)"
+        (click)="onDateInputClick($event, inputElement)"
+      />
+      @if (type === 'password') {
+        <button
+          type="button"
+          class="password-toggle"
+          [disabled]="disabled"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="passwordVisible ? 'Hide password' : 'Show password'"
+          tabindex="-1"
+        >
+          @if (passwordVisible) {
+            <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+          } @else {
+            <i class="fa-solid fa-eye" aria-hidden="true"></i>
+          }
+        </button>
+      }
+    </div>
   }
 </div>
 

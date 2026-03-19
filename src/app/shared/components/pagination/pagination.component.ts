@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, signal, OnInit, OnDestroy } from '@angular/core';
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
@@ -39,10 +39,13 @@ function buildVisiblePages(current: number, total: number, maxVisible: number): 
   templateUrl: './pagination.component.html',
   styleUrl: './pagination.component.css',
 })
-export class PaginationComponent {
+export class PaginationComponent implements OnInit, OnDestroy {
   private readonly currentPageSig = signal(1);
   private readonly totalPagesSig = signal(1);
-  private readonly maxVisibleSig = signal(6);
+  private readonly baseMaxVisibleSig = signal(6);
+  private readonly isMobileSig = signal(false);
+  private mediaQuery: MediaQueryList | null = null;
+  private mediaQueryHandler: ((e: MediaQueryListEvent) => void) | null = null;
 
   @Input()
   set currentPage(value: number) {
@@ -62,17 +65,36 @@ export class PaginationComponent {
 
   @Input()
   set maxVisible(value: number) {
-    this.maxVisibleSig.set(Number.isFinite(value) ? value : 6);
+    this.baseMaxVisibleSig.set(Number.isFinite(value) ? value : 6);
   }
   get maxVisible(): number {
-    return this.maxVisibleSig();
+    return this.baseMaxVisibleSig();
   }
 
   @Output() pageChange = new EventEmitter<number>();
 
-  readonly pages = computed(() =>
-    buildVisiblePages(this.currentPageSig(), this.totalPagesSig(), this.maxVisibleSig()),
+  private readonly effectiveMaxVisible = computed(() =>
+    this.isMobileSig() ? Math.min(3, this.baseMaxVisibleSig()) : this.baseMaxVisibleSig(),
   );
+
+  readonly pages = computed(() =>
+    buildVisiblePages(this.currentPageSig(), this.totalPagesSig(), this.effectiveMaxVisible()),
+  );
+
+  ngOnInit(): void {
+    if (typeof window !== 'undefined') {
+      this.mediaQuery = window.matchMedia('(max-width: 600px)');
+      this.isMobileSig.set(this.mediaQuery.matches);
+      this.mediaQueryHandler = (e: MediaQueryListEvent) => this.isMobileSig.set(e.matches);
+      this.mediaQuery.addEventListener('change', this.mediaQueryHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.mediaQuery && this.mediaQueryHandler) {
+      this.mediaQuery.removeEventListener('change', this.mediaQueryHandler);
+    }
+  }
 
   readonly canPrev = computed(() => this.currentPageSig() > 1);
   readonly canNext = computed(() => this.currentPageSig() < this.totalPagesSig());

@@ -4,11 +4,14 @@ import { Observable, map, catchError, of } from 'rxjs';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { InputComponent } from '../../../../shared/components/input/input.component';
 import { DropdownComponent, ApiFetchFunction, DropdownItem } from '../../../../shared/components/dropdown/dropdown.component';
-import { CampusApiService } from '../../services/campus-api.service';
+import { CampusApiService, type CompanySearchItem } from '../../services/campus-api.service';
+import { unwrapApiResponse } from '../../../../core/api/api-response.utils';
 
 export interface CompaniesVisitedFormValue {
   companyLogo: File | null;
   companyName: string;
+  department?: string;
+   departmentId?: string; 
 }
 
 @Component({
@@ -24,10 +27,15 @@ export class CampusCompaniesVisitedComponent {
   @ViewChild('companyLogoFileInput') companyLogoFileInput!: ElementRef<HTMLInputElement>;
 
   @Input() submitting = false;
-  @Input() value: CompaniesVisitedFormValue = {
-    companyLogo: null,
-    companyName: '',
-  };
+@Input() value: CompaniesVisitedFormValue = {
+  companyLogo: null,
+  companyName: '',
+  department: '',
+  departmentId: '',
+};
+@Input() showDepartment = true;
+
+
 
   @Output() valueChange = new EventEmitter<CompaniesVisitedFormValue>();
   @Output() submitted = new EventEmitter<CompaniesVisitedFormValue>();
@@ -37,6 +45,10 @@ export class CampusCompaniesVisitedComponent {
   // Company name items - loaded via API autocomplete
   // Using API fetch function for real-time search from registered companies
   loadingCompanyNames = signal(false);
+
+ 
+    @Input() departmentItems: { label: string; value: string }[] = [];
+
 
   /**
    * API fetch function for company names autocomplete
@@ -48,46 +60,64 @@ export class CampusCompaniesVisitedComponent {
    * - If search has characters: Searches by companyName (case-insensitive partial match)
    * - Returns companyId, companyName, and companyAddress
    */
-  fetchCompanyNames: ApiFetchFunction = (searchTerm: string): Observable<DropdownItem[]> => {
-    this.loadingCompanyNames.set(true);
-    
-    return this.campusApi.getCompanyBySearch(searchTerm).pipe(
-      map((response) => {
-        if (response?.success && response.data && Array.isArray(response.data)) {
-          // Convert company objects to dropdown items
-          const dropdownItems: DropdownItem[] = response.data
-            .filter(company => {
-              // Filter out companies without a name
-              return company.companyName && company.companyName.trim().length > 0;
-            })
-            .map(company => {
-              const companyName = company.companyName.trim();
-              
-              // Use companyName as both label and value
-              return {
-                label: companyName,
-                value: companyName,
-              };
-            })
-            // Remove duplicates (in case of duplicate names)
-            .filter((item, index, self) => 
-              index === self.findIndex((t) => t.value.toLowerCase() === item.value.toLowerCase())
-            );
-          
-          this.loadingCompanyNames.set(false);
-          return dropdownItems;
-        }
-        
-        this.loadingCompanyNames.set(false);
+ fetchCompanyNames: ApiFetchFunction = (searchTerm: string): Observable<DropdownItem[]> => {
+  const term = searchTerm?.trim() ?? '';
+
+  //  If less than 3 characters, do NOT call API and do NOT show dropdown
+  if (term.length < 3) {
+    this.loadingCompanyNames.set(false);
+    return of([]);
+  }
+
+  this.loadingCompanyNames.set(true);
+
+  return this.campusApi.getCompanyBySearch(term).pipe(
+    map((response) => {
+      const items = unwrapApiResponse<CompanySearchItem[]>(response);
+
+      if (!Array.isArray(items)) {
         return [];
-      }),
-      catchError((error) => {
-        console.error('Error fetching companies:', error);
-        this.loadingCompanyNames.set(false);
-        return of([]);
-      })
-    );
-  };
+      }
+
+      // Convert company objects to dropdown items
+      return items
+        .filter(company => company.companyName && company.companyName.trim().length > 0)
+        .map(company => {
+          const companyName = company.companyName.trim();
+          return {
+            label: companyName,
+            value: companyName,
+          };
+        })
+        // Remove duplicates (case-insensitive)
+        .filter((item, index, self) =>
+          index === self.findIndex(
+            t => t.value.toLowerCase() === item.value.toLowerCase()
+          )
+        );
+    }),
+    catchError((error) => {
+      console.error('Error fetching companies:', error);
+      return of([]);
+    }),
+    map((items) => {
+      this.loadingCompanyNames.set(false);
+      return items;
+    })
+  );
+};
+
+onDepartmentChange(selectedId: string): void {
+  const dept = this.departmentItems.find(d => d.value === selectedId);
+
+  this.patch({
+    departmentId: selectedId,
+    department: dept?.label || ''
+  });
+  
+}
+
+
 
   /**
    * Reset form to initial empty state
@@ -97,6 +127,8 @@ export class CampusCompaniesVisitedComponent {
     this.value = {
       companyLogo: null,
       companyName: '',
+      department: '',
+      departmentId: '',
     };
     this.submitAttempted = false;
     // Clear file input
@@ -115,6 +147,7 @@ export class CampusCompaniesVisitedComponent {
   triggerCompanyLogoSelect(): void {
     this.companyLogoFileInput?.nativeElement?.click();
   }
+
 
   onCompanyLogoSelected(files: FileList | null): void {
     const file = files && files.length > 0 ? files.item(0) : null;

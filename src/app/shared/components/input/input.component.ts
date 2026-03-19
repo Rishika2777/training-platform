@@ -34,6 +34,7 @@ export class InputComponent implements OnChanges {
 
   private readonly autoId = `app-input-${InputComponent.nextId++}`;
   selectedFileNames = '';
+  passwordVisible = false;
 
   get controlId(): string {
     return this.id ?? this.autoId;
@@ -102,11 +103,34 @@ export class InputComponent implements OnChanges {
     this.filesSelected.emit(files);
   }
 
+  togglePasswordVisibility(): void {
+    this.passwordVisible = !this.passwordVisible;
+  }
+
+  get effectiveType(): InputType {
+    if (this.type === 'password' && this.passwordVisible) return 'text';
+    return this.type;
+  }
+
   getFileDisplayText(): string {
     if (this.selectedFileNames && this.selectedFileNames.trim().length > 0) {
       return this.selectedFileNames;
     }
-    // Don't show existing filename - just show placeholder to allow user to upload new file
+    // If we have an existing filename or URL (e.g. previously uploaded image), show a clean file name
+    if (this.existingFileName && this.existingFileName.trim().length > 0) {
+      const raw = this.existingFileName.trim();
+      // If it looks like a URL or path, extract the last segment and strip query params
+      if (raw.includes('/')) {
+        const parts = raw.split('/');
+        const last = parts[parts.length - 1] || '';
+        const clean = last.split('?')[0];
+        if (clean) {
+          return clean;
+        }
+      }
+      return raw;
+    }
+    // Fallback to placeholder text
     return this.placeholder || 'Upload file';
   }
 

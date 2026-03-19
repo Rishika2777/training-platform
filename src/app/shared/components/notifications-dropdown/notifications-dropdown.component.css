@@ -13,6 +13,17 @@
   z-index: 1001;
 }
 
+@media (max-width: 768px) {
+  .notifications-dropdown {
+    position: fixed;
+    left: var(--space-md);
+    right: var(--space-md);
+    top: calc(var(--app-header-height, 60px) + 8px);
+    width: auto;
+    max-height: calc(100vh - var(--app-header-height, 60px) - 24px);
+  }
+}
+
 .dropdown-header {
   display: flex;
   justify-content: space-between;
@@ -90,6 +101,17 @@
   overflow: hidden;
   flex-shrink: 0;
   background: #f8f9fa;
+  display: block;
+}
+
+.profile-picture-link {
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.profile-picture-link:hover {
+  opacity: 0.85;
 }
 
 .profile-picture img {
@@ -114,6 +136,21 @@
 .user-name {
   font-weight: 700;
   color: #3498db;
+}
+
+.notification-link {
+  font-weight: 600;
+  color: var(--color-primary, #3498db);
+  text-decoration: none;
+}
+
+.notification-link:hover {
+  text-decoration: underline;
+}
+
+.notification-link.actor-link,
+.notification-link.target-link {
+  color: var(--color-primary, #3498db);
 }
 
 .notification-time {

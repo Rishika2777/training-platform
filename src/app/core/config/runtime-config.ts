@@ -28,11 +28,21 @@ function readProcessEnv(key: keyof PublicEnvConfig): string | undefined {
   return g.process?.env?.[key];
 }
 
+const API_PREFIX = '/api/v1';
+
+function ensureApiPrefix(base: string): string {
+  const trimmed = base.endsWith('/') ? base.slice(0, -1) : base;
+  if (trimmed.endsWith(API_PREFIX) || trimmed.includes(`${API_PREFIX}/`)) {
+    return trimmed;
+  }
+  return `${trimmed}${API_PREFIX}`;
+}
+
 function normalizeBaseUrl(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
   }
-  return value.endsWith('/') ? value.slice(0, -1) : value;
+  return ensureApiPrefix(value);
 }
 
 function isBrowserRuntime(): boolean {
